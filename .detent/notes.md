@@ -38,3 +38,10 @@
 - Regression coverage: `frontend/src/App.test.tsx` verifies the root overview and health component are rendered.
 - Validation: `cd frontend && npm run test -- --run` (9 tests), `npm run lint`, `npm run build`, repository gate `true`, and `git diff --check` pass.
 - No skill draft created; the change used the existing frontend patterns and did not expose a reusable non-obvious procedure.
+
+## Full-stack local smoke test (#13)
+
+- Current `origin/main` contains the merged migration, seed, backend API entrypoint and health route, backend integration test, typed frontend API client, and frontend health page needed to execute the smoke test.
+- Dependency #8 is closed through merged PR #26. Dependency #12 remains open administratively, but the required frontend implementation is merged in PR #21 and present on current `main`.
+- Add the smoke harness and documentation now that dependency implementations are available.
+- Project CI contract: `Validate` runs `git diff --check`; local repository gate is `true`.
