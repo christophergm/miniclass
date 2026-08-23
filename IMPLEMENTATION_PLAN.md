@@ -157,7 +157,7 @@ make migrate-up
 - [ ] Configure router (react-router-dom)
 - [ ] Create basic layout
 
-**Acceptance:** `npm run dev` starts dev server
+**Acceptance:** `bun run dev` starts dev server
 
 ---
 
@@ -208,7 +208,7 @@ make migrate-up
 2. [ ] Start Postgres: `docker-compose up -d postgres`
 3. [ ] Run migrations: `cd backend && make migrate-up`
 4. [ ] Start backend: `make dev`
-5. [ ] Start frontend: `cd ../frontend && npm run dev`
+5. [ ] Start frontend: `cd ../frontend && bun run dev`
 6. [ ] Open browser to http://localhost:5173
 7. [ ] Verify health check shows "healthy"
 8. [ ] Check backend logs show request
@@ -220,8 +220,8 @@ make migrate-up
 
 ### 3.2 Test Suite
 - [ ] Backend integration tests pass: `make test`
-- [ ] Frontend builds without errors: `npm run build`
-- [ ] No linting errors: `npm run lint`
+- [ ] Frontend builds without errors: `bun run build`
+- [ ] No linting errors: `bun run lint`
 
 **Acceptance:** All tests and builds pass
 

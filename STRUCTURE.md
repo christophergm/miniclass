@@ -234,14 +234,14 @@ make test-coverage  # Tests with coverage report
 
 ---
 
-## NPM Scripts (Frontend)
+## Bun Scripts (Frontend)
 
 ```bash
-npm run dev      # Start dev server
-npm run build    # Production build
-npm run preview  # Preview production build
-npm run lint     # Run ESLint
-npm run test     # Run Vitest
+bun run dev      # Start dev server
+bun run build    # Production build
+bun run preview  # Preview production build
+bun run lint     # Run ESLint
+bun run test     # Run Vitest
 ```
 
 ---

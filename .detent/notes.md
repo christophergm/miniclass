@@ -73,3 +73,11 @@
 - `STRUCTURE.md` now documents PostgreSQL 18. The initial migration uses PostgreSQL 18's built-in `uuidv7()` and removes the PostgreSQL 16 compatibility function.
 - Validation: disposable-TMPDIR backend `GOTOOLCHAIN=local GOSUMDB=off go test -v ./... -count=1` passes (integration test skips without `TEST_DATABASE_URL`); frontend `npm ci`, 9 tests, build, lint, Compose config, and `git diff --check` pass. Exact `cd backend && make test` cannot run because Go 1.27 is not installed locally.
 - PR #32 is open, non-draft, references `Fixes #31`, and all five current-head CI checks pass with no review comments. The Workpad is ready for the completion declaration.
+
+## Issue #33 Node 24 and Bun upgrade
+
+- Frontend now declares Node.js `>=24` and Bun `1.3.14` in `frontend/package.json`, with `frontend/bun.lock` replacing `frontend/package-lock.json`.
+- CI uses Node 24 plus `oven-sh/setup-bun@v2` and runs frozen Bun installs for the existing `Frontend tests`, `Frontend build`, and `Frontend lint` checks.
+- README, QUICK_START, STRUCTURE, IMPLEMENTATION_PLAN, WORKFLOW, and the smoke script use Bun; no npm/package-lock references remain.
+- Validation: Bun install, 9 frontend tests, build, lint, CI YAML parse, shell syntax, and `git diff --check` pass. `cd backend && make test` is blocked locally by Go 1.26 attempting a restricted Go 1.27 toolchain download; CI uses `backend/go.mod`.
+- Open items: commit/push, open PR with `Fixes #33`, inspect current-head CI/reviews, and update the Workpad.

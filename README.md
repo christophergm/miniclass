@@ -39,7 +39,8 @@ miniclass/
 
 - Docker & Docker Compose
 - Go 1.27+
-- Node.js 20+
+- Node.js 24+
+- Bun
 - Make
 
 ### First Time Setup
@@ -79,7 +80,7 @@ miniclass/
 6. **Install frontend dependencies:**
    ```bash
    cd ../frontend
-   npm install
+   bun install
    ```
 
 ### Running Locally
@@ -98,7 +99,7 @@ make dev
 **Terminal 3 - Frontend:**
 ```bash
 cd frontend
-npm run dev
+bun run dev
 ```
 
 **Access:**
@@ -117,8 +118,8 @@ navigation is available at:
 - `/students` — students workspace placeholder
 - `/settings` — settings workspace placeholder
 
-Run `npm run dev` from `frontend/` for Vite development with hot module
-replacement, or `npm run build` to verify the production bundle.
+Run `bun run dev` from `frontend/` for Vite development with hot module
+replacement, or `bun run build` to verify the production bundle.
 
 ### Development Commands
 
@@ -154,10 +155,10 @@ make sqlc              # Regenerate DB code
 **Frontend:**
 ```bash
 cd frontend
-npm run dev            # Start dev server
-npm run build          # Production build
-npm run test           # Run tests
-npm run lint           # Lint code
+bun run dev            # Start dev server
+bun run build          # Production build
+bun run test           # Run tests
+bun run lint           # Lint code
 ```
 
 ## Parallel Development (Multiple Worktrees)
@@ -180,9 +181,9 @@ The reproducible quality gates are:
 
 ```bash
 cd backend && make test
-cd frontend && npm ci && npm run test -- --run
-cd frontend && npm ci && npm run build
-cd frontend && npm ci && npm run lint
+cd frontend && bun install --frozen-lockfile && bun run test -- --run
+cd frontend && bun install --frozen-lockfile && bun run build
+cd frontend && bun install --frozen-lockfile && bun run lint
 git diff --check
 ```
 
@@ -201,7 +202,7 @@ Tests use the `miniclass_test` database automatically created by Docker.
 **Frontend Tests:**
 ```bash
 cd frontend
-npm run test
+bun run test
 ```
 
 ## Database Management
@@ -291,7 +292,7 @@ surfaces:
 
 ```bash
 cp .env.example .env        # first run only
-cd frontend && npm install  # first run only
+cd frontend && bun install  # first run only
 cd ..
 ./scripts/smoke-test.sh
 ```
@@ -331,7 +332,7 @@ See deployment documentation (TBD) for details.
 
 1. Create feature branch
 2. Make changes
-3. Run tests: `make test` (backend) and `npm test` (frontend)
+3. Run tests: `make test` (backend) and `bun run test` (frontend)
 4. Ensure health check passes
 5. Submit PR
 
