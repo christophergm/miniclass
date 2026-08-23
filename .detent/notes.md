@@ -43,5 +43,9 @@
 
 - Current `origin/main` contains the merged migration, seed, backend API entrypoint and health route, backend integration test, typed frontend API client, and frontend health page needed to execute the smoke test.
 - Dependency #8 is closed through merged PR #26. Dependency #12 remains open administratively, but the required frontend implementation is merged in PR #21 and present on current `main`.
-- Add the smoke harness and documentation now that dependency implementations are available.
+- `scripts/smoke-test.sh` starts PostgreSQL/Adminer, applies migrations, starts backend/frontend processes, checks `/api/health` and `/health`, prints the browser check, and preserves logs under `TMPDIR`.
+- README now documents prerequisites, service URLs, the smoke command, the manual browser verification, Adminer, and failure diagnosis. `.env.example` uses the backend origin for `VITE_API_URL` because the frontend client appends `/api/health`.
+- Frontend validation passes: `npm run test -- --run` (8 tests), `npm run lint`, and `npm run build`.
+- Backend validation passes in a disposable `TMPDIR` copy with Go 1.27 lowered to 1.26: `GOTOOLCHAIN=local GOSUMDB=off go test ./...` (integration test skips without `TEST_DATABASE_URL`).
+- The documented smoke command was attempted with `.env.example`; it stopped at `docker compose up` because the local Docker daemon is unavailable. No live database/browser result is claimed.
 - Project CI contract: `Validate` runs `git diff --check`; local repository gate is `true`.

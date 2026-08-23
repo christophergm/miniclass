@@ -225,6 +225,41 @@ Expected response:
 }
 ```
 
+## Full-stack smoke test
+
+The smoke test starts the local PostgreSQL and Adminer services, applies
+migrations, starts the API and frontend, and checks the API and frontend HTTP
+surfaces:
+
+```bash
+cp .env.example .env        # first run only
+cd frontend && npm install  # first run only
+cd ..
+./scripts/smoke-test.sh
+```
+
+The script keeps backend, frontend, migration, and Compose output in a
+temporary directory under `TMPDIR` and prints the directory on success. On
+failure it prints the last lines of each log and the database service logs.
+After the automated checks pass, open
+[http://localhost:5173/health](http://localhost:5173/health) and confirm that
+the page says **All systems operational**, shows **Connected**, and displays
+the API version. The API response is also available at
+[http://localhost:8080/api/health](http://localhost:8080/api/health), and
+Adminer is at [http://localhost:8081](http://localhost:8081) with `postgres` as
+the server name.
+
+For diagnosis, inspect the printed log directory first. API startup or health
+failures are in `backend.log` and `migrations.log`; frontend startup or browser
+failures are in `frontend.log`; PostgreSQL readiness and container failures are
+in `postgres-ready.log` and `compose-up.log`. Common causes are Docker not
+running, a port already in use, a stale database volume, or `DATABASE_URL` not
+matching the Compose credentials. Stop local containers after the check with:
+
+```bash
+docker compose down
+```
+
 ## Production Deployment
 
 - Backend: Render
