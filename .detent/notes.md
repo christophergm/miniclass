@@ -50,3 +50,14 @@
 - Issue #1 dependency is closed and its project item is Done; issue #4 is In Progress during this rework pass.
 - Rework review: PR #19 remains open and non-draft, references `Fixes #4`, has green `Validate` CI, and has no human, bot, or inline review feedback; no source correction was required.
 - Rebased the PR branch onto `origin/main` at `600a705` and added the three missing Goose indirect module content checksums to `backend/go.sum`; focused and full backend tests pass without `-mod=mod` using the disposable Go 1.26 modfile.
+
+## API health-check endpoint (#5)
+
+- Issue #5 depends on #4 (HTTP server and middleware) and #2 (database ping); #2 is closed, but #4 remains open.
+- PR #19 for #4 is open, non-draft, conflicting, and has no review comments or CI results; issue #4 remains in its worker-owned review lane, so #5 remains blocked until that dependency reaches a terminal state.
+- The current branch is based on `origin/main`; no source changes were made for #5 because the health route must register into the pending router.
+- The native dependency listing confirms #4 blocks #5; the issue body's `Depends on: #4` remains as a redundant fallback declaration.
+- Recheck on 2026-08-23: issue #4 is still OPEN and PR #19 is still OPEN/non-draft with `mergeStateStatus=DIRTY`/`mergeable=CONFLICTING`; PR head is `7ff5a690524ff3e27386b6897fb3cae7e757b727`, and the native `blocked_by` relation is present. `HEAD` and `origin/main` are both `45318ceb0a52f73dc83692d0a80308ba854c999d`; neither contains `backend/internal/api`. No implementation or validation for #5 can proceed without importing unmerged server code.
+- Final recheck on 2026-08-23: #4 remains OPEN and PR #19 remains non-draft/conflicting at the same head; GitHub's dependency endpoint confirms #4 blocks #5. `HEAD` and `origin/main` remain `45318ceb0a52f73dc83692d0a80308ba854c999d`, with no `backend/internal/api`; no source or focused validation was added for #5.
+- Current recheck on 2026-08-23: #4 is still OPEN; PR #19 is still OPEN/non-draft with `mergeStateStatus=DIRTY` and `mergeable=CONFLICTING` at `7ff5a690524ff3e27386b6897fb3cae7e757b727`. The native `blocked_by` relation from #5 to #4 remains present. `HEAD` and `origin/main` are both `45318ceb0a52f73dc83692d0a80308ba854c999d`; `backend/internal/api` is still absent. No implementation or focused handler validation can proceed until #4 merges or reaches a terminal state.
+- Rework resumed on 2026-08-23 after #4 merged as PR #19. The project item is `In Progress`; the branch was rebased onto `origin/main` at `ac9b09a`. Implement the handler against the merged API package, then run focused and full backend validation before opening the #5 PR.
