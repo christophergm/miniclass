@@ -46,5 +46,6 @@
 - Repository validation gate: `true` passes; CI's declared `Validate` check runs `git diff --check`.
 - Go 1.27 is available only through the Detent toolchain cache in this worker; use the same cache-aware command if local default Go selects 1.26.
 - PR #19 is open, non-draft, references issue #4, and has no human, bot, or inline review comments.
-- Rework validation: `go test ./internal/api/...`, `go test ./...`, `gofmt -d internal/api/*.go`, `git diff --check`, and repository gate `true` all pass.
-- Issue #1 dependency is closed and its project item is Done; issue #4 is in active In Progress work for this rework pass.
+- Rework validation: `go test ./internal/api/...`, `go test ./...`, `gofmt -d internal/api/*.go`, `git diff --check`, and repository gate `true` all pass. The worker's Go 1.27 binary is unavailable, so tests were run with Go 1.26 and a disposable modfile lowering only the `go` directive.
+- Issue #1 dependency is closed and its project item is Done; issue #4 is In Progress during this rework pass.
+- Rework review: PR #19 has no human, bot, or inline review feedback; no source correction was required.
