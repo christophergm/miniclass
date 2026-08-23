@@ -53,7 +53,7 @@ miniclass/
 
 2. **Start database:**
    ```bash
-   docker-compose up -d postgres
+   docker compose up -d postgres
    ```
 
 3. **Install backend tools:**
@@ -72,6 +72,10 @@ miniclass/
    make seed
    ```
 
+   The current milestone seeds one `health_checks` row with status `seeded`.
+   The command is idempotent, so it is safe to rerun. Teacher, class, student,
+   and assignment fixtures will be added when those domain tables are migrated.
+
 6. **Install frontend dependencies:**
    ```bash
    cd ../frontend
@@ -82,7 +86,7 @@ miniclass/
 
 **Terminal 1 - Database:**
 ```bash
-docker-compose up postgres
+docker compose up postgres
 ```
 
 **Terminal 2 - Backend:**
@@ -142,7 +146,8 @@ make help              # Show all available commands
 make dev               # Run with hot reload
 make test              # Run integration tests
 make migrate-create NAME=my_migration  # Create new migration
-make reset-db          # Reset database to clean state
+make seed              # Load repeatable development fixtures
+make reset-db RESET_DB_CONFIRM=1  # Drop, migrate, and seed the local database
 make sqlc              # Regenerate DB code
 ```
 
@@ -219,8 +224,47 @@ make migrate-down
 
 **Reset database:**
 ```bash
-make reset-db  # Drops schema, re-runs migrations, seeds data
+RESET_DB_CONFIRM=1 make reset-db
 ```
+
+Reset drops and recreates the `public` schema, reapplies every migration, and
+loads the development seed. It is intentionally guarded by
+`RESET_DB_CONFIRM=1` because it destroys all data in `DATABASE_URL`; use only
+with the local database from `.env`, never with a shared, staging, or
+production database. To inspect the migration state without changing data:
+
+```bash
+make migrate-up       # Apply pending migrations
+make migrate-down     # Roll back the latest migration
+goose -dir migrations postgres "$DATABASE_URL" status
+```
+
+The Compose PostgreSQL volume persists across restarts. A database reset does
+not remove that volume; stop the services with `docker compose down`. If the
+database itself needs to be recreated after a broken local volume, use
+`docker compose down -v` and then start PostgreSQL again. This removes the
+local Compose volume and all data in it.
+
+## Troubleshooting
+
+- **`connection refused` or `database does not exist`:** confirm Docker is
+  running, start PostgreSQL with `docker compose up -d postgres`, and check
+  that `DATABASE_URL` uses the same credentials and port as `.env`.
+- **`DATABASE_URL is required`:** run commands from `backend/` so the Makefile
+  can load the repository `.env`, or export `DATABASE_URL` explicitly.
+- **`make reset-db` refuses to run:** include the deliberate confirmation,
+  `RESET_DB_CONFIRM=1 make reset-db`, after checking the database URL.
+- **Port already in use:** set `POSTGRES_PORT`, `PORT`, `VITE_PORT`, or
+  `ADMINER_PORT` in `.env`, then use matching URLs when connecting.
+- **Migrations fail after changing the schema:** inspect the migration status,
+  fix the migration, and use the confirmed reset command for a clean local
+  database. Do not edit the Goose version table manually.
+- **Frontend cannot reach the API:** set `VITE_API_URL` to the backend origin
+  (for example `http://localhost:8080`), restart Vite, and check
+  `http://localhost:8080/api/health` directly.
+- **Integration tests touch the wrong database:** set
+  `TEST_DATABASE_URL` to `miniclass_test`; tests create and remove an isolated
+  schema and must never use the development or production URL.
 
 ## Health Check
 
