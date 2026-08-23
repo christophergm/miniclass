@@ -10,5 +10,6 @@
 
 - Added `backend/internal/config` with dotenv loading, typed settings, defaults, and validation.
 - `DATABASE_URL` is required; optional settings use `.env.example` defaults where defined.
-- Focused validation: `go test ./backend/internal/config/...`.
-- GitHub CLI authentication is unavailable in this worker, so issue/PR Workpad updates and PR handoff remain external follow-up.
+- Focused validation: `go test ./backend/internal/config/...` passes after adding `backend/go.sum` for `godotenv`.
+- Full local validation gate is `true` per `WORKFLOW.md`; repository has no CI configuration or declared project check names.
+- GitHub CLI is authenticated as `christophergm`; no PR exists yet for the Detent branch, so create one after pushing the fix and update issue #1 Workpad.
