@@ -15,9 +15,9 @@ the project-specific local command and CI check name that satisfy each one. Add
 or remove categories to match the project.
 
 - Backend tests: local command `cd backend && make test`; CI check `Backend tests`
-- Frontend tests: local command `cd frontend && npm ci && npm run test -- --run`; CI check `Frontend tests`
-- Frontend build: local command `cd frontend && npm ci && npm run build`; CI check `Frontend build`
-- Frontend lint: local command `cd frontend && npm ci && npm run lint`; CI check `Frontend lint`
+- Frontend tests: local command `cd frontend && bun install --frozen-lockfile && bun run test -- --run`; CI check `Frontend tests`
+- Frontend build: local command `cd frontend && bun install --frozen-lockfile && bun run build`; CI check `Frontend build`
+- Frontend lint: local command `cd frontend && bun install --frozen-lockfile && bun run lint`; CI check `Frontend lint`
 - Repository formatting: local command `git diff --check`; CI check `Repository formatting`
 
 Treat this list as part of the project contract. Whenever you touch CI

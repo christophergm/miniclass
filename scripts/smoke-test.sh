@@ -56,7 +56,7 @@ trap cleanup EXIT
 require_command docker
 require_command curl
 require_command go
-require_command npm
+require_command bun
 docker compose version >/dev/null 2>&1 || die "Docker Compose is required"
 compose_available=1
 
@@ -120,7 +120,7 @@ printf '%s' "$health_response" | grep -Eq '"database"[[:space:]]*:[[:space:]]*"c
 echo "Backend health: $health_response"
 
 echo "Starting frontend at $FRONTEND_URL..."
-(cd "$ROOT_DIR/frontend" && exec npm run dev -- --host 127.0.0.1) >"$LOG_DIR/frontend.log" 2>&1 &
+(cd "$ROOT_DIR/frontend" && exec bun run dev -- --host 127.0.0.1) >"$LOG_DIR/frontend.log" 2>&1 &
 frontend_pid=$!
 
 echo "Waiting for frontend route..."

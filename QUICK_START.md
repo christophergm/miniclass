@@ -8,7 +8,8 @@ Get the MiniClass development environment running in under 5 minutes.
 
 - [ ] Docker & Docker Compose installed
 - [ ] Go 1.27+ installed (`go version`)
-- [ ] Node.js 20+ installed (`node --version`)
+- [ ] Node.js 24+ installed (`node --version`)
+- [ ] Bun installed (`bun --version`)
 - [ ] Make installed (`make --version`)
 - [ ] Git installed
 
@@ -59,8 +60,8 @@ cd ..
 ```bash
 cd frontend
 
-# Install npm dependencies
-npm install
+# Install Bun dependencies
+bun install
 
 cd ..
 ```
@@ -99,7 +100,7 @@ make dev
 cd frontend
 
 # Start Vite dev server
-npm run dev
+bun run dev
 
 # Dev server starts on http://localhost:5173
 # Ctrl+C to stop
@@ -204,7 +205,7 @@ make test-coverage
 ### Frontend Tests
 ```bash
 cd frontend
-npm run test
+bun run test
 ```
 
 ---
@@ -311,7 +312,7 @@ go install github.com/air-verse/air@latest
 **Frontend (Vite):**
 ```bash
 # Restart dev server
-# Ctrl+C, then npm run dev
+# Ctrl+C, then bun run dev
 ```
 
 ---
@@ -334,7 +335,7 @@ rm -rf backend/tmp backend/bin
 # Start fresh
 docker-compose up -d postgres
 cd backend && make migrate-up && make seed
-cd ../frontend && npm install
+cd ../frontend && bun install
 ```
 
 ---
@@ -388,9 +389,9 @@ make reset-db                    # Nuclear reset
 
 # Frontend  
 cd frontend
-npm run dev                      # Start dev server
-npm run build                    # Production build
-npm run test                     # Run tests
+bun run dev                      # Start dev server
+bun run build                    # Production build
+bun run test                     # Run tests
 
 # URLs
 http://localhost:5173            # Frontend
