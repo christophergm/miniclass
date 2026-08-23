@@ -4,7 +4,7 @@
 - Entry point: `frontend/src/main.tsx`; router and layout: `frontend/src/App.tsx`; global styling: `frontend/src/index.css`.
 - Vite entry document is `frontend/index.html`; `BrowserRouter` serves `/` plus placeholder routes for `/classes`, `/assignments`, `/students`, and `/settings`.
 - Validation: `cd frontend && npm run build`, `npm run lint`, and repository gate `true`.
-- GitHub CLI is unauthenticated in this worker (`gh auth status` reports missing credentials), so issue Workpad/PR operations require a later authenticated handoff.
+- GitHub CLI is authenticated as `christophergm`; issue Workpad and PR operations are available in this worker.
 
 ## Backend configuration management
 
@@ -45,4 +45,6 @@
 - Full backend validation: `cd backend && go test ./...` passes.
 - Repository validation gate: `true` passes; CI's declared `Validate` check runs `git diff --check`.
 - Go 1.27 is available only through the Detent toolchain cache in this worker; use the same cache-aware command if local default Go selects 1.26.
-- PR #19 is open, non-draft, references issue #4, and its `Validate` check passed on commit `934db12`.
+- PR #19 is open, non-draft, references issue #4, and has no human, bot, or inline review comments.
+- Rework validation: `go test ./internal/api/...`, `go test ./...`, `gofmt -d internal/api/*.go`, `git diff --check`, and repository gate `true` all pass.
+- Issue #1 dependency is closed and its project item is Done; issue #4 is in active In Progress work for this rework pass.
