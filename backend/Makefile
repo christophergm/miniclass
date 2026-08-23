@@ -37,10 +37,11 @@ seed: ## Load seed data
 	@echo "Loading seed data..."
 	go run ./cmd/seed
 
-reset-db: ## Drop, recreate, migrate, and seed database
+reset-db: ## Drop, recreate, migrate, and seed the local database (requires RESET_DB_CONFIRM=1)
+	@if [ "$(RESET_DB_CONFIRM)" != "1" ]; then echo "Refusing to reset database. Re-run with RESET_DB_CONFIRM=1."; exit 1; fi
 	@echo "Resetting database..."
 	@echo "Dropping database..."
-	psql "$(DATABASE_URL)" -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+	psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
 	@echo "Running migrations..."
 	$(MAKE) migrate-up
 	@echo "Seeding data..."

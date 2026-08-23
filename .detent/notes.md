@@ -58,3 +58,11 @@
 - Backend validation passes in a disposable `TMPDIR` copy with Go 1.27 lowered to 1.26: `GOTOOLCHAIN=local GOSUMDB=off go test ./...` (integration test skips without `TEST_DATABASE_URL`).
 - The documented smoke command was attempted with `.env.example`; it stopped at `docker compose up` because the local Docker daemon is unavailable. No live database/browser result is claimed.
 - Project CI contract: `Validate` runs `git diff --check`; local repository gate is `true`.
+
+## Issue #15 local development/reset documentation
+
+- README now documents first setup, service URLs, repeatable seed behavior, reset safety, volume handling, and troubleshooting.
+- `backend/Makefile reset-db` requires `RESET_DB_CONFIRM=1` and uses `psql -v ON_ERROR_STOP=1`; `backend/scripts/seed.sql` avoids duplicate `seeded` health rows.
+- Current schema only has `health_checks`; there are no teacher/class/student/assignment tables or fixtures yet.
+- Dependencies #7, #13, and #14 are closed. Validate with `true`, `git diff --check`, frontend checks, and backend tests where the installed Go toolchain permits.
+- Validation: `true`, `git diff --check`, `sh -n scripts/smoke-test.sh`, reset confirmation guard, frontend `npm ci`, 9 tests, lint, and build pass. Backend `go test ./... -count=1` is unavailable locally because Go 1.26 is installed while `backend/go.mod` requires Go 1.27.
