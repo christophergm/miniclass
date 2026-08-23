@@ -6,7 +6,7 @@
 miniclass/
 ├── .env.example              # Environment variable template
 ├── .gitignore               # Git ignore rules
-├── docker-compose.yml       # Local development services
+├── compose.yaml             # Local development services (Docker Compose)
 ├── README.md                # Main project documentation
 ├── IMPLEMENTATION_PLAN.md   # Step-by-step development plan
 ├── achitecture.md           # Architecture decisions
@@ -191,7 +191,7 @@ graph TD
 |------|---------|
 | `.env.example` | Template for environment variables |
 | `.env` | Local environment (gitignored) |
-| `docker-compose.yml` | Local services (Postgres, Adminer) |
+| `compose.yaml` | Local services (Postgres, Adminer) |
 | `backend/go.mod` | Go dependencies |
 | `backend/Makefile` | Backend development commands |
 | `backend/.air.toml` | Hot reload configuration |

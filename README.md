@@ -30,7 +30,7 @@ miniclass/
 │   │   ├── lib/         # Utilities and API client
 │   │   └── hooks/       # Custom React hooks
 │   └── public/          # Static assets
-└── docker-compose.yml   # Local development services
+└── compose.yaml         # Local development services (Docker Compose)
 ```
 
 ## Getting Started
@@ -68,7 +68,7 @@ miniclass/
 
 3. **Start database:**
    ```bash
-   docker-compose up -d postgres
+   docker compose up -d postgres
    ```
 
 4. **Install backend tools:**

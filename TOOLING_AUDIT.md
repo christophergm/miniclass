@@ -204,7 +204,7 @@ proto status
 cp .env.example .env
 
 # 6. Start database
-docker-compose up -d postgres
+docker compose up -d postgres
 
 # 7. Backend setup
 cd backend
@@ -217,7 +217,7 @@ cd ../frontend
 bun install  # Proto's bun automatically used
 
 # 9. Run everything
-# Terminal 1: docker-compose up postgres
+# Terminal 1: docker compose up postgres
 # Terminal 2: cd backend && make dev
 # Terminal 3: cd frontend && bun run dev
 ```

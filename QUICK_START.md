@@ -50,10 +50,10 @@ cp .env.example .env
 ### 3. Start Database
 ```bash
 # Start PostgreSQL in Docker
-docker-compose up -d postgres
+docker compose up -d postgres
 
 # Verify it's running
-docker-compose ps
+docker compose ps
 
 # Expected: miniclass-postgres with status "Up"
 ```
@@ -96,7 +96,7 @@ Open **three terminal windows**:
 ### Terminal 1: Database
 ```bash
 # If not already running
-docker-compose up postgres
+docker compose up postgres
 
 # Leave this running
 # Ctrl+C to stop
@@ -256,10 +256,10 @@ Then restart services.
 **Check:**
 ```bash
 # Is Postgres running?
-docker-compose ps
+docker compose ps
 
 # Check logs
-docker-compose logs postgres
+docker compose logs postgres
 
 # Verify connection manually
 docker exec -it miniclass-postgres psql -U miniclass -d miniclass
@@ -271,11 +271,11 @@ docker exec -it miniclass-postgres psql -U miniclass -d miniclass
 **Solution:**
 ```bash
 # Restart Postgres
-docker-compose restart postgres
+docker compose restart postgres
 
 # Or full reset
-docker-compose down
-docker-compose up -d postgres
+docker compose down
+docker compose up -d postgres
 ```
 
 ---
@@ -342,10 +342,10 @@ go install github.com/air-verse/air@latest
 
 ```bash
 # Stop all services
-docker-compose down
+docker compose down
 
 # Remove database volume (destroys all data)
-docker-compose down -v
+docker compose down -v
 
 # Remove node_modules (optional)
 rm -rf frontend/node_modules
@@ -354,7 +354,7 @@ rm -rf frontend/node_modules
 rm -rf backend/tmp backend/bin
 
 # Start fresh
-docker-compose up -d postgres
+docker compose up -d postgres
 cd backend && make migrate-up && make seed
 cd ../frontend && bun install
 ```
@@ -397,9 +397,9 @@ See `IMPLEMENTATION_PLAN.md` for detailed steps:
 
 ```bash
 # Database
-docker-compose up -d postgres    # Start
-docker-compose logs postgres     # View logs
-docker-compose down              # Stop
+docker compose up -d postgres    # Start
+docker compose logs postgres     # View logs
+docker compose down              # Stop
 
 # Backend
 cd backend

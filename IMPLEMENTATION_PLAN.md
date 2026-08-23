@@ -205,7 +205,7 @@ make migrate-up
 
 **Manual steps:**
 1. [ ] Copy `.env.example` to `.env`
-2. [ ] Start Postgres: `docker-compose up -d postgres`
+2. [ ] Start Postgres: `docker compose up -d postgres`
 3. [ ] Run migrations: `cd backend && make migrate-up`
 4. [ ] Start backend: `make dev`
 5. [ ] Start frontend: `cd ../frontend && bun run dev`
