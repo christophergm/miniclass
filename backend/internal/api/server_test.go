@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -11,6 +12,10 @@ import (
 
 	"github.com/chrismott/miniclass/internal/config"
 )
+
+type routeHealthDatabase struct{}
+
+func (routeHealthDatabase) PingDB(context.Context) error { return nil }
 
 func TestNewServerConstructsWithoutStartingProcess(t *testing.T) {
 	server := NewServer(
@@ -94,6 +99,27 @@ func TestRouterReturnsJSONForUnsupportedRequests(t *testing.T) {
 				t.Fatalf("error response = %#v, want message %q", response, test.message)
 			}
 		})
+	}
+}
+
+func TestRouterServesHealthEndpoint(t *testing.T) {
+	router := NewRouter(RouterOptions{
+		Database: routeHealthDatabase{},
+		Version:  "1.2.3",
+	})
+	recording := httptest.NewRecorder()
+	router.ServeHTTP(recording, httptest.NewRequest(http.MethodGet, "/api/health", nil))
+
+	if recording.Code != http.StatusOK {
+		t.Fatalf("GET /api/health status = %d, want %d", recording.Code, http.StatusOK)
+	}
+
+	var response map[string]string
+	if err := json.NewDecoder(recording.Body).Decode(&response); err != nil {
+		t.Fatalf("decode health response: %v", err)
+	}
+	if response["status"] != "healthy" || response["database"] != "connected" || response["version"] != "1.2.3" {
+		t.Fatalf("health response = %#v", response)
 	}
 }
 

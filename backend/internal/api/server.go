@@ -6,20 +6,26 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/chrismott/miniclass/internal/api/handlers"
 	"github.com/chrismott/miniclass/internal/config"
 )
 
-const defaultServerAddress = ":8080"
+const (
+	defaultServerAddress = ":8080"
+	defaultServerVersion = "0.1.0"
+)
 
 // ServerOptions controls construction of a Server without starting a process.
 type ServerOptions struct {
 	Address           string
 	AllowedOrigins    []string
+	Database          handlers.DatabasePinger
 	Logger            *slog.Logger
 	ReadTimeout       time.Duration
 	ReadHeaderTimeout time.Duration
 	WriteTimeout      time.Duration
 	IdleTimeout       time.Duration
+	Version           string
 }
 
 // Server owns the HTTP handler and server settings used by the API process.
@@ -34,6 +40,7 @@ type Server struct {
 func NewServer(options ...ServerOption) *Server {
 	settings := ServerOptions{
 		Address:           defaultServerAddress,
+		Version:           defaultServerVersion,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      15 * time.Second,
@@ -53,7 +60,9 @@ func NewServer(options ...ServerOption) *Server {
 
 	router := NewRouter(RouterOptions{
 		AllowedOrigins: settings.AllowedOrigins,
+		Database:       settings.Database,
 		Logger:         settings.Logger,
+		Version:        settings.Version,
 	})
 	httpServer := &http.Server{
 		Addr:              settings.Address,
@@ -70,7 +79,7 @@ func NewServer(options ...ServerOption) *Server {
 // NewServerWithConfig constructs a server using the configured application
 // port while preserving the same independent construction behavior.
 func NewServerWithConfig(cfg config.Config, options ...ServerOption) *Server {
-	options = append([]ServerOption{WithAddress(":" + cfg.Port)}, options...)
+	options = append([]ServerOption{WithAddress(":" + cfg.Port), WithVersion(cfg.AppVersion)}, options...)
 	return NewServer(options...)
 }
 
@@ -86,6 +95,16 @@ func WithAddress(address string) ServerOption {
 // the development default of allowing all origins.
 func WithAllowedOrigins(origins ...string) ServerOption {
 	return func(options *ServerOptions) { options.AllowedOrigins = origins }
+}
+
+// WithDatabase sets the dependency checked by the health endpoint.
+func WithDatabase(database handlers.DatabasePinger) ServerOption {
+	return func(options *ServerOptions) { options.Database = database }
+}
+
+// WithVersion sets the application version reported by the health endpoint.
+func WithVersion(version string) ServerOption {
+	return func(options *ServerOptions) { options.Version = version }
 }
 
 // WithLogger sets the structured logger used by request and panic middleware.
