@@ -2,6 +2,7 @@
 
 -- PostgreSQL 16 does not provide uuidv7(), so keep generation local to the
 -- schema while preserving the UUID v7 layout for every generated ID.
+-- +goose StatementBegin
 CREATE FUNCTION miniclass_uuid_v7() RETURNS UUID
 LANGUAGE SQL
 VOLATILE
@@ -28,6 +29,7 @@ AS $$
     )::UUID
     FROM random_value, timestamp_value;
 $$;
+-- +goose StatementEnd
 
 CREATE TABLE health_checks (
     id UUID PRIMARY KEY DEFAULT miniclass_uuid_v7(),

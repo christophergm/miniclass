@@ -1,5 +1,14 @@
 # Detent handoff notes
 
+## Issue #14 quality gates
+
+- `backend/Makefile` target `test` now runs `go test -v ./... -count=1`, including unit and integration packages.
+- `.github/workflows/ci.yml` publishes `Backend tests`, `Frontend tests`, `Frontend build`, `Frontend lint`, and `Repository formatting`; backend CI supplies PostgreSQL and `TEST_DATABASE_URL`.
+- `WORKFLOW.md` and `README.md` document the local commands and exact CI check names.
+- Validation: frontend `npm ci`, 9 tests, build, lint, YAML parse, and `git diff --check` pass. Local backend execution could not start because only Go 1.26 is installed and the restricted host cannot download Go 1.27; CI uses `actions/setup-go` from `backend/go.mod`.
+- First CI backend run exposed a Goose parsing failure for the dollar-quoted UUID function; migration `00001_initial_schema.sql` now wraps that function in Goose statement-boundary directives.
+- Open item: commit/push, open PR with `Fixes #14`, inspect current-head CI/reviews, then update the Workpad.
+
 - Issue #9 adds the initial React/TypeScript frontend shell under `frontend/src`.
 - Entry point: `frontend/src/main.tsx`; router and layout: `frontend/src/App.tsx`; global styling: `frontend/src/index.css`.
 - Vite entry document is `frontend/index.html`; `BrowserRouter` serves `/` plus placeholder routes for `/classes`, `/assignments`, `/students`, and `/settings`.
