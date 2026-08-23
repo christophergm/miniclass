@@ -36,3 +36,12 @@
 - Added `backend/cmd/seed/main.go` and `backend/scripts/seed.sql`; Make `migrate-up`/`migrate-down` now use the command wrapper and `seed` already invokes its command.
 - Focused disposable-copy validation: `GOTOOLCHAIN=local GOSUMDB=off go test -mod=mod ./...`, builds, and missing-`DATABASE_URL` smoke checks pass. Repository gate is `true`; live PostgreSQL execution was not available.
 - Issue #3 remains open, but its migration PR is the dependency that supplies the `health_checks` table consumed by the seed SQL.
+
+## Backend HTTP server and middleware
+
+- Added `backend/internal/api` with `NewServer`, `NewServerWithConfig`, `NewRouter`, explicit middleware ordering, CORS, structured request logging, panic recovery, JSON content type, and JSON 404/405 errors.
+- API root is available at `/api` and `/api/`; feature routes such as health remain for subsequent issues.
+- Focused validation: `cd backend && go test ./internal/api/...` passes.
+- Full backend validation: `cd backend && go test ./...` passes.
+- Repository validation gate: `true` passes; CI's declared `Validate` check runs `git diff --check`.
+- Go 1.27 is available only through the Detent toolchain cache in this worker; use the same cache-aware command if local default Go selects 1.26.
