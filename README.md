@@ -102,6 +102,20 @@ npm run dev
 - Backend API: http://localhost:8080
 - Adminer (DB GUI): http://localhost:8081
 
+### Frontend shell
+
+The frontend starts at the responsive MiniClass workspace overview. Its initial
+navigation is available at:
+
+- `/` — classroom overview
+- `/classes` — classes workspace placeholder
+- `/assignments` — assignments workspace placeholder
+- `/students` — students workspace placeholder
+- `/settings` — settings workspace placeholder
+
+Run `npm run dev` from `frontend/` for Vite development with hot module
+replacement, or `npm run build` to verify the production bundle.
+
 ### Development Commands
 
 **Backend:**
