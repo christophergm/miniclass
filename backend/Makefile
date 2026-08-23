@@ -50,9 +50,9 @@ reset-db: ## Drop, recreate, migrate, and seed database
 sqlc: ## Generate sqlc code from queries
 	sqlc generate
 
-test: ## Run integration tests
-	@echo "Running integration tests..."
-	go test -v ./tests/integration/... -count=1
+test: ## Run all backend unit and integration tests
+	@echo "Running backend tests..."
+	go test -v ./... -count=1
 
 test-coverage: ## Run tests with coverage report
 	@echo "Running tests with coverage..."

@@ -14,10 +14,11 @@ Replace these placeholders with the project's required stage categories and
 the project-specific local command and CI check name that satisfy each one. Add
 or remove categories to match the project.
 
-- `<required-stage-category>`: local command `<project-command>`; CI check
-  `<project-check-name>`
-- `<required-stage-category>`: local command `<project-command>`; CI check
-  `<project-check-name>`
+- Backend tests: local command `cd backend && make test`; CI check `Backend tests`
+- Frontend tests: local command `cd frontend && npm ci && npm run test -- --run`; CI check `Frontend tests`
+- Frontend build: local command `cd frontend && npm ci && npm run build`; CI check `Frontend build`
+- Frontend lint: local command `cd frontend && npm ci && npm run lint`; CI check `Frontend lint`
+- Repository formatting: local command `git diff --check`; CI check `Repository formatting`
 
 Treat this list as part of the project contract. Whenever you touch CI
 configuration or perform a review, verify that every declared stage exists,

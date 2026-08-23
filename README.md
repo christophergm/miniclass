@@ -171,6 +171,20 @@ To run multiple instances in parallel:
 
 ## Testing
 
+The reproducible quality gates are:
+
+```bash
+cd backend && make test
+cd frontend && npm ci && npm run test -- --run
+cd frontend && npm ci && npm run build
+cd frontend && npm ci && npm run lint
+git diff --check
+```
+
+CI runs the backend integration test against PostgreSQL and publishes separate
+checks for backend tests, frontend tests, frontend build, frontend lint, and
+repository formatting.
+
 **Backend Integration Tests:**
 ```bash
 cd backend
