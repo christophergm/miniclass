@@ -28,5 +28,5 @@
 - Rechecked 2026-08-23 during Rework: `HEAD` is `39762da`; fetched remote `main` is `600a705` in `FETCH_HEAD`. Updating the shared `origin/main` remote-tracking ref was not permitted in this managed worktree.
 - The fetched `main` tree still has no `backend/internal/api`, so issue #6 has no safe implementation base and no PR.
 - Native dependencies for #6 list issues #4 and #5 as open blockers; issues #1 and #2 are closed. Issue #4's PR #19 remains open, non-draft, and conflicting (`mergeStateStatus=DIRTY`, `mergeable=CONFLICTING`), with the implementation only on that unmerged PR head.
-- The issue #6 Workpad was updated with `status: blocked`, typed dependency predicates, and no human action required. No source changes, commit, push, or PR were made for this attempt.
+- The issue #6 Workpad was updated with `status: blocked`, typed dependency predicates, and no human action required. No source changes or PR were made; handoff-note commit `92aeec6` was pushed.
 - Re-check after #4 and #5 reach terminal states. Do not copy the dependency commit into this issue.
