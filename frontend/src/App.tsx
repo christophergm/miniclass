@@ -174,6 +174,17 @@ function Overview() {
           </div>
         </div>
       </section>
+
+      <section className="section-block home-health" aria-labelledby="home-health-heading">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Stay in the know</p>
+            <h2 id="home-health-heading">System health</h2>
+          </div>
+          <NavLink className="text-button" to="/health">Open details <span aria-hidden="true">→</span></NavLink>
+        </div>
+        <HealthCheck />
+      </section>
     </div>
   )
 }
