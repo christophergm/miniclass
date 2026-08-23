@@ -1,79 +1,98 @@
-export type HealthStatus = 'healthy' | 'unhealthy' | 'degraded'
-export type DatabaseStatus = 'connected' | 'disconnected' | 'unknown'
-
 export type HealthResponse = {
-  status: HealthStatus
+  status: 'healthy' | 'unhealthy'
   timestamp: string
-  database: DatabaseStatus
+  database: 'connected' | 'disconnected'
   version: string
+  error?: string
 }
 
+export type ApiErrorKind = 'http' | 'network' | 'decode'
+
 export class ApiError extends Error {
+  readonly kind: ApiErrorKind
   readonly status?: number
 
-  constructor(message: string, status?: number) {
+  constructor(kind: ApiErrorKind, message: string, status?: number) {
     super(message)
     this.name = 'ApiError'
+    this.kind = kind
     this.status = status
   }
 }
 
-const apiBaseUrl = (import.meta.env.VITE_API_URL || '/api').replace(/\/+$/, '')
+export type ApiClientOptions = {
+  baseUrl?: string
+  fetch?: typeof globalThis.fetch
+}
+
+const configuredBaseUrl = import.meta.env.VITE_API_URL ?? ''
+
+function joinUrl(baseUrl: string, path: string) {
+  return `${baseUrl.replace(/\/$/, '')}${path}`
+}
 
 function isHealthResponse(value: unknown): value is HealthResponse {
-  if (!value || typeof value !== 'object') {
-    return false
-  }
+  if (typeof value !== 'object' || value === null) return false
 
-  const health = value as Record<string, unknown>
+  const response = value as Record<string, unknown>
   return (
-    (health.status === 'healthy' || health.status === 'unhealthy' || health.status === 'degraded') &&
-    typeof health.timestamp === 'string' &&
-    (health.database === 'connected' || health.database === 'disconnected' || health.database === 'unknown') &&
-    typeof health.version === 'string'
+    (response.status === 'healthy' || response.status === 'unhealthy') &&
+    typeof response.timestamp === 'string' &&
+    (response.database === 'connected' || response.database === 'disconnected') &&
+    typeof response.version === 'string' &&
+    (response.error === undefined || typeof response.error === 'string')
   )
 }
 
-async function readPayload(response: Response): Promise<unknown> {
-  const text = await response.text()
-  if (!text) {
-    return undefined
+export class ApiClient {
+  private readonly baseUrl: string
+  private readonly request: typeof globalThis.fetch
+
+  constructor(options: ApiClientOptions = {}) {
+    this.baseUrl = options.baseUrl ?? configuredBaseUrl
+    this.request = options.fetch ?? globalThis.fetch.bind(globalThis)
   }
 
-  try {
-    return JSON.parse(text) as unknown
-  } catch {
-    return text
+  async getHealth(): Promise<HealthResponse> {
+    return this.get<HealthResponse>('/api/health', isHealthResponse)
+  }
+
+  private async get<T>(path: string, decode: (value: unknown) => value is T): Promise<T> {
+    let response: Response
+    try {
+      response = await this.request(joinUrl(this.baseUrl, path), {
+        headers: { Accept: 'application/json' },
+      })
+    } catch {
+      throw new ApiError('network', 'Unable to reach the API')
+    }
+
+    if (!response.ok) {
+      let message = `The API request failed with status ${response.status}`
+      try {
+        const payload: unknown = await response.json()
+        if (typeof payload === 'object' && payload !== null && 'error' in payload && typeof payload.error === 'string') {
+          message = payload.error
+        }
+      } catch {
+        // Keep the normalized HTTP error when an error response is not JSON.
+      }
+      throw new ApiError('http', message, response.status)
+    }
+
+    let payload: unknown
+    try {
+      payload = await response.json()
+    } catch {
+      throw new ApiError('decode', 'The API returned invalid JSON', response.status)
+    }
+
+    if (!decode(payload)) {
+      throw new ApiError('decode', 'The API returned an unexpected response', response.status)
+    }
+
+    return payload
   }
 }
 
-function responseMessage(payload: unknown, status: number): string {
-  if (payload && typeof payload === 'object' && 'message' in payload && typeof payload.message === 'string') {
-    return payload.message
-  }
-
-  return `Backend health request failed (${status}).`
-}
-
-export async function fetchHealth(): Promise<HealthResponse> {
-  let response: Response
-
-  try {
-    response = await fetch(`${apiBaseUrl}/health`, {
-      headers: { Accept: 'application/json' },
-    })
-  } catch {
-    throw new ApiError('Unable to reach the backend.')
-  }
-
-  const payload = await readPayload(response)
-  if (!response.ok) {
-    throw new ApiError(responseMessage(payload, response.status), response.status)
-  }
-
-  if (!isHealthResponse(payload)) {
-    throw new ApiError('The backend returned an invalid health response.', response.status)
-  }
-
-  return payload
-}
+export const apiClient = new ApiClient()

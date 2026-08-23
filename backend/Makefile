@@ -1,7 +1,7 @@
 .PHONY: help dev build test migrate-up migrate-down migrate-create seed reset-db sqlc install-tools
 
 # Load environment variables
-include ../.env
+-include ../.env
 export
 
 help: ## Show this help message
@@ -24,10 +24,10 @@ build: ## Build the API binary
 	go build -o bin/api ./cmd/api
 
 migrate-up: ## Run all pending migrations
-	goose -dir migrations postgres "$(DATABASE_URL)" up
+	go run ./cmd/migrate up
 
 migrate-down: ## Rollback last migration
-	goose -dir migrations postgres "$(DATABASE_URL)" down
+	go run ./cmd/migrate down
 
 migrate-create: ## Create a new migration (usage: make migrate-create NAME=create_users)
 	@if [ -z "$(NAME)" ]; then echo "Error: NAME is required. Usage: make migrate-create NAME=your_migration_name"; exit 1; fi
