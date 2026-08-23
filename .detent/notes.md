@@ -45,3 +45,4 @@
 - Full backend validation: `cd backend && go test ./...` passes.
 - Repository validation gate: `true` passes; CI's declared `Validate` check runs `git diff --check`.
 - Go 1.27 is available only through the Detent toolchain cache in this worker; use the same cache-aware command if local default Go selects 1.26.
+- PR #19 is open, non-draft, references issue #4, and its `Validate` check passed on commit `934db12`.
