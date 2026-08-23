@@ -25,8 +25,8 @@
 
 ## API entry point blocker
 
-- Rechecked 2026-08-23: `HEAD` is `c3ddb9f` and `origin/main` is `45318ce`; issue #6 has no source changes or PR.
+- Rechecked 2026-08-23: `HEAD` is `b875cda` and `origin/main` is `45318ce`; issue #6 has no source changes or PR.
 - `backend/internal/api` is absent on this base. PR #19 for required issue #4 remains open, non-draft, and conflicting (`mergeStateStatus=DIRTY`, `mergeable=CONFLICTING`); its implementation exists only on the unmerged PR head.
 - Issue #5 remains open and also waits on #4, so the API route and health-handler contracts are not available here.
-- GitHub's dependency endpoint returned 404 for #6, so the issue body's legacy `Depends on: #4` declaration remains the machine-readable fallback.
+- GitHub's dependency endpoint previously returned 404 for #6, so the issue body's legacy `Depends on: #4` declaration remains the machine-readable fallback.
 - Re-check after #4 merges or reaches a terminal state. Do not copy the dependency commit into this issue.
