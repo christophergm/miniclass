@@ -1,0 +1,24 @@
+# .prototools - MiniClass development tools
+#
+# Proto automatically installs and manages these tools.
+# See: https://moonrepo.dev/proto
+#
+# Usage:
+#   proto install        # Install all tools
+#   proto status         # Check installed versions
+#   proto use go 1.27.5  # Update a version
+
+# Backend tools
+go = "1.26.4"           # Go language runtime
+
+# Frontend tools
+node = "24.16.0"        # Node.js runtime
+bun = "1.3.14"          # Fast JavaScript runtime and package manager
+
+# Optional development tools
+# Install air manually with: go install github.com/air-verse/air@latest
+# air is not a built-in proto tool
+
+[settings]
+# Auto-install missing tools when entering directory
+auto-install = true

@@ -4,6 +4,8 @@
 
 # Backend (Go)
 backend/tmp/
+backend/api
+backend/bin/
 *.exe
 *.exe~
 *.dll

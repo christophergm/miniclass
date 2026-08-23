@@ -6,10 +6,17 @@ Get the MiniClass development environment running in under 5 minutes.
 
 ## Prerequisites Checklist
 
+**Recommended:**
+- [ ] [proto](https://moonrepo.dev/proto) installed (`proto --version`)
 - [ ] Docker & Docker Compose installed
-- [ ] Go 1.27+ installed (`go version`)
+- [ ] Make installed (`make --version`)
+- [ ] Git installed
+
+**Or manual installation:**
+- [ ] Go 1.26+ installed (`go version`)
 - [ ] Node.js 24+ installed (`node --version`)
-- [ ] Bun installed (`bun --version`)
+- [ ] Bun 1.3+ installed (`bun --version`)
+- [ ] Docker & Docker Compose installed
 - [ ] Make installed (`make --version`)
 - [ ] Git installed
 
@@ -17,7 +24,21 @@ Get the MiniClass development environment running in under 5 minutes.
 
 ## First Time Setup
 
-### 1. Environment Configuration
+### 1. Install Development Tools
+
+**Option A - Using proto (Recommended):**
+```bash
+# Install all required tools automatically
+proto install
+
+# Verify installations
+proto status
+```
+
+**Option B - Manual Installation:**
+Install Go 1.26+, Node 24+, Docker, and Make manually
+
+### 2. Environment Configuration
 ```bash
 # Copy environment template
 cp .env.example .env
@@ -26,7 +47,7 @@ cp .env.example .env
 # No changes needed for local development
 ```
 
-### 2. Start Database
+### 3. Start Database
 ```bash
 # Start PostgreSQL in Docker
 docker-compose up -d postgres
@@ -37,7 +58,7 @@ docker-compose ps
 # Expected: miniclass-postgres with status "Up"
 ```
 
-### 3. Backend Setup
+### 4. Backend Setup
 ```bash
 cd backend
 
@@ -56,7 +77,7 @@ make install-tools
 cd ..
 ```
 
-### 4. Frontend Setup
+### 5. Frontend Setup
 ```bash
 cd frontend
 

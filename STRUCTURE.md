@@ -164,7 +164,7 @@ graph TD
 - **Testing:** Vitest
 
 ### Backend
-- **Language:** Go 1.27
+- **Language:** Go 1.26 (1.27+ recommended when available)
 - **HTTP Framework:** Chi v5
 - **Database Driver:** pgx/v5
 - **Query Builder:** sqlc (type-safe SQL)

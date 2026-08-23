@@ -37,10 +37,14 @@ miniclass/
 
 ### Prerequisites
 
+**Recommended:**
+- [proto](https://moonrepo.dev/proto) - Automatically manages Go, Node, Bun, and other tools
+
+**Or install manually:**
 - Docker & Docker Compose
-- Go 1.27+
+- Go 1.26+
 - Node.js 24+
-- Bun
+- Bun 1.3+
 - Make
 
 ### First Time Setup
@@ -52,32 +56,38 @@ miniclass/
    cp .env.example .env
    ```
 
-2. **Start database:**
+2. **Install development tools:**
+   
+   **Option A - Using proto (Recommended):**
    ```bash
-   docker compose up -d postgres
+   proto install
+   ```
+   
+   **Option B - Manual installation:**
+   - Install Go 1.26+, Node 24+, Bun 1.3+, Docker, Make
+
+3. **Start database:**
+   ```bash
+   docker-compose up -d postgres
    ```
 
-3. **Install backend tools:**
+4. **Install backend tools:**
    ```bash
    cd backend
    make install-tools
    ```
 
-4. **Run migrations:**
+5. **Run migrations:**
    ```bash
    make migrate-up
    ```
 
-5. **Seed database (optional):**
+6. **Seed database (optional):**
    ```bash
    make seed
    ```
 
-   The current milestone seeds one `health_checks` row with status `seeded`.
-   The command is idempotent, so it is safe to rerun. Teacher, class, student,
-   and assignment fixtures will be added when those domain tables are migrated.
-
-6. **Install frontend dependencies:**
+7. **Install frontend dependencies:**
    ```bash
    cd ../frontend
    bun install
