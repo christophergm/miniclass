@@ -66,3 +66,10 @@
 - Current schema only has `health_checks`; there are no teacher/class/student/assignment tables or fixtures yet.
 - Dependencies #7, #13, and #14 are closed. Validate with `true`, `git diff --check`, frontend checks, and backend tests where the installed Go toolchain permits.
 - Validation: `true`, `git diff --check`, `sh -n scripts/smoke-test.sh`, reset confirmation guard, frontend `npm ci`, 9 tests, lint, and build pass. Backend `go test ./... -count=1` is unavailable locally because Go 1.26 is installed while `backend/go.mod` requires Go 1.27.
+
+## Issue #31 PostgreSQL 18 upgrade
+
+- Local Compose uses `postgres:18-alpine`; CI's backend service uses `postgres:18`.
+- `STRUCTURE.md` now documents PostgreSQL 18. The initial migration uses PostgreSQL 18's built-in `uuidv7()` and removes the PostgreSQL 16 compatibility function.
+- Validation: disposable-TMPDIR backend `GOTOOLCHAIN=local GOSUMDB=off go test -v ./... -count=1` passes (integration test skips without `TEST_DATABASE_URL`); frontend `npm ci`, 9 tests, build, lint, Compose config, and `git diff --check` pass. Exact `cd backend && make test` cannot run because Go 1.27 is not installed locally.
+- PR #32 is open, non-draft, references `Fixes #31`, and all five current-head CI checks pass with no review comments. The Workpad is ready for the completion declaration.

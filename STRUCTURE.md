@@ -173,7 +173,7 @@ graph TD
 - **Testing:** Go testing + testify
 
 ### Database
-- **Engine:** PostgreSQL 16
+- **Engine:** PostgreSQL 18
 - **Local:** Docker container
 - **Production:** Supabase managed
 - **GUI:** Adminer (port 8081)
