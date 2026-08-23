@@ -12,4 +12,5 @@
 - `DATABASE_URL` is required; optional settings use `.env.example` defaults where defined.
 - Focused validation: `go test ./backend/internal/config/...` passes after adding `backend/go.sum` for `godotenv`.
 - Full local validation gate is `true` per `WORKFLOW.md`; repository has no CI configuration or declared project check names.
-- GitHub CLI is authenticated as `christophergm`; no PR exists yet for the Detent branch, so create one after pushing the fix and update issue #1 Workpad.
+- GitHub CLI is authenticated as `christophergm`; PR #17 is open for the Detent branch and references issue #1.
+- PR #17 is non-draft and clean with no configured CI checks or review comments; Workpad comment is complete.
