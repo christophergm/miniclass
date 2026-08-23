@@ -71,3 +71,10 @@
 - Native dependencies #1, #2, #4, and #5 are terminal. Issue #6 has no PR or source implementation yet.
 - Implement `backend/cmd/api/main.go` with configuration loading, verified database startup, configured HTTP server startup, signal-triggered graceful shutdown, and resource cleanup.
 - Validation plan: focused API/config/db tests, full backend tests, startup/shutdown smoke test, `gofmt -d`, `git diff --check`, and `true`.
+
+## API entry point implementation
+
+- Added `backend/cmd/api/main.go`; it loads config, creates the ping-verified pgx database, constructs `api.Server`, logs address/environment/version, handles SIGINT/SIGTERM, applies a 10-second shutdown timeout, and defers database cleanup.
+- Added lifecycle tests for graceful context cancellation and listen failures in `backend/cmd/api/main_test.go`.
+- Direct Go commands cannot use the checked-in Go 1.27 directive because the worker cannot access the toolchain checksum cache. Disposable `$TMPDIR` copies with a Go 1.26 directive passed focused tests, `go test ./...`, `go build ./cmd/api`, and the missing-`DATABASE_URL` startup smoke test.
+- Final local checks: `gofmt -d`, `git diff --check`, and repository gate `true` pass.
