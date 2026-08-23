@@ -58,3 +58,4 @@
 - Focused tests cover healthy, failed, and missing database dependencies plus router registration.
 - The project item is `In Progress`; #4 is terminal after PR #19 merged, and this branch is based on `origin/main` at `ac9b09a`.
 - Validation: disposable Detent-temp Go 1.26 copy passed `GOTOOLCHAIN=local GOSUMDB=off go test ./internal/api/handlers/...` and `go test ./...`; `gofmt -d`, `git diff --check`, and repository gate `true` pass locally. The checked-in module requires Go 1.27, unavailable in this worker.
+- PR #23 is open, non-draft, mergeable, references `Fixes #5`, has no review comments, and has green `Validate` CI.
