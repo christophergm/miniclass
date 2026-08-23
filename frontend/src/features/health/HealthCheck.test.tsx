@@ -2,6 +2,20 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import type { HealthResponse } from '../../lib/api'
+
+// Mock the API module before importing the component
+vi.mock('../../lib/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../lib/api')>()
+  return {
+    ...actual,
+    apiClient: {
+      getHealth: vi.fn(),
+    },
+  }
+})
+
+import { apiClient } from '../../lib/api'
 import { HealthCheck } from './HealthCheck'
 
 function renderHealthCheck() {
@@ -18,25 +32,20 @@ function renderHealthCheck() {
   )
 }
 
-function healthResponse(status = 200) {
-  return new Response(
-    JSON.stringify({
-      status: 'healthy',
-      timestamp: '2026-08-23T12:00:00Z',
-      database: 'connected',
-      version: '0.1.0',
-    }),
-    { status, headers: { 'Content-Type': 'application/json' } },
-  )
+const healthyResponse: HealthResponse = {
+  status: 'healthy',
+  timestamp: '2026-08-23T12:00:00Z',
+  database: 'connected',
+  version: '0.1.0',
 }
 
 afterEach(() => {
-  vi.restoreAllMocks()
+  vi.mocked(apiClient.getHealth).mockReset()
 })
 
 describe('HealthCheck', () => {
   it('shows a loading state while the health request is pending', () => {
-    vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(() => undefined)))
+    vi.mocked(apiClient.getHealth).mockReturnValue(new Promise<HealthResponse>(() => undefined))
 
     renderHealthCheck()
 
@@ -44,7 +53,7 @@ describe('HealthCheck', () => {
   })
 
   it('shows the backend status and details when healthy', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(healthResponse()))
+    vi.mocked(apiClient.getHealth).mockResolvedValue(healthyResponse)
 
     renderHealthCheck()
 
@@ -56,23 +65,24 @@ describe('HealthCheck', () => {
   })
 
   it('shows a recoverable error state when the backend fails', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(healthResponse(503)))
+    const { ApiError } = await import('../../lib/api')
+    vi.mocked(apiClient.getHealth).mockRejectedValue(new ApiError('http', 'Service unavailable', 503))
 
     renderHealthCheck()
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Backend health check failed')
-    expect(screen.getByRole('alert')).toHaveTextContent('503')
+    expect(screen.getByRole('alert')).toHaveTextContent('Service unavailable')
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
   })
 
   it('refreshes the query when requested', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(healthResponse())
-    vi.stubGlobal('fetch', fetchMock)
+    vi.mocked(apiClient.getHealth).mockResolvedValue(healthyResponse)
 
     renderHealthCheck()
     await screen.findByText('All systems operational')
+
     screen.getByRole('button', { name: 'Refresh now' }).click()
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(apiClient.getHealth).toHaveBeenCalledTimes(2))
   })
 })
