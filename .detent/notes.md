@@ -35,3 +35,4 @@
 - Added `backend/cmd/migrate/main.go` using Goose and pgx stdlib; supports `up`, `down`, and `status`, defaulting to `up`, with credential-safe errors.
 - Added `backend/cmd/seed/main.go` and `backend/scripts/seed.sql`; Make `migrate-up`/`migrate-down` now use the command wrapper and `seed` already invokes its command.
 - Focused disposable-copy validation: `GOTOOLCHAIN=local GOSUMDB=off go test -mod=mod ./...`, builds, and missing-`DATABASE_URL` smoke checks pass. Repository gate is `true`; live PostgreSQL execution was not available.
+- Issue #3 remains open, but its migration PR is the dependency that supplies the `health_checks` table consumed by the seed SQL.
