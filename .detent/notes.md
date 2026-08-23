@@ -1,18 +1,33 @@
 # Detent handoff notes
 
-- Frontend shell: `frontend/src/main.tsx`, `frontend/src/App.tsx`, and `frontend/src/index.css`; Vite entry is `frontend/index.html`.
-- Backend config: `backend/internal/config` loads dotenv values, applies defaults, and requires `DATABASE_URL`.
-- Backend database: `backend/internal/db` creates and pings the pgx pool and closes it idempotently.
-- Backend API: `backend/internal/api` provides the Chi router, middleware, `NewServerWithConfig`, `/api`, and `/api/health`.
-- API entry point: `backend/cmd/api/main.go` loads config, starts the verified database and HTTP server, logs address/environment/version, handles SIGINT/SIGTERM with a 10-second graceful-shutdown timeout, and defers database cleanup.
-- Current base: `origin/main` at `bd867a1`, with migrations, health endpoint, HTTP server, and API entry point merged.
-- Integration test target: `backend/tests/integration`; `backend/Makefile` target `test` runs `go test -v ./tests/integration/... -count=1`.
-- Health integration test: `backend/tests/integration/health_test.go` requires `TEST_DATABASE_URL`, creates a unique schema, applies Goose migrations, uses the real pgx-backed API health handler, asserts direct connectivity and `/api/health`, and drops the schema during cleanup.
-- README documents the Docker Compose `miniclass_test` prerequisite; the Makefile `.env` include is optional so `make test` works with exported variables in a clean checkout.
-- Project CI quality gate: `Validate` runs `git diff --check`; repository validation gate is `true`.
-- Go 1.27 may be unavailable in this worker because its toolchain checksum cache is restricted; prior disposable Go 1.26 copies passed backend tests with `GOTOOLCHAIN=local GOSUMDB=off`.
-- Validation: disposable Go 1.26 copy passed `make test`, `go test ./...`, and `go build ./...`; live PostgreSQL execution was unavailable because the Docker daemon is not running.
-- PR #26 is open, non-draft, references `Fixes #8`, and its current-head `Validate` check passed; no review comments are present.
-- Issue #8 Workpad: https://github.com/christophergm/miniclass/issues/8#issuecomment-5386372050
-- Issue #10 adds `frontend/src/lib/api.ts`: `ApiClient.getHealth()` reads `VITE_API_URL`, validates the health contract, and normalizes HTTP/network/decode failures as `ApiError`; tests use the injectable `fetch` option.
-- Issue #10 validation: `cd frontend && npm test -- --run`, `npm run build`, and `npm run lint` pass. `npm ci` required an isolated cache under `$TMPDIR` because the shared npm cache was root-owned.
+- Issue #9 adds the initial React/TypeScript frontend shell under `frontend/src`.
+- Entry point: `frontend/src/main.tsx`; router and layout: `frontend/src/App.tsx`; global styling: `frontend/src/index.css`.
+- Vite entry document is `frontend/index.html`; `BrowserRouter` serves `/` plus placeholder routes for `/classes`, `/assignments`, `/students`, and `/settings`.
+- Validation: `cd frontend && npm run build`, `npm run lint`, and repository gate `true`.
+- GitHub CLI is unauthenticated in this worker (`gh auth status` reports missing credentials), so issue Workpad/PR operations require a later authenticated handoff.
+
+## Backend configuration management
+
+- Added `backend/internal/config` with dotenv loading, typed settings, defaults, and validation.
+- `DATABASE_URL` is required; optional settings use `.env.example` defaults where defined.
+- Focused validation: `go test ./backend/internal/config/...` passes after adding `backend/go.sum` for `godotenv`.
+- Full local validation gate is `true` per `WORKFLOW.md`; repository has no CI configuration or declared project check names.
+- GitHub CLI is authenticated as `christophergm`; PR #17 is open for the Detent branch and references issue #1.
+- PR #17 is non-draft and clean with no configured CI checks or review comments; Workpad comment is complete.
+
+## Backend PostgreSQL connection and health ping
+
+- Added `backend/internal/db/db.go` with config-backed pgx pool creation, startup ping, package/method `PingDB`, pool access, and idempotent close.
+- Added focused failure-path tests in `backend/internal/db/db_test.go`; added pgx dependency checksums to `backend/go.sum`.
+- Local Go 1.26 cannot honor the repository's Go 1.27 directive because toolchain checksum-cache access is restricted. Disposable Detent temp copy with only `go.mod` set to 1.26 passes `GOSUMDB=off go test ./...`.
+- Repository gate `true`, `gofmt -d`, and `git diff --check` pass. CI has one `Validate` job running `git diff --check`; no CI checks are currently configured beyond that.
+- Workpad comment on issue #2 is complete. PR #18 is open, non-draft, references `Fixes #2`, and has no actionable review comments; keep the issue in its Detent-managed worker lane for promotion.
+
+## Frontend health-check page
+
+- Added `frontend/src/lib/api.ts` with typed `fetchHealth`, `VITE_API_URL` support, response validation, and normalized `ApiError` failures.
+- Added `frontend/src/lib/hooks/useHealth.ts` with TanStack Query and a 30-second refetch interval; `/health` is linked from `frontend/src/App.tsx`.
+- `frontend/src/features/health/HealthCheck.tsx` renders loading, healthy/degraded, and failed states with backend version, timestamp, and database status.
+- Component tests are in `frontend/src/features/health/HealthCheck.test.tsx`; Vitest uses jsdom via `frontend/vite.config.ts`.
+- Validation passed: `cd frontend && npm run test -- --run` (4 tests), `npm run lint`, `npm run build`, repository gate `true`, and `git diff --check`.
+- Open item for handoff: commit/push, open or update the PR with `Fixes #11`, recheck GitHub CI/reviews, and update the issue Workpad to the final status.
