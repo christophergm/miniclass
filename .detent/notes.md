@@ -25,8 +25,9 @@
 
 ## API entry point blocker
 
-- Rechecked 2026-08-23 during Rework: `HEAD` is `39762da`; fetched remote `main` is `600a705` in `FETCH_HEAD`. Updating the shared `origin/main` remote-tracking ref was not permitted in this managed worktree.
-- The fetched `main` tree still has no `backend/internal/api`, so issue #6 has no safe implementation base and no PR.
-- Native dependencies for #6 list issues #4 and #5 as open blockers; issues #1 and #2 are closed. Issue #4's PR #19 remains open, non-draft, and conflicting (`mergeStateStatus=DIRTY`, `mergeable=CONFLICTING`), with the implementation only on that unmerged PR head.
-- The issue #6 Workpad was updated with `status: blocked`, typed dependency predicates, and no human action required. No source changes or PR were made; handoff-note commit `92aeec6` was pushed.
-- Re-check after #4 and #5 reach terminal states. Do not copy the dependency commit into this issue.
+- Rechecked 2026-08-23 during Rework: fetched `main` is `ac9b09a`, which includes the merged API server/middleware package from issue #4.
+- Issue #5 remains open. Its health-handler implementation is only on clean, non-draft PR #23, so the #6 entry point has no complete merged API contract yet.
+- Native dependencies for #6 are #1, #2, #4, and #5; #1, #2, and #4 are closed, while #5 remains open.
+- The issue #6 Workpad was updated with `status: blocked`, a typed dependency predicate for `christophergm/miniclass#5`, and `human_action: null`.
+- The current worktree has no source changes for #6 and no PR. Existing local commits are handoff-note/documentation work only; do not copy the unmerged dependency commit into this issue.
+- Re-check after #5 reaches a terminal state, then rebase or merge current `main` and implement the entry point.
