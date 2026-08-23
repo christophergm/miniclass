@@ -1,4 +1,5 @@
 schema: 1
+
 # Keep machine-specific config in detent.local.yaml and local agent direction in WORKFLOW.local.md.
 tracker:
     kind: github
@@ -70,7 +71,7 @@ workspace:
 deliverable:
     merge_method: squash
 agent:
-    max_concurrent_agents: 1
+    max_concurrent_agents: 2
     # Optional per-role reasoning defaults. Unset roles retain backend behavior.
     # effort:
     #   merge: high
@@ -128,6 +129,9 @@ codex:
     turn_sandbox_policy:
         type: workspaceWrite
         networkAccess: true
+        writableRoots:
+          - /Users/chrismott/dev/personal/miniclass/.git
+          - /Users/chrismott/dev/personal/miniclass-worktrees
 # Optional per-stage model routing. Unrouted roles fall back to the default code route.
 # agents:
 #   routes:
@@ -185,12 +189,14 @@ server:
 budget:
     billing_mode: metered
     enabled: true
-    per_day_max_usd: 50
+    per_day_max_usd: 200
     # Preflight estimate backstop, not a spend ceiling: sessions may overshoot.
     # A breach parks the issue until an operator acts.
-    per_issue_max_usd: 5
+    per_issue_max_usd: 10
     # Applies only to resettable budget pacing; it does not clear per-issue hard holds.
     refusal_cooldown_seconds: 3600
     pricing_path: priv/pricing/models.yaml
 hooks:
     timeout_ms: 60000
+worker:
+    github_token: gh
