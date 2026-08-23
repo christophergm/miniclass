@@ -49,3 +49,4 @@
 - Rework validation: `go test ./internal/api/...`, `go test ./...`, `gofmt -d internal/api/*.go`, `git diff --check`, and repository gate `true` all pass. The worker's Go 1.27 binary is unavailable, so tests were run with Go 1.26 and a disposable modfile lowering only the `go` directive.
 - Issue #1 dependency is closed and its project item is Done; issue #4 is In Progress during this rework pass.
 - Rework review: PR #19 has no human, bot, or inline review feedback; no source correction was required.
+- Rebased the PR branch onto `origin/main` at `600a705` and added the three missing Goose indirect module content checksums to `backend/go.sum`; focused and full backend tests pass without `-mod=mod` using the disposable Go 1.26 modfile.
