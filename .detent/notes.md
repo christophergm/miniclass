@@ -29,3 +29,10 @@
 - The initial schema creates a reversible `health_checks` table with a UUID v7 primary key, status, timestamp, and non-empty status constraint. PostgreSQL 16 compatibility is provided by the schema-local `miniclass_uuid_v7()` function.
 - Rework validation: `git diff --check` passes; Docker PostgreSQL smoke testing is unavailable because the Docker daemon is not running.
 - Goose CLI is not installed; the repository gate remains `true` and backend tests should be run with `GOTOOLCHAIN=local GOSUMDB=off` on the available Go 1.26 toolchain.
+
+## Migration and seed commands (#7)
+
+- Added `backend/cmd/migrate/main.go` using Goose and pgx stdlib; supports `up`, `down`, and `status`, defaulting to `up`, with credential-safe errors.
+- Added `backend/cmd/seed/main.go` and `backend/scripts/seed.sql`; Make `migrate-up`/`migrate-down` now use the command wrapper and `seed` already invokes its command.
+- Focused disposable-copy validation: `GOTOOLCHAIN=local GOSUMDB=off go test -mod=mod ./...`, builds, and missing-`DATABASE_URL` smoke checks pass. Repository gate is `true`; live PostgreSQL execution was not available.
+- Issue #3 remains open, but its migration PR is the dependency that supplies the `health_checks` table consumed by the seed SQL.
