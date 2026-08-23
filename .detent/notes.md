@@ -60,3 +60,10 @@
 - Validation: disposable Detent-temp Go 1.26 copy passed `GOTOOLCHAIN=local GOSUMDB=off go test ./internal/api/handlers/...` and `go test ./...`; `gofmt -d`, `git diff --check`, and repository gate `true` pass locally. The checked-in module requires Go 1.27, unavailable in this worker.
 - PR #23 is open, non-draft, mergeable, references `Fixes #5`, has no review comments, and has green `Validate` CI.
 - Rework pass reconfirmed the acceptance criteria and found no actionable human, bot, or inline review feedback. Focused and full backend tests, `gofmt -d`, `git diff --check`, and `true` passed again from a Detent temporary Go 1.26 copy; no source correction was needed.
+
+## API entry point (#6)
+
+- Issue #5 and PR #23 merged into `main`; the current base is `origin/main` at `1b4f608` and includes the complete API/server/health contracts.
+- Native dependencies #1, #2, #4, and #5 are terminal. Issue #6 has no PR or source implementation yet.
+- Implement `backend/cmd/api/main.go` with configuration loading, verified database startup, configured HTTP server startup, signal-triggered graceful shutdown, and resource cleanup.
+- Validation plan: focused API/config/db tests, full backend tests, startup/shutdown smoke test, `gofmt -d`, `git diff --check`, and `true`.
