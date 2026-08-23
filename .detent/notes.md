@@ -22,3 +22,10 @@
 - Local Go 1.26 cannot honor the repository's Go 1.27 directive because toolchain checksum-cache access is restricted. Disposable Detent temp copy with only `go.mod` set to 1.26 passes `GOSUMDB=off go test ./...`.
 - Repository gate `true`, `gofmt -d`, and `git diff --check` pass. CI has one `Validate` job running `git diff --check`; no CI checks are currently configured beyond that.
 - Workpad comment on issue #2 is complete. PR #18 is open, non-draft, references `Fixes #2`, and has no actionable review comments; keep the issue in its Detent-managed worker lane for promotion.
+
+## Initial database migration
+
+- Added `backend/migrations/00001_initial_schema.sql` using Goose Up/Down markers.
+- The initial schema creates a reversible `health_checks` table with an identity-like `BIGSERIAL` key, status, timestamp, and non-empty status constraint.
+- Validation: disposable Go 1.26-compatible copy `GOTOOLCHAIN=local GOSUMDB=off go test ./...` passes; `git diff --check` and configured gate `true` pass.
+- Goose CLI is not installed, and `goose validate` is not a supported Goose command; local Docker/PostgreSQL is unavailable, so migration up/down remains to be verified when the database service is available.
