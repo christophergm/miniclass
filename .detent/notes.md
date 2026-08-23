@@ -4,7 +4,7 @@
 - Entry point: `frontend/src/main.tsx`; router and layout: `frontend/src/App.tsx`; global styling: `frontend/src/index.css`.
 - Vite entry document is `frontend/index.html`; `BrowserRouter` serves `/` plus placeholder routes for `/classes`, `/assignments`, `/students`, and `/settings`.
 - Validation: `cd frontend && npm run build`, `npm run lint`, and repository gate `true`.
-- GitHub CLI is unauthenticated in this worker (`gh auth status` reports missing credentials), so issue Workpad/PR operations require a later authenticated handoff.
+- GitHub CLI is authenticated as `christophergm`; issue Workpad and PR operations are available in this worker.
 
 ## Backend configuration management
 
@@ -36,3 +36,17 @@
 - Added `backend/cmd/seed/main.go` and `backend/scripts/seed.sql`; Make `migrate-up`/`migrate-down` now use the command wrapper and `seed` already invokes its command.
 - Focused disposable-copy validation: `GOTOOLCHAIN=local GOSUMDB=off go test -mod=mod ./...`, builds, and missing-`DATABASE_URL` smoke checks pass. Repository gate is `true`; live PostgreSQL execution was not available.
 - Issue #3 remains open, but its migration PR is the dependency that supplies the `health_checks` table consumed by the seed SQL.
+
+## Backend HTTP server and middleware
+
+- Added `backend/internal/api` with `NewServer`, `NewServerWithConfig`, `NewRouter`, explicit middleware ordering, CORS, structured request logging, panic recovery, JSON content type, and JSON 404/405 errors.
+- API root is available at `/api` and `/api/`; feature routes such as health remain for subsequent issues.
+- Focused validation: `cd backend && go test ./internal/api/...` passes.
+- Full backend validation: `cd backend && go test ./...` passes.
+- Repository validation gate: `true` passes; CI's declared `Validate` check runs `git diff --check`.
+- This worker has Go 1.26.4 while the module requires Go 1.27; validate with a disposable `TMPDIR` copy whose `go.mod` directive is lowered to 1.26, using `/usr/local/go/bin/go` and `GOTOOLCHAIN=local GOSUMDB=off`.
+- PR #19 is open, non-draft, references issue #4, and has no human, bot, or inline review comments.
+- Rework validation: focused API tests, full backend tests, `gofmt -d internal/api/*.go`, `git diff --check`, and repository gate `true` all pass in the disposable Go 1.26 validation copy. Direct repository execution is blocked only by the unavailable Go 1.27 toolchain.
+- Issue #1 dependency is closed and its project item is Done; issue #4 is In Progress during this rework pass.
+- Rework review: PR #19 remains open and non-draft, references `Fixes #4`, has green `Validate` CI, and has no human, bot, or inline review feedback; no source correction was required.
+- Rebased the PR branch onto `origin/main` at `600a705` and added the three missing Goose indirect module content checksums to `backend/go.sum`; focused and full backend tests pass without `-mod=mod` using the disposable Go 1.26 modfile.
