@@ -40,7 +40,7 @@
 ## Backend HTTP server and middleware
 
 - Added `backend/internal/api` with `NewServer`, `NewServerWithConfig`, `NewRouter`, explicit middleware ordering, CORS, structured request logging, panic recovery, JSON content type, and JSON 404/405 errors.
-- API root is available at `/api` and `/api/`; feature routes such as health remain for subsequent issues.
+- API root is available at `/api` and `/api/`; the health route is registered at `/api/health`.
 - Focused validation: `cd backend && go test ./internal/api/...` passes.
 - Full backend validation: `cd backend && go test ./...` passes.
 - Repository validation gate: `true` passes; CI's declared `Validate` check runs `git diff --check`.
@@ -50,3 +50,13 @@
 - Issue #1 dependency is closed and its project item is Done; issue #4 is In Progress during this rework pass.
 - Rework review: PR #19 remains open and non-draft, references `Fixes #4`, has green `Validate` CI, and has no human, bot, or inline review feedback; no source correction was required.
 - Rebased the PR branch onto `origin/main` at `600a705` and added the three missing Goose indirect module content checksums to `backend/go.sum`; focused and full backend tests pass without `-mod=mod` using the disposable Go 1.26 modfile.
+
+## API health-check endpoint (#5)
+
+- Added `backend/internal/api/handlers/health.go` with a `DatabasePinger` interface, documented response fields, RFC3339 UTC timestamps, and HTTP 503 failure handling.
+- Registered `GET /api/health` in `NewRouter`; `NewServer` accepts the database and version through `WithDatabase` and `WithVersion`, while `NewServerWithConfig` supplies the configured version.
+- Focused tests cover healthy, failed, and missing database dependencies plus router registration.
+- The project item is `In Progress`; #4 is terminal after PR #19 merged, and this branch is based on `origin/main` at `ac9b09a`.
+- Validation: disposable Detent-temp Go 1.26 copy passed `GOTOOLCHAIN=local GOSUMDB=off go test ./internal/api/handlers/...` and `go test ./...`; `gofmt -d`, `git diff --check`, and repository gate `true` pass locally. The checked-in module requires Go 1.27, unavailable in this worker.
+- PR #23 is open, non-draft, mergeable, references `Fixes #5`, has no review comments, and has green `Validate` CI.
+- Rework pass reconfirmed the acceptance criteria and found no actionable human, bot, or inline review feedback. Focused and full backend tests, `gofmt -d`, `git diff --check`, and `true` passed again from a Detent temporary Go 1.26 copy; no source correction was needed.

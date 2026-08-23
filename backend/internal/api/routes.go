@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/chrismott/miniclass/internal/api/handlers"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -15,7 +16,9 @@ const apiBasePath = "/api"
 // RouterOptions configures the HTTP router independently of process startup.
 type RouterOptions struct {
 	AllowedOrigins []string
+	Database       handlers.DatabasePinger
 	Logger         *slog.Logger
+	Version        string
 }
 
 // NewRouter builds the complete API router and middleware chain.
@@ -53,6 +56,7 @@ func NewRouter(options RouterOptions) chi.Router {
 		apiRouter.NotFound(jsonNotFound)
 		apiRouter.MethodNotAllowed(jsonMethodNotAllowed)
 		apiRouter.Get("/", apiRoot)
+		apiRouter.Get("/health", handlers.NewHealthHandler(options.Database, options.Version).ServeHTTP)
 	})
 	router.Get(apiBasePath, apiRoot)
 
