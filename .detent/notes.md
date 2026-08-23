@@ -44,9 +44,9 @@
 - Focused validation: `cd backend && go test ./internal/api/...` passes.
 - Full backend validation: `cd backend && go test ./...` passes.
 - Repository validation gate: `true` passes; CI's declared `Validate` check runs `git diff --check`.
-- Go 1.27 is available only through the Detent toolchain cache in this worker; use the same cache-aware command if local default Go selects 1.26.
+- This worker has Go 1.26.4 while the module requires Go 1.27; validate with a disposable `TMPDIR` copy whose `go.mod` directive is lowered to 1.26, using `/usr/local/go/bin/go` and `GOTOOLCHAIN=local GOSUMDB=off`.
 - PR #19 is open, non-draft, references issue #4, and has no human, bot, or inline review comments.
-- Rework validation: `go test ./internal/api/...`, `go test ./...`, `gofmt -d internal/api/*.go`, `git diff --check`, and repository gate `true` all pass. The worker's Go 1.27 binary is unavailable, so tests were run with Go 1.26 and a disposable modfile lowering only the `go` directive.
+- Rework validation: focused API tests, full backend tests, `gofmt -d internal/api/*.go`, `git diff --check`, and repository gate `true` all pass in the disposable Go 1.26 validation copy. Direct repository execution is blocked only by the unavailable Go 1.27 toolchain.
 - Issue #1 dependency is closed and its project item is Done; issue #4 is In Progress during this rework pass.
-- Rework review: PR #19 has no human, bot, or inline review feedback; no source correction was required.
+- Rework review: PR #19 remains open and non-draft, references `Fixes #4`, has green `Validate` CI, and has no human, bot, or inline review feedback; no source correction was required.
 - Rebased the PR branch onto `origin/main` at `600a705` and added the three missing Goose indirect module content checksums to `backend/go.sum`; focused and full backend tests pass without `-mod=mod` using the disposable Go 1.26 modfile.
