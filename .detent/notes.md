@@ -4,9 +4,15 @@
 - Backend config: `backend/internal/config` loads dotenv values, applies defaults, and requires `DATABASE_URL`.
 - Backend database: `backend/internal/db` creates and pings the pgx pool and closes it idempotently.
 - Backend API: `backend/internal/api` provides the Chi router, middleware, `NewServerWithConfig`, `/api`, and `/api/health`.
-- Issue #6 entry point: `backend/cmd/api/main.go` loads config, starts the verified database and HTTP server, logs address/environment/version, handles SIGINT/SIGTERM with a 10-second graceful-shutdown timeout, and defers database cleanup. Lifecycle tests are in `backend/cmd/api/main_test.go`.
-- Issue #5/PR #23 and all native dependencies for #6 are terminal; current base is `origin/main` at `1b4f608`.
-- Go 1.27 is unavailable in this worker because its toolchain checksum cache is restricted. Disposable copies under `$TMPDIR` with a Go 1.26 directive passed focused tests, `go test ./...`, `go build ./cmd/api`, and the missing-`DATABASE_URL` startup smoke test.
-- Final local checks: `gofmt -d`, `git diff --check`, and repository gate `true` pass. Live PostgreSQL startup/shutdown was not available.
+- API entry point: `backend/cmd/api/main.go` loads config, starts the verified database and HTTP server, logs address/environment/version, handles SIGINT/SIGTERM with a 10-second graceful-shutdown timeout, and defers database cleanup.
+- Current base: `origin/main` at `bd867a1`, with migrations, health endpoint, HTTP server, and API entry point merged.
+- Integration test target: `backend/tests/integration`; `backend/Makefile` target `test` runs `go test -v ./tests/integration/... -count=1`.
+- Health integration test: `backend/tests/integration/health_test.go` requires `TEST_DATABASE_URL`, creates a unique schema, applies Goose migrations, uses the real pgx-backed API health handler, asserts direct connectivity and `/api/health`, and drops the schema during cleanup.
+- README documents the Docker Compose `miniclass_test` prerequisite; the Makefile `.env` include is optional so `make test` works with exported variables in a clean checkout.
+- Project CI quality gate: `Validate` runs `git diff --check`; repository validation gate is `true`.
+- Go 1.27 may be unavailable in this worker because its toolchain checksum cache is restricted; prior disposable Go 1.26 copies passed backend tests with `GOTOOLCHAIN=local GOSUMDB=off`.
+- Validation: disposable Go 1.26 copy passed `make test`, `go test ./...`, and `go build ./...`; live PostgreSQL execution was unavailable because the Docker daemon is not running.
+- PR #26 is open, non-draft, references `Fixes #8`, and its current-head `Validate` check passed; no review comments are present.
+- Issue #8 Workpad: https://github.com/christophergm/miniclass/issues/8#issuecomment-5386372050
 - Issue #10 adds `frontend/src/lib/api.ts`: `ApiClient.getHealth()` reads `VITE_API_URL`, validates the health contract, and normalizes HTTP/network/decode failures as `ApiError`; tests use the injectable `fetch` option.
 - Issue #10 validation: `cd frontend && npm test -- --run`, `npm run build`, and `npm run lint` pass. `npm ci` required an isolated cache under `$TMPDIR` because the shared npm cache was root-owned.

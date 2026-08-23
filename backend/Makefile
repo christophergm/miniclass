@@ -1,7 +1,7 @@
 .PHONY: help dev build test migrate-up migrate-down migrate-create seed reset-db sqlc install-tools
 
 # Load environment variables
-include ../.env
+-include ../.env
 export
 
 help: ## Show this help message

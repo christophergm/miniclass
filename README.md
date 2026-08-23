@@ -118,6 +118,23 @@ replacement, or `npm run build` to verify the production bundle.
 
 ### Development Commands
 
+#### Backend integration test
+
+The PostgreSQL health integration test requires an isolated test database. Start
+the local PostgreSQL service, then set `TEST_DATABASE_URL` to the
+`miniclass_test` database created by Docker Compose:
+
+```bash
+docker compose up -d postgres
+export TEST_DATABASE_URL='postgres://miniclass:miniclass_dev_password@localhost:5432/miniclass_test?sslmode=disable'
+cd backend
+make test
+```
+
+Each test run creates a unique schema, applies the migrations, and drops that
+schema during cleanup. Do not point `TEST_DATABASE_URL` at a development or
+production database.
+
 **Backend:**
 ```bash
 cd backend
