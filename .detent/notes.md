@@ -6,6 +6,7 @@
 - `.github/workflows/ci.yml` publishes `Backend tests`, `Frontend tests`, `Frontend build`, `Frontend lint`, and `Repository formatting`; backend CI supplies PostgreSQL and `TEST_DATABASE_URL`.
 - `WORKFLOW.md` and `README.md` document the local commands and exact CI check names.
 - Validation: frontend `npm ci`, 9 tests, build, lint, YAML parse, and `git diff --check` pass. Local backend execution could not start because only Go 1.26 is installed and the restricted host cannot download Go 1.27; CI uses `actions/setup-go` from `backend/go.mod`.
+- First CI backend run exposed a Goose parsing failure for the dollar-quoted UUID function; migration `00001_initial_schema.sql` now wraps that function in Goose statement-boundary directives.
 - Open item: commit/push, open PR with `Fixes #14`, inspect current-head CI/reviews, then update the Workpad.
 
 - Issue #9 adds the initial React/TypeScript frontend shell under `frontend/src`.
