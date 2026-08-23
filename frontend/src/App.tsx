@@ -1,6 +1,8 @@
 import { NavLink, Route, Routes } from 'react-router-dom'
 
-type IconName = 'home' | 'book' | 'check' | 'users' | 'settings'
+import { HealthCheck } from './features/health/HealthCheck'
+
+type IconName = 'home' | 'book' | 'check' | 'users' | 'activity' | 'settings'
 
 type NavigationItem = {
   label: string
@@ -13,6 +15,7 @@ const navigationItems: NavigationItem[] = [
   { label: 'My classes', path: '/classes', icon: 'book' },
   { label: 'Assignments', path: '/assignments', icon: 'check' },
   { label: 'Students', path: '/students', icon: 'users' },
+  { label: 'System health', path: '/health', icon: 'activity' },
 ]
 
 function Icon({ name }: { name: IconName }) {
@@ -21,6 +24,7 @@ function Icon({ name }: { name: IconName }) {
     book: 'M5 4.5h11.5A2.5 2.5 0 0 1 19 7v12.5H7.5A2.5 2.5 0 0 1 5 17V4.5ZM5 17a2.5 2.5 0 0 1 2.5-2.5H19',
     check: 'm5 12 4 4L19 6',
     users: 'M16 20v-1.5a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4V20M9.5 10.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM17 11a3 3 0 1 0 0-6M17 14.5a4 4 0 0 1 4 4V20',
+    activity: 'M3 12h4l2.2-6 4.2 12 2.3-6H21',
     settings: 'M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-1.8 1.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.1h-2.6V20a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1-1.8-1.8.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H6v-2.6h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1 1.8-1.8.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V5h2.6v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1 1.8 1.8-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1v2.6h-.1a1.7 1.7 0 0 0-1.6 1Z',
   }
 
@@ -196,6 +200,7 @@ function App() {
           <Route path="/classes" element={<PlaceholderPage title="My classes" />} />
           <Route path="/assignments" element={<PlaceholderPage title="Assignments" />} />
           <Route path="/students" element={<PlaceholderPage title="Students" />} />
+          <Route path="/health" element={<HealthCheck />} />
           <Route path="/settings" element={<PlaceholderPage title="Settings" />} />
           <Route path="*" element={<PlaceholderPage title="Page not found" />} />
         </Routes>
