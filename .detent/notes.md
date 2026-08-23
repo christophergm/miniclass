@@ -12,4 +12,5 @@
 - Project CI quality gate: `Validate` runs `git diff --check`; repository validation gate is `true`.
 - Go 1.27 may be unavailable in this worker because its toolchain checksum cache is restricted; prior disposable Go 1.26 copies passed backend tests with `GOTOOLCHAIN=local GOSUMDB=off`.
 - Validation: disposable Go 1.26 copy passed `make test`, `go test ./...`, and `go build ./...`; live PostgreSQL execution was unavailable because the Docker daemon is not running.
+- PR #26 is open, non-draft, references `Fixes #8`, and its current-head `Validate` check passed; no review comments are present.
 - Issue #8 Workpad: https://github.com/christophergm/miniclass/issues/8#issuecomment-5386372050
