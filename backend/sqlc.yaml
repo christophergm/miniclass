@@ -7,8 +7,20 @@ sql:
       go:
         package: "db"
         out: "internal/db/gen"
+        sql_package: "pgx/v5"
         emit_json_tags: true
         emit_prepared_queries: false
         emit_interface: false
         emit_exact_table_names: false
         emit_empty_slices: true
+        overrides:
+          - db_type: "public.xid20"
+            go_type:
+              import: "github.com/chrismott/miniclass/internal/ids"
+              type: "XID"
+          - db_type: "public.xid20"
+            nullable: true
+            go_type:
+              import: "github.com/chrismott/miniclass/internal/ids"
+              type: "XID"
+              pointer: true

@@ -17,7 +17,7 @@ import (
 	"github.com/chrismott/miniclass/internal/api"
 	"github.com/chrismott/miniclass/internal/api/handlers"
 	"github.com/chrismott/miniclass/internal/api/problems"
-	"github.com/chrismott/miniclass/internal/db"
+	"github.com/chrismott/miniclass/internal/data"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
@@ -68,7 +68,7 @@ func TestHealthIntegration(t *testing.T) {
 	migrationsDir := filepath.Join(filepath.Dir(currentFile), "..", "..", "migrations")
 	require.NoError(t, goose.Up(gooseDB, migrationsDir, goose.WithAllowMissing()))
 
-	database, err := db.NewFromURL(ctx, schemaURL)
+	database, err := data.NewFromURL(ctx, schemaURL)
 	require.NoError(t, err)
 	if err != nil {
 		return
@@ -78,13 +78,23 @@ func TestHealthIntegration(t *testing.T) {
 
 	var migrated bool
 	require.NoError(t, database.Pool().QueryRow(ctx, `
-		SELECT EXISTS (
-			SELECT 1
-			FROM information_schema.tables
-			WHERE table_schema = current_schema()
-			  AND table_name = 'health_checks'
-		)`).Scan(&migrated))
-	require.True(t, migrated, "health_checks migration was not applied")
+	select exists (
+			select 1
+			from information_schema.tables
+			where table_schema = current_schema()
+			  and table_name = 'organizations'
+			  )`).Scan(&migrated))
+	require.True(t, migrated, "identity migration was not applied")
+
+	var healthTableExists bool
+	require.NoError(t, database.Pool().QueryRow(ctx, `
+	select exists (
+			select 1
+			from information_schema.tables
+			where table_schema = current_schema()
+			  and table_name = 'health_checks'
+		)`).Scan(&healthTableExists))
+	require.False(t, healthTableExists, "health_checks must be removed by the identity migration")
 
 	server := api.NewServer(
 		api.WithAddress("test"),

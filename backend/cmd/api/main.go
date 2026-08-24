@@ -14,7 +14,7 @@ import (
 
 	"github.com/chrismott/miniclass/internal/api"
 	"github.com/chrismott/miniclass/internal/config"
-	"github.com/chrismott/miniclass/internal/db"
+	"github.com/chrismott/miniclass/internal/data"
 )
 
 const shutdownTimeout = 10 * time.Second
@@ -45,7 +45,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		return fmt.Errorf("load API configuration: %w", err)
 	}
 
-	database, err := db.New(signalContext, cfg)
+	database, err := data.New(signalContext, cfg)
 	if err != nil {
 		return fmt.Errorf("start database: %w", err)
 	}

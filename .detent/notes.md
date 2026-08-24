@@ -201,3 +201,27 @@
 - Merge fallback rebase conflict was limited to this handoff file; Issue #41 and Issue #39 notes were retained, with no source conflict resolution.
 - Merge fallback gate: `git diff --check` passed on the clean rebased head; branch was pushed with `--force-with-lease`.
 - Final handoff: update the persistent Workpad to `complete`; Detent owns the completion-lane transition.
+
+## Issue #50 identity schema, token primitive, and bootstrap
+
+- Recovered implementation is based on `origin/main` and remains scoped to P1-1. The old pool in
+  `internal/db` is replaced by `internal/data`; generated sqlc output is in `internal/db/gen` and
+  only the data packages import it. `internal/identity` is the only production importer of the
+  unscoped `internal/data/identity` accessor; `cmd/bootstrap` uses `identity.NewStore`.
+- Migration `20260824120000_identity_schema.sql` adds the four identity tables and enums with
+  `public.xid20`/`public.xid()` keys, invitation-state checks, hashed-token metadata, trigger
+  timestamps, and drops `health_checks`. Goose statement-boundary directives are required around
+  the trigger function.
+- `internal/identity` generates 32-byte URL-safe bearer values, hashes them with SHA-256, bootstraps
+  an Owner invitation atomically, and regenerates pending admin invitations with generation+1,
+  old-token revocation, and membership relinking. `cmd/bootstrap` prints only the claim URL and
+  expiry.
+- Focused unit tests pass. PostgreSQL 18 integration passes for health plus bootstrap/regeneration;
+  the full backend race suite, vet/format, lint, sqlc/OpenAPI generation, frozen Bun frontend
+  tests/build/lint, and `git diff --check` pass. The exact migration wrapper was attempted but host
+  `psql` is unavailable; its identical up/down/up sequence passed through `docker exec psql` and
+  left no disposable database.
+- PR #71 is open, non-draft, mergeable, references `Fixes #50`, cites SPEC §9.1/§9.3/§9.5/§6.6 and
+  ADR 0007/0009/0010, and has no review or inline comments. After the generated-artifact correction
+  commit `ee21b13`, all nine current-head required checks passed; the Workpad is the remaining final
+  handoff and Detent owns the completion-lane transition.
