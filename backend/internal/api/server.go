@@ -21,6 +21,7 @@ type ServerOptions struct {
 	AllowedOrigins    []string
 	Database          handlers.DatabasePinger
 	Logger            *slog.Logger
+	TrustedProxyCIDRs []string
 	ReadTimeout       time.Duration
 	ReadHeaderTimeout time.Duration
 	WriteTimeout      time.Duration
@@ -59,10 +60,11 @@ func NewServer(options ...ServerOption) *Server {
 	}
 
 	router := NewRouter(RouterOptions{
-		AllowedOrigins: settings.AllowedOrigins,
-		Database:       settings.Database,
-		Logger:         settings.Logger,
-		Version:        settings.Version,
+		AllowedOrigins:    settings.AllowedOrigins,
+		Database:          settings.Database,
+		Logger:            settings.Logger,
+		TrustedProxyCIDRs: settings.TrustedProxyCIDRs,
+		Version:           settings.Version,
 	})
 	httpServer := &http.Server{
 		Addr:              settings.Address,
@@ -79,7 +81,11 @@ func NewServer(options ...ServerOption) *Server {
 // NewServerWithConfig constructs a server using the configured application
 // port while preserving the same independent construction behavior.
 func NewServerWithConfig(cfg config.Config, options ...ServerOption) *Server {
-	options = append([]ServerOption{WithAddress(":" + cfg.Port), WithVersion(cfg.AppVersion)}, options...)
+	options = append([]ServerOption{
+		WithAddress(":" + cfg.Port),
+		WithTrustedProxyCIDRs(cfg.TrustedProxyCIDRs...),
+		WithVersion(cfg.AppVersion),
+	}, options...)
 	return NewServer(options...)
 }
 
@@ -110,6 +116,12 @@ func WithVersion(version string) ServerOption {
 // WithLogger sets the structured logger used by request and panic middleware.
 func WithLogger(logger *slog.Logger) ServerOption {
 	return func(options *ServerOptions) { options.Logger = logger }
+}
+
+// WithTrustedProxyCIDRs configures the proxy networks allowed to supply
+// forwarding headers for the effective request address.
+func WithTrustedProxyCIDRs(cidrs ...string) ServerOption {
+	return func(options *ServerOptions) { options.TrustedProxyCIDRs = cidrs }
 }
 
 // Handler returns the router for callers that need an http.Handler without
