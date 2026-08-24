@@ -36,8 +36,8 @@ than a guard that must be *remembered* by an author.
 ## Decision
 
 **1. Row-level security is the enforcement floor.** Every tenant-scoped table gets
-`ENABLE ROW LEVEL SECURITY` **and** `FORCE ROW LEVEL SECURITY`, with a policy predicated on
-`organization_id = current_setting('app.organization_id')::uuid`.
+`enable row level security` **and** `force row level security`, with a policy predicated on
+`organization_id = current_setting('app.organization_id')::public.xid20`.
 
 The `current_setting` call omits the `missing_ok` argument. This is a one-word decision with
 opposite security semantics: without it, an unset setting raises SQLSTATE 42704 and the query
@@ -45,9 +45,9 @@ opposite security semantics: without it, an unset setting raises SQLSTATE 42704 
 false, and the query silently returns an empty result set — the exact failure mode §9.2 forbids.
 
 **2. Two database roles**, created by migration. `miniclass_migrator` owns the schema and is the only
-role with DDL. `miniclass_app` is what the API connects as: no `BYPASSRLS`, no DDL, DML grants only,
-`statement_timeout = '10s'`. `FORCE` means the migrator is subject to policy too, so no third
-bypassing role is needed.
+role with DDL. `miniclass_app` is what the API connects as: no `bypassrls`, no DDL, DML grants only,
+`statement_timeout = '10s'`. Forcing row-level security means the migrator is subject to policy too,
+so no third bypassing role is needed.
 
 **3. Data access occurs only through closures** in `internal/data`:
 
@@ -57,7 +57,7 @@ func (p *Pool) InTenantRead(ctx, scope, fn func(context.Context, *gen.Queries) e
 ```
 
 Each opens a transaction, issues `SET LOCAL app.organization_id`, and commits or rolls back.
-`SET LOCAL` rather than `SET`: a session-level setting on a pooled connection carries one tenant's
+`set local` rather than `set`: a session-level setting on a pooled connection carries one tenant's
 scope into the next checkout, which is the standard way to convert row-level security into a
 cross-tenant leak.
 
@@ -78,8 +78,8 @@ tables are unreachable from it**: it is not a bypass, it is a path on which the 
 exist. The allowlist is a literal slice in the meta-test, so growing it is a visible diff requiring
 a spec citation.
 
-**5. Composite foreign keys.** Every tenant-scoped table declares `UNIQUE (id, organization_id)` as
-a foreign-key target; year-scoped entities declare `UNIQUE (id, organization_id, school_year_id)`.
+**5. Composite foreign keys.** Every tenant-scoped table declares `unique (id, organization_id)` as
+a foreign-key target; year-scoped entities declare `unique (id, organization_id, school_year_id)`.
 References between them carry every scope column:
 
 ```
@@ -105,8 +105,8 @@ obtained structurally rather than by handler discipline.
 **7. The isolation harness has two layers.**
 
 *Layer 1* is generic and needs no per-table work. For every table on which `miniclass_app` holds any
-privilege it asserts: presence on the four-name allowlist or an `organization_id uuid NOT NULL`
-column; RLS enabled *and* forced; a policy predicated on `app.organization_id`; `UNIQUE (id,
+privilege it asserts: presence on the four-name allowlist or an `organization_id public.xid20 not
+null` column; RLS enabled *and* forced; a policy predicated on `app.organization_id`; `unique (id,
 organization_id)`; every foreign key to another tenant-scoped table includes `organization_id`; and
 behaviourally, that a query with no GUC set fails with 42704. It also asserts that every
 tenant-scoped table has a Layer 2 registry entry.

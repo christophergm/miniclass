@@ -156,9 +156,10 @@ green. Before the domain model arrives, the gate must be real.
 - Adopt **Huma v2** over chi: health endpoint ported, RFC 9457 error shape, `cmd/openapi` generator,
   `openapi.json` committed and drift-checked, `openapi-typescript` + `openapi-fetch` on the frontend
   replacing the hand-written client.
-- **Delete the mock frontend shell**; adopt Tailwind and shadcn/ui at a deliberately narrow scope —
-  three primitives, health page ported, `index.css` removed. Doing this before Phase 1 keeps the
-  first agent to touch UI from making every foundational decision inside a PR about students.
+- **Delete the mock frontend shell**; adopt **Tailwind v4** (via `@tailwindcss/vite`) and shadcn/ui at
+  a deliberately narrow scope — the `@/*` path alias, three primitives, health page ported,
+  `index.css` removed. Doing this before Phase 1 keeps the first agent to touch UI from making every
+  foundational decision inside a PR about students.
 - Clean the leftover placeholder preamble out of `WORKFLOW.md` and rewrite its gate table.
 - Add a PR template requiring a spec citation, and `CODEOWNERS`.
 - Extend `AGENTS.md` with the standing rules in

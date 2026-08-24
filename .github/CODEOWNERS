@@ -1,0 +1,23 @@
+# Every change is owner-reviewed. The explicit entries below are not a different
+# permission — they mark the paths where review attention is most valuable, because
+# a defect there is silent rather than loud.
+
+*                           @christophergm
+
+# Schema and the tenancy guard. A forgotten `enable row level security` discloses
+# one school's children to another (SPEC §9.1) and does not fail loudly.
+/backend/migrations/        @christophergm
+/backend/internal/data/     @christophergm
+
+# The only code permitted to reach data without a tenant context.
+/backend/internal/identity/ @christophergm
+
+# The merge gate itself. Agents run with `approval_policy: never`, so a weakened
+# gate is unobserved by design.
+/.github/                   @christophergm
+/detent.yaml                @christophergm
+/AGENTS.md                  @christophergm
+
+# Normative behaviour and architecture record.
+/SPEC.md                    @christophergm
+/docs/adr/                  @christophergm

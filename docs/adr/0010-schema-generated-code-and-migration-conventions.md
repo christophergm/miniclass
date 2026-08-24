@@ -20,10 +20,38 @@ project: migration version collisions, and merge conflicts in generated files.
 
 ### Schema
 
-**Identifiers.** `uuid PRIMARY KEY DEFAULT uuidv7()`, using PostgreSQL 18's native function.
-Time-ordered so it clusters well, opaque per §8.7, exposed raw in the API. No slugs and no secondary
-public identifiers. §8.7's rule that "nothing in the system MAY use a person's name as a key" is
-absolute; every join is on an opaque identifier.
+**Identifiers.** `public.xid20 primary key default public.xid()`, per the standing rule in
+`AGENTS.md` and the domain, generator and helpers established by migration `00002_xid.sql`. Always
+schema-qualified: the domain is deliberately *not* named `xid`, because `pg_catalog.xid` — the 4-byte
+transaction-id type — resolves ahead of the `search_path`, so an unqualified `xid` column silently
+becomes a transaction id in any schema.
+
+The properties that matter here are the same ones that made UUIDv7 attractive: the first four bytes
+are a timestamp, so values are k-sortable and cluster well on insert. In addition they are 20
+characters of lowercase base32, which is shorter and more URL-friendly than a UUID. §8.7 is satisfied
+— opaque, system-generated, stable — and exposed raw in the API. No slugs, no secondary public
+identifiers. §8.7's rule that "nothing in the system MAY use a person's name as a key" is absolute;
+every join is on an opaque identifier.
+
+**An xid is opaque but *not* unguessable.** It encodes a timestamp, a machine identifier, a process
+id and an incrementing counter. Entity identifiers may therefore appear in URLs — access control on
+those paths is authentication plus row-level security, never obscurity. But §9.5 share links are the
+opposite case, where the specification states plainly that "obscurity is the only access control on
+this channel": those tokens **MUST** be high-entropy random values, stored hashed, and **MUST NEVER**
+be an xid or derived from one. The distinction is easy to miss precisely because both are "opaque
+identifiers".
+
+**sqlc mapping.** `public.xid20` is a domain over `char(20)`, which sqlc would otherwise render as a
+bare `string`. It is mapped once, in `sqlc.yaml`, to a shared string newtype so an identifier cannot
+be passed where an arbitrary string is expected. Per-entity identifier types (`StudentID`,
+`AdultID`) are achievable with per-column overrides but would cost an override entry per column for a
+marginal gain; one shared type is the accepted middle. The domain's regular-expression check
+guarantees exactly twenty characters, so `char(20)`'s blank-padding semantics never apply.
+
+**SQL is written in lowercase** — keywords, identifiers, function names and migration statements — per
+the standing rule in `AGENTS.md`. Quoted mixed-case names appear only when integrating with an
+external schema that cannot be changed. `00001_initial_schema.sql` predates the rule and is uppercase;
+it is not retrofitted, because the table it creates is dropped in Phase 1.
 
 **Closed sets live wherever they are most naturally single-sourced.**
 
@@ -116,6 +144,13 @@ value plus backfilling takes two migrations; values cannot be removed or reorder
 **A global soft-delete filter** in the data layer. Rejected: a second invisible automatic predicate
 alongside row-level security, for a far lower-stakes concern, and it makes "show me deleted people"
 awkward.
+
+**`uuid` keys defaulting to PostgreSQL 18's native `uuidv7()`.** Rejected, and recorded because an
+earlier draft of this record specified it. `AGENTS.md` carries a standing rule mandating
+`public.xid20` and explicitly forbidding UUID identifiers for new application entities, and migration
+`00002_xid.sql` had already implemented the domain and generator. The two options are close on
+merit — both are time-ordered and opaque — so a fleet-wide standard already in place wins on
+consistency alone. `health_checks` is the only table using `uuid`, and it is dropped in Phase 1.
 
 **Sequential migration numbering with conflict resolution by rename.** Rejected: git does not
 conflict, so nothing forces the rename.

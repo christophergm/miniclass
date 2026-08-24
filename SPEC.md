@@ -2545,7 +2545,7 @@ Significant actions MUST include:
 | Structure | School year and program creation; membership changes; session non-participation |
 | Lifecycle | Every session state transition, including backward ones (§14.5) |
 | Catalog | Offering changes made after the catalog is published |
-| Rules | Tag definition and assignment changes; pairing changes; exclusions |
+| Rules | Tag definition and assignment changes; pairing changes; exclusions; changes to the concrete-attribute vocabularies of §10.1, including retirement |
 | Assignment | Solve runs; every manual operation of §17.12; every override (§16.7) |
 | Publication | Publish and re-publish; link generation, regeneration, revocation |
 | Access | Permission changes; administrator addition and removal |
@@ -2943,6 +2943,8 @@ be checked before or during implementation.
 | 10 | Should a share link expire at session end, or outlive it? | Session end (§9.5) |
 | 11 | Should ranked-choice depth vary by session, or be fixed for a program? | Per session (§14.1) |
 | 12 | Is tag balance (for example across streams) genuinely wanted, given it has never actually been enforced? | Specified as a low-weight soft term (§16.4) |
+| 13 | When a homeroom's staffing changes, is the homeroom **renamed** or **retired and replaced**? Homeroom vocabularies are organization-scoped (§10.1) while people are year-scoped (§8.1), so a rename retroactively changes the homeroom displayed for students in closed years — which §11.1 otherwise guarantees is immutable. | Retired and replaced, not renamed. Retirement is supported and audited; renaming is permitted but is a known limitation (§10.1, §11.1) |
+| 14 | How many adults participate in a year? §22.1 expects ~60 while Appendix B.1 records 84 survey responses covering roughly 100 adults. Which figure describes the population the system must hold, and which describes active volunteers? | ~100 adults held per year, of whom ~60 are active volunteers. Sizing and test corpora use the larger figure (§22.1, B.1) |
 
 ---
 

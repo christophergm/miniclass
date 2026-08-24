@@ -10,9 +10,11 @@ declarations from that block; narrative sentences are never read as blockers.
 
 ## Project CI Quality Gates
 
-Replace these placeholders with the project's required stage categories and
-the project-specific local command and CI check name that satisfy each one. Add
-or remove categories to match the project.
+These are the project's required stage categories, each with the local command and
+the CI check name that satisfy it. This list is extended by the Phase 0 quality-gate
+work, which adds backend lint, backend format, generated-code drift and migration
+round-trip checks; whichever change adds a check updates this table in the same
+pull request.
 
 - Backend tests: local command `cd backend && make test`; CI check `Backend tests`
 - Frontend tests: local command `cd frontend && bun install --frozen-lockfile && bun run test -- --run`; CI check `Frontend tests`
