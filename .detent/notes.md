@@ -283,3 +283,26 @@
   comments. All nine current-head checks pass; slowest were Generated code drift (1m28s), Backend lint
   (1m09s), and Backend tests (1m02s). The exact wrapper's host `psql` limitation is the only local
   environment note; no blocker or human action remains.
+
+## Issue #60 frontend auth shell, session, and school-year routing
+
+- `frontend/src/lib/auth.ts` creates the `supabase-js` browser client with persisted, auto-refreshing
+  sessions from `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`; `AuthProvider` subscribes to session
+  changes and exposes email/password sign-in, sign-up for invitation claim, password reset, and sign-out.
+- `frontend/src/lib/api.ts` adds dynamic `Authorization: Bearer` injection for `/api/me` and
+  `/api/auth/claim`, plus the P1-4 `/api/school-years` and `/api/school-years/:id` resource calls.
+- `frontend/src/App.tsx` protects `/years` and `/y/:schoolYearId/...`; the year remains route-only and
+  a 404 from Go renders `School year not found`. `AppShell` has the user menu/sign-out; there is no
+  dashboard or statistics page. `frontend/index.html` has a strict static CSP meta policy.
+- Focused coverage is in `frontend/src/App.test.tsx` and `frontend/src/lib/api.test.ts`; frozen Bun
+  install, 12 frontend tests, build, lint, and `git diff --check` pass. React Router emits only its
+  existing v7 future-flag warnings in tests.
+- PR #77 is open, non-draft, mergeable, references `Fixes #60`, cites SPEC §§9.3/9.4/6.6 and ADR 0009,
+  and has no review or inline comments. After rebasing onto merged P1-4, all nine current-head checks
+  pass on commit `1a6d049`: Backend tests, Backend lint, Backend format, Generated code drift,
+  Migration round-trip, Frontend tests, Frontend build, Frontend lint, and Repository formatting.
+- Telemetry: quiet-window wait 0s; local frontend gate under 8s; PR CI completed in about 1m20s after
+  the rebase, with slow checks Generated code drift (1m19s), Backend lint (1m16s), and Migration
+  round-trip (1m05s). No post-merge main CI run is active.
+- Final handoff: update the single Workpad comment to `complete`; Detent owns the completion-lane
+  transition. Skill draft: no — the implementation used standard frontend auth and routing patterns.
