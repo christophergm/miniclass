@@ -8,16 +8,14 @@ vi.mock('./features/health/HealthCheck', () => ({
   HealthCheck: () => <div data-testid="health-check">Backend health check</div>,
 }))
 
-describe('App home page', () => {
-  it('renders the overview and health check on the root route', () => {
+describe('App routing', () => {
+  it('redirects the root route to the health page', () => {
     render(
       <MemoryRouter initialEntries={['/']}>
         <App />
       </MemoryRouter>,
     )
 
-    expect(screen.getByRole('heading', { name: /everything for your classroom/i })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'System health' })).toBeInTheDocument()
     expect(screen.getByTestId('health-check')).toBeInTheDocument()
   })
 })

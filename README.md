@@ -143,16 +143,15 @@ bun run dev
 - Backend API: http://localhost:8080
 - Adminer (DB GUI): http://localhost:8081
 
-### Frontend shell
+### Frontend
 
-The frontend starts at the responsive MiniClass workspace overview. Its initial
-navigation is available at:
+The frontend currently provides one deliberately narrow surface: a live backend
+health page. The root route redirects to `/health`, which shows API and database
+status, the running version, the last check time, and a manual refresh action.
 
-- `/` — classroom overview
-- `/classes` — classes workspace placeholder
-- `/assignments` — assignments workspace placeholder
-- `/students` — students workspace placeholder
-- `/settings` — settings workspace placeholder
+The UI foundation uses Tailwind CSS v4 through `@tailwindcss/vite` and shadcn/ui
+with the initial `button`, `input`, and `table` primitives. There is no dashboard
+or fabricated classroom data until the specification defines those workflows.
 
 Run `bun run dev` from `frontend/` for Vite development with hot module
 replacement, or `bun run build` to verify the production bundle.

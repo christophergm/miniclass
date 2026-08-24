@@ -1,5 +1,7 @@
-import { ApiError } from '../../lib/api'
-import { useHealth } from '../../lib/hooks/useHealth'
+import { Button } from '@/components/ui/button'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { ApiError } from '@/lib/api'
+import { useHealth } from '@/lib/hooks/useHealth'
 
 function formatTimestamp(timestamp: string): string {
   const date = new Date(timestamp)
@@ -17,13 +19,13 @@ function titleCase(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1)
 }
 
-function HealthMetric({ label, value, detail }: { label: string; value: string; detail?: string }) {
+function HealthMetric({ label, value, detail }: { label: string; value: string; detail: string }) {
   return (
-    <div className="health-metric">
-      <span>{label}</span>
-      <strong>{value}</strong>
-      {detail && <small>{detail}</small>}
-    </div>
+    <TableRow>
+      <TableHead className="w-1/3">{label}</TableHead>
+      <TableCell className="font-medium text-foreground">{value}</TableCell>
+      <TableCell className="text-muted-foreground">{detail}</TableCell>
+    </TableRow>
   )
 }
 
@@ -32,17 +34,17 @@ export function HealthCheck() {
 
   if (isLoading) {
     return (
-      <div className="page-content health-page">
-        <p className="eyebrow accent">System health</p>
-        <h2>Backend health check</h2>
-        <div className="health-card health-loading" role="status" aria-live="polite">
-          <span className="health-spinner" aria-hidden="true" />
+      <main className="mx-auto flex min-h-screen w-full max-w-3xl flex-col justify-center px-6 py-12">
+        <p className="mb-3 text-sm font-medium text-primary">MiniClass</p>
+        <h1 className="text-3xl font-semibold tracking-tight">System health</h1>
+        <div className="mt-8 flex items-center gap-4 rounded-lg border bg-card p-6 shadow-sm" role="status" aria-live="polite">
+          <span className="size-5 animate-spin rounded-full border-2 border-primary/20 border-t-primary" aria-hidden="true" />
           <div>
-            <strong>Checking backend health…</strong>
-            <p>Connecting to the MiniClass API.</p>
+            <strong className="text-sm font-medium">Checking backend health…</strong>
+            <p className="mt-1 text-sm text-muted-foreground">Connecting to the MiniClass API.</p>
           </div>
         </div>
-      </div>
+      </main>
     )
   }
 
@@ -50,62 +52,72 @@ export function HealthCheck() {
     const message = error instanceof ApiError ? error.message : 'An unexpected error occurred.'
 
     return (
-      <div className="page-content health-page">
-        <p className="eyebrow accent">System health</p>
-        <h2>Backend health check</h2>
-        <div className="health-card health-error" role="alert">
-          <div className="health-status-icon error" aria-hidden="true">!</div>
-          <div className="health-message">
-            <strong>Backend health check failed</strong>
-            <p>{message}</p>
-            <button className="secondary-button" type="button" onClick={() => void refetch()} disabled={isFetching}>
+      <main className="mx-auto flex min-h-screen w-full max-w-3xl flex-col justify-center px-6 py-12">
+        <p className="mb-3 text-sm font-medium text-primary">MiniClass</p>
+        <h1 className="text-3xl font-semibold tracking-tight">System health</h1>
+        <div className="mt-8 flex items-start gap-4 rounded-lg border border-destructive/30 bg-destructive/5 p-6 shadow-sm" role="alert">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-destructive/10 font-semibold text-destructive" aria-hidden="true">!</div>
+          <div>
+            <strong className="text-sm font-medium">Backend health check failed</strong>
+            <p className="mt-1 text-sm text-muted-foreground">{message}</p>
+            <Button className="mt-4" variant="outline" type="button" onClick={() => void refetch()} disabled={isFetching}>
               {isFetching ? 'Trying again…' : 'Try again'}
-            </button>
+            </Button>
           </div>
         </div>
-      </div>
+      </main>
     )
   }
 
   const isHealthy = data.status === 'healthy'
 
   return (
-    <div className="page-content health-page">
-      <div className="health-heading">
+    <main className="mx-auto min-h-screen w-full max-w-3xl px-6 py-12">
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="eyebrow accent">System health</p>
-          <h2>Backend health check</h2>
-          <p className="health-intro">A live view of the MiniClass API and its database connection.</p>
+          <p className="mb-3 text-sm font-medium text-primary">MiniClass</p>
+          <h1 className="text-3xl font-semibold tracking-tight">System health</h1>
+          <p className="mt-2 text-sm text-muted-foreground">A live view of the MiniClass API and its database connection.</p>
         </div>
-        <button className="refresh-button" type="button" onClick={() => void refetch()} disabled={isFetching}>
-          <span aria-hidden="true">↻</span>
+        <Button type="button" onClick={() => void refetch()} disabled={isFetching}>
           {isFetching ? 'Refreshing…' : 'Refresh now'}
-        </button>
+        </Button>
       </div>
 
-      <div className={`health-card health-summary ${isHealthy ? 'healthy' : 'unhealthy'}`}>
-        <div className={`health-status-icon ${isHealthy ? 'success' : 'warning'}`} aria-hidden="true">
+      <section className={`mt-8 flex items-center gap-4 rounded-lg border p-6 shadow-sm ${isHealthy ? 'border-emerald-200 bg-emerald-50/70' : 'border-amber-200 bg-amber-50/70'}`} aria-labelledby="health-status-heading">
+        <div className={`flex size-10 shrink-0 items-center justify-center rounded-full font-semibold ${isHealthy ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`} aria-hidden="true">
           {isHealthy ? '✓' : '!'}
         </div>
-        <div className="health-message">
-          <div className="health-status-line">
-            <strong>{isHealthy ? 'All systems operational' : 'Backend needs attention'}</strong>
-            <span className={`status-pill ${isHealthy ? 'success' : 'warning'}`}>{titleCase(data.status)}</span>
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 id="health-status-heading" className="text-base font-semibold">{isHealthy ? 'All systems operational' : 'Backend needs attention'}</h2>
+            <span className={`rounded-full px-2 py-1 text-xs font-medium ${isHealthy ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{titleCase(data.status)}</span>
           </div>
-          <p>The latest health check completed successfully.</p>
+          <p className="mt-1 text-sm text-muted-foreground">The latest health check completed successfully.</p>
         </div>
-      </div>
+      </section>
 
-      <div className="health-metrics" aria-label="Backend health details">
-        <HealthMetric label="Database" value={titleCase(data.database)} detail="Connection status" />
-        <HealthMetric label="Version" value={data.version} detail="Running release" />
-        <HealthMetric label="Last checked" value={formatTimestamp(data.timestamp)} detail="Backend timestamp" />
-      </div>
+      <section className="mt-6 rounded-lg border bg-card p-2 shadow-sm">
+        <Table aria-label="Backend health details">
+          <TableHeader>
+            <TableRow>
+              <TableHead>Metric</TableHead>
+              <TableHead>Value</TableHead>
+              <TableHead>Details</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <HealthMetric detail="Connection status" label="Database" value={titleCase(data.database)} />
+            <HealthMetric detail="Running release" label="Version" value={data.version} />
+            <HealthMetric detail="Backend timestamp" label="Last checked" value={formatTimestamp(data.timestamp)} />
+          </TableBody>
+        </Table>
+      </section>
 
-      <p className="health-refresh-note" aria-live="polite">
+      <p className="mt-4 text-sm text-muted-foreground" aria-live="polite">
         Automatically refreshes every 30 seconds.
-        {isFetching && <span> Checking now…</span>}
+        {isFetching && <span className="text-primary"> Checking now…</span>}
       </p>
-    </div>
+    </main>
   )
 }
