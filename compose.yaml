@@ -12,6 +12,8 @@ services:
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
+      # PostgreSQL 18 changed the data directory layout. Mount /var/lib/postgresql rather than
+      # /var/lib/postgresql/data so that in-place upgrades with `pg_upgrade --link` remain possible.
       - postgres_data:/var/lib/postgresql
       - ./backend/scripts/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql
     healthcheck:

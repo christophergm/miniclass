@@ -1,16 +1,36 @@
-# MiniClass
+# Mini Class Planner
 
-A class planning and assignment management application for students and teachers.
+A class planning and assignment system for a school's Friday mini-class programme: roster ingest,
+preference collection, constraint-based placement, and published class and dismissal lists.
+
+## Documentation map
+
+| Document | Answers |
+|---|---|
+| [`SPEC.md`](./SPEC.md) | **What the system does.** Normative, technology-agnostic. The source of truth for behaviour. |
+| [`PLAN.md`](./PLAN.md) | **When it gets built, and in what order.** Phases, milestones, exit criteria. |
+| [`docs/adr/`](./docs/adr/) | **Why it is built this way.** Architecture decisions, including the rejected alternatives. |
+| [`WORKFLOW.md`](./WORKFLOW.md) | How agents pick up, validate and hand off work. |
+| [`AGENTS.md`](./AGENTS.md) | Repository rules that apply to every change. |
+| This file | How to run it locally. |
+
+If `SPEC.md` and any other document disagree, `SPEC.md` is right and the other document is a bug.
 
 ## Architecture
 
-See [architecture.md](./achitecture.md) for the full architecture overview.
+See [ADR 0001](./docs/adr/0001-application-stack-and-topology.md) for the full rationale.
 
 **Stack:**
-- Frontend: React + TypeScript + Vite
-- Backend: Go + Chi + pgx + sqlc
-- Database: PostgreSQL (Supabase in production, Docker locally)
-- Auth: Supabase Auth
+- Frontend: React + TypeScript + Vite, TanStack Query
+- Backend: Go + chi + pgx + sqlc, Goose migrations
+- Database: PostgreSQL 18 (Supabase in production, Docker locally)
+- Auth: Supabase Auth for administrators; application-owned tokens for household, class-leader and
+  public share links ([ADR 0002](./docs/adr/0002-authentication-and-access-mechanisms.md))
+- Solver: Python OR-Tools CP-SAT sidecar, from Phase 5
+  ([ADR 0003](./docs/adr/0003-assignment-solver-technology.md))
+
+Go is the authoritative application layer. The browser talks to Go, never directly to Supabase, so
+that the tenancy guard, authorization and audit log have exactly one implementation.
 
 ## Project Structure
 
@@ -30,6 +50,7 @@ miniclass/
 │   │   ├── lib/         # Utilities and API client
 │   │   └── hooks/       # Custom React hooks
 │   └── public/          # Static assets
+├── docs/adr/            # Architecture decision records
 └── compose.yaml         # Local development services (Docker Compose)
 ```
 
@@ -171,19 +192,27 @@ bun run test           # Run tests
 bun run lint           # Lint code
 ```
 
+## Ports
+
+All ports are configurable via `.env` so that parallel worktrees can run simultaneously.
+
+| Service | Default | Environment variable |
+|---|---|---|
+| Frontend (Vite) | 5173 | `VITE_PORT` |
+| Backend (Go API) | 8080 | `PORT` |
+| PostgreSQL | 5432 | `POSTGRES_PORT` |
+| Adminer | 8081 | `ADMINER_PORT` |
+
 ## Parallel Development (Multiple Worktrees)
 
 To run multiple instances in parallel:
 
 1. Create a new worktree
 2. Copy `.env.example` to `.env` in the worktree
-3. Edit `.env` to use different ports:
-   ```bash
-   PORT=8081
-   VITE_PORT=5174
-   POSTGRES_PORT=5433
-   ```
+3. Edit `.env` to use different ports from the table above
 4. Start services with the custom `.env`
+
+`.prototools` is read from the current directory, so each worktree may pin its own tool versions.
 
 ## Testing
 
@@ -276,6 +305,12 @@ local Compose volume and all data in it.
 - **Integration tests touch the wrong database:** set
   `TEST_DATABASE_URL` to `miniclass_test`; tests create and remove an isolated
   schema and must never use the development or production URL.
+- **TypeScript errors about modern syntax:** an ancient global `tsc` is shadowing the project's
+  TypeScript. All `frontend/package.json` scripts use `bunx --bun` specifically to force resolution
+  from `node_modules`; do not remove it.
+- **`air` is missing:** it is not a proto plugin and is therefore not in `.prototools`. Install it
+  with `go install github.com/air-verse/air@latest`.
+- **`command not found: docker-compose`:** expected. Use `docker compose` (v2, with a space).
 
 ## Health Check
 
@@ -334,17 +369,21 @@ docker compose down
 - Backend: Render
 - Frontend: Render Static Site
 - Database: Supabase Postgres
-- Auth: Supabase Auth
+- Auth: Supabase Auth (administrators only)
 
-See deployment documentation (TBD) for details.
+Published class and dismissal lists have a stricter availability requirement than the administrative
+application and will not necessarily be served by it; see
+[ADR 0005](./docs/adr/0005-published-artifact-availability.md). Deployment is built in Phase 10.
 
 ## Contributing
 
-1. Create feature branch
-2. Make changes
-3. Run tests: `make test` (backend) and `bun run test` (frontend)
-4. Ensure health check passes
-5. Submit PR
+See [`AGENTS.md`](./AGENTS.md) for the standing rules and [`WORKFLOW.md`](./WORKFLOW.md) for the
+issue lifecycle.
+
+1. Create a feature branch.
+2. Make changes, citing the `SPEC.md` section they implement in the pull request.
+3. Run the quality gates above.
+4. Submit a PR referencing its issue.
 
 ## License
 
