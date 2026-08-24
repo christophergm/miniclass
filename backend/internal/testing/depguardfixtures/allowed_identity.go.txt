@@ -1,0 +1,5 @@
+package fixture
+
+import identity "github.com/chrismott/miniclass/internal/data/identity"
+
+var _ = identity.Value

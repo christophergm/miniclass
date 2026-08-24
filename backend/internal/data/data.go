@@ -8,11 +8,19 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/chrismott/miniclass/internal/audit"
 	"github.com/chrismott/miniclass/internal/config"
 	db "github.com/chrismott/miniclass/internal/db/gen"
+	"github.com/chrismott/miniclass/internal/ids"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// ErrAuditRequired is returned when a read-write tenant transaction reaches
+// commit without either recording an audit entry or declaring an explicit
+// non-auditable reason.
+var ErrAuditRequired = errors.New("commit tenant transaction: audit entry or NoAuditRequired reason is required")
 
 // DB wraps a pgx connection pool. A DB returned by New has already completed
 // a connectivity query.
@@ -94,20 +102,45 @@ func (d *DB) Pool() *pgxpool.Pool {
 	return d.pool
 }
 
+// Tx is the unit of work handed to a tenant callback. Generated queries are
+// constructed only here; callers use Queries without importing the generated
+// package and record audit entries against the same transaction.
+type Tx struct {
+	queries        *db.Queries
+	organizationID ids.XID
+	actor          audit.Actor
+	readOnly       bool
+	auditRecorded  bool
+	noAuditReason  string
+}
+
+// Queries returns the generated query facade bound to this transaction.
+// Constructing the facade and controlling its lifetime remain responsibilities
+// of internal/data.
+func (tx *Tx) Queries() *db.Queries {
+	if tx == nil {
+		return nil
+	}
+	return tx.queries
+}
+
 // InTenant runs a read-write unit of work with the tenant setting scoped to
-// the transaction. The setting is applied with set_config(..., true), which
-// has the same transaction-local lifetime as SET LOCAL.
-func (d *DB) InTenant(ctx context.Context, organizationID string, fn func(context.Context, *db.Queries) error) error {
-	return d.inTenant(ctx, organizationID, pgx.ReadWrite, fn)
+// the transaction. A successful callback must record an audit entry or call
+// NoAuditRequired with a non-empty reason before the transaction can commit.
+func (d *DB) InTenant(ctx context.Context, organizationID string, actor audit.Actor, fn func(context.Context, *Tx) error) error {
+	if err := actor.Validate(); err != nil {
+		return fmt.Errorf("begin tenant transaction: %w", err)
+	}
+	return d.inTenant(ctx, organizationID, actor, pgx.ReadWrite, fn)
 }
 
 // InTenantRead runs a read-only unit of work with the tenant setting scoped to
 // the transaction.
-func (d *DB) InTenantRead(ctx context.Context, organizationID string, fn func(context.Context, *db.Queries) error) error {
-	return d.inTenant(ctx, organizationID, pgx.ReadOnly, fn)
+func (d *DB) InTenantRead(ctx context.Context, organizationID string, fn func(context.Context, *Tx) error) error {
+	return d.inTenant(ctx, organizationID, audit.Actor{}, pgx.ReadOnly, fn)
 }
 
-func (d *DB) inTenant(ctx context.Context, organizationID string, accessMode pgx.TxAccessMode, fn func(context.Context, *db.Queries) error) error {
+func (d *DB) inTenant(ctx context.Context, organizationID string, actor audit.Actor, accessMode pgx.TxAccessMode, fn func(context.Context, *Tx) error) error {
 	if d == nil || d.pool == nil {
 		return errors.New("begin tenant transaction: connection pool is nil")
 	}
@@ -124,16 +157,85 @@ func (d *DB) inTenant(ctx context.Context, organizationID string, accessMode pgx
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	if _, err := tx.Exec(ctx, "select set_config('app.organization_id', $1, true)", organizationID); err != nil {
+	if _, err := tx.Exec(ctx, "set local app.organization_id = "+sqlStringLiteral(strings.TrimSpace(organizationID))); err != nil {
 		return fmt.Errorf("set tenant transaction scope: %w", err)
 	}
-	if err := fn(ctx, db.New(tx)); err != nil {
+	unit := &Tx{
+		queries:        db.New(tx),
+		organizationID: ids.XID(strings.TrimSpace(organizationID)),
+		actor:          actor,
+		readOnly:       accessMode == pgx.ReadOnly,
+	}
+	if err := fn(ctx, unit); err != nil {
 		return err
+	}
+	if accessMode == pgx.ReadWrite && !unit.auditRecorded && unit.noAuditReason == "" {
+		return ErrAuditRequired
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit tenant transaction: %w", err)
 	}
 	return nil
+}
+
+// Record appends an audit entry inside the current tenant transaction.
+func (tx *Tx) Record(ctx context.Context, entry audit.Entry) error {
+	if tx == nil || tx.queries == nil {
+		return errors.New("record audit entry: transaction is nil")
+	}
+	if err := entry.Validate(); err != nil {
+		return err
+	}
+	if err := tx.actor.Validate(); err != nil {
+		return fmt.Errorf("record audit entry: %w", err)
+	}
+	if tx.readOnly {
+		return errors.New("record audit entry: transaction is read-only")
+	}
+
+	changeSummary := entry.ChangeSummary
+	if len(changeSummary) == 0 {
+		changeSummary = []byte(`{}`)
+	}
+	var reason pgtype.Text
+	if strings.TrimSpace(entry.Reason) != "" {
+		reason = pgtype.Text{String: strings.TrimSpace(entry.Reason), Valid: true}
+	}
+	var requestID pgtype.Text
+	if strings.TrimSpace(entry.RequestID) != "" {
+		requestID = pgtype.Text{String: strings.TrimSpace(entry.RequestID), Valid: true}
+	}
+	_, err := tx.queries.CreateAuditLog(ctx, db.CreateAuditLogParams{
+		OrganizationID: tx.organizationID,
+		ActorType:      db.AuditActorType(tx.actor.Type),
+		ActorUserID:    tx.actor.UserID,
+		ActorLabel:     strings.TrimSpace(tx.actor.Label),
+		Action:         string(entry.Action),
+		ObjectType:     strings.TrimSpace(entry.ObjectType),
+		ObjectID:       entry.ObjectID,
+		ChangeSummary:  changeSummary,
+		Reason:         reason,
+		SchoolYearID:   entry.SchoolYearID,
+		RequestID:      requestID,
+	})
+	if err != nil {
+		return fmt.Errorf("record audit entry: %w", err)
+	}
+	tx.auditRecorded = true
+	return nil
+}
+
+// NoAuditRequired explicitly documents a successful write that is not an
+// auditable user action. An empty reason does not satisfy the commit invariant.
+func (tx *Tx) NoAuditRequired(reason string) {
+	if tx == nil {
+		return
+	}
+	tx.noAuditReason = strings.TrimSpace(reason)
+}
+
+func sqlStringLiteral(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "''") + "'"
 }
 
 // Close releases all resources owned by the database pool. It is safe to call

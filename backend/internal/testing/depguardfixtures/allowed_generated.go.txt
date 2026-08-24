@@ -1,0 +1,5 @@
+package fixture
+
+import gen "github.com/chrismott/miniclass/internal/db/gen"
+
+var _ = gen.Value

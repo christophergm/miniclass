@@ -57,6 +57,49 @@ func (ns NullAccessTokenPurpose) Value() (driver.Value, error) {
 	return string(ns.AccessTokenPurpose), nil
 }
 
+type AuditActorType string
+
+const (
+	AuditActorTypeUser   AuditActorType = "user"
+	AuditActorTypeLink   AuditActorType = "link"
+	AuditActorTypeSystem AuditActorType = "system"
+)
+
+func (e *AuditActorType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = AuditActorType(s)
+	case string:
+		*e = AuditActorType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for AuditActorType: %T", src)
+	}
+	return nil
+}
+
+type NullAuditActorType struct {
+	AuditActorType AuditActorType `json:"audit_actor_type"`
+	Valid          bool           `json:"valid"` // Valid is true if AuditActorType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullAuditActorType) Scan(value interface{}) error {
+	if value == nil {
+		ns.AuditActorType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.AuditActorType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullAuditActorType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.AuditActorType), nil
+}
+
 type OrganizationRole string
 
 const (
@@ -110,6 +153,22 @@ type AccessToken struct {
 	Generation int32              `json:"generation"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
+type AuditLog struct {
+	ID             ids.XID            `json:"id"`
+	OrganizationID ids.XID            `json:"organization_id"`
+	OccurredAt     pgtype.Timestamptz `json:"occurred_at"`
+	ActorType      AuditActorType     `json:"actor_type"`
+	ActorUserID    *ids.XID           `json:"actor_user_id"`
+	ActorLabel     string             `json:"actor_label"`
+	Action         string             `json:"action"`
+	ObjectType     string             `json:"object_type"`
+	ObjectID       *ids.XID           `json:"object_id"`
+	ChangeSummary  []byte             `json:"change_summary"`
+	Reason         pgtype.Text        `json:"reason"`
+	SchoolYearID   *ids.XID           `json:"school_year_id"`
+	RequestID      pgtype.Text        `json:"request_id"`
 }
 
 type Organization struct {
