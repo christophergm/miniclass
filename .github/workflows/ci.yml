@@ -93,6 +93,9 @@ jobs:
       - name: Regenerate backend artifacts
         working-directory: backend
         run: make generate
+      - name: Verify OpenAPI generation is deterministic
+        working-directory: backend
+        run: make generated-code-drift
       - name: Reject generated drift
         run: git diff --exit-code
 

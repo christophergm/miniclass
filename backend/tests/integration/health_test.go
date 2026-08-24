@@ -16,6 +16,7 @@ import (
 
 	"github.com/chrismott/miniclass/internal/api"
 	"github.com/chrismott/miniclass/internal/api/handlers"
+	"github.com/chrismott/miniclass/internal/api/problems"
 	"github.com/chrismott/miniclass/internal/db"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -107,6 +108,38 @@ func TestHealthIntegration(t *testing.T) {
 	require.Equal(t, "connected", health.Database)
 	require.Equal(t, "integration-test", health.Version)
 	require.NotEmpty(t, health.Timestamp)
+}
+
+type unavailableDatabase struct{}
+
+func (unavailableDatabase) PingDB(context.Context) error {
+	return fmt.Errorf("connection refused")
+}
+
+func TestHealthFailureUsesProblemDetails(t *testing.T) {
+	server := api.NewServer(api.WithDatabase(unavailableDatabase{}))
+	httpServer := httptest.NewServer(server.Handler())
+	t.Cleanup(httpServer.Close)
+
+	response, err := http.Get(httpServer.URL + "/api/health")
+	require.NoError(t, err)
+	if err != nil {
+		return
+	}
+	defer response.Body.Close()
+
+	require.Equal(t, http.StatusServiceUnavailable, response.StatusCode)
+	require.Equal(t, "application/problem+json", response.Header.Get("Content-Type"))
+
+	var problem struct {
+		Type   string `json:"type"`
+		Status int    `json:"status"`
+		Detail string `json:"detail"`
+	}
+	require.NoError(t, json.NewDecoder(response.Body).Decode(&problem))
+	require.Equal(t, string(problems.DatabaseUnavailable), problem.Type)
+	require.Equal(t, http.StatusServiceUnavailable, problem.Status)
+	require.Equal(t, "database unavailable", problem.Detail)
 }
 
 func withSearchPath(databaseURL, schemaName string) (string, error) {

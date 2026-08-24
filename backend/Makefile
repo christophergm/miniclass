@@ -1,4 +1,4 @@
-.PHONY: help dev build test format lint generate migrate-up migrate-down migrate-create seed reset-db sqlc install-tools
+.PHONY: help dev build test format lint generate migrate-up migrate-down migrate-create seed reset-db sqlc openapi generated-code-drift install-tools
 
 GOLANGCI_LINT_VERSION := v1.64.8
 SQLC_VERSION := v1.27.0
@@ -53,6 +53,19 @@ reset-db: ## Drop, recreate, migrate, and seed the local database (requires RESE
 	$(MAKE) seed
 	@echo "Database reset complete!"
 
+openapi: ## Generate the committed OpenAPI contract
+	go run ./cmd/openapi
+
+generated-code-drift: ## Verify generated OpenAPI output is deterministic and committed
+	@temp_dir="$${TMPDIR:-$${TMP:-$${TEMP:-$${RUNNER_TEMP:-/tmp}}}}"; \
+	first="$$(mktemp "$$temp_dir/miniclass-openapi.XXXXXX")"; \
+	second="$$(mktemp "$$temp_dir/miniclass-openapi.XXXXXX")"; \
+	trap 'rm -f "$$first" "$$second"' EXIT; \
+	go run ./cmd/openapi -output "$$first"; \
+	go run ./cmd/openapi -output "$$second"; \
+	cmp "$$first" "$$second"; \
+	cmp "$$second" openapi.json
+
 test: ## Run all backend unit and integration tests
 	@echo "Running backend tests..."
 	go test -race -v ./... -count=1
@@ -76,6 +89,7 @@ sqlc: ## Generate sqlc code from queries
 
 generate: ## Regenerate all committed backend artifacts
 	$(MAKE) sqlc
+	$(MAKE) openapi
 	go generate ./...
 
 test-coverage: ## Run tests with coverage report

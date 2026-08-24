@@ -4,13 +4,16 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/chrismott/miniclass/internal/api/problems"
 	"github.com/chrismott/miniclass/internal/config"
+	"github.com/danielgtaylor/huma/v2"
 )
 
 type routeHealthDatabase struct{}
@@ -41,8 +44,8 @@ func TestNewServerConstructsWithoutStartingProcess(t *testing.T) {
 	if recording.Code != http.StatusOK {
 		t.Fatalf("GET /api/ status = %d, want %d", recording.Code, http.StatusOK)
 	}
-	if got := recording.Header().Get("Content-Type"); got != jsonContentType {
-		t.Fatalf("Content-Type = %q, want %q", got, jsonContentType)
+	if got := recording.Header().Get("Content-Type"); got != "application/json" {
+		t.Fatalf("Content-Type = %q, want application/json", got)
 	}
 	if got := recording.Header().Get("Access-Control-Allow-Origin"); got != "https://classroom.example" {
 		t.Fatalf("CORS origin = %q, want configured origin", got)
@@ -71,10 +74,11 @@ func TestRouterReturnsJSONForUnsupportedRequests(t *testing.T) {
 		path       string
 		statusCode int
 		message    string
+		typeSlug   problems.Slug
 	}{
-		{name: "unknown route", method: http.MethodGet, path: "/api/missing", statusCode: http.StatusNotFound, message: "route not found"},
-		{name: "unsupported method", method: http.MethodPost, path: "/api", statusCode: http.StatusMethodNotAllowed, message: "method not allowed"},
-		{name: "unknown top level route", method: http.MethodGet, path: "/missing", statusCode: http.StatusNotFound, message: "route not found"},
+		{name: "unknown route", method: http.MethodGet, path: "/api/missing", statusCode: http.StatusNotFound, message: "route not found", typeSlug: problems.RouteNotFound},
+		{name: "unsupported method", method: http.MethodPost, path: "/api", statusCode: http.StatusMethodNotAllowed, message: "method not allowed", typeSlug: problems.MethodNotAllowed},
+		{name: "unknown top level route", method: http.MethodGet, path: "/missing", statusCode: http.StatusNotFound, message: "route not found", typeSlug: problems.RouteNotFound},
 	}
 
 	router := NewRouter(RouterOptions{})
@@ -87,16 +91,16 @@ func TestRouterReturnsJSONForUnsupportedRequests(t *testing.T) {
 			if recording.Code != test.statusCode {
 				t.Fatalf("status = %d, want %d", recording.Code, test.statusCode)
 			}
-			if got := recording.Header().Get("Content-Type"); got != jsonContentType {
-				t.Fatalf("Content-Type = %q, want %q", got, jsonContentType)
+			if got := recording.Header().Get("Content-Type"); got != "application/problem+json" {
+				t.Fatalf("Content-Type = %q, want application/problem+json", got)
 			}
 
-			var response map[string]string
+			var response huma.ErrorModel
 			if err := json.NewDecoder(recording.Body).Decode(&response); err != nil {
 				t.Fatalf("decode error response: %v", err)
 			}
-			if response["error"] != test.message {
-				t.Fatalf("error response = %#v, want message %q", response, test.message)
+			if response.Type != string(test.typeSlug) || response.Detail != test.message || response.Status != test.statusCode {
+				t.Fatalf("error response = %#v, want type %q/status %d/detail %q", response, test.typeSlug, test.statusCode, test.message)
 			}
 		})
 	}
@@ -123,6 +127,33 @@ func TestRouterServesHealthEndpoint(t *testing.T) {
 	}
 }
 
+type failingHealthDatabase struct{}
+
+func (failingHealthDatabase) PingDB(context.Context) error {
+	return errors.New("connection refused")
+}
+
+func TestRouterServesHealthFailureAsProblemDetails(t *testing.T) {
+	router := NewRouter(RouterOptions{Database: failingHealthDatabase{}})
+	recording := httptest.NewRecorder()
+	router.ServeHTTP(recording, httptest.NewRequest(http.MethodGet, "/api/health", nil))
+
+	if recording.Code != http.StatusServiceUnavailable {
+		t.Fatalf("GET /api/health status = %d, want %d", recording.Code, http.StatusServiceUnavailable)
+	}
+	if got := recording.Header().Get("Content-Type"); got != "application/problem+json" {
+		t.Fatalf("Content-Type = %q, want application/problem+json", got)
+	}
+
+	var response huma.ErrorModel
+	if err := json.NewDecoder(recording.Body).Decode(&response); err != nil {
+		t.Fatalf("decode health problem response: %v", err)
+	}
+	if response.Type != string(problems.DatabaseUnavailable) || response.Status != http.StatusServiceUnavailable {
+		t.Fatalf("health problem type/status = %q/%d", response.Type, response.Status)
+	}
+}
+
 func TestRouterLogsCompletedRequests(t *testing.T) {
 	var logs bytes.Buffer
 	logger := slog.New(slog.NewTextHandler(&logs, nil))
@@ -139,6 +170,40 @@ func TestRouterLogsCompletedRequests(t *testing.T) {
 	}
 }
 
+func TestOpenAPIContractIsDeterministicAndIncludesProblemTypes(t *testing.T) {
+	first, err := json.Marshal(NewOpenAPI(RouterOptions{Version: "1.2.3"}))
+	if err != nil {
+		t.Fatalf("marshal first OpenAPI document: %v", err)
+	}
+	second, err := json.Marshal(NewOpenAPI(RouterOptions{Version: "1.2.3"}))
+	if err != nil {
+		t.Fatalf("marshal second OpenAPI document: %v", err)
+	}
+	if !bytes.Equal(first, second) {
+		t.Fatal("OpenAPI document changed between identical generations")
+	}
+
+	var document map[string]any
+	if err := json.Unmarshal(first, &document); err != nil {
+		t.Fatalf("decode OpenAPI document: %v", err)
+	}
+	paths, ok := document["paths"].(map[string]any)
+	if !ok {
+		t.Fatalf("OpenAPI paths = %#v", document["paths"])
+	}
+	health, ok := paths["/api/health"].(map[string]any)
+	if !ok {
+		t.Fatalf("OpenAPI health path = %#v", paths["/api/health"])
+	}
+	getHealth, ok := health["get"].(map[string]any)
+	if !ok || getHealth["operationId"] != "get-health" {
+		t.Fatalf("OpenAPI health operation = %#v", health["get"])
+	}
+	if _, ok := document["x-miniclass-problem-types"]; !ok {
+		t.Fatal("OpenAPI document does not include the problem-type registry")
+	}
+}
+
 func TestRecovererReturnsJSONForPanics(t *testing.T) {
 	handler := Recoverer(slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 		panic("boom")
@@ -150,7 +215,7 @@ func TestRecovererReturnsJSONForPanics(t *testing.T) {
 	if recording.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d, want %d", recording.Code, http.StatusInternalServerError)
 	}
-	if recording.Header().Get("Content-Type") != jsonContentType {
-		t.Fatalf("Content-Type = %q, want %q", recording.Header().Get("Content-Type"), jsonContentType)
+	if recording.Header().Get("Content-Type") != "application/problem+json" {
+		t.Fatalf("Content-Type = %q, want application/problem+json", recording.Header().Get("Content-Type"))
 	}
 }
