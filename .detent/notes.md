@@ -144,8 +144,10 @@
   `ApiClient` and normalized `ApiError`; deleted `frontend/src/lib/api.test.ts` as required.
 - Validation: frozen Bun install, 8 frontend tests, frontend build, frontend lint, and
   `git diff --check` pass. Generated file was checked locally and is ignored.
-- Open item: commit/push, open PR with `Fixes #40` and ADR 0004/0010 citation, inspect current-head
-  CI and review comments, then update the Workpad to complete only after the PR gate is green.
+- PR #48 is open, non-draft, clean, references `Fixes #40`, and cites SPEC §13.5/§16.5/§17.4.1
+  plus ADR 0004/0010. All current-head checks pass: Backend tests, Backend lint, Backend format,
+  Generated code drift, Migration round-trip, Frontend tests, Frontend build, Frontend lint, and
+  Repository formatting. No review or inline comments remain.
 - Skill draft: no; this was a routine dependency and client wiring change.
 
 ## Issue #33 Node 24 and Bun upgrade
