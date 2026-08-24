@@ -272,6 +272,7 @@
   same-transaction audit entries. The unscoped identity accessor remains restricted to `internal/identity`.
 - Added integration coverage for regeneration invalidation, revoke, role changes, removal, audit count,
   tenant scoping, and last-Owner protection; it skips here because both test database URLs are absent.
-- Focused backend/API tests and OpenAPI/sqlc generation pass. Full nine-gate validation and PR handoff
-  remain open. No skill draft: the tenant harness skill was used, but no broadly reusable new procedure
-  was discovered.
+- Focused backend/API tests and OpenAPI/sqlc generation pass. PR #74 is open, non-draft, mergeable, and
+  cites SPEC §§6.6/9.3/9.5/20.1 plus ADRs 0007/0008/0009/0010. Its final current-head run passed all
+  nine required checks; slowest were Generated code drift (1m27s), Backend tests/lint (1m04s), and
+  Migration round-trip (1m08s). The Workpad is complete; Detent owns the completion-lane transition.
