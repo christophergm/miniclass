@@ -1,5 +1,36 @@
 # Detent handoff notes
 
+## Issue #35 XID identifiers
+
+- Added reversible backend/migrations/00002_xid.sql with the public.xid20
+  domain, the public.xid() generator, encode/decode and component helpers.
+- Everything xid-related lives in the public schema; there is no util schema.
+- The domain is deliberately named xid20 rather than xid. pg_catalog is
+  resolved before the search_path, so a column declared as an unqualified xid
+  becomes the built-in 4-byte transaction-id type; verified on PostgreSQL 18
+  that this happens even with the domain in util and util first in
+  search_path, so moving schemas does not avoid the collision. pg_catalog also
+  already has an xid(xid8) function.
+- Added frontend/src/lib/xid.ts and focused tests using local RFC 4648
+  base32hex logic; bun add could not write temporary files in this worker.
+- Updated AGENTS.md with XID and lowercase-SQL standards.
+- Fixed two decoding bugs found while validating the consolidated migration:
+  public.xid_time() read raw ASCII bytes instead of decoding base32, and
+  public.xid_counter() lost its high bits because PostgreSQL gives << and |
+  equal precedence (and + higher precedence than <<). The component helpers
+  now decode once in a subquery and parenthesize every shift.
+- Migration validated on PostgreSQL 18: goose up/down for both migrations,
+  health_checks.id converted to public.xid with the public.xid() default and
+  restored to uuid/uuidv7() on down. Asserted xid_time within a second of
+  current_timestamp, xid_pid = pg_backend_pid(), xid_machine from
+  pg_control_system(), xid_counter = currval('public.xid_serial'), and
+  xid_encode(xid_decode(id)) = id. SQL decode output matches
+  frontend/src/lib/xid.ts byte for byte.
+- Backend make test passes; integration test skips without TEST_DATABASE_URL.
+- Frontend build/lint pass and Node-launched Vitest passes 12 tests. Bun's
+  Vitest wrapper fails locally with port.addListener incompatibility.
+- No skill draft: the implementation used existing project patterns.
+
 ## Issue #14 quality gates
 
 - `backend/Makefile` target `test` now runs `go test -v ./... -count=1`, including unit and integration packages.
