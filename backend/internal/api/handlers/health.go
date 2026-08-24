@@ -6,13 +6,14 @@ import (
 	"encoding/json"
 	"net/http"
 	"time"
+
+	"github.com/chrismott/miniclass/internal/api/problems"
+	"github.com/danielgtaylor/huma/v2"
 )
 
 const (
-	statusHealthy   = "healthy"
-	statusUnhealthy = "unhealthy"
-	databaseReady   = "connected"
-	databaseDown    = "disconnected"
+	statusHealthy = "healthy"
+	databaseReady = "connected"
 )
 
 // DatabasePinger is the database capability required by the health endpoint.
@@ -23,11 +24,18 @@ type DatabasePinger interface {
 
 // HealthResponse is the stable JSON contract returned by the health endpoint.
 type HealthResponse struct {
-	Status    string `json:"status"`
-	Timestamp string `json:"timestamp"`
-	Database  string `json:"database"`
-	Version   string `json:"version"`
-	Error     string `json:"error,omitempty"`
+	Status    string `json:"status" doc:"Current API health status."`
+	Timestamp string `json:"timestamp" doc:"Time at which the health check was generated."`
+	Database  string `json:"database" doc:"Database connectivity status."`
+	Version   string `json:"version" doc:"Running application version."`
+}
+
+// HealthInput is intentionally empty: the health endpoint takes no input.
+type HealthInput struct{}
+
+// HealthOutput is the Huma response envelope for the health endpoint.
+type HealthOutput struct {
+	Body HealthResponse
 }
 
 // HealthHandler reports API and database readiness.
@@ -47,25 +55,36 @@ func NewHealthHandler(database DatabasePinger, version string) *HealthHandler {
 	}
 }
 
-// ServeHTTP writes the health response. Database failures are intentionally
-// reported as service-unavailable responses without exposing driver errors.
-func (h *HealthHandler) ServeHTTP(w http.ResponseWriter, request *http.Request) {
+// Handle returns the health response or a registered problem detail when the
+// database is unavailable. The driver error is intentionally not exposed.
+func (h *HealthHandler) Handle(ctx context.Context, _ *HealthInput) (*HealthOutput, error) {
 	response := HealthResponse{
 		Status:    statusHealthy,
 		Timestamp: h.now().UTC().Format(time.RFC3339),
 		Database:  databaseReady,
 		Version:   h.version,
 	}
-	statusCode := http.StatusOK
 
-	if h.database == nil || h.database.PingDB(request.Context()) != nil {
-		response.Status = statusUnhealthy
-		response.Database = databaseDown
-		response.Error = "database unavailable"
-		statusCode = http.StatusServiceUnavailable
+	if h.database == nil || h.database.PingDB(ctx) != nil {
+		return nil, problems.New(http.StatusServiceUnavailable, problems.DatabaseUnavailable, "database unavailable")
+	}
+
+	return &HealthOutput{Body: response}, nil
+}
+
+// ServeHTTP preserves the small standalone handler surface used by focused
+// tests and callers while the API itself is registered through Huma.
+func (h *HealthHandler) ServeHTTP(w http.ResponseWriter, request *http.Request) {
+	output, err := h.Handle(request.Context(), &HealthInput{})
+	if err != nil {
+		if problem, ok := err.(*huma.ErrorModel); ok {
+			problems.Write(w, problem)
+			return
+		}
+		problems.Write(w, problems.New(http.StatusInternalServerError, problems.InternalError, "internal server error"))
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	_ = json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(output.Body)
 }

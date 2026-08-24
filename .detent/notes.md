@@ -148,3 +148,16 @@
 - The `@/*` alias is configured in `frontend/tsconfig.json` and `frontend/vite.config.ts`; `frontend/src/index.css` is deleted.
 - `bun run test -- --run` passes 12 tests after the test script uses `bunx vitest` (Node-backed Vitest); forcing `bunx --bun vitest` fails in this worker with Bun's `port.addListener` incompatibility. Build, lint, backend `make test`, shell syntax, and `git diff --check` pass; the integration test skips without `TEST_DATABASE_URL`.
 - Completed: PR #45 is open and non-draft with `Fixes #41`; rebased onto `origin/main` and all nine current-head CI checks pass. No review comments or actionable findings remain.
+
+## Issue #39 Huma v2 API contract
+
+- Rebased onto current `origin/main`; commit `c9d4faa` adds Huma v2.39.1 over `humachi`/chi, typed registrations for `/api`, `/api/`, and `/api/health`, and committed `backend/openapi.json`.
+- RFC 9457 responses use `application/problem+json`; `backend/internal/api/problems` registers route-not-found, method-not-allowed, internal-error, and database-unavailable slugs. The forced JSON middleware is removed.
+- `backend/cmd/openapi` plus `make openapi`, `make generate`, and `make generated-code-drift` generate and compare OpenAPI deterministically. The existing CI Generated code drift job runs both generation and the deterministic check.
+- Validation passed: `make test` with race detector (integration DB test skipped without `TEST_DATABASE_URL`), `make lint` after a narrow required-RealIP suppression, `make format`, `make generate && git diff --exit-code`, `make generated-code-drift`, frontend Bun install/tests (12), build, lint, repository diff check, and migration round-trip against disposable PostgreSQL 18.
+- Follow-up issue #46 tracks replacing deprecated `chi/middleware.RealIP` with trusted-proxy-aware extraction; this issue retains the required middleware behavior.
+- PR #47 is open, non-draft, references `Fixes #39`, cites SPEC §13.5/§16.5/§17.4.1 and ADR 0004, and is clean with no review comments.
+- Current-head CI is green: Backend tests, Backend lint, Backend format, Generated code drift, Migration round-trip, Frontend tests, Frontend build, Frontend lint, and Repository formatting.
+- Merge fallback rebase conflict was limited to this handoff file; Issue #41 and Issue #39 notes were retained, with no source conflict resolution.
+- Merge fallback gate: `git diff --check` passed on the clean rebased head; branch was pushed with `--force-with-lease`.
+- Final handoff: update the persistent Workpad to `complete`; Detent owns the completion-lane transition.

@@ -8,6 +8,9 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/chrismott/miniclass/internal/api/problems"
+	"github.com/danielgtaylor/huma/v2"
 )
 
 type fakeDatabase struct {
@@ -64,16 +67,19 @@ func TestHealthHandlerDatabaseFailure(t *testing.T) {
 		t.Fatalf("status = %d, want %d", recording.Code, http.StatusServiceUnavailable)
 	}
 
-	var response HealthResponse
-	decodeHealthResponse(t, recording, &response)
-	if response.Status != statusUnhealthy || response.Database != databaseDown {
-		t.Fatalf("response status/database = %q/%q", response.Status, response.Database)
+	if recording.Header().Get("Content-Type") != "application/problem+json" {
+		t.Fatalf("Content-Type = %q, want application/problem+json", recording.Header().Get("Content-Type"))
 	}
-	if response.Error != "database unavailable" {
-		t.Fatalf("response error = %q", response.Error)
+
+	var response huma.ErrorModel
+	if err := json.NewDecoder(recording.Body).Decode(&response); err != nil {
+		t.Fatalf("decode problem response: %v", err)
 	}
-	if response.Version != "1.2.3" || response.Timestamp != "2026-08-23T17:00:00Z" {
-		t.Fatalf("response metadata = %#v", response)
+	if response.Type != string(problems.DatabaseUnavailable) || response.Status != http.StatusServiceUnavailable {
+		t.Fatalf("problem type/status = %q/%d", response.Type, response.Status)
+	}
+	if response.Detail != "database unavailable" {
+		t.Fatalf("problem detail = %q", response.Detail)
 	}
 }
 
@@ -84,6 +90,9 @@ func TestHealthHandlerWithoutDatabaseIsUnavailable(t *testing.T) {
 
 	if recording.Code != http.StatusServiceUnavailable {
 		t.Fatalf("status = %d, want %d", recording.Code, http.StatusServiceUnavailable)
+	}
+	if recording.Header().Get("Content-Type") != "application/problem+json" {
+		t.Fatalf("Content-Type = %q, want application/problem+json", recording.Header().Get("Content-Type"))
 	}
 }
 

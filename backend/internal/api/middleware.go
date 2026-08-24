@@ -1,23 +1,12 @@
 package api
 
 import (
-	"encoding/json"
 	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/chrismott/miniclass/internal/api/problems"
 )
-
-const jsonContentType = "application/json"
-
-// JSONContentType ensures API responses advertise the JSON representation.
-// It is intentionally applied before routes so error responses use the same
-// content type as successful responses.
-func JSONContentType(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", jsonContentType)
-		next.ServeHTTP(w, r)
-	})
-}
 
 // RequestLogger records one structured log entry for every completed request.
 // The logger is passed in so applications and tests can choose their output.
@@ -55,7 +44,7 @@ func Recoverer(logger *slog.Logger) func(http.Handler) http.Handler {
 			defer func() {
 				if recovered := recover(); recovered != nil {
 					logger.ErrorContext(r.Context(), "panic serving request", slog.Any("panic", recovered))
-					JSONError(w, http.StatusInternalServerError, "internal server error")
+					problems.Write(w, problems.New(http.StatusInternalServerError, problems.InternalError, "internal server error"))
 				}
 			}()
 
@@ -89,13 +78,4 @@ func (r *statusRecorder) statusCode() int {
 		return http.StatusOK
 	}
 	return r.status
-}
-
-// JSONError writes the API's consistent error response shape.
-func JSONError(w http.ResponseWriter, status int, message string) {
-	w.Header().Set("Content-Type", jsonContentType)
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(struct {
-		Error string `json:"error"`
-	}{Error: message})
 }
