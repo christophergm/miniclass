@@ -54,7 +54,7 @@ grant usage on schema public to miniclass_app;
 -- alter them. Existing objects are transferred so down migrations also work
 -- when the command is run through the migrator URL.
 alter schema public owner to miniclass_migrator;
-alter table health_checks owner to miniclass_migrator;
+alter table missing_health_checks owner to miniclass_migrator;
 alter sequence public.xid_serial owner to miniclass_migrator;
 alter domain public.xid20 owner to miniclass_migrator;
 alter function public.xid_encode(integer[]) owner to miniclass_migrator;
