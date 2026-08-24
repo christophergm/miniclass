@@ -135,6 +135,24 @@ func TestEveryRegisteredOperationDeclaresCapabilityMetadata(t *testing.T) {
 	}
 }
 
+func TestAdministratorManagementRejectsAdministratorAndCoordinator(t *testing.T) {
+	for _, role := range []string{"administrator", "coordinator"} {
+		t.Run(role, func(t *testing.T) {
+			verifier, resolver, token := testAuthRole(t, role)
+			router := NewRouter(RouterOptions{Verifier: verifier, Identity: resolver})
+			request := httptest.NewRequest(http.MethodGet, "/api/administrators", nil)
+			request.Header.Set("Authorization", "Bearer "+token)
+			recording := httptest.NewRecorder()
+			router.ServeHTTP(recording, request)
+
+			require.Equal(t, http.StatusForbidden, recording.Code)
+			var response huma.ErrorModel
+			require.NoError(t, json.NewDecoder(recording.Body).Decode(&response))
+			require.Equal(t, string(problems.CapabilityRequired), response.Type)
+		})
+	}
+}
+
 func TestCrossOrganizationResourceAccessMapsToNotFound(t *testing.T) {
 	verifier, resolver, token := testAuth(t)
 	type resourceInput struct {

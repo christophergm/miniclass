@@ -89,3 +89,58 @@ set user_id = $2,
 where id = $1
   and user_id is null
   and invited_email is not null;
+
+-- name: ListOrganizationMembers :many
+select
+    om.id,
+    om.organization_id,
+    om.user_id,
+    om.role,
+    om.invited_email,
+    om.invitation_token_id,
+    om.created_at,
+    om.updated_at,
+    u.email as user_email,
+    at.expires_at as invitation_expires_at
+from organization_members om
+left join users u on u.id = om.user_id
+left join access_tokens at on at.id = om.invitation_token_id
+where om.organization_id = $1
+order by lower(coalesce(u.email, om.invited_email)), om.id;
+
+-- name: GetOrganizationMember :one
+select
+    om.id,
+    om.organization_id,
+    om.user_id,
+    om.role,
+    om.invited_email,
+    om.invitation_token_id,
+    om.created_at,
+    om.updated_at,
+    u.email as user_email,
+    at.expires_at as invitation_expires_at
+from organization_members om
+left join users u on u.id = om.user_id
+left join access_tokens at on at.id = om.invitation_token_id
+where om.id = $1
+  and om.organization_id = $2;
+
+-- name: UpdateOrganizationMemberRole :one
+update organization_members
+set role = $2
+where id = $1
+  and organization_id = $3
+returning id, organization_id, user_id, role, invited_email, invitation_token_id, created_at, updated_at;
+
+-- name: SetOrganizationMemberInvitation :execrows
+update organization_members
+set invitation_token_id = $2
+where id = $1
+  and organization_id = $3
+  and user_id is null;
+
+-- name: DeleteOrganizationMember :execrows
+delete from organization_members
+where id = $1
+  and organization_id = $2;

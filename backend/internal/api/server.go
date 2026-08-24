@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/chrismott/miniclass/internal/api/handlers"
@@ -13,25 +14,28 @@ import (
 )
 
 const (
-	defaultServerAddress = ":8080"
-	defaultServerVersion = "0.1.0"
+	defaultServerAddress          = ":8080"
+	defaultServerVersion          = "0.1.0"
+	defaultInvitationClaimBaseURL = "http://localhost:5173/claim"
 )
 
 // ServerOptions controls construction of a Server without starting a process.
 type ServerOptions struct {
-	Address           string
-	AllowedOrigins    []string
-	Database          handlers.DatabasePinger
-	Identity          auth.AccountResolver
-	Claimer           handlers.InvitationClaimer
-	Verifier          auth.Verifier
-	Logger            *slog.Logger
-	TrustedProxyCIDRs []string
-	ReadTimeout       time.Duration
-	ReadHeaderTimeout time.Duration
-	WriteTimeout      time.Duration
-	IdleTimeout       time.Duration
-	Version           string
+	Address                string
+	AllowedOrigins         []string
+	Database               handlers.DatabasePinger
+	Identity               auth.AccountResolver
+	Claimer                handlers.InvitationClaimer
+	Administrators         handlers.AdministratorManager
+	InvitationClaimBaseURL string
+	Verifier               auth.Verifier
+	Logger                 *slog.Logger
+	TrustedProxyCIDRs      []string
+	ReadTimeout            time.Duration
+	ReadHeaderTimeout      time.Duration
+	WriteTimeout           time.Duration
+	IdleTimeout            time.Duration
+	Version                string
 }
 
 // Server owns the HTTP handler and server settings used by the API process.
@@ -45,12 +49,13 @@ type Server struct {
 // NewServer constructs a server with safe local-development defaults.
 func NewServer(options ...ServerOption) *Server {
 	settings := ServerOptions{
-		Address:           defaultServerAddress,
-		Version:           defaultServerVersion,
-		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       15 * time.Second,
-		WriteTimeout:      15 * time.Second,
-		IdleTimeout:       60 * time.Second,
+		Address:                defaultServerAddress,
+		Version:                defaultServerVersion,
+		InvitationClaimBaseURL: defaultInvitationClaimBaseURL,
+		ReadHeaderTimeout:      5 * time.Second,
+		ReadTimeout:            15 * time.Second,
+		WriteTimeout:           15 * time.Second,
+		IdleTimeout:            60 * time.Second,
 	}
 	for _, option := range options {
 		if option != nil {
@@ -65,14 +70,16 @@ func NewServer(options ...ServerOption) *Server {
 	}
 
 	router := NewRouter(RouterOptions{
-		AllowedOrigins:    settings.AllowedOrigins,
-		Database:          settings.Database,
-		Identity:          settings.Identity,
-		Claimer:           settings.Claimer,
-		Verifier:          settings.Verifier,
-		Logger:            settings.Logger,
-		TrustedProxyCIDRs: settings.TrustedProxyCIDRs,
-		Version:           settings.Version,
+		AllowedOrigins:         settings.AllowedOrigins,
+		Database:               settings.Database,
+		Identity:               settings.Identity,
+		Claimer:                settings.Claimer,
+		Administrators:         settings.Administrators,
+		InvitationClaimBaseURL: settings.InvitationClaimBaseURL,
+		Verifier:               settings.Verifier,
+		Logger:                 settings.Logger,
+		TrustedProxyCIDRs:      settings.TrustedProxyCIDRs,
+		Version:                settings.Version,
 	})
 	httpServer := &http.Server{
 		Addr:              settings.Address,
@@ -94,6 +101,9 @@ func NewServerWithConfig(cfg config.Config, options ...ServerOption) *Server {
 		WithTrustedProxyCIDRs(cfg.TrustedProxyCIDRs...),
 		WithVersion(cfg.AppVersion),
 	}, options...)
+	if strings.TrimSpace(cfg.InvitationClaimBaseURL) != "" {
+		options = append(options, WithInvitationClaimBaseURL(cfg.InvitationClaimBaseURL))
+	}
 	return NewServer(options...)
 }
 
@@ -121,6 +131,7 @@ func WithIdentity(store *identity.Store) ServerOption {
 	return func(options *ServerOptions) {
 		options.Identity = store
 		options.Claimer = store
+		options.Administrators = store
 	}
 }
 
@@ -133,6 +144,17 @@ func WithAccountResolver(resolver auth.AccountResolver) ServerOption {
 // WithInvitationClaimer supplies the invitation binding use case.
 func WithInvitationClaimer(claimer handlers.InvitationClaimer) ServerOption {
 	return func(options *ServerOptions) { options.Claimer = claimer }
+}
+
+// WithAdministratorManager supplies the owner-only administrator use case.
+func WithAdministratorManager(manager handlers.AdministratorManager) ServerOption {
+	return func(options *ServerOptions) { options.Administrators = manager }
+}
+
+// WithInvitationClaimBaseURL sets the absolute URL used in generated admin
+// invitation links.
+func WithInvitationClaimBaseURL(baseURL string) ServerOption {
+	return func(options *ServerOptions) { options.InvitationClaimBaseURL = baseURL }
 }
 
 // WithVerifier supplies the configured bearer-token verifier.

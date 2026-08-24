@@ -200,6 +200,10 @@ func (r testAccountResolver) ResolveAccount(context.Context, string) (auth.Accou
 }
 
 func testAuth(t *testing.T) (auth.Verifier, auth.AccountResolver, string) {
+	return testAuthRole(t, "owner")
+}
+
+func testAuthRole(t *testing.T, role string) (auth.Verifier, auth.AccountResolver, string) {
 	t.Helper()
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -221,7 +225,7 @@ func testAuth(t *testing.T) (auth.Verifier, auth.AccountResolver, string) {
 	}
 	resolver := testAccountResolver{account: auth.Account{
 		User:       auth.AccountUser{ID: ids.XID("user-test"), ProviderSubject: "subject-test", Email: "organizer@example.test"},
-		Membership: auth.AccountMembership{ID: ids.XID("membership-test"), OrganizationID: ids.XID("org-test"), OrganizationName: "Synthetic Academy", Role: "owner"},
+		Membership: auth.AccountMembership{ID: ids.XID("membership-test"), OrganizationID: ids.XID("org-test"), OrganizationName: "Synthetic Academy", Role: role},
 	}}
 	return verifier, resolver, token
 }

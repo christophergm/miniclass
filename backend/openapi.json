@@ -1,6 +1,70 @@
 {
   "components": {
     "schemas": {
+      "AdministratorListOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/AdministratorListOutputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/AdministratorResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "members"
+        ],
+        "type": "object"
+      },
+      "AdministratorResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/AdministratorResponse.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "invitation_expires_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "pending_invitation": {
+            "type": "boolean"
+          },
+          "role": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "role",
+          "pending_invitation"
+        ],
+        "type": "object"
+      },
       "ApiRootOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -20,6 +84,29 @@
         },
         "required": [
           "service"
+        ],
+        "type": "object"
+      },
+      "ChangeAdministratorRoleInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/ChangeAdministratorRoleInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "role": {
+            "description": "owner, administrator, or coordinator.",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "role"
         ],
         "type": "object"
       },
@@ -44,6 +131,21 @@
         "required": [
           "token"
         ],
+        "type": "object"
+      },
+      "EmptyAdministratorOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/EmptyAdministratorOutputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "ErrorDetail": {
@@ -158,6 +260,68 @@
         ],
         "type": "object"
       },
+      "InvitationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/InvitationResponse.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "claim_url": {
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "generation": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "member": {
+            "$ref": "#/components/schemas/AdministratorResponse"
+          }
+        },
+        "required": [
+          "member",
+          "claim_url",
+          "expires_at",
+          "generation"
+        ],
+        "type": "object"
+      },
+      "InviteAdministratorInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/InviteAdministratorInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "email": {
+            "description": "Email address to invite.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "role": {
+            "description": "administrator or coordinator; defaults to administrator.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "type": "object"
+      },
       "MeOrganization": {
         "additionalProperties": false,
         "properties": {
@@ -229,6 +393,8 @@
       "ProblemType": {
         "description": "Stable RFC 9457 problem type slug.",
         "enum": [
+          "administrator-conflict",
+          "administrator-role-invalid",
           "authentication-required",
           "authentication-unavailable",
           "capability-not-declared",
@@ -239,6 +405,8 @@
           "invitation-email-mismatch",
           "invitation-email-unverified",
           "invitation-invalid",
+          "invitation-not-pending",
+          "last-owner",
           "method-not-allowed",
           "multiple-organizations",
           "no-organization",
@@ -329,6 +497,432 @@
         ],
         "summary": "Get API information",
         "x-required-capability": "authenticated"
+      }
+    },
+    "/api/administrators": {
+      "get": {
+        "operationId": "get-administrators",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdministratorListOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List organization administrators",
+        "x-required-capability": "manage_administrators"
+      },
+      "post": {
+        "operationId": "post-administrator-invitation",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteAdministratorInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Invite an administrator",
+        "x-required-capability": "manage_administrators"
+      }
+    },
+    "/api/administrators/{memberID}": {
+      "delete": {
+        "operationId": "delete-administrator",
+        "parameters": [
+          {
+            "description": "Opaque administrator membership identifier.",
+            "in": "path",
+            "name": "memberID",
+            "required": true,
+            "schema": {
+              "description": "Opaque administrator membership identifier.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmptyAdministratorOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Remove an administrator",
+        "x-required-capability": "manage_administrators"
+      },
+      "patch": {
+        "operationId": "patch-administrator-role",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "memberID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeAdministratorRoleInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdministratorResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Change an administrator role",
+        "x-required-capability": "manage_administrators"
+      }
+    },
+    "/api/administrators/{memberID}/invitation/resend": {
+      "post": {
+        "operationId": "post-administrator-invitation-resend",
+        "parameters": [
+          {
+            "description": "Opaque administrator membership identifier.",
+            "in": "path",
+            "name": "memberID",
+            "required": true,
+            "schema": {
+              "description": "Opaque administrator membership identifier.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Regenerate an administrator invitation",
+        "x-required-capability": "manage_administrators"
+      }
+    },
+    "/api/administrators/{memberID}/invitation/revoke": {
+      "post": {
+        "operationId": "post-administrator-invitation-revoke",
+        "parameters": [
+          {
+            "description": "Opaque administrator membership identifier.",
+            "in": "path",
+            "name": "memberID",
+            "required": true,
+            "schema": {
+              "description": "Opaque administrator membership identifier.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmptyAdministratorOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Revoke an administrator invitation",
+        "x-required-capability": "manage_administrators"
       }
     },
     "/api/auth/claim": {
@@ -486,6 +1080,8 @@
     }
   },
   "x-miniclass-problem-types": [
+    "administrator-conflict",
+    "administrator-role-invalid",
     "authentication-required",
     "authentication-unavailable",
     "capability-not-declared",
@@ -496,6 +1092,8 @@
     "invitation-email-mismatch",
     "invitation-email-unverified",
     "invitation-invalid",
+    "invitation-not-pending",
+    "last-owner",
     "method-not-allowed",
     "multiple-organizations",
     "no-organization",

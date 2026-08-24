@@ -262,3 +262,16 @@
 - PR #73 is open, non-draft, mergeable, cites SPEC §§6.6/9.3/9.4 and ADRs 0008/0009, and has no review
   or inline comments. The final complete-tree CI run passed all nine required checks; Workpad completion
   declaration remains the final handoff.
+
+## Issue #58 administrator management
+
+- Added Owner-only `/api/administrators` list/invite, role-change, removal, invitation resend, and
+  invitation revoke operations. `WithIdentity` wires the Store as the manager; invitation links default
+  to `http://localhost:5173/claim` and may be overridden with `WithInvitationClaimBaseURL`.
+- Tenant mutations run through `data.InTenant`, and invitation/permission/add/remove actions record
+  same-transaction audit entries. The unscoped identity accessor remains restricted to `internal/identity`.
+- Added integration coverage for regeneration invalidation, revoke, role changes, removal, audit count,
+  tenant scoping, and last-Owner protection; it skips here because both test database URLs are absent.
+- Focused backend/API tests and OpenAPI/sqlc generation pass. Full nine-gate validation and PR handoff
+  remain open. No skill draft: the tenant harness skill was used, but no broadly reusable new procedure
+  was discovered.

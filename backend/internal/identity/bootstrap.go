@@ -20,7 +20,8 @@ const defaultInvitationLifetime = 48 * time.Hour
 // accessor private here ensures callers cannot use it to reach generated SQL
 // or accidentally add tenant state to an identity transaction.
 type Store struct {
-	database *identitydata.DB
+	database       *identitydata.DB
+	tenantDatabase *data.DB
 }
 
 // NewStore creates the identity data boundary from the application's database
@@ -29,7 +30,7 @@ func NewStore(database *data.DB) *Store {
 	if database == nil {
 		return nil
 	}
-	return &Store{database: identitydata.New(database.Pool())}
+	return &Store{database: identitydata.New(database.Pool()), tenantDatabase: database}
 }
 
 // ResolveAccount maps a verified provider subject to one local membership.

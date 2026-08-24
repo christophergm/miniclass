@@ -19,14 +19,16 @@ const apiBasePath = "/api"
 
 // RouterOptions configures the HTTP router independently of process startup.
 type RouterOptions struct {
-	AllowedOrigins    []string
-	Database          handlers.DatabasePinger
-	Logger            *slog.Logger
-	TrustedProxyCIDRs []string
-	Version           string
-	Identity          auth.AccountResolver
-	Claimer           handlers.InvitationClaimer
-	Verifier          auth.Verifier
+	AllowedOrigins         []string
+	Database               handlers.DatabasePinger
+	Logger                 *slog.Logger
+	TrustedProxyCIDRs      []string
+	Version                string
+	Identity               auth.AccountResolver
+	Claimer                handlers.InvitationClaimer
+	Administrators         handlers.AdministratorManager
+	InvitationClaimBaseURL string
+	Verifier               auth.Verifier
 }
 
 // NewRouter builds the complete API router and middleware chain. Routes are
@@ -133,6 +135,37 @@ func registerOperations(api huma.API, options RouterOptions) {
 		Summary:     "Claim an administrator invitation",
 		Errors:      []int{http.StatusBadRequest, http.StatusForbidden},
 	}, auth.CapabilityAuthenticated, true, claim.Handle)
+
+	administrators := handlers.NewAdministratorHandler(options.Administrators, options.InvitationClaimBaseURL)
+	registerOperation(api, huma.Operation{
+		OperationID: "get-administrators", Method: http.MethodGet, Path: apiBasePath + "/administrators",
+		Summary: "List organization administrators",
+	}, auth.CapabilityManageAdministrators, false, administrators.List)
+	registerOperation(api, huma.Operation{
+		OperationID: "post-administrator-invitation", Method: http.MethodPost, Path: apiBasePath + "/administrators",
+		Summary: "Invite an administrator",
+		Errors:  []int{http.StatusBadRequest, http.StatusConflict},
+	}, auth.CapabilityManageAdministrators, false, administrators.Invite)
+	registerOperation(api, huma.Operation{
+		OperationID: "patch-administrator-role", Method: http.MethodPatch, Path: apiBasePath + "/administrators/{memberID}",
+		Summary: "Change an administrator role",
+		Errors:  []int{http.StatusBadRequest, http.StatusConflict, http.StatusNotFound},
+	}, auth.CapabilityManageAdministrators, false, administrators.ChangeRole)
+	registerOperation(api, huma.Operation{
+		OperationID: "delete-administrator", Method: http.MethodDelete, Path: apiBasePath + "/administrators/{memberID}",
+		Summary: "Remove an administrator",
+		Errors:  []int{http.StatusConflict, http.StatusNotFound},
+	}, auth.CapabilityManageAdministrators, false, administrators.Remove)
+	registerOperation(api, huma.Operation{
+		OperationID: "post-administrator-invitation-resend", Method: http.MethodPost, Path: apiBasePath + "/administrators/{memberID}/invitation/resend",
+		Summary: "Regenerate an administrator invitation",
+		Errors:  []int{http.StatusConflict, http.StatusNotFound},
+	}, auth.CapabilityManageAdministrators, false, administrators.Resend)
+	registerOperation(api, huma.Operation{
+		OperationID: "post-administrator-invitation-revoke", Method: http.MethodPost, Path: apiBasePath + "/administrators/{memberID}/invitation/revoke",
+		Summary: "Revoke an administrator invitation",
+		Errors:  []int{http.StatusConflict, http.StatusNotFound},
+	}, auth.CapabilityManageAdministrators, false, administrators.Revoke)
 }
 
 func registerOperation[I, O any](api huma.API, operation huma.Operation, capability auth.Capability, allowUnresolved bool, handler func(context.Context, *I) (*O, error)) {
