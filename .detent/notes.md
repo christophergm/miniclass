@@ -140,3 +140,11 @@
 - README, QUICK_START, STRUCTURE, IMPLEMENTATION_PLAN, WORKFLOW, and the smoke script use Bun; no npm/package-lock references remain.
 - Validation: Bun install, 9 frontend tests, build, lint, CI YAML parse, shell syntax, and `git diff --check` pass. `cd backend && make test` is blocked locally by Go 1.26 attempting a restricted Go 1.27 toolchain download; CI uses `backend/go.mod`.
 - Open items: commit/push, open PR with `Fixes #33`, inspect current-head CI/reviews, and update the Workpad.
+
+## Issue #41 frontend foundation
+
+- Recovered work removes the fabricated dashboard and placeholder routes from `frontend/src/App.tsx`; `/` and unknown routes redirect to `/health`.
+- Tailwind v4 is loaded from `frontend/src/styles/globals.css` through `@tailwindcss/vite`; shadcn configuration is in `frontend/components.json`, with exactly `button`, `input`, and `table` under `frontend/src/components/ui`.
+- The `@/*` alias is configured in `frontend/tsconfig.json` and `frontend/vite.config.ts`; `frontend/src/index.css` is deleted.
+- `bun run test -- --run` passes 12 tests after the test script uses `bunx vitest` (Node-backed Vitest); forcing `bunx --bun vitest` fails in this worker with Bun's `port.addListener` incompatibility. Build, lint, backend `make test`, shell syntax, and `git diff --check` pass; the integration test skips without `TEST_DATABASE_URL`.
+- Completed: PR #45 is open and non-draft with `Fixes #41`; rebased onto `origin/main` and all nine current-head CI checks pass. No review comments or actionable findings remain.

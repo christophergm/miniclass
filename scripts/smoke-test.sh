@@ -132,12 +132,15 @@ for _ in $(seq 1 "$TIMEOUT_SECONDS"); do
 done
 curl --fail --silent --show-error "$FRONTEND_URL/health" >"$LOG_DIR/frontend-health.html" 2>"$LOG_DIR/frontend-health.err" \
   || die "frontend did not serve $FRONTEND_URL/health"
+grep -Fq 'All systems operational' "$ROOT_DIR/frontend/src/features/health/HealthCheck.tsx" \
+  || die "frontend health page is missing the expected operational status"
 
 echo
 echo "Automated checks passed:"
 echo "  - PostgreSQL is ready and migrations are applied"
 echo "  - $API_BASE_URL/api/health reports healthy/connected"
 echo "  - $FRONTEND_URL/health is served by Vite"
+echo "  - frontend health page contains 'All systems operational'"
 echo
 echo "Manual browser check: open $FRONTEND_URL/health and confirm"
 echo "  'All systems operational', 'Connected', and the current API version are visible."

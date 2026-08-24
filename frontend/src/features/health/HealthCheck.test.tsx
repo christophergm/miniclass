@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { HealthResponse } from '../../lib/api'
 
-// Mock the API module before importing the component
+// Keep the health screen tests independent from the running API.
 vi.mock('../../lib/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../lib/api')>()
   return {
@@ -52,7 +52,7 @@ describe('HealthCheck', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Checking backend health')
   })
 
-  it('shows the backend status and details when healthy', async () => {
+  it('shows the backend status and the shadcn details table when healthy', async () => {
     vi.mocked(apiClient.getHealth).mockResolvedValue(healthyResponse)
 
     renderHealthCheck()
@@ -61,6 +61,7 @@ describe('HealthCheck', () => {
     expect(screen.getByText('Healthy')).toBeInTheDocument()
     expect(screen.getByText('Connected')).toBeInTheDocument()
     expect(screen.getByText('0.1.0')).toBeInTheDocument()
+    expect(screen.getByRole('table', { name: 'Backend health details' })).toBeInTheDocument()
     expect(screen.getByText('Automatically refreshes every 30 seconds.')).toBeInTheDocument()
   })
 
