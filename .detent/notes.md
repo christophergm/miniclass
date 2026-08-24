@@ -255,7 +255,10 @@
 - `internal/data/identity` remains imported only by `internal/identity`; auth/API use contracts from
   `internal/auth`. Generated sqlc identity queries and `openapi.json` are committed; no migration was
   needed because identity tables already exist.
-- Focused unit tests, API HTTP tests, `go test ./...`, `make lint`, `make format`, OpenAPI generation,
-  and `git diff --check` pass. PostgreSQL integration tests use the two-pool harness and skip here
-  without `TEST_DATABASE_URL`/`TEST_APP_DATABASE_URL`; full gate, PR, CI, and Workpad final handoff
-  remain open.
+- Focused unit tests, API HTTP tests, `make test`, `make lint`, `make format`, OpenAPI/generated-code
+  drift, frozen Bun frontend tests/build/lint, PostgreSQL 18 migration round-trip, and `git diff --check`
+  pass. PostgreSQL integration tests use the two-pool harness and skip here without
+  `TEST_DATABASE_URL`/`TEST_APP_DATABASE_URL`; CI supplies both.
+- PR #73 is open, non-draft, mergeable, cites SPEC §§6.6/9.3/9.4 and ADRs 0008/0009, and has no review
+  or inline comments. The final complete-tree CI run passed all nine required checks; Workpad completion
+  declaration remains the final handoff.
