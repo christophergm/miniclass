@@ -225,3 +225,20 @@
   ADR 0007/0009/0010, and has no review or inline comments. After the generated-artifact correction
   commit `ee21b13`, all nine current-head required checks passed; the Workpad is the remaining final
   handoff and Detent owns the completion-lane transition.
+
+## Issue #51 tenancy guard, Layer 1 harness, and audit log
+
+- `internal/data` now owns `Tx`, `InTenant`, `InTenantRead`, transaction-local `set local
+  app.organization_id`, and the audit/no-audit commit invariant. `internal/audit` owns actor/action
+  vocabulary; generated audit queries remain behind `internal/data`.
+- Migration `20260824140000_tenancy_audit.sql` adds `audit_log` with `audit_actor_type`, RLS enabled
+  and forced, an `app.organization_id` policy without `missing_ok`, `(id, organization_id)` uniqueness,
+  and app-role `insert`/`select`-only privileges. It grants the four identity tables in schema-isolated
+  tests and revokes app access to `goose_db_version`.
+- `internal/testing` provides the two-pool schema-isolated harness; Layer 1 assertions live with the
+  existing integration package to serialize migrations that replace public XID functions.
+- `backend/scripts/verify-depguard.sh` proves both protected imports fail outside their allowlisted
+  packages; `make lint` runs it after golangci-lint.
+- Focused and full backend race tests pass with PostgreSQL 18 and both roles; backend lint, format/vet,
+  pinned sqlc generation, generated-code drift, migration round-trip, frozen Bun tests/build/lint,
+  and `git diff --check` pass. PR and current-head CI remain open items.

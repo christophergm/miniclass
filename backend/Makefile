@@ -1,4 +1,4 @@
-.PHONY: help dev build test format lint generate migrate-up migrate-down migrate-create seed reset-db sqlc openapi generated-code-drift install-tools
+.PHONY: help dev build test format lint generate migrate-up migrate-down migrate-create seed reset-db sqlc openapi generated-code-drift install-tools verify-depguard
 
 GOLANGCI_LINT_VERSION := v1.64.8
 SQLC_VERSION := v1.27.0
@@ -83,6 +83,10 @@ lint: ## Run the pinned golangci-lint configuration
 	@command -v golangci-lint >/dev/null || { echo "golangci-lint $(GOLANGCI_LINT_VERSION) is required; run make install-tools"; exit 1; }
 	@golangci-lint version | grep -F "$(GOLANGCI_LINT_VERSION)" >/dev/null || { echo "golangci-lint $(GOLANGCI_LINT_VERSION) is required"; golangci-lint version; exit 1; }
 	golangci-lint run
+	$(MAKE) verify-depguard
+
+verify-depguard: ## Prove protected imports fail outside their allowlisted packages
+	./scripts/verify-depguard.sh
 
 sqlc: ## Generate sqlc code from queries
 	@if [ -d sql/queries ]; then sqlc generate; else echo "No sql/queries directory; sqlc generation skipped."; fi

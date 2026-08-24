@@ -11,5 +11,28 @@ linters-settings:
         list-mode: lax
         files:
           - "$all"
+          - "!**/backend/internal/data/*.go"
+          - "!**/backend/internal/data/**/*.go"
+          - "!**/backend/internal/identity/*.go"
+          - "!**/backend/internal/identity/**/*.go"
         allow:
           - "$gostd"
+        deny:
+          - pkg: github.com/chrismott/miniclass/internal/db/gen
+            desc: generated sqlc access belongs only in internal/data
+          - pkg: github.com/chrismott/miniclass/internal/data/identity
+            desc: the unscoped identity accessor belongs only in internal/identity
+      data-generated:
+        list-mode: lax
+        files:
+          - "**/backend/internal/data/*.go"
+          - "**/backend/internal/data/**/*.go"
+        allow:
+          - github.com/chrismott/miniclass/internal/db/gen$
+      identity-accessor:
+        list-mode: lax
+        files:
+          - "**/backend/internal/identity/*.go"
+          - "**/backend/internal/identity/**/*.go"
+        allow:
+          - github.com/chrismott/miniclass/internal/data/identity$
