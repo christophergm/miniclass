@@ -133,6 +133,21 @@
 - Validation: disposable-TMPDIR backend `GOTOOLCHAIN=local GOSUMDB=off go test -v ./... -count=1` passes (integration test skips without `TEST_DATABASE_URL`); frontend `npm ci`, 9 tests, build, lint, Compose config, and `git diff --check` pass. Exact `cd backend && make test` cannot run because Go 1.27 is not installed locally.
 - PR #32 is open, non-draft, references `Fixes #31`, and all five current-head CI checks pass with no review comments. The Workpad is ready for the completion declaration.
 
+## Issue #40 frontend API client generation
+
+- Dependency P0-5a (#39) is closed through merged PR #47; `origin/main` now contains the committed
+  `backend/openapi.json` contract.
+- Added `openapi-typescript` generation to `frontend/package.json`; `build`, `dev`, and `test`
+  generate `frontend/src/lib/api.generated.ts` from the backend contract. The generated file is
+  ignored and remains uncommitted.
+- Replaced hand-written health response validation with `openapi-fetch`, retaining the UI-facing
+  `ApiClient` and normalized `ApiError`; deleted `frontend/src/lib/api.test.ts` as required.
+- Validation: frozen Bun install, 8 frontend tests, frontend build, frontend lint, and
+  `git diff --check` pass. Generated file was checked locally and is ignored.
+- Open item: commit/push, open PR with `Fixes #40` and ADR 0004/0010 citation, inspect current-head
+  CI and review comments, then update the Workpad to complete only after the PR gate is green.
+- Skill draft: no; this was a routine dependency and client wiring change.
+
 ## Issue #33 Node 24 and Bun upgrade
 
 - Frontend now declares Node.js `>=24` and Bun `1.3.14` in `frontend/package.json`, with `frontend/bun.lock` replacing `frontend/package-lock.json`.
