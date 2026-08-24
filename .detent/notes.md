@@ -1,5 +1,12 @@
 # Detent handoff notes
 
+## Issue #38 Detent merge gate
+
+- Dependency #37 is closed through merged PR #43, and `origin/main` publishes exactly the nine required check names.
+- `detent.yaml` now requires all nine exact CI check names and uses `git diff --check` as the local command gate.
+- Detent docs (`docs/concepts.md` and `docs/merge-train.md`) confirm command gates require the configured local command plus green current-head required CI and the quiet period; this is recorded in the PR description.
+- Open items: validate config and repository gate, commit/push, open the PR with `Fixes #38`, inspect current-head CI/reviews, and update the Workpad.
+
 ## Issue #35 XID identifiers
 
 - Added reversible backend/migrations/00002_xid.sql with the public.xid20
