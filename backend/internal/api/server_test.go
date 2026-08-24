@@ -3,6 +3,9 @@ package api
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -10,9 +13,12 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/chrismott/miniclass/internal/api/problems"
+	"github.com/chrismott/miniclass/internal/auth"
 	"github.com/chrismott/miniclass/internal/config"
+	"github.com/chrismott/miniclass/internal/ids"
 	"github.com/danielgtaylor/huma/v2"
 )
 
@@ -21,9 +27,12 @@ type routeHealthDatabase struct{}
 func (routeHealthDatabase) PingDB(context.Context) error { return nil }
 
 func TestNewServerConstructsWithoutStartingProcess(t *testing.T) {
+	verifier, resolver, token := testAuth(t)
 	server := NewServer(
 		WithAddress(":9090"),
 		WithAllowedOrigins("https://classroom.example"),
+		WithVerifier(verifier),
+		WithAccountResolver(resolver),
 	)
 
 	if server.HTTPServer == nil {
@@ -37,6 +46,7 @@ func TestNewServerConstructsWithoutStartingProcess(t *testing.T) {
 	}
 
 	request := httptest.NewRequest(http.MethodGet, "/api/", nil)
+	request.Header.Set("Authorization", "Bearer "+token)
 	request.Header.Set("Origin", "https://classroom.example")
 	recording := httptest.NewRecorder()
 	server.Handler().ServeHTTP(recording, request)
@@ -107,12 +117,17 @@ func TestRouterReturnsJSONForUnsupportedRequests(t *testing.T) {
 }
 
 func TestRouterServesHealthEndpoint(t *testing.T) {
+	verifier, resolver, token := testAuth(t)
 	router := NewRouter(RouterOptions{
 		Database: routeHealthDatabase{},
 		Version:  "1.2.3",
+		Verifier: verifier,
+		Identity: resolver,
 	})
 	recording := httptest.NewRecorder()
-	router.ServeHTTP(recording, httptest.NewRequest(http.MethodGet, "/api/health", nil))
+	request := httptest.NewRequest(http.MethodGet, "/api/health", nil)
+	request.Header.Set("Authorization", "Bearer "+token)
+	router.ServeHTTP(recording, request)
 
 	if recording.Code != http.StatusOK {
 		t.Fatalf("GET /api/health status = %d, want %d", recording.Code, http.StatusOK)
@@ -134,9 +149,12 @@ func (failingHealthDatabase) PingDB(context.Context) error {
 }
 
 func TestRouterServesHealthFailureAsProblemDetails(t *testing.T) {
-	router := NewRouter(RouterOptions{Database: failingHealthDatabase{}})
+	verifier, resolver, token := testAuth(t)
+	router := NewRouter(RouterOptions{Database: failingHealthDatabase{}, Verifier: verifier, Identity: resolver})
 	recording := httptest.NewRecorder()
-	router.ServeHTTP(recording, httptest.NewRequest(http.MethodGet, "/api/health", nil))
+	request := httptest.NewRequest(http.MethodGet, "/api/health", nil)
+	request.Header.Set("Authorization", "Bearer "+token)
+	router.ServeHTTP(recording, request)
 
 	if recording.Code != http.StatusServiceUnavailable {
 		t.Fatalf("GET /api/health status = %d, want %d", recording.Code, http.StatusServiceUnavailable)
@@ -157,10 +175,13 @@ func TestRouterServesHealthFailureAsProblemDetails(t *testing.T) {
 func TestRouterLogsCompletedRequests(t *testing.T) {
 	var logs bytes.Buffer
 	logger := slog.New(slog.NewTextHandler(&logs, nil))
-	router := NewRouter(RouterOptions{Logger: logger})
+	verifier, resolver, token := testAuth(t)
+	router := NewRouter(RouterOptions{Logger: logger, Verifier: verifier, Identity: resolver})
 
 	recording := httptest.NewRecorder()
-	router.ServeHTTP(recording, httptest.NewRequest(http.MethodGet, "/api/", nil))
+	request := httptest.NewRequest(http.MethodGet, "/api/", nil)
+	request.Header.Set("Authorization", "Bearer "+token)
+	router.ServeHTTP(recording, request)
 
 	if !strings.Contains(logs.String(), "http request") {
 		t.Fatalf("request log = %q, want request event", logs.String())
@@ -168,6 +189,41 @@ func TestRouterLogsCompletedRequests(t *testing.T) {
 	if !strings.Contains(logs.String(), "status=200") {
 		t.Fatalf("request log = %q, want status", logs.String())
 	}
+}
+
+type testAccountResolver struct {
+	account auth.Account
+}
+
+func (r testAccountResolver) ResolveAccount(context.Context, string) (auth.Account, error) {
+	return r.account, nil
+}
+
+func testAuth(t *testing.T) (auth.Verifier, auth.AccountResolver, string) {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verifier, err := auth.NewLocalVerifier(auth.LocalVerifierOptions{
+		Issuer: "https://issuer.test", Audience: "authenticated", PublicKey: &key.PublicKey,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC()
+	token, err := auth.MintLocalToken(auth.TokenInput{
+		Subject: "subject-test", Email: "organizer@example.test", EmailVerified: true,
+		Issuer: "https://issuer.test", Audience: "authenticated", Now: now, Lifetime: time.Minute,
+	}, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolver := testAccountResolver{account: auth.Account{
+		User:       auth.AccountUser{ID: ids.XID("user-test"), ProviderSubject: "subject-test", Email: "organizer@example.test"},
+		Membership: auth.AccountMembership{ID: ids.XID("membership-test"), OrganizationID: ids.XID("org-test"), OrganizationName: "Synthetic Academy", Role: "owner"},
+	}}
+	return verifier, resolver, token
 }
 
 func TestOpenAPIContractIsDeterministicAndIncludesProblemTypes(t *testing.T) {

@@ -12,6 +12,29 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const claimOrganizationMember = `-- name: ClaimOrganizationMember :execrows
+update organization_members
+set user_id = $2,
+    invited_email = null,
+    invitation_token_id = null
+where id = $1
+  and user_id is null
+  and invited_email is not null
+`
+
+type ClaimOrganizationMemberParams struct {
+	ID     ids.XID  `json:"id"`
+	UserID *ids.XID `json:"user_id"`
+}
+
+func (q *Queries) ClaimOrganizationMember(ctx context.Context, arg ClaimOrganizationMemberParams) (int64, error) {
+	result, err := q.db.Exec(ctx, claimOrganizationMember, arg.ID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const consumeAccessToken = `-- name: ConsumeAccessToken :execrows
 update access_tokens
 set consumed_at = coalesce(consumed_at, now())
@@ -130,6 +153,30 @@ func (q *Queries) CreateOrganizationMember(ctx context.Context, arg CreateOrgani
 	return i, err
 }
 
+const createUser = `-- name: CreateUser :one
+insert into users (provider_subject, email)
+values ($1, $2)
+returning id, provider_subject, email, created_at, updated_at
+`
+
+type CreateUserParams struct {
+	ProviderSubject string `json:"provider_subject"`
+	Email           string `json:"email"`
+}
+
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
+	row := q.db.QueryRow(ctx, createUser, arg.ProviderSubject, arg.Email)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.ProviderSubject,
+		&i.Email,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getAccessTokenByHash = `-- name: GetAccessTokenByHash :one
 select id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation, created_at, updated_at
 from access_tokens
@@ -176,6 +223,72 @@ func (q *Queries) GetAccessTokenByID(ctx context.Context, id ids.XID) (AccessTok
 	return i, err
 }
 
+const getAccountMembershipsByProviderSubject = `-- name: GetAccountMembershipsByProviderSubject :many
+select
+    u.id as user_id,
+    u.provider_subject,
+    u.email,
+    u.created_at as user_created_at,
+    u.updated_at as user_updated_at,
+    om.id as membership_id,
+    om.organization_id,
+    o.name as organization_name,
+    om.role,
+    om.created_at as membership_created_at,
+    om.updated_at as membership_updated_at
+from users u
+join organization_members om on om.user_id = u.id
+join organizations o on o.id = om.organization_id
+where u.provider_subject = $1
+order by om.organization_id
+`
+
+type GetAccountMembershipsByProviderSubjectRow struct {
+	UserID              ids.XID            `json:"user_id"`
+	ProviderSubject     string             `json:"provider_subject"`
+	Email               string             `json:"email"`
+	UserCreatedAt       pgtype.Timestamptz `json:"user_created_at"`
+	UserUpdatedAt       pgtype.Timestamptz `json:"user_updated_at"`
+	MembershipID        ids.XID            `json:"membership_id"`
+	OrganizationID      ids.XID            `json:"organization_id"`
+	OrganizationName    string             `json:"organization_name"`
+	Role                OrganizationRole   `json:"role"`
+	MembershipCreatedAt pgtype.Timestamptz `json:"membership_created_at"`
+	MembershipUpdatedAt pgtype.Timestamptz `json:"membership_updated_at"`
+}
+
+func (q *Queries) GetAccountMembershipsByProviderSubject(ctx context.Context, providerSubject string) ([]GetAccountMembershipsByProviderSubjectRow, error) {
+	rows, err := q.db.Query(ctx, getAccountMembershipsByProviderSubject, providerSubject)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetAccountMembershipsByProviderSubjectRow{}
+	for rows.Next() {
+		var i GetAccountMembershipsByProviderSubjectRow
+		if err := rows.Scan(
+			&i.UserID,
+			&i.ProviderSubject,
+			&i.Email,
+			&i.UserCreatedAt,
+			&i.UserUpdatedAt,
+			&i.MembershipID,
+			&i.OrganizationID,
+			&i.OrganizationName,
+			&i.Role,
+			&i.MembershipCreatedAt,
+			&i.MembershipUpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getOrganizationMemberByInvitationToken = `-- name: GetOrganizationMemberByInvitationToken :one
 select id, organization_id, user_id, role, invited_email, invitation_token_id, created_at, updated_at
 from organization_members
@@ -192,6 +305,25 @@ func (q *Queries) GetOrganizationMemberByInvitationToken(ctx context.Context, in
 		&i.Role,
 		&i.InvitedEmail,
 		&i.InvitationTokenID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getUserByProviderSubject = `-- name: GetUserByProviderSubject :one
+select id, provider_subject, email, created_at, updated_at
+from users
+where provider_subject = $1
+`
+
+func (q *Queries) GetUserByProviderSubject(ctx context.Context, providerSubject string) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByProviderSubject, providerSubject)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.ProviderSubject,
+		&i.Email,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

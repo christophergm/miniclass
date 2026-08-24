@@ -5,6 +5,8 @@ package identity
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"strings"
@@ -61,6 +63,42 @@ type OrganizationMember struct {
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 }
+
+// User is the local account record mapped from a verified provider subject.
+type User struct {
+	ID              ids.XID
+	ProviderSubject string
+	Email           string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+// Membership is the organization and role selected for an account request.
+type Membership struct {
+	ID               ids.XID
+	OrganizationID   ids.XID
+	OrganizationName string
+	Role             string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
+// Account is the result of resolving a provider subject to exactly one local
+// organization membership.
+type Account struct {
+	User       User
+	Membership Membership
+}
+
+var (
+	ErrNoOrganization        = errors.New("account has no organization membership")
+	ErrMultipleOrganizations = errors.New("account has multiple organization memberships")
+	ErrInvitationInvalid     = errors.New("admin invitation is invalid")
+	ErrInvitationEmail       = errors.New("admin invitation email does not match")
+	ErrInvitationUnverified  = errors.New("invitation claim requires a verified email")
+)
+
+const adminInvitationPurpose = "admin_invitation"
 
 // Tx is the only object handed to identity callbacks. Generated sqlc queries
 // remain private to this package, keeping all database access behind data.
@@ -127,6 +165,51 @@ func (tx *Tx) CreateOrganization(ctx context.Context, name, homeroomLabel string
 	}, nil
 }
 
+// ResolveAccount maps a provider subject to one and only one membership.
+// Returning an explicit error for zero or multiple memberships prevents a
+// request from silently selecting a tenant.
+func (s *DB) ResolveAccount(ctx context.Context, providerSubject string) (Account, error) {
+	if s == nil || s.pool == nil {
+		return Account{}, errors.New("resolve account: data accessor is nil")
+	}
+	providerSubject = strings.TrimSpace(providerSubject)
+	if providerSubject == "" {
+		return Account{}, errors.New("resolve account: provider subject is empty")
+	}
+	var rows []db.GetAccountMembershipsByProviderSubjectRow
+	if err := s.InReadTx(ctx, func(ctx context.Context, tx *Tx) error {
+		var err error
+		rows, err = tx.queries.GetAccountMembershipsByProviderSubject(ctx, providerSubject)
+		return err
+	}); err != nil {
+		return Account{}, fmt.Errorf("resolve account: %w", err)
+	}
+	if len(rows) == 0 {
+		return Account{}, ErrNoOrganization
+	}
+	if len(rows) != 1 {
+		return Account{}, ErrMultipleOrganizations
+	}
+	row := rows[0]
+	return Account{
+		User: User{
+			ID:              row.UserID,
+			ProviderSubject: row.ProviderSubject,
+			Email:           row.Email,
+			CreatedAt:       row.UserCreatedAt.Time,
+			UpdatedAt:       row.UserUpdatedAt.Time,
+		},
+		Membership: Membership{
+			ID:               row.MembershipID,
+			OrganizationID:   row.OrganizationID,
+			OrganizationName: row.OrganizationName,
+			Role:             string(row.Role),
+			CreatedAt:        row.MembershipCreatedAt.Time,
+			UpdatedAt:        row.MembershipUpdatedAt.Time,
+		},
+	}, nil
+}
+
 // CreateAccessToken stores a hashed access token with no object or tenant
 // scope. Purpose-specific ownership is represented by later typed relations.
 func (tx *Tx) CreateAccessToken(ctx context.Context, tokenHash []byte, purpose string, expiresAt time.Time, generation int) (AccessToken, error) {
@@ -149,6 +232,116 @@ func (tx *Tx) CreateAccessToken(ctx context.Context, tokenHash []byte, purpose s
 		return AccessToken{}, fmt.Errorf("create access token: %w", err)
 	}
 	return accessToken(row)
+}
+
+// ClaimInput is the verified identity data required to bind an invitation.
+// The bearer value is accepted only long enough to hash and consume it.
+type ClaimInput struct {
+	Bearer          string
+	ProviderSubject string
+	Email           string
+	EmailVerified   bool
+	Now             time.Time
+}
+
+// ClaimAdminInvitation atomically verifies, consumes, and binds an admin
+// invitation to the verified provider subject. The email check is deliberately
+// performed against the verified token claim, not a request body.
+func (s *DB) ClaimAdminInvitation(ctx context.Context, input ClaimInput) (Account, error) {
+	if s == nil || s.pool == nil {
+		return Account{}, errors.New("claim admin invitation: data accessor is nil")
+	}
+	if !input.EmailVerified {
+		return Account{}, ErrInvitationUnverified
+	}
+	input.ProviderSubject = strings.TrimSpace(input.ProviderSubject)
+	input.Email = strings.ToLower(strings.TrimSpace(input.Email))
+	if input.ProviderSubject == "" || input.Email == "" {
+		return Account{}, errors.New("claim admin invitation: verified subject and email are required")
+	}
+	hash, err := hashBearer(input.Bearer)
+	if err != nil {
+		return Account{}, err
+	}
+	now := input.Now
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
+	var account Account
+	err = s.InTx(ctx, func(ctx context.Context, tx *Tx) error {
+		token, err := tx.GetAccessTokenByHash(ctx, hash)
+		if err != nil {
+			return fmt.Errorf("%w: token lookup failed", ErrInvitationInvalid)
+		}
+		if token.Purpose != adminInvitationPurpose || token.RevokedAt != nil || token.ConsumedAt != nil || !now.Before(token.ExpiresAt) {
+			return ErrInvitationInvalid
+		}
+		member, err := tx.GetOrganizationMemberByInvitationToken(ctx, token.ID)
+		if err != nil || member.UserID != nil || member.InvitedEmail == nil {
+			return ErrInvitationInvalid
+		}
+		if !strings.EqualFold(strings.TrimSpace(*member.InvitedEmail), input.Email) {
+			return ErrInvitationEmail
+		}
+		user, err := tx.queries.GetUserByProviderSubject(ctx, input.ProviderSubject)
+		if errors.Is(err, pgx.ErrNoRows) {
+			row, createErr := tx.queries.CreateUser(ctx, db.CreateUserParams{
+				ProviderSubject: input.ProviderSubject,
+				Email:           input.Email,
+			})
+			if createErr != nil {
+				return fmt.Errorf("claim admin invitation: create user: %w", createErr)
+			}
+			user = row
+		} else if err != nil {
+			return fmt.Errorf("claim admin invitation: find user: %w", err)
+		}
+		consumed, err := tx.ConsumeAccessToken(ctx, token.ID)
+		if err != nil {
+			return err
+		}
+		if !consumed {
+			return ErrInvitationInvalid
+		}
+		claimed, err := tx.queries.ClaimOrganizationMember(ctx, db.ClaimOrganizationMemberParams{ID: member.ID, UserID: &user.ID})
+		if err != nil {
+			return fmt.Errorf("claim admin invitation: bind membership: %w", err)
+		}
+		if claimed != 1 {
+			return ErrInvitationInvalid
+		}
+		rows, err := tx.queries.GetAccountMembershipsByProviderSubject(ctx, input.ProviderSubject)
+		if err != nil || len(rows) != 1 {
+			if len(rows) > 1 {
+				return ErrMultipleOrganizations
+			}
+			return fmt.Errorf("claim admin invitation: resolve claimed membership: %w", err)
+		}
+		row := rows[0]
+		account = Account{
+			User:       User{ID: row.UserID, ProviderSubject: row.ProviderSubject, Email: row.Email},
+			Membership: Membership{ID: row.MembershipID, OrganizationID: row.OrganizationID, OrganizationName: row.OrganizationName, Role: string(row.Role)},
+		}
+		return nil
+	})
+	if err != nil {
+		return Account{}, fmt.Errorf("claim admin invitation: %w", err)
+	}
+	return account, nil
+}
+
+func hashBearer(value string) ([]byte, error) {
+	// Keep the token primitive in the identity service; this small indirection
+	// avoids a package cycle while preserving the same strict 256-bit format.
+	if strings.TrimSpace(value) == "" {
+		return nil, ErrInvitationInvalid
+	}
+	raw, err := base64.RawURLEncoding.DecodeString(value)
+	if err != nil || len(raw) != 32 {
+		return nil, ErrInvitationInvalid
+	}
+	digest := sha256.Sum256(raw)
+	return append([]byte(nil), digest[:]...), nil
 }
 
 // CreateOrganizationMember inserts either an active member or an invitation.

@@ -15,10 +15,21 @@ import (
 type Slug string
 
 const (
-	RouteNotFound       Slug = "route-not-found"
-	MethodNotAllowed    Slug = "method-not-allowed"
-	InternalError       Slug = "internal-error"
-	DatabaseUnavailable Slug = "database-unavailable"
+	RouteNotFound             Slug = "route-not-found"
+	MethodNotAllowed          Slug = "method-not-allowed"
+	InternalError             Slug = "internal-error"
+	DatabaseUnavailable       Slug = "database-unavailable"
+	AuthenticationRequired    Slug = "authentication-required"
+	InvalidToken              Slug = "invalid-token"
+	AuthenticationUnavailable Slug = "authentication-unavailable"
+	NoOrganization            Slug = "no-organization"
+	MultipleOrganizations     Slug = "multiple-organizations"
+	CapabilityRequired        Slug = "capability-required"
+	CapabilityNotDeclared     Slug = "capability-not-declared"
+	InvitationInvalid         Slug = "invitation-invalid"
+	InvitationEmailMismatch   Slug = "invitation-email-mismatch"
+	InvitationEmailUnverified Slug = "invitation-email-unverified"
+	ResourceNotFound          Slug = "resource-not-found"
 )
 
 // Definition describes one registered problem type.
@@ -28,10 +39,21 @@ type Definition struct {
 }
 
 var registry = map[Slug]Definition{
-	RouteNotFound:       {Slug: RouteNotFound, Title: "Route not found"},
-	MethodNotAllowed:    {Slug: MethodNotAllowed, Title: "Method not allowed"},
-	InternalError:       {Slug: InternalError, Title: "Internal server error"},
-	DatabaseUnavailable: {Slug: DatabaseUnavailable, Title: "Database unavailable"},
+	RouteNotFound:             {Slug: RouteNotFound, Title: "Route not found"},
+	MethodNotAllowed:          {Slug: MethodNotAllowed, Title: "Method not allowed"},
+	InternalError:             {Slug: InternalError, Title: "Internal server error"},
+	DatabaseUnavailable:       {Slug: DatabaseUnavailable, Title: "Database unavailable"},
+	AuthenticationRequired:    {Slug: AuthenticationRequired, Title: "Authentication required"},
+	InvalidToken:              {Slug: InvalidToken, Title: "Invalid token"},
+	AuthenticationUnavailable: {Slug: AuthenticationUnavailable, Title: "Authentication unavailable"},
+	NoOrganization:            {Slug: NoOrganization, Title: "No organization"},
+	MultipleOrganizations:     {Slug: MultipleOrganizations, Title: "Multiple organizations"},
+	CapabilityRequired:        {Slug: CapabilityRequired, Title: "Capability required"},
+	CapabilityNotDeclared:     {Slug: CapabilityNotDeclared, Title: "Capability not declared"},
+	InvitationInvalid:         {Slug: InvitationInvalid, Title: "Invitation invalid"},
+	InvitationEmailMismatch:   {Slug: InvitationEmailMismatch, Title: "Invitation email mismatch"},
+	InvitationEmailUnverified: {Slug: InvitationEmailUnverified, Title: "Invitation email is not verified"},
+	ResourceNotFound:          {Slug: ResourceNotFound, Title: "Resource not found"},
 }
 
 // Definitions returns the registry in stable slug order for contract
@@ -67,6 +89,14 @@ func Write(w http.ResponseWriter, problem *huma.ErrorModel) {
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(problem.GetStatus())
 	_ = json.NewEncoder(w).Encode(problem)
+}
+
+// WriteContext is the Huma equivalent used by operation middleware before a
+// handler is invoked.
+func WriteContext(ctx huma.Context, problem *huma.ErrorModel) {
+	ctx.SetHeader("Content-Type", "application/problem+json")
+	ctx.SetStatus(problem.GetStatus())
+	_ = json.NewEncoder(ctx.BodyWriter()).Encode(problem)
 }
 
 // Schema returns the OpenAPI schema for the registered problem-type slugs.

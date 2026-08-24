@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chrismott/miniclass/internal/auth"
 	data "github.com/chrismott/miniclass/internal/data"
 	identitydata "github.com/chrismott/miniclass/internal/data/identity"
 	"github.com/chrismott/miniclass/internal/ids"
@@ -29,6 +30,59 @@ func NewStore(database *data.DB) *Store {
 		return nil
 	}
 	return &Store{database: identitydata.New(database.Pool())}
+}
+
+// ResolveAccount maps a verified provider subject to one local membership.
+func (s *Store) ResolveAccount(ctx context.Context, providerSubject string) (auth.Account, error) {
+	if s == nil || s.database == nil {
+		return auth.Account{}, errors.New("resolve account: data accessor is nil")
+	}
+	account, err := s.database.ResolveAccount(ctx, providerSubject)
+	if errors.Is(err, identitydata.ErrNoOrganization) {
+		return auth.Account{}, auth.ErrNoOrganization
+	}
+	if errors.Is(err, identitydata.ErrMultipleOrganizations) {
+		return auth.Account{}, auth.ErrMultipleOrganizations
+	}
+	if err != nil {
+		return auth.Account{}, err
+	}
+	return auth.Account{
+		User: auth.AccountUser{ID: account.User.ID, ProviderSubject: account.User.ProviderSubject, Email: account.User.Email},
+		Membership: auth.AccountMembership{
+			ID: account.Membership.ID, OrganizationID: account.Membership.OrganizationID,
+			OrganizationName: account.Membership.OrganizationName, Role: account.Membership.Role,
+		},
+	}, nil
+}
+
+// ClaimAdminInvitation binds a verified provider identity to an invitation.
+func (s *Store) ClaimAdminInvitation(ctx context.Context, input auth.InvitationClaimInput) (auth.Account, error) {
+	if s == nil || s.database == nil {
+		return auth.Account{}, errors.New("claim admin invitation: data accessor is nil")
+	}
+	account, err := s.database.ClaimAdminInvitation(ctx, identitydata.ClaimInput{
+		Bearer: input.Bearer, ProviderSubject: input.ProviderSubject, Email: input.Email, EmailVerified: input.EmailVerified,
+	})
+	if errors.Is(err, identitydata.ErrInvitationUnverified) {
+		return auth.Account{}, auth.ErrInvitationUnverified
+	}
+	if errors.Is(err, identitydata.ErrInvitationEmail) {
+		return auth.Account{}, auth.ErrInvitationEmail
+	}
+	if errors.Is(err, identitydata.ErrInvitationInvalid) {
+		return auth.Account{}, auth.ErrInvitationInvalid
+	}
+	if err != nil {
+		return auth.Account{}, err
+	}
+	return auth.Account{
+		User: auth.AccountUser{ID: account.User.ID, ProviderSubject: account.User.ProviderSubject, Email: account.User.Email},
+		Membership: auth.AccountMembership{
+			ID: account.Membership.ID, OrganizationID: account.Membership.OrganizationID,
+			OrganizationName: account.Membership.OrganizationName, Role: account.Membership.Role,
+		},
+	}, nil
 }
 
 // GetAccessTokenByBearer resolves a bearer value to its persisted token

@@ -242,3 +242,23 @@
 - Focused and full backend race tests pass with PostgreSQL 18 and both roles; backend lint, format/vet,
   pinned sqlc generation, generated-code drift, migration round-trip, frozen Bun tests/build/lint,
   and `git diff --check` pass. PR and current-head CI remain open items.
+
+## Issue #52 authentication, capabilities, and `/api/me`
+
+- Added `internal/auth` with ES256/RS256-pinned JWT verification, 30s `iss`/`aud`/`exp`/`nbf`
+  validation, local static-key and Supabase cached-JWKS implementations, rate-limited unknown-kid
+  refresh, `Principal`, and the complete SPEC §6.6 capability matrix.
+- Huma operations use `x-required-capability` metadata plus bearer security declarations; global
+  middleware authenticates, resolves one local membership, then checks capability. `/api/me` and
+  `/api/auth/claim` are implemented; claim requires verified email matching the invitation and
+  atomically consumes the bearer. `cmd/devtoken` mints local tokens without Supabase credentials.
+- `internal/data/identity` remains imported only by `internal/identity`; auth/API use contracts from
+  `internal/auth`. Generated sqlc identity queries and `openapi.json` are committed; no migration was
+  needed because identity tables already exist.
+- Focused unit tests, API HTTP tests, `make test`, `make lint`, `make format`, OpenAPI/generated-code
+  drift, frozen Bun frontend tests/build/lint, PostgreSQL 18 migration round-trip, and `git diff --check`
+  pass. PostgreSQL integration tests use the two-pool harness and skip here without
+  `TEST_DATABASE_URL`/`TEST_APP_DATABASE_URL`; CI supplies both.
+- PR #73 is open, non-draft, mergeable, cites SPEC §§6.6/9.3/9.4 and ADRs 0008/0009, and has no review
+  or inline comments. The final complete-tree CI run passed all nine required checks; Workpad completion
+  declaration remains the final handoff.

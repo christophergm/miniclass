@@ -7,6 +7,7 @@ import (
 
 	"github.com/chrismott/miniclass/internal/api/handlers"
 	"github.com/chrismott/miniclass/internal/api/problems"
+	"github.com/chrismott/miniclass/internal/auth"
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"
 	"github.com/go-chi/chi/v5"
@@ -23,6 +24,9 @@ type RouterOptions struct {
 	Logger            *slog.Logger
 	TrustedProxyCIDRs []string
 	Version           string
+	Identity          auth.AccountResolver
+	Claimer           handlers.InvitationClaimer
+	Verifier          auth.Verifier
 }
 
 // NewRouter builds the complete API router and middleware chain. Routes are
@@ -74,6 +78,7 @@ func newRouter(options RouterOptions) (chi.Router, huma.API) {
 	}
 	options.Version = version
 	api := humachi.New(router, humaConfig(version))
+	api.UseMiddleware(auth.Middleware(options.Verifier, options.Identity, writeAuthError))
 	registerOperations(api, options)
 	addProblemTypesToContract(api.OpenAPI())
 	return router, api
@@ -91,27 +96,60 @@ func humaConfig(version string) huma.Config {
 }
 
 func registerOperations(api huma.API, options RouterOptions) {
-	huma.Register(api, huma.Operation{
+	registerOperation(api, huma.Operation{
 		OperationID: "get-api-root",
 		Method:      http.MethodGet,
 		Path:        apiBasePath,
 		Summary:     "Get API information",
-	}, apiRoot)
-	huma.Register(api, huma.Operation{
+	}, auth.CapabilityAuthenticated, false, apiRoot)
+	registerOperation(api, huma.Operation{
 		OperationID: "get-api-root-trailing-slash",
 		Method:      http.MethodGet,
 		Path:        apiBasePath + "/",
 		Summary:     "Get API information",
-	}, apiRoot)
+	}, auth.CapabilityAuthenticated, false, apiRoot)
 
 	health := handlers.NewHealthHandler(options.Database, options.Version)
-	huma.Register(api, huma.Operation{
+	registerOperation(api, huma.Operation{
 		OperationID: "get-health",
 		Method:      http.MethodGet,
 		Path:        apiBasePath + "/health",
 		Summary:     "Check API and database health",
 		Errors:      []int{http.StatusServiceUnavailable},
-	}, health.Handle)
+	}, auth.CapabilityAuthenticated, false, health.Handle)
+
+	registerOperation(api, huma.Operation{
+		OperationID: "get-me",
+		Method:      http.MethodGet,
+		Path:        apiBasePath + "/me",
+		Summary:     "Get the authenticated principal",
+	}, auth.CapabilityAuthenticated, false, (handlers.MeHandler{}).Handle)
+
+	claim := handlers.NewClaimInvitationHandler(options.Claimer)
+	registerOperation(api, huma.Operation{
+		OperationID: "post-auth-claim-invitation",
+		Method:      http.MethodPost,
+		Path:        apiBasePath + "/auth/claim",
+		Summary:     "Claim an administrator invitation",
+		Errors:      []int{http.StatusBadRequest, http.StatusForbidden},
+	}, auth.CapabilityAuthenticated, true, claim.Handle)
+}
+
+func registerOperation[I, O any](api huma.API, operation huma.Operation, capability auth.Capability, allowUnresolved bool, handler func(context.Context, *I) (*O, error)) {
+	if operation.Extensions == nil {
+		operation.Extensions = map[string]any{}
+	}
+	if operation.Metadata == nil {
+		operation.Metadata = map[string]any{}
+	}
+	operation.Extensions[auth.RequiredCapabilityExtension] = string(capability)
+	operation.Metadata[auth.RequiredCapabilityExtension] = string(capability)
+	if allowUnresolved {
+		operation.Extensions[auth.AllowUnresolvedPrincipalExtension] = true
+		operation.Metadata[auth.AllowUnresolvedPrincipalExtension] = true
+	}
+	operation.Security = []map[string][]string{{"bearerAuth": {}}}
+	huma.Register(api, operation, handler)
 }
 
 type apiRootOutput struct {
@@ -136,6 +174,14 @@ func addProblemTypesToContract(openAPI *huma.OpenAPI) {
 		problemSlugs = append(problemSlugs, string(definition.Slug))
 	}
 	openAPI.Extensions["x-miniclass-problem-types"] = problemSlugs
+	if openAPI.Components != nil {
+		if openAPI.Components.SecuritySchemes == nil {
+			openAPI.Components.SecuritySchemes = map[string]*huma.SecurityScheme{}
+		}
+		openAPI.Components.SecuritySchemes["bearerAuth"] = &huma.SecurityScheme{
+			Type: "http", Scheme: "bearer", BearerFormat: "JWT", Description: "Verified Supabase or local ES256/RS256 bearer token.",
+		}
+	}
 
 	if openAPI.Components == nil || openAPI.Components.Schemas == nil {
 		return
@@ -145,6 +191,25 @@ func addProblemTypesToContract(openAPI *huma.OpenAPI) {
 	if errorSchema, ok := schemas["ErrorModel"]; ok && errorSchema.Properties != nil {
 		errorSchema.Properties["type"] = &huma.Schema{Ref: "#/components/schemas/ProblemType"}
 	}
+}
+
+func writeAuthError(ctx huma.Context, failure auth.Failure) {
+	slug := problems.AuthenticationUnavailable
+	switch failure.Code {
+	case auth.FailureAuthenticationRequired:
+		slug = problems.AuthenticationRequired
+	case auth.FailureInvalidToken:
+		slug = problems.InvalidToken
+	case auth.FailureNoOrganization:
+		slug = problems.NoOrganization
+	case auth.FailureMultipleOrganizations:
+		slug = problems.MultipleOrganizations
+	case auth.FailureCapabilityRequired:
+		slug = problems.CapabilityRequired
+	case auth.FailureMissingCapability:
+		slug = problems.CapabilityNotDeclared
+	}
+	problems.WriteContext(ctx, problems.New(failure.Status, slug, failure.Detail))
 }
 
 func allowedOrigins(origins []string) []string {
