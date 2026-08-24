@@ -23,6 +23,29 @@
         ],
         "type": "object"
       },
+      "ClaimInvitationInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/ClaimInvitationInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "token": {
+            "description": "The one-time admin invitation bearer value.",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "type": "object"
+      },
       "ErrorDetail": {
         "additionalProperties": false,
         "properties": {
@@ -135,15 +158,102 @@
         ],
         "type": "object"
       },
+      "MeOrganization": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Opaque organization identifier.",
+            "type": "string"
+          },
+          "name": {
+            "description": "Organization display name.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "MePrincipal": {
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "description": "Verified provider email.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Opaque application user identifier.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "email"
+        ],
+        "type": "object"
+      },
+      "MeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/MeResponse.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "organization": {
+            "$ref": "#/components/schemas/MeOrganization",
+            "description": "The one organization resolved for the principal."
+          },
+          "principal": {
+            "$ref": "#/components/schemas/MePrincipal",
+            "description": "The authenticated application principal."
+          },
+          "role": {
+            "description": "The resolved organization role.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "principal",
+          "organization",
+          "role"
+        ],
+        "type": "object"
+      },
       "ProblemType": {
         "description": "Stable RFC 9457 problem type slug.",
         "enum": [
+          "authentication-required",
+          "authentication-unavailable",
+          "capability-not-declared",
+          "capability-required",
           "database-unavailable",
           "internal-error",
+          "invalid-token",
+          "invitation-email-mismatch",
+          "invitation-email-unverified",
+          "invitation-invalid",
           "method-not-allowed",
+          "multiple-organizations",
+          "no-organization",
+          "resource-not-found",
           "route-not-found"
         ],
         "type": "string"
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "bearerFormat": "JWT",
+        "description": "Verified Supabase or local ES256/RS256 bearer token.",
+        "scheme": "bearer",
+        "type": "http"
       }
     }
   },
@@ -178,7 +288,13 @@
             "description": "Error"
           }
         },
-        "summary": "Get API information"
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get API information",
+        "x-required-capability": "authenticated"
       }
     },
     "/api/": {
@@ -206,7 +322,88 @@
             "description": "Error"
           }
         },
-        "summary": "Get API information"
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get API information",
+        "x-required-capability": "authenticated"
+      }
+    },
+    "/api/auth/claim": {
+      "post": {
+        "operationId": "post-auth-claim-invitation",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClaimInvitationInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Claim an administrator invitation",
+        "x-allow-unresolved-principal": true,
+        "x-required-capability": "authenticated"
       }
     },
     "/api/health": {
@@ -244,14 +441,65 @@
             "description": "Service Unavailable"
           }
         },
-        "summary": "Check API and database health"
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Check API and database health",
+        "x-required-capability": "authenticated"
+      }
+    },
+    "/api/me": {
+      "get": {
+        "operationId": "get-me",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get the authenticated principal",
+        "x-required-capability": "authenticated"
       }
     }
   },
   "x-miniclass-problem-types": [
+    "authentication-required",
+    "authentication-unavailable",
+    "capability-not-declared",
+    "capability-required",
     "database-unavailable",
     "internal-error",
+    "invalid-token",
+    "invitation-email-mismatch",
+    "invitation-email-unverified",
+    "invitation-invalid",
     "method-not-allowed",
+    "multiple-organizations",
+    "no-organization",
+    "resource-not-found",
     "route-not-found"
   ]
 }

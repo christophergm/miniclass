@@ -13,8 +13,10 @@ import (
 	"time"
 
 	"github.com/chrismott/miniclass/internal/api"
+	"github.com/chrismott/miniclass/internal/auth"
 	"github.com/chrismott/miniclass/internal/config"
 	"github.com/chrismott/miniclass/internal/data"
+	"github.com/chrismott/miniclass/internal/identity"
 )
 
 const shutdownTimeout = 10 * time.Second
@@ -50,10 +52,16 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		return fmt.Errorf("start database: %w", err)
 	}
 	defer database.Close()
+	verifier, err := auth.NewFromConfig(*cfg)
+	if err != nil {
+		return fmt.Errorf("configure authentication: %w", err)
+	}
 
 	server := api.NewServerWithConfig(
 		*cfg,
 		api.WithDatabase(database),
+		api.WithIdentity(identity.NewStore(database)),
+		api.WithVerifier(verifier),
 		api.WithLogger(logger),
 	)
 	return serve(signalContext, cfg, server.HTTPServer, logger)

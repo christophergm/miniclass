@@ -17,6 +17,7 @@ import (
 	"github.com/chrismott/miniclass/internal/api"
 	"github.com/chrismott/miniclass/internal/api/handlers"
 	"github.com/chrismott/miniclass/internal/api/problems"
+	"github.com/chrismott/miniclass/internal/auth"
 	"github.com/chrismott/miniclass/internal/data"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -100,11 +101,16 @@ func TestHealthIntegration(t *testing.T) {
 		api.WithAddress("test"),
 		api.WithDatabase(database),
 		api.WithVersion("integration-test"),
+		api.WithVerifier(integrationVerifier{}),
+		api.WithAccountResolver(integrationResolver{}),
 	)
 	httpServer := httptest.NewServer(server.Handler())
 	t.Cleanup(httpServer.Close)
 
-	response, err := http.Get(httpServer.URL + "/api/health")
+	request, err := http.NewRequest(http.MethodGet, httpServer.URL+"/api/health", nil)
+	require.NoError(t, err)
+	request.Header.Set("Authorization", "Bearer integration")
+	response, err := http.DefaultClient.Do(request)
 	require.NoError(t, err)
 	if err != nil {
 		return
@@ -127,11 +133,14 @@ func (unavailableDatabase) PingDB(context.Context) error {
 }
 
 func TestHealthFailureUsesProblemDetails(t *testing.T) {
-	server := api.NewServer(api.WithDatabase(unavailableDatabase{}))
+	server := api.NewServer(api.WithDatabase(unavailableDatabase{}), api.WithVerifier(integrationVerifier{}), api.WithAccountResolver(integrationResolver{}))
 	httpServer := httptest.NewServer(server.Handler())
 	t.Cleanup(httpServer.Close)
 
-	response, err := http.Get(httpServer.URL + "/api/health")
+	request, err := http.NewRequest(http.MethodGet, httpServer.URL+"/api/health", nil)
+	require.NoError(t, err)
+	request.Header.Set("Authorization", "Bearer integration")
+	response, err := http.DefaultClient.Do(request)
 	require.NoError(t, err)
 	if err != nil {
 		return
@@ -150,6 +159,21 @@ func TestHealthFailureUsesProblemDetails(t *testing.T) {
 	require.Equal(t, string(problems.DatabaseUnavailable), problem.Type)
 	require.Equal(t, http.StatusServiceUnavailable, problem.Status)
 	require.Equal(t, "database unavailable", problem.Detail)
+}
+
+type integrationVerifier struct{}
+
+func (integrationVerifier) Verify(context.Context, string) (auth.VerifiedIdentity, error) {
+	return auth.VerifiedIdentity{Subject: "integration-subject", Email: "integration@example.test", EmailVerified: true}, nil
+}
+
+type integrationResolver struct{}
+
+func (integrationResolver) ResolveAccount(context.Context, string) (auth.Account, error) {
+	return auth.Account{
+		User:       auth.AccountUser{ProviderSubject: "integration-subject", Email: "integration@example.test"},
+		Membership: auth.AccountMembership{OrganizationName: "Synthetic Integration", Role: "owner"},
+	}, nil
 }
 
 func withSearchPath(databaseURL, schemaName string) (string, error) {

@@ -7,7 +7,7 @@ import (
 )
 
 func TestLoadFromDotEnv(t *testing.T) {
-	for _, key := range []string{"APP_ENV", "APP_VERSION", "PORT", "API_BASE_URL", "TRUSTED_PROXY_CIDRS", "DATABASE_URL", "TEST_DATABASE_URL"} {
+	for _, key := range []string{"APP_ENV", "APP_VERSION", "PORT", "API_BASE_URL", "TRUSTED_PROXY_CIDRS", "DATABASE_URL", "TEST_DATABASE_URL", "AUTH_PROVIDER", "AUTH_ISSUER", "AUTH_AUDIENCE", "AUTH_LOCAL_PUBLIC_KEY", "AUTH_LOCAL_PRIVATE_KEY", "AUTH_LOCAL_KEY_ID"} {
 		unsetEnv(t, key)
 	}
 

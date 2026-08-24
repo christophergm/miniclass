@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"github.com/chrismott/miniclass/internal/api/handlers"
+	"github.com/chrismott/miniclass/internal/auth"
 	"github.com/chrismott/miniclass/internal/config"
+	"github.com/chrismott/miniclass/internal/identity"
 )
 
 const (
@@ -20,6 +22,9 @@ type ServerOptions struct {
 	Address           string
 	AllowedOrigins    []string
 	Database          handlers.DatabasePinger
+	Identity          auth.AccountResolver
+	Claimer           handlers.InvitationClaimer
+	Verifier          auth.Verifier
 	Logger            *slog.Logger
 	TrustedProxyCIDRs []string
 	ReadTimeout       time.Duration
@@ -62,6 +67,9 @@ func NewServer(options ...ServerOption) *Server {
 	router := NewRouter(RouterOptions{
 		AllowedOrigins:    settings.AllowedOrigins,
 		Database:          settings.Database,
+		Identity:          settings.Identity,
+		Claimer:           settings.Claimer,
+		Verifier:          settings.Verifier,
 		Logger:            settings.Logger,
 		TrustedProxyCIDRs: settings.TrustedProxyCIDRs,
 		Version:           settings.Version,
@@ -106,6 +114,30 @@ func WithAllowedOrigins(origins ...string) ServerOption {
 // WithDatabase sets the dependency checked by the health endpoint.
 func WithDatabase(database handlers.DatabasePinger) ServerOption {
 	return func(options *ServerOptions) { options.Database = database }
+}
+
+// WithIdentity supplies the local identity resolver used by authentication.
+func WithIdentity(store *identity.Store) ServerOption {
+	return func(options *ServerOptions) {
+		options.Identity = store
+		options.Claimer = store
+	}
+}
+
+// WithAccountResolver supplies a testable or alternate local membership
+// resolver without exposing generated SQL to the API package.
+func WithAccountResolver(resolver auth.AccountResolver) ServerOption {
+	return func(options *ServerOptions) { options.Identity = resolver }
+}
+
+// WithInvitationClaimer supplies the invitation binding use case.
+func WithInvitationClaimer(claimer handlers.InvitationClaimer) ServerOption {
+	return func(options *ServerOptions) { options.Claimer = claimer }
+}
+
+// WithVerifier supplies the configured bearer-token verifier.
+func WithVerifier(verifier auth.Verifier) ServerOption {
+	return func(options *ServerOptions) { options.Verifier = verifier }
 }
 
 // WithVersion sets the application version reported by the health endpoint.
