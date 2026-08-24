@@ -187,8 +187,7 @@ cheap.
   of the phase: adding a table should make adding its isolation test a one-liner.
 - Test data factories.
 - A seed corpus sized from SPEC Appendix B: 139 students across grades 1–6, six homerooms in two
-  vertical streams, ~90 households, ~60 adults — including the grade-3 student whose homeroom and
-  stream disagree, because that exception is real.
+  vertical streams, ~90 households, ~60 adults.
 
 **Exit criteria**
 
