@@ -15,7 +15,9 @@ services:
       # PostgreSQL 18 changed the data directory layout. Mount /var/lib/postgresql rather than
       # /var/lib/postgresql/data so that in-place upgrades with `pg_upgrade --link` remain possible.
       - postgres_data:/var/lib/postgresql
-      - ./backend/scripts/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql
+      - ./backend/scripts/init-roles.sql:/docker-entrypoint-initdb.d/00-init-roles.sql
+      - ./backend/scripts/init-database.sql:/docker-entrypoint-initdb.d/01-init-database.sql
+      - ./backend/scripts/init-test-db.sql:/docker-entrypoint-initdb.d/02-init-test-db.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-miniclass}"]
       interval: 5s

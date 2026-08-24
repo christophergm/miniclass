@@ -1,0 +1,15 @@
+linters:
+  enable:
+    - bodyclose
+    - depguard
+    - sqlclosecheck
+
+linters-settings:
+  depguard:
+    rules:
+      main:
+        list-mode: lax
+        files:
+          - "$all"
+        allow:
+          - "$gostd"

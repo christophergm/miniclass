@@ -31,6 +31,25 @@
   Vitest wrapper fails locally with port.addListener incompatibility.
 - No skill draft: the implementation used existing project patterns.
 
+## Issue #37 quality gates, timestamped migrations, and roles
+
+- Existing in-progress changes expanded CI to exactly nine named checks, added race-enabled backend
+  tests, format/vet, pinned golangci-lint v1.64.8, generated-artifact drift, and migration round-trip.
+- `backend/sqlc.yaml` now emits to `internal/db/gen`; generation skips the currently absent
+  `backend/sql/queries` directory. Goose uses `WithAllowMissing`.
+- Added timestamped `20260824090000_database_roles.sql`. Compose bootstrap provisions roles and makes
+  the default database owned by `miniclass_migrator`; CI provisions roles and transfers the test DB.
+  `miniclass_app` is non-superuser, non-CREATEROLE, non-CREATEDB, `nobypassrls`, and has a 10s timeout.
+- Cluster roles are intentionally retained on migration down: rollback revokes per-database grants and
+  restores ownership to `miniclass_migrator`, because a database migration cannot safely drop roles used
+  by another database.
+- Validation: backend `make test` and `make format`/`make lint` pass; PostgreSQL 18 integration and
+  scratch `up/down/up` pass; fresh Compose-style bootstrap migration and role attributes pass; frontend
+  Node-launched Vitest (12), build, and lint pass. Bun's local Vitest wrapper still fails with its known
+  `port.addListener` incompatibility, while CI uses the required Bun command.
+- Open items: update the Workpad, create/push the PR with `Fixes #37`, then inspect current-head CI and
+  review comments before final completion.
+
 ## Issue #14 quality gates
 
 - `backend/Makefile` target `test` now runs `go test -v ./... -count=1`, including unit and integration packages.

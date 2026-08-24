@@ -65,7 +65,7 @@ func TestHealthIntegration(t *testing.T) {
 		return
 	}
 	migrationsDir := filepath.Join(filepath.Dir(currentFile), "..", "..", "migrations")
-	require.NoError(t, goose.Up(gooseDB, migrationsDir))
+	require.NoError(t, goose.Up(gooseDB, migrationsDir, goose.WithAllowMissing()))
 
 	database, err := db.NewFromURL(ctx, schemaURL)
 	require.NoError(t, err)
