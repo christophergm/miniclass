@@ -17,7 +17,7 @@ const (
 )
 
 // DatabasePinger is the database capability required by the health endpoint.
-// db.DB satisfies this interface while tests can provide a small fake.
+// data.DB satisfies this interface while tests can provide a small fake.
 type DatabasePinger interface {
 	PingDB(context.Context) error
 }
