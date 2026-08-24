@@ -1,0 +1,3 @@
+package proof
+
+func DeliberateFormatProof( ) {}
