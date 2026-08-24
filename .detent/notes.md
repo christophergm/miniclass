@@ -45,8 +45,9 @@
   by another database.
 - Validation: backend `make test` and `make format`/`make lint` pass; PostgreSQL 18 integration and
   scratch `up/down/up` pass; fresh Compose-style bootstrap migration and role attributes pass; frontend
-  Node-launched Vitest (12), build, and lint pass. Bun's local Vitest wrapper still fails with its known
-  `port.addListener` incompatibility, while CI uses the required Bun command.
+  Bun install/test (12), build, and lint pass after the test script was changed to invoke Vitest under
+  Node 24. CI's first run also confirmed the prebuilt golangci-lint binary needed `install-mode: goinstall`
+  to build against the repository's Go 1.26 target.
 - Open items: update the Workpad, create/push the PR with `Fixes #37`, then inspect current-head CI and
   review comments before final completion.
 
