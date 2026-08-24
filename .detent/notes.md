@@ -1,5 +1,28 @@
 # Detent handoff notes
 
+## Issue #46 trusted proxy Real-IP extraction
+
+- Replaced deprecated unconditional `chi/middleware.RealIP` with `internal/api/realip.go`.
+  `TRUSTED_PROXY_CIDRS` is a comma-separated CIDR setting; empty configuration ignores
+  X-Forwarded-For and X-Real-IP. The immediate TCP peer must be trusted, and XFF is merged,
+  walked right-to-left, and fail-closed on malformed entries. Effective `RemoteAddr` mutation
+  remains for downstream request behavior and logging semantics.
+- Wired the setting through `config.Config`, `NewServerWithConfig`, `ServerOptions`, and
+  `RouterOptions`; documented it in `.env.example` and README. Added focused tests for direct,
+  trusted, multi-header, X-Real-IP, untrusted, malformed, and invalid-config cases.
+- Validation passed: focused API/config tests; backend `make test` (integration test skipped because
+  this worker has no `TEST_DATABASE_URL`), `make lint`, `make format`, `make generate && git diff
+  --exit-code`, and `make generated-code-drift`; PostgreSQL 18 disposable migration up/down/up
+  sequence; frozen Bun frontend tests (8), build, and lint; `git diff --check`.
+- The migration script's host `psql` prerequisite is absent in this worker, so its exact wrapper
+  was attempted and then its equivalent database sequence was run with the container's PostgreSQL
+  client; the disposable database was removed after verification.
+- PR #49 is open, non-draft, references `Fixes #46`, cites SPEC §20.1, and has no review or inline
+  comments. The nine required current-head CI checks passed; the slowest were Generated code drift
+  (83s), Backend lint (66s), Backend tests (60s), and Migration round-trip (50s). Latest main CI is
+  complete and successful; no post-merge main run is active.
+- Final handoff: update the persistent Workpad to `complete`; Detent owns the completion-lane transition.
+
 ## Issue #38 Detent merge gate
 
 - Dependency #37 is closed through merged PR #43, and `origin/main` publishes exactly the nine required check names.

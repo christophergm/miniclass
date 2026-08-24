@@ -7,7 +7,7 @@ import (
 )
 
 func TestLoadFromDotEnv(t *testing.T) {
-	for _, key := range []string{"APP_ENV", "APP_VERSION", "PORT", "API_BASE_URL", "DATABASE_URL", "TEST_DATABASE_URL"} {
+	for _, key := range []string{"APP_ENV", "APP_VERSION", "PORT", "API_BASE_URL", "TRUSTED_PROXY_CIDRS", "DATABASE_URL", "TEST_DATABASE_URL"} {
 		unsetEnv(t, key)
 	}
 
@@ -75,4 +75,39 @@ func TestConfigValidateRejectsEmptyPort(t *testing.T) {
 	if err == nil || err.Error() != "configuration error: PORT must not be empty" {
 		t.Fatalf("Validate() error = %v", err)
 	}
+}
+
+func TestLoadReadsTrustedProxyCIDRs(t *testing.T) {
+	unsetEnv(t, "TRUSTED_PROXY_CIDRS")
+	path := filepath.Join(t.TempDir(), ".env")
+	if err := os.WriteFile(path, []byte("DATABASE_URL=postgres://example\nTRUSTED_PROXY_CIDRS=10.0.0.0/8, 192.0.2.10/32\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadFrom(path)
+	if err != nil {
+		t.Fatalf("LoadFrom() error = %v", err)
+	}
+	if got, want := cfg.TrustedProxyCIDRs, []string{"10.0.0.0/8", "192.0.2.10/32"}; !equalStrings(got, want) {
+		t.Fatalf("TrustedProxyCIDRs = %#v, want %#v", got, want)
+	}
+}
+
+func TestConfigValidateRejectsInvalidTrustedProxyCIDR(t *testing.T) {
+	err := (Config{DatabaseURL: "postgres://example", Port: "8080", TrustedProxyCIDRs: []string{"not-a-cidr"}}).Validate()
+	if err == nil || err.Error() != `configuration error: TRUSTED_PROXY_CIDRS contains invalid CIDR "not-a-cidr"` {
+		t.Fatalf("Validate() error = %v", err)
+	}
+}
+
+func equalStrings(got, want []string) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	for i := range got {
+		if got[i] != want[i] {
+			return false
+		}
+	}
+	return true
 }

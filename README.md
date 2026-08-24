@@ -208,6 +208,11 @@ All ports are configurable via `.env` so that parallel worktrees can run simulta
 | PostgreSQL | 5432 | `POSTGRES_PORT` |
 | Adminer | 8081 | `ADMINER_PORT` |
 
+For deployments behind a reverse proxy, set `TRUSTED_PROXY_CIDRS` to a
+comma-separated list of the proxy networks. Forwarded client-IP headers are
+ignored unless the connecting peer belongs to one of those networks; leave it
+empty when the API is directly exposed.
+
 ## Parallel Development (Multiple Worktrees)
 
 To run multiple instances in parallel:

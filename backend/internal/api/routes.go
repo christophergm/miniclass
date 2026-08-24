@@ -18,10 +18,11 @@ const apiBasePath = "/api"
 
 // RouterOptions configures the HTTP router independently of process startup.
 type RouterOptions struct {
-	AllowedOrigins []string
-	Database       handlers.DatabasePinger
-	Logger         *slog.Logger
-	Version        string
+	AllowedOrigins    []string
+	Database          handlers.DatabasePinger
+	Logger            *slog.Logger
+	TrustedProxyCIDRs []string
+	Version           string
 }
 
 // NewRouter builds the complete API router and middleware chain. Routes are
@@ -48,10 +49,7 @@ func newRouter(options RouterOptions) (chi.Router, huma.API) {
 
 	router.Use(
 		middleware.RequestID,
-		// Real-IP extraction is part of the existing API middleware contract.
-		// Trusted-proxy configuration is a separate hardening concern.
-		//nolint:staticcheck // retain the required real-IP middleware behavior.
-		middleware.RealIP,
+		TrustedProxyRealIP(options.TrustedProxyCIDRs...),
 		RequestLogger(logger),
 		Recoverer(logger),
 		cors.Handler(cors.Options{

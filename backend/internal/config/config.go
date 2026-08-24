@@ -4,6 +4,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net/netip"
 	"os"
 	"strings"
 
@@ -25,6 +26,7 @@ type Config struct {
 	AppVersion        string
 	Port              string
 	APIBaseURL        string
+	TrustedProxyCIDRs []string
 	DatabaseURL       string
 	TestDatabaseURL   string
 	SupabaseURL       string
@@ -69,6 +71,7 @@ func fromEnvironment() (*Config, error) {
 		AppVersion:        getEnv("APP_VERSION", defaultAppVersion),
 		Port:              port,
 		APIBaseURL:        getEnv("API_BASE_URL", defaultAPIBaseURL),
+		TrustedProxyCIDRs: getListEnv("TRUSTED_PROXY_CIDRS"),
 		DatabaseURL:       strings.TrimSpace(os.Getenv("DATABASE_URL")),
 		TestDatabaseURL:   strings.TrimSpace(os.Getenv("TEST_DATABASE_URL")),
 		SupabaseURL:       strings.TrimSpace(os.Getenv("SUPABASE_URL")),
@@ -90,6 +93,23 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
+func getListEnv(key string) []string {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return nil
+	}
+
+	values := strings.Split(value, ",")
+	result := make([]string, 0, len(values))
+	for _, item := range values {
+		item = strings.TrimSpace(item)
+		if item != "" {
+			result = append(result, item)
+		}
+	}
+	return result
+}
+
 // Validate checks the configuration required to start the API.
 func (c Config) Validate() error {
 	if strings.TrimSpace(c.DatabaseURL) == "" {
@@ -97,6 +117,11 @@ func (c Config) Validate() error {
 	}
 	if strings.TrimSpace(c.Port) == "" {
 		return fmt.Errorf("configuration error: PORT must not be empty")
+	}
+	for _, cidr := range c.TrustedProxyCIDRs {
+		if _, err := netip.ParsePrefix(cidr); err != nil {
+			return fmt.Errorf("configuration error: TRUSTED_PROXY_CIDRS contains invalid CIDR %q", cidr)
+		}
 	}
 	return nil
 }
