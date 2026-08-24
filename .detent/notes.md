@@ -276,6 +276,10 @@
   coverage and closed-year triggers; Layer 2 tests cross-tenant read/fetch/update/delete and foreign
   parent insert behavior.
 - Focused and full backend race tests pass with PostgreSQL 18 and both roles; lint, format/vet, exact
-  sqlc v1.27 generation, OpenAPI generation/drift, and focused migration up/down/up pass. The exact
-  migration wrapper was attempted but host `psql` is absent; the same sequence passed through
-  `docker exec psql`. Frontend gates and final CI remain to run.
+  sqlc v1.27 generation, OpenAPI generation/drift, and migration up/down/up pass. The exact migration
+  wrapper was attempted but host `psql` is absent; the same sequence passed through `docker exec psql`.
+- Frozen Bun frontend tests/build/lint and `git diff --check` pass. PR #75 is open, non-draft, mergeable,
+  references `Fixes #53`, cites SPEC §§11.1/8.1/9.2/20.1 and ADR 0007, and has no review or inline
+  comments. All nine current-head checks pass; slowest were Generated code drift (1m28s), Backend lint
+  (1m09s), and Backend tests (1m02s). The exact wrapper's host `psql` limitation is the only local
+  environment note; no blocker or human action remains.
