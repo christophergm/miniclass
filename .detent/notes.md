@@ -262,3 +262,24 @@
 - PR #73 is open, non-draft, mergeable, cites SPEC §§6.6/9.3/9.4 and ADRs 0008/0009, and has no review
   or inline comments. The final complete-tree CI run passed all nine required checks; Workpad completion
   declaration remains the final handoff.
+
+## Issue #53 school years, lifecycle, closed-year trigger, and Layer 2
+
+- Added timestamped migration `20260824160000_school_years.sql`: `school_year_state`, tenant-scoped
+  `school_years` with forced RLS and XID keys, and `public.prevent_closed_school_year_mutation()`.
+  Reopen preparation is transaction-local, reasoned, and target-ID scoped; `audit_log` remains exempt.
+- `internal/data/school_year.go` keeps generated SQL behind the data boundary. `internal/schoolyear`
+  enforces setup→active→closed, forbids active→setup, requires Owner+reason for closed→active, and
+  audits create, edit, delete, and every transition. Huma CRUD routes use `manage_school_year` and
+  map the trigger to `school-year-closed`/409.
+- `internal/testing/registry` has a per-entity school-year registration. Layer 1 now checks registry
+  coverage and closed-year triggers; Layer 2 tests cross-tenant read/fetch/update/delete and foreign
+  parent insert behavior.
+- Focused and full backend race tests pass with PostgreSQL 18 and both roles; lint, format/vet, exact
+  sqlc v1.27 generation, OpenAPI generation/drift, and migration up/down/up pass. The exact migration
+  wrapper was attempted but host `psql` is absent; the same sequence passed through `docker exec psql`.
+- Frozen Bun frontend tests/build/lint and `git diff --check` pass. PR #75 is open, non-draft, mergeable,
+  references `Fixes #53`, cites SPEC §§11.1/8.1/9.2/20.1 and ADR 0007, and has no review or inline
+  comments. All nine current-head checks pass; slowest were Generated code drift (1m28s), Backend lint
+  (1m09s), and Backend tests (1m02s). The exact wrapper's host `psql` limitation is the only local
+  environment note; no blocker or human action remains.

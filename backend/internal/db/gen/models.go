@@ -143,6 +143,49 @@ func (ns NullOrganizationRole) Value() (driver.Value, error) {
 	return string(ns.OrganizationRole), nil
 }
 
+type SchoolYearState string
+
+const (
+	SchoolYearStateSetup  SchoolYearState = "setup"
+	SchoolYearStateActive SchoolYearState = "active"
+	SchoolYearStateClosed SchoolYearState = "closed"
+)
+
+func (e *SchoolYearState) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = SchoolYearState(s)
+	case string:
+		*e = SchoolYearState(s)
+	default:
+		return fmt.Errorf("unsupported scan type for SchoolYearState: %T", src)
+	}
+	return nil
+}
+
+type NullSchoolYearState struct {
+	SchoolYearState SchoolYearState `json:"school_year_state"`
+	Valid           bool            `json:"valid"` // Valid is true if SchoolYearState is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullSchoolYearState) Scan(value interface{}) error {
+	if value == nil {
+		ns.SchoolYearState, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.SchoolYearState.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullSchoolYearState) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.SchoolYearState), nil
+}
+
 type AccessToken struct {
 	ID         ids.XID            `json:"id"`
 	TokenHash  []byte             `json:"token_hash"`
@@ -188,6 +231,15 @@ type OrganizationMember struct {
 	InvitationTokenID *ids.XID           `json:"invitation_token_id"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SchoolYear struct {
+	ID             ids.XID            `json:"id"`
+	OrganizationID ids.XID            `json:"organization_id"`
+	Label          string             `json:"label"`
+	State          SchoolYearState    `json:"state"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
 type User struct {
