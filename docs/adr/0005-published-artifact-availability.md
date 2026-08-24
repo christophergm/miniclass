@@ -1,6 +1,6 @@
 # 5. Published-artifact availability and topology
 
-- **Status:** Proposed — shape decided in Phase 0, built in Phase 6
+- **Status:** Accepted — decided in Phase 0, built in Phase 6
 - **Date:** 2026-08-23
 - **Implements:** SPEC §22.3, §18.2, §18.8
 - **Related:** [0001](./0001-application-stack-and-topology.md),
@@ -33,37 +33,55 @@ application that produced it.
 
 ## Decision
 
-**Not yet made.** The requirement is accepted; the mechanism is open. Candidates:
+**Published artifacts are served by the main Go API. §22.3's independence clause is knowingly
+relaxed.**
 
-**A. Static snapshot rendered at publish time, served by a separate Render static site or CDN.**
-Strongest availability story — no runtime dependency on anything. Requires the token check to move
-to the edge, or the URL's unguessability to be the entire control. Note that §9.5 already concedes
-obscurity is the only access control for share links, so this may be less of a compromise than it
-first appears. Revocation becomes a delete-and-redeploy rather than a database update, which is
-slower and needs thought against §18.8.
+That clause is a **SHOULD**, not a MUST, so this is spec-compliant — but it is a deliberate
+relaxation and is recorded as one rather than glossed: **the dismissal list inherits the
+administrative application's availability, including its dependency on a good deploy and on Supabase
+Auth being reachable.** The judgement is that v1 simplicity is worth more than the resilience,
+given a single operator, a single deployment and no production history yet.
 
-**B. A separate lightweight Go read-only service** sharing the database but with no dependency on
-Supabase Auth or the solver. Keeps token revocation immediate and share-link semantics identical to
-everywhere else. Survives administrative-application failure but not database failure.
+**Revisit trigger, so this is not inherited silently: if a Friday is ever disrupted by the
+administrative application being unavailable at 12:45, this record is reopened.**
 
-**C. Serve from the main API with aggressive caching.** Simplest; satisfies the letter of a SHOULD
-but not its intent, since a Supabase outage or a bad deploy still takes the dismissal list down at
-12:45.
+**One property is retained regardless of topology.** §18.2 makes published content a point-in-time
+snapshot, not a live view, so **publishing materialises a stored, self-contained snapshot and nothing
+renders a published artifact from live domain queries.** This is required by §18.2 independently of
+who serves the bytes, costs nothing now, and has the side benefit of keeping options A and B below
+reachable as a pure deployment change if the trigger ever fires.
 
-Whichever is chosen must preserve the §18.8 and §9.5 link lifecycle: expiring, regenerable —
-invalidating the prior URL — revocable, and failing cleanly with an explanation rather than an error
-page.
+The §9.5 and §18.8 link lifecycle is unaffected: expiring, regenerable — invalidating the prior URL —
+revocable, and failing cleanly with an explanation rather than an error page.
 
-## Open questions to settle in Phase 0
+## Alternatives considered
 
-- Is link revocation required to take effect immediately, or is a publish-cycle delay acceptable?
-  This single question largely decides between A and B.
-- Does the print stylesheet requirement (§22.4) constrain the rendering location?
-- What is the acceptable staleness window between publish and availability?
+**A. Static snapshot rendered at publish time, served by a separate static site, CDN or object
+store.** The strongest availability story, and it survives even a database outage. Rejected on two
+grounds beyond simplicity. First, **revocation must take effect immediately**: an organizer who
+revokes a dismissal list because it reached the wrong parent, and is told it stops working after the
+next publish cycle, has not revoked anything. Second, **§18.8 requires links to "fail cleanly with an
+explanation rather than an error page"** — a deleted object returns a bare 404, not "this link expired
+at the end of session 6", so a fallback service would be needed anyway, leaving two link lifecycles
+to keep consistent. It would also make publishing — the most routine operation in the system — into a
+deploy.
 
-## Consequences of deferring
+**B. A separate lightweight Go read-only service** sharing the database, with no dependency on
+Supabase Auth or the solver. This was the recommended option before the relaxation above: it keeps
+revocation immediate and link semantics identical, and it survives the likeliest Friday failures — a
+bad deploy of the admin API, an auth outage, a wedged solver — though not a database outage.
+Rejected for v1 as a second deployment unit, two Render services, and Compose and CI configuration
+that the operator judged not yet earned.
 
-Low. Phase 6 is the first phase that publishes anything, and the snapshot semantics required by
-§18.2 are the same under all three options. The risk of deferring past Phase 0 is that Phases 1–5
-quietly assume artifacts render from live domain queries, which would foreclose option A — so the
-decision is scheduled early even though the build is late.
+## Consequences
+
+- **The dismissal list can be taken down by a bad deploy at 12:45 on a Friday.** This is the accepted
+  risk, stated plainly so that nobody is surprised by it, and it is what the revisit trigger watches
+  for.
+- One deployment unit rather than two: no extra Render service, no third database role, and Phase 6
+  shrinks.
+- Publishing still writes a snapshot row, so Phases 1–5 must not assume live rendering of published
+  artifacts. This is the one constraint this record propagates backwards.
+- Print styling (§22.4) is unconstrained by topology; the API serves its own stylesheet.
+- The staleness window between publish and availability is zero — publishing writes the snapshot and
+  it is immediately live.

@@ -25,12 +25,17 @@ See [ADR 0001](./docs/adr/0001-application-stack-and-topology.md) for the full r
 - Backend: Go + chi + pgx + sqlc, Goose migrations
 - Database: PostgreSQL 18 (Supabase in production, Docker locally)
 - Auth: Supabase Auth for administrators; application-owned tokens for household, class-leader and
-  public share links ([ADR 0002](./docs/adr/0002-authentication-and-access-mechanisms.md))
+  public share links ([ADR 0002](./docs/adr/0002-authentication-and-access-mechanisms.md),
+  [ADR 0009](./docs/adr/0009-administrator-sessions-and-identity-provider.md))
+- Tenancy: PostgreSQL row-level security, enabled and forced, behind a closure-based data layer
+  ([ADR 0007](./docs/adr/0007-tenancy-enforcement-and-data-access.md))
 - Solver: Python OR-Tools CP-SAT sidecar, from Phase 5
   ([ADR 0003](./docs/adr/0003-assignment-solver-technology.md))
 
-Go is the authoritative application layer. The browser talks to Go, never directly to Supabase, so
-that the tenancy guard, authorization and audit log have exactly one implementation.
+Go is the authoritative application layer. Every data path goes through Go, so that the tenancy
+guard, authorization and audit log have exactly one implementation. The browser talks to Supabase for
+one thing only — acquiring and refreshing an authentication token — and never for data
+([ADR 0009](./docs/adr/0009-administrator-sessions-and-identity-provider.md)).
 
 ## Project Structure
 
@@ -371,8 +376,9 @@ docker compose down
 - Database: Supabase Postgres
 - Auth: Supabase Auth (administrators only)
 
-Published class and dismissal lists have a stricter availability requirement than the administrative
-application and will not necessarily be served by it; see
+Published class and dismissal lists are served by the main API. SPEC §22.3 suggests they *should* be
+servable independently of the administrative application; for v1 that is knowingly relaxed, with a
+named revisit trigger — see
 [ADR 0005](./docs/adr/0005-published-artifact-availability.md). Deployment is built in Phase 10.
 
 ## Contributing

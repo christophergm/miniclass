@@ -51,7 +51,13 @@ Scaffolding is complete and a health check runs end to end.
 | Orchestration | Detent with isolated worktrees, two concurrent agents, GitHub Projects tracker. |
 | Tooling | proto pins Go / Node / Bun. Air for hot reload. Smoke test script. |
 
-Nothing built so far encodes a domain assumption, so there is nothing to unpick.
+The backend encodes no domain assumption. The **frontend does**: the scaffolded shell is a generic
+teacher-dashboard mock with fabricated figures and placeholder routes for `/classes`,
+`/assignments`, `/students` and `/settings`, and its vocabulary collides with the specification's —
+*assignment* here means a student's placement in an offering (§8.6), not homework, and §6.6 has no
+password-holding "teacher account" persona. Fabricated data that resembles real data is a liability
+in an agent-driven repository, because it gives a plausible-looking target to build toward. It is
+deleted in Phase 0.
 
 ---
 
@@ -63,8 +69,18 @@ Four architectural forks were identified before Phase 1. Their resolutions are r
 |---|---|---|---|
 | D1 | Assignment solver technology | **Python OR-Tools CP-SAT sidecar.** Validation deferred to Phase 5 rather than spiked up front. | [0003](./docs/adr/0003-assignment-solver-technology.md) |
 | D2 | Authentication | **Keep Supabase Auth** for administrator accounts; own the three link-based mechanisms in Postgres. | [0002](./docs/adr/0002-authentication-and-access-mechanisms.md) |
-| D3 | API contract between Go and TypeScript | **Open.** Must be resolved during Phase 0. | [0004](./docs/adr/0004-api-contract-and-type-generation.md) |
-| D4 | Published-artifact serving topology | **Open.** Shape decided in Phase 0, built in Phase 6. | [0005](./docs/adr/0005-published-artifact-availability.md) |
+| D3 | API contract between Go and TypeScript | **Go is the source of truth**, via Huma v2 over chi. `openapi.json` committed and drift-checked; TypeScript generated at build time. | [0004](./docs/adr/0004-api-contract-and-type-generation.md) |
+| D4 | Published-artifact serving topology | **Served by the main API.** §22.3's independence SHOULD is knowingly relaxed for v1, with a named revisit trigger. Publishing still materialises a snapshot. | [0005](./docs/adr/0005-published-artifact-availability.md) |
+
+Four further decisions were taken while decomposing Phases 0 and 1, and are recorded as ADRs
+rather than left implicit in the task list:
+
+| ID | Decision | Resolution | ADR |
+|---|---|---|---|
+| D6 | Tenancy enforcement | **PostgreSQL row-level security, enabled and forced**, with two database roles, a closure-based tenant-scoped data layer, composite foreign keys, and a two-layer isolation harness. | [0007](./docs/adr/0007-tenancy-enforcement-and-data-access.md) |
+| D7 | Authorization and audit | **Capabilities declared as operation metadata**, default-deny; audit entries written inside the mutating transaction, which cannot commit without one. | [0008](./docs/adr/0008-authorization-capabilities-and-audit.md) |
+| D8 | Administrator sessions and provider | **Stay with Supabase**; local JWKS verification behind an interface with a test issuer, bearer tokens in the browser, invitation-based provisioning. Clerk evaluated and rejected. | [0009](./docs/adr/0009-administrator-sessions-and-identity-provider.md) |
+| D9 | Schema and generated-code conventions | UUIDv7 keys, closed sets single-sourced, timestamped migrations, and a fixed set of committed generated artifacts that are never hand-merged. | [0010](./docs/adr/0010-schema-generated-code-and-migration-conventions.md) |
 
 One spec-level question is carried deliberately unresolved:
 
@@ -126,24 +142,38 @@ green. Before the domain model arrives, the gate must be real.
 
 **Platform track**
 
-- Resolve **D3** and **D4**; record both as accepted ADRs.
+- Resolve **D3** and **D4**; record **D6–D9** as accepted ADRs.
 - Adopt ADRs as the architecture record. Retire the point-in-time narrative docs.
-- Backend quality gates absent today: `golangci-lint`, `gofmt -l` check, `go vet`, race detector,
-  `sqlc generate` drift check, migration up→down→up round-trip check.
-- Wire `detent.yaml` `gate.required_status_checks` to the real CI check names and replace the
+- **Nine CI checks**, replacing today's five. New: `Backend lint` (`golangci-lint`, carrying the
+  `depguard` import restrictions that make the tenancy guard unbypassable), `Backend format`
+  (`gofmt -l` plus `go vet`), `Generated code drift` (one check folding `sqlc`, `go generate` and
+  `openapi.json` regeneration), and `Migration round-trip` (up→down→up). `Backend tests` gains
+  `-race`.
+- Two database roles — `miniclass_migrator` and `miniclass_app` — in Compose init and CI, and
+  timestamped Goose migrations replacing sequential numbering.
+- Wire `detent.yaml` `gate.required_status_checks` to the nine check names and replace the
   `run: "true"` no-op.
-- Clean the leftover placeholder preamble out of `WORKFLOW.md`.
+- Adopt **Huma v2** over chi: health endpoint ported, RFC 9457 error shape, `cmd/openapi` generator,
+  `openapi.json` committed and drift-checked, `openapi-typescript` + `openapi-fetch` on the frontend
+  replacing the hand-written client.
+- **Delete the mock frontend shell**; adopt Tailwind and shadcn/ui at a deliberately narrow scope —
+  three primitives, health page ported, `index.css` removed. Doing this before Phase 1 keeps the
+  first agent to touch UI from making every foundational decision inside a PR about students.
+- Clean the leftover placeholder preamble out of `WORKFLOW.md` and rewrite its gate table.
 - Add a PR template requiring a spec citation, and `CODEOWNERS`.
 - Extend `AGENTS.md` with the standing rules in
-  [Standing engineering rules](#standing-engineering-rules).
+  [Standing engineering rules](#standing-engineering-rules), under one filter: **a rule that CI
+  enforces is stated in one line naming its check; a rule nothing enforces needs a good reason to be
+  a rule.**
 
 **Exit criteria**
 
 - Every CI check is enumerated in `detent.yaml` and blocks the Detent gate.
-- A deliberately broken `gofmt`, `sqlc` drift, or down-migration fails CI.
-- ADRs 0001–0005 are accepted; 0006 is recorded as open.
+- A deliberately broken `gofmt`, `sqlc` drift, or down-migration fails CI — demonstrated once, with
+  recorded evidence.
+- ADRs 0001–0005 and 0007–0010 are accepted; 0006 is recorded as open.
 - The repository contains no document that describes the project as "scaffolding, implementation
-  needed".
+  needed", and no screen that displays invented data.
 
 ---
 
@@ -162,13 +192,23 @@ cheap.
   `organization_id` on every entity below Organisation.
 - The tenancy guard: central and **default-deny**. A query issued without tenant context must
   **fail**, not return unscoped rows. Applies to reads, writes, aggregates and reports.
-- Administrator authentication (Supabase Auth per ADR 0002) and the `Owner` / `Administrator` /
-  `Coordinator` roles. Tenant check precedes permission check; cross-tenant requests return
-  **not-found, not forbidden** (§9.4).
-- Append-only audit log, written from the first mutation.
+- Administrator authentication (Supabase Auth per ADRs 0002 and 0009) with invitation-based
+  provisioning, and the `Owner` / `Administrator` / `Coordinator` roles expressed as **capabilities
+  declared per operation**, default-deny. Tenant check precedes permission check; cross-tenant
+  requests return **not-found, not forbidden** (§9.4).
+- Append-only audit log, written inside the mutating transaction. A read-write transaction that
+  records no entry does not commit.
 - Manual CRUD for every person, household and relationship — §11.2 requires this independently of
   import, and it is how the roster is corrected all year.
+- **Grade and homeroom vocabularies** (§10.1), moved here from Phase 2. A roster cannot be built by
+  hand without them, and text columns would admit precisely the defect §10.1 forbids — ordering taken
+  from the string, so grade `10` sorts before grade `9`. Homerooms are retirable rather than
+  deletable, so a closed year's students keep a valid reference.
 - School-year lifecycle: `Setup` / `Active` / `Closed`, with two years permitted `Active` at once.
+  `Closed` immutability is enforced by a shared database trigger on every year-scoped table, so the
+  refusal is loud and explanatory (409) rather than a silent zero-row update. `Closed → Active` is
+  permitted, Owner-only, reason required, audited — the §3.3 defect was *unattributable* mutation,
+  not mutation.
 
 **Things that are easy to get wrong here**
 
@@ -183,18 +223,30 @@ cheap.
 
 **Platform track**
 
-- The reusable **cross-tenant isolation test harness**. This is the single most valuable test asset
-  of the phase: adding a table should make adding its isolation test a one-liner.
-- Test data factories.
-- A seed corpus sized from SPEC Appendix B: 139 students across grades 1–6, six homerooms in two
-  vertical streams, ~90 households, ~60 adults.
+- The reusable **cross-tenant isolation test harness**, in two layers. *Layer 1* is generic and needs
+  no per-table work at all: it walks the catalog and asserts, for every table the application role can
+  touch, that it is allowlisted or tenant-scoped, that row-level security is enabled **and forced**,
+  that a policy exists, that composite foreign keys carry `organization_id`, and that a query with no
+  tenant context fails rather than returning nothing. *Layer 2* is one registry line per entity — a
+  factory and a fetch-by-id — from which cross-tenant read, write, delete and not-found cases are
+  generated. Layer 1 also fails if a tenant-scoped table has no Layer 2 entry, which is what makes the
+  §9.2 rule mechanical rather than aspirational.
+- Test data factories. Tests isolate by **organisation, not by schema**, which is faster,
+  parallel-safe, and dogfoods the guard.
+- A seed corpus sized from SPEC Appendix B.1: 139 students in the recorded grade distribution
+  (20/27/22/21/30/19), six homerooms, ~90 households, ~100 adults with the recorded participation
+  split, generated deterministically with synthetic names. It deliberately includes the awkward cases
+  the schema can hold — students in two households, students in none, adults in two households, and a
+  two-word surname, which is the shape that silently cost the predecessor a session (A.5 defects 4–5).
+  **Never load a real roster into a development or test database.**
 
 **Exit criteria**
 
 - An administrator can sign in, create a school year, and build a roster by hand.
-- Every tenant-scoped table has an isolation test; a new table without one fails review.
+- Every tenant-scoped table has an isolation test; a new table without one fails **CI**, not review.
 - Deleting the tenant context from any repository call fails a test rather than leaking rows.
 - Every mutation appears in the audit log with actor, timestamp, object and change summary.
+- An operation registered without a declared capability fails a test.
 
 ---
 
@@ -217,9 +269,11 @@ cheap.
 - **Idempotency (§11.7)** — re-importing an unchanged source produces zero changes and reports every
   row `Unchanged`. This is a hard requirement driven by the observed repeated-partial-import
   workflow.
-- Grade (ordinal) and homeroom (categorical) vocabularies, per organisation. Required before import
-  because both are student fields, and grade ordering must come from the vocabulary rather than from
-  the string.
+- The grade and homeroom vocabularies are **already in place from Phase 1**, because a hand-built
+  roster needs them. Phase 2 adds only what import requires of them: resolving an incoming grade or
+  homeroom label to an existing vocabulary entry, and reporting an unrecognised one as a row error
+  rather than silently creating a value (§10.2's rule that vocabularies are never inferred from
+  imported headers).
 
 **Platform track**
 

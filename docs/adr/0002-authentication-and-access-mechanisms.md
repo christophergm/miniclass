@@ -3,8 +3,12 @@
 - **Status:** Accepted
 - **Date:** 2026-08-23
 - **Implements:** SPEC §9.3, §9.4, §9.5, §6.6
+- **Amended in part by:** [0009](./0009-administrator-sessions-and-identity-provider.md) — token
+  verification, browser session mechanics, invitation-based provisioning, and the evaluation of Clerk
+  as an alternative provider
 - **Related:** [0001](./0001-application-stack-and-topology.md),
-  [0006](./0006-household-and-volunteer-access.md)
+  [0006](./0006-household-and-volunteer-access.md),
+  [0008](./0008-authorization-capabilities-and-audit.md)
 
 ## Context
 

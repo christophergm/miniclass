@@ -1,11 +1,15 @@
 # 1. Application stack and topology
 
 - **Status:** Accepted
+- **Status:** Accepted
 - **Date:** 2026-08-23
 - **Supersedes:** `achitecture.md` (removed)
+- **Amended in part by:** [0009](./0009-administrator-sessions-and-identity-provider.md) — the browser
+  does talk to Supabase, for authentication only; every data path still goes through Go
 - **Related:** [0002](./0002-authentication-and-access-mechanisms.md),
   [0003](./0003-assignment-solver-technology.md),
-  [0005](./0005-published-artifact-availability.md)
+  [0005](./0005-published-artifact-availability.md),
+  [0007](./0007-tenancy-enforcement-and-data-access.md)
 
 ## Context
 
