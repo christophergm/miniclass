@@ -1,5 +1,15 @@
 # Detent handoff notes
 
+## Issue #59 audit log read endpoint
+
+- PR #76 is open, non-draft, references `Fixes #59`, cites SPEC §20.1/§6.6 and ADR 0008/0010.
+- Added `GET /api/audit-log`, `internal/data` keyset query on `(occurred_at, id)`, object-type filter,
+  opaque cursor, closed action enum in OpenAPI, and Coordinator authorization coverage.
+- Local backend tests/lint/format, frontend tests/build/lint, OpenAPI drift, and `git diff --check` pass;
+  CI current-head all nine required checks pass. Migration round-trip passed in CI; local wrapper lacked
+  `POSTGRES_ADMIN_DATABASE_URL`.
+- Workpad comment `5398726896` is complete; no reviews or actionable comments remain. No skill draft.
+
 ## Issue #46 trusted proxy Real-IP extraction
 
 - Replaced deprecated unconditional `chi/middleware.RealIP` with `internal/api/realip.go`.
