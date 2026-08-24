@@ -17,6 +17,7 @@ import (
 	"github.com/chrismott/miniclass/internal/config"
 	"github.com/chrismott/miniclass/internal/data"
 	"github.com/chrismott/miniclass/internal/identity"
+	"github.com/chrismott/miniclass/internal/schoolyear"
 )
 
 const shutdownTimeout = 10 * time.Second
@@ -61,6 +62,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		*cfg,
 		api.WithDatabase(database),
 		api.WithIdentity(identity.NewStore(database)),
+		api.WithSchoolYears(schoolyear.New(database)),
 		api.WithVerifier(verifier),
 		api.WithLogger(logger),
 	)

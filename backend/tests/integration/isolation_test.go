@@ -9,6 +9,7 @@ import (
 	"github.com/chrismott/miniclass/internal/audit"
 	"github.com/chrismott/miniclass/internal/data"
 	testharness "github.com/chrismott/miniclass/internal/testing"
+	"github.com/chrismott/miniclass/internal/testing/registry"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/require"
 )
@@ -182,6 +183,39 @@ func verifySchemaContract(t *testing.T, harness *testharness.Harness) {
 	}
 	require.NoError(t, rows.Err())
 	require.Contains(t, tenantTables, "audit_log")
+	for table := range tenantTables {
+		if table == "audit_log" {
+			continue
+		}
+		_, ok := registry.ForTable(table)
+		require.True(t, ok, table+" lacks a Layer 2 entity registry entry")
+	}
+	for _, entity := range registry.Entries() {
+		if !entity.YearScoped {
+			continue
+		}
+		assertClosedYearTrigger(t, harness, entity.TableName)
+	}
+	for table := range tenantTables {
+		if table == "audit_log" {
+			continue
+		}
+		var yearScoped bool
+		err := harness.Migrator.QueryRow(harness.Context, `
+			select $1 = 'school_years' or exists (
+				select 1 from pg_attribute a
+				join pg_class c on c.oid = a.attrelid
+				join pg_namespace n on n.oid = c.relnamespace
+				where n.nspname = current_schema()
+				  and c.relname = $1
+				  and a.attname = 'school_year_id'
+				  and not a.attisdropped
+			)`, table).Scan(&yearScoped)
+		require.NoError(t, err)
+		if yearScoped {
+			assertClosedYearTrigger(t, harness, table)
+		}
+	}
 
 	foreignKeys, err := harness.Migrator.Query(harness.Context, `
 		select con.conrelid::regclass::text,
@@ -213,6 +247,24 @@ func verifySchemaContract(t *testing.T, harness *testharness.Harness) {
 		require.Contains(t, targetColumns, "organization_id", target+" FK target lacks organization_id")
 	}
 	require.NoError(t, foreignKeys.Err())
+}
+
+func assertClosedYearTrigger(t *testing.T, harness *testharness.Harness, table string) {
+	t.Helper()
+	var hasClosedYearTrigger bool
+	err := harness.Migrator.QueryRow(harness.Context, `
+		select exists (
+			select 1
+			from pg_trigger t
+			join pg_class c on c.oid = t.tgrelid
+			join pg_namespace n on n.oid = c.relnamespace
+			where n.nspname = current_schema()
+			  and c.relname = $1
+			  and not t.tgisinternal
+			  and pg_get_triggerdef(t.oid) like '%prevent_closed_school_year_mutation%'
+		)`, table).Scan(&hasClosedYearTrigger)
+	require.NoError(t, err)
+	require.True(t, hasClosedYearTrigger, table+" lacks the shared closed-year trigger")
 }
 
 func assertSQLState(t *testing.T, err error, want string) {

@@ -24,6 +24,7 @@ type ServerOptions struct {
 	Database          handlers.DatabasePinger
 	Identity          auth.AccountResolver
 	Claimer           handlers.InvitationClaimer
+	SchoolYears       handlers.SchoolYearService
 	Verifier          auth.Verifier
 	Logger            *slog.Logger
 	TrustedProxyCIDRs []string
@@ -69,6 +70,7 @@ func NewServer(options ...ServerOption) *Server {
 		Database:          settings.Database,
 		Identity:          settings.Identity,
 		Claimer:           settings.Claimer,
+		SchoolYears:       settings.SchoolYears,
 		Verifier:          settings.Verifier,
 		Logger:            settings.Logger,
 		TrustedProxyCIDRs: settings.TrustedProxyCIDRs,
@@ -133,6 +135,11 @@ func WithAccountResolver(resolver auth.AccountResolver) ServerOption {
 // WithInvitationClaimer supplies the invitation binding use case.
 func WithInvitationClaimer(claimer handlers.InvitationClaimer) ServerOption {
 	return func(options *ServerOptions) { options.Claimer = claimer }
+}
+
+// WithSchoolYears supplies the school-year service used by lifecycle routes.
+func WithSchoolYears(service handlers.SchoolYearService) ServerOption {
+	return func(options *ServerOptions) { options.SchoolYears = service }
 }
 
 // WithVerifier supplies the configured bearer-token verifier.
