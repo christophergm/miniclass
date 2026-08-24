@@ -221,6 +221,7 @@
   tests/build/lint, and `git diff --check` pass. The exact migration wrapper was attempted but host
   `psql` is unavailable; its identical up/down/up sequence passed through `docker exec psql` and
   left no disposable database.
-- Open items: update this Workpad after final review, commit/push, open a non-draft PR with `Fixes
-  #50` and SPEC §9.1/§9.3/§9.5/§6.6 citations, inspect current-head CI/reviews, then declare the
-  structured status complete for Detent's completion-lane transition.
+- PR #71 is open, non-draft, mergeable, references `Fixes #50`, cites SPEC §9.1/§9.3/§9.5/§6.6 and
+  ADR 0007/0009/0010, and has no review or inline comments. After the generated-artifact correction
+  commit `ee21b13`, all nine current-head required checks passed; the Workpad is the remaining final
+  handoff and Detent owns the completion-lane transition.
