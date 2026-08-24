@@ -1,12 +1,10 @@
-export type HealthResponse = {
-  status: 'healthy' | 'unhealthy'
-  timestamp: string
-  database: 'connected' | 'disconnected'
-  version: string
-  error?: string
-}
+import createClient from 'openapi-fetch'
 
-export type ApiErrorKind = 'http' | 'network' | 'decode'
+import type { paths } from './api.generated'
+
+export type HealthResponse = paths['/api/health']['get']['responses'][200]['content']['application/json']
+
+export type ApiErrorKind = 'http' | 'network'
 
 export class ApiError extends Error {
   readonly kind: ApiErrorKind
@@ -27,71 +25,30 @@ export type ApiClientOptions = {
 
 const configuredBaseUrl = import.meta.env.VITE_API_URL ?? ''
 
-function joinUrl(baseUrl: string, path: string) {
-  return `${baseUrl.replace(/\/$/, '')}${path}`
-}
-
-function isHealthResponse(value: unknown): value is HealthResponse {
-  if (typeof value !== 'object' || value === null) return false
-
-  const response = value as Record<string, unknown>
-  return (
-    (response.status === 'healthy' || response.status === 'unhealthy') &&
-    typeof response.timestamp === 'string' &&
-    (response.database === 'connected' || response.database === 'disconnected') &&
-    typeof response.version === 'string' &&
-    (response.error === undefined || typeof response.error === 'string')
-  )
-}
-
 export class ApiClient {
-  private readonly baseUrl: string
-  private readonly request: typeof globalThis.fetch
+  private readonly client: ReturnType<typeof createClient<paths>>
 
   constructor(options: ApiClientOptions = {}) {
-    this.baseUrl = options.baseUrl ?? configuredBaseUrl
-    this.request = options.fetch ?? globalThis.fetch.bind(globalThis)
+    this.client = createClient<paths>({
+      baseUrl: options.baseUrl ?? configuredBaseUrl,
+      fetch: options.fetch,
+    })
   }
 
   async getHealth(): Promise<HealthResponse> {
-    return this.get<HealthResponse>('/api/health', isHealthResponse)
-  }
-
-  private async get<T>(path: string, decode: (value: unknown) => value is T): Promise<T> {
-    let response: Response
+    let result: Awaited<ReturnType<typeof this.client.GET>>
     try {
-      response = await this.request(joinUrl(this.baseUrl, path), {
-        headers: { Accept: 'application/json' },
-      })
+      result = await this.client.GET('/api/health')
     } catch {
       throw new ApiError('network', 'Unable to reach the API')
     }
 
-    if (!response.ok) {
-      let message = `The API request failed with status ${response.status}`
-      try {
-        const payload: unknown = await response.json()
-        if (typeof payload === 'object' && payload !== null && 'error' in payload && typeof payload.error === 'string') {
-          message = payload.error
-        }
-      } catch {
-        // Keep the normalized HTTP error when an error response is not JSON.
-      }
-      throw new ApiError('http', message, response.status)
+    if (result.data !== undefined) {
+      return result.data
     }
 
-    let payload: unknown
-    try {
-      payload = await response.json()
-    } catch {
-      throw new ApiError('decode', 'The API returned invalid JSON', response.status)
-    }
-
-    if (!decode(payload)) {
-      throw new ApiError('decode', 'The API returned an unexpected response', response.status)
-    }
-
-    return payload
+    const message = result.error?.detail ?? result.error?.title ?? `The API request failed with status ${result.response.status}`
+    throw new ApiError('http', message, result.response.status)
   }
 }
 
