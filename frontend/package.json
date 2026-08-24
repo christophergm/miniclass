@@ -12,7 +12,7 @@
     "build": "bunx --bun tsc && bunx --bun vite build",
     "lint": "bunx --bun eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "bunx --bun vite preview",
-    "test": "bunx --bun vitest run"
+    "test": "vitest run"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.28.4",

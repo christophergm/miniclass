@@ -167,7 +167,8 @@ the local PostgreSQL service, then set `TEST_DATABASE_URL` to the
 
 ```bash
 docker compose up -d postgres
-export TEST_DATABASE_URL='postgres://miniclass:miniclass_dev_password@localhost:5432/miniclass_test?sslmode=disable'
+export TEST_DATABASE_URL='postgres://miniclass_migrator:miniclass_migrator_dev_password@localhost:5432/miniclass_test?sslmode=disable'
+export TEST_APP_DATABASE_URL='postgres://miniclass_app:miniclass_app_dev_password@localhost:5432/miniclass_test?sslmode=disable'
 cd backend
 make test
 ```
@@ -225,15 +226,20 @@ The reproducible quality gates are:
 
 ```bash
 cd backend && make test
+cd backend && make lint
+cd backend && make format
+cd backend && make generate && git diff --exit-code
+cd backend && ./scripts/migration-round-trip.sh
 cd frontend && bun install --frozen-lockfile && bun run test -- --run
 cd frontend && bun install --frozen-lockfile && bun run build
 cd frontend && bun install --frozen-lockfile && bun run lint
 git diff --check
 ```
 
-CI runs the backend integration test against PostgreSQL and publishes separate
-checks for backend tests, frontend tests, frontend build, frontend lint, and
-repository formatting.
+CI runs the backend integration test against PostgreSQL and publishes exactly
+nine checks: Backend tests, Backend lint, Backend format, Generated code drift,
+Migration round-trip, Frontend tests, Frontend build, Frontend lint, and
+Repository formatting.
 
 **Backend Integration Tests:**
 ```bash

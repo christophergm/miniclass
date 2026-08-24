@@ -1,4 +1,8 @@
-.PHONY: help dev build test migrate-up migrate-down migrate-create seed reset-db sqlc install-tools
+.PHONY: help dev build test format lint generate migrate-up migrate-down migrate-create seed reset-db sqlc install-tools
+
+GOLANGCI_LINT_VERSION := v1.64.8
+SQLC_VERSION := v1.27.0
+GOOSE_VERSION := v3.19.2
 
 # Load environment variables
 -include ../.env
@@ -13,8 +17,9 @@ help: ## Show this help message
 install-tools: ## Install required Go tools
 	@echo "Installing development tools..."
 	go install github.com/air-verse/air@latest
-	go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
-	go install github.com/pressly/goose/v3/cmd/goose@latest
+	go install github.com/sqlc-dev/sqlc/cmd/sqlc@$(SQLC_VERSION)
+	go install github.com/pressly/goose/v3/cmd/goose@$(GOOSE_VERSION)
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 	@echo "Tools installed!"
 
 dev: ## Run API server with hot reload (requires air)
@@ -48,12 +53,30 @@ reset-db: ## Drop, recreate, migrate, and seed the local database (requires RESE
 	$(MAKE) seed
 	@echo "Database reset complete!"
 
-sqlc: ## Generate sqlc code from queries
-	sqlc generate
-
 test: ## Run all backend unit and integration tests
 	@echo "Running backend tests..."
-	go test -v ./... -count=1
+	go test -race -v ./... -count=1
+
+format: ## Verify Go formatting and run the Go vet analyzer
+	@files="$$(gofmt -l .)"; \
+	if [ -n "$$files" ]; then \
+		echo "Unformatted Go files:"; \
+		echo "$$files"; \
+		exit 1; \
+	fi
+	go vet ./...
+
+lint: ## Run the pinned golangci-lint configuration
+	@command -v golangci-lint >/dev/null || { echo "golangci-lint $(GOLANGCI_LINT_VERSION) is required; run make install-tools"; exit 1; }
+	@golangci-lint version | grep -F "$(GOLANGCI_LINT_VERSION)" >/dev/null || { echo "golangci-lint $(GOLANGCI_LINT_VERSION) is required"; golangci-lint version; exit 1; }
+	golangci-lint run
+
+sqlc: ## Generate sqlc code from queries
+	@if [ -d sql/queries ]; then sqlc generate; else echo "No sql/queries directory; sqlc generation skipped."; fi
+
+generate: ## Regenerate all committed backend artifacts
+	$(MAKE) sqlc
+	go generate ./...
 
 test-coverage: ## Run tests with coverage report
 	@echo "Running tests with coverage..."

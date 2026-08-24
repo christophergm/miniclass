@@ -17,6 +17,10 @@ round-trip checks; whichever change adds a check updates this table in the same
 pull request.
 
 - Backend tests: local command `cd backend && make test`; CI check `Backend tests`
+- Backend lint: local command `cd backend && make lint`; CI check `Backend lint`
+- Backend format: local command `cd backend && make format`; CI check `Backend format`
+- Generated code drift: local command `cd backend && make generate && git diff --exit-code`; CI check `Generated code drift`
+- Migration round-trip: local command `cd backend && ./scripts/migration-round-trip.sh`; CI check `Migration round-trip`
 - Frontend tests: local command `cd frontend && bun install --frozen-lockfile && bun run test -- --run`; CI check `Frontend tests`
 - Frontend build: local command `cd frontend && bun install --frozen-lockfile && bun run build`; CI check `Frontend build`
 - Frontend lint: local command `cd frontend && bun install --frozen-lockfile && bun run lint`; CI check `Frontend lint`

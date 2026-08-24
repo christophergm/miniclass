@@ -46,7 +46,7 @@ func run(ctx context.Context, args []string, databaseURL string) error {
 	if err := db.PingContext(ctx); err != nil {
 		return fmt.Errorf("migration failed: database connection: %w", err)
 	}
-	if err := goose.RunContext(ctx, command, db, migrationDir); err != nil {
+	if err := goose.RunWithOptionsContext(ctx, command, db, migrationDir, nil, goose.WithAllowMissing()); err != nil {
 		return fmt.Errorf("migration failed: %w", err)
 	}
 
