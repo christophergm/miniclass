@@ -161,20 +161,27 @@ func (q *Queries) DeleteGuardianRelationship(ctx context.Context, arg DeleteGuar
 
 const deleteHouseholdAdult = `-- name: DeleteHouseholdAdult :one
 delete from household_adults
-where school_year_id = $1::public.xid20
-  and household_id = $2::public.xid20
-  and adult_id = $3::public.xid20
+where organization_id = $1::public.xid20
+  and school_year_id = $2::public.xid20
+  and household_id = $3::public.xid20
+  and adult_id = $4::public.xid20
 returning id
 `
 
 type DeleteHouseholdAdultParams struct {
-	SchoolYearID ids.XID `json:"school_year_id"`
-	HouseholdID  ids.XID `json:"household_id"`
-	AdultID      ids.XID `json:"adult_id"`
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+	HouseholdID    ids.XID `json:"household_id"`
+	AdultID        ids.XID `json:"adult_id"`
 }
 
 func (q *Queries) DeleteHouseholdAdult(ctx context.Context, arg DeleteHouseholdAdultParams) (ids.XID, error) {
-	row := q.db.QueryRow(ctx, deleteHouseholdAdult, arg.SchoolYearID, arg.HouseholdID, arg.AdultID)
+	row := q.db.QueryRow(ctx, deleteHouseholdAdult,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+		arg.HouseholdID,
+		arg.AdultID,
+	)
 	var id ids.XID
 	err := row.Scan(&id)
 	return id, err
@@ -207,20 +214,27 @@ func (q *Queries) DeleteHouseholdAdultMembership(ctx context.Context, arg Delete
 
 const deleteHouseholdStudent = `-- name: DeleteHouseholdStudent :one
 delete from household_students
-where school_year_id = $1::public.xid20
-  and household_id = $2::public.xid20
-  and student_id = $3::public.xid20
+where organization_id = $1::public.xid20
+  and school_year_id = $2::public.xid20
+  and household_id = $3::public.xid20
+  and student_id = $4::public.xid20
 returning id
 `
 
 type DeleteHouseholdStudentParams struct {
-	SchoolYearID ids.XID `json:"school_year_id"`
-	HouseholdID  ids.XID `json:"household_id"`
-	StudentID    ids.XID `json:"student_id"`
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+	HouseholdID    ids.XID `json:"household_id"`
+	StudentID      ids.XID `json:"student_id"`
 }
 
 func (q *Queries) DeleteHouseholdStudent(ctx context.Context, arg DeleteHouseholdStudentParams) (ids.XID, error) {
-	row := q.db.QueryRow(ctx, deleteHouseholdStudent, arg.SchoolYearID, arg.HouseholdID, arg.StudentID)
+	row := q.db.QueryRow(ctx, deleteHouseholdStudent,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+		arg.HouseholdID,
+		arg.StudentID,
+	)
 	var id ids.XID
 	err := row.Scan(&id)
 	return id, err
