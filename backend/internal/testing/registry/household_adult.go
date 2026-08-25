@@ -70,7 +70,7 @@ func deleteHouseholdAdultByID(ctx context.Context, tx *data.Tx, id ids.XID) (boo
 	if err != nil || row.ID == "" {
 		return false, err
 	}
-	return tx.DeleteHouseholdAdult(ctx, id)
+	return tx.DeleteHouseholdAdult(ctx, row.SchoolYearID, row.HouseholdID, row.AdultID)
 }
 func insertHouseholdAdultWithForeignParent(ctx context.Context, harness *testharness.Harness, tenantID, foreignOrganizationID ids.XID) error {
 	if harness == nil || harness.App == nil {

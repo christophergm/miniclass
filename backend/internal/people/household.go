@@ -210,7 +210,7 @@ func (s *Service) RemoveStudentFromHousehold(ctx context.Context, organizationID
 		if membership.ID == "" {
 			return fmt.Errorf("find household student membership for student %s: %w", studentID, pgx.ErrNoRows)
 		}
-		deleted, err := tx.DeleteHouseholdStudent(ctx, membership.ID)
+		deleted, err := tx.DeleteHouseholdStudent(ctx, membership.SchoolYearID, membership.HouseholdID, membership.StudentID)
 		if err != nil {
 			return fmt.Errorf("delete household student membership %s: %w", membership.ID, err)
 		}
@@ -293,7 +293,7 @@ func (s *Service) RemoveAdultFromHousehold(ctx context.Context, organizationID s
 		if membership.ID == "" {
 			return fmt.Errorf("find household adult membership for adult %s: %w", adultID, pgx.ErrNoRows)
 		}
-		deleted, err := tx.DeleteHouseholdAdult(ctx, membership.ID)
+		deleted, err := tx.DeleteHouseholdAdult(ctx, membership.SchoolYearID, membership.HouseholdID, membership.AdultID)
 		if err != nil {
 			return fmt.Errorf("delete household adult membership %s: %w", membership.ID, err)
 		}
