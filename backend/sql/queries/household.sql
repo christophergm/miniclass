@@ -62,10 +62,15 @@ returning id;
 
 -- name: DeleteHouseholdStudentMembership :execrows
 delete from household_students
-where organization_id = sqlc.arg(organization_id)::public.xid20
-  and school_year_id = sqlc.arg(school_year_id)::public.xid20
-  and household_id = sqlc.arg(household_id)::public.xid20
-  and student_id = sqlc.arg(student_id)::public.xid20;
+where ctid = (
+    select hs.ctid
+    from household_students hs
+    where hs.organization_id = sqlc.arg(organization_id)::public.xid20
+      and hs.school_year_id = sqlc.arg(school_year_id)::public.xid20
+      and hs.household_id = sqlc.arg(household_id)::public.xid20
+      and hs.student_id = sqlc.arg(student_id)::public.xid20
+    limit 1
+);
 
 -- name: ProbeHouseholdStudentMembership :one
 select

@@ -255,10 +255,15 @@ func (q *Queries) DeleteHouseholdStudent(ctx context.Context, arg DeleteHousehol
 
 const deleteHouseholdStudentMembership = `-- name: DeleteHouseholdStudentMembership :execrows
 delete from household_students
-where organization_id = $1::public.xid20
-  and school_year_id = $2::public.xid20
-  and household_id = $3::public.xid20
-  and student_id = $4::public.xid20
+where ctid = (
+    select hs.ctid
+    from household_students hs
+    where hs.organization_id = $1::public.xid20
+      and hs.school_year_id = $2::public.xid20
+      and hs.household_id = $3::public.xid20
+      and hs.student_id = $4::public.xid20
+    limit 1
+)
 `
 
 type DeleteHouseholdStudentMembershipParams struct {
