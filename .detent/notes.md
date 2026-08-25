@@ -23,6 +23,14 @@
   and the pre-existing checkout lacks `@supabase/supabase-js` for tests/build. PR has no reviews or inline
   comments, is open/non-draft/mergeable, and remains scoped to the existing implementation. No skill
   draft: this was a routine frontend feature using existing API/query patterns.
+## Issue #65 seed corpus and test factories
+
+- Dependencies #55, #56, and #57 are complete through merged PRs #85, #79, and #86. Current `origin/main`
+  is `5fd1b2c`; the branch was rebased onto it after resolving only the handoff-note conflict.
+- No implementation existed before this turn. The Workpad comment `5404543711` is updated to
+  `status: in_progress` with the implementation, acceptance, and validation plan.
+- Re-read the merged student, adult, household, membership, guardian, invitation, and registry APIs
+  before adding `internal/seed`, `internal/testing/factories`, `cmd/seed`, depguard, and corpus tests.
 
 ## Issue #59 audit log read endpoint
 
