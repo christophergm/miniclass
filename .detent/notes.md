@@ -1,5 +1,29 @@
 # Detent handoff notes
 
+## Issue #64 merge fallback
+
+- Rebased PR #82 onto current `origin/main` (`a723ef8`); resolved only the two expected conflicts.
+  `App.tsx` retains the authenticated school-year shell and places `/audit-log` inside the protected
+  `AppShell`; `api.ts` retains authenticated fetch behavior and adds the audit-log types/query method.
+- Backend `make test` passed; database integration cases skipped because `TEST_DATABASE_URL` and
+  `TEST_APP_DATABASE_URL` are unset. Backend lint, format/vet, and `git diff --check` passed.
+- `make generate && git diff --exit-code` changed only sqlc headers because local sqlc is v1.31.1
+  versus pinned v1.27.0; generated changes were discarded. Migration round-trip could not start because
+  `POSTGRES_ADMIN_DATABASE_URL` is unset. Frozen Bun install is blocked by Bun tempdir permissions;
+  without install, frontend lint passed, while tests/build could not resolve missing `@supabase/supabase-js`.
+- Rebase conflict resolution is complete. Final PR-head CI run `32807894013` passed all nine required
+  checks; slow checks were Generated code drift (1m29s), Backend lint (1m21s), and Backend tests (1m10s).
+
+## Issue #64 frontend audit log view
+
+- PR #82 is open, non-draft, mergeable, references `Fixes #64`, and cites SPEC §20.1/§6.6.
+- Added `frontend/src/features/audit/AuditLog.tsx` and focused tests, typed `/api/me` and `/api/audit-log` client methods, hooks, and `/audit-log` routing. Owner/Administrator access is gated from `/api/me`; Coordinator renders no view. Object-type filtering and opaque-cursor pagination use the existing endpoint.
+- Fresh CI confirms frozen Bun tests/build/lint and migration round-trip pass on the rebased head. Local
+  `git diff --check` and frontend lint pass; local frozen Bun install is blocked by tempdir permissions,
+  and the pre-existing checkout lacks `@supabase/supabase-js` for tests/build. PR has no reviews or inline
+  comments, is open/non-draft/mergeable, and remains scoped to the existing implementation. No skill
+  draft: this was a routine frontend feature using existing API/query patterns.
+
 ## Issue #59 audit log read endpoint
 
 - PR #76 is open, non-draft, references `Fixes #59`, cites SPEC §20.1/§6.6 and ADR 0008/0010.

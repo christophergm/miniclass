@@ -45,7 +45,7 @@ export function SignInPage() {
 
       <div className="mt-6 space-y-3">
         {!authConfigured && <AuthErrorMessage message="Authentication is not configured for this site." />}
-        {authError && <AuthErrorMessage message={authError.message} />}
+        {authError && <AuthErrorMessage message={authError.message ?? ''} /> }
         {error && <AuthErrorMessage message={error} />}
       </div>
 
