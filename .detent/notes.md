@@ -10,6 +10,8 @@
   `POSTGRES_ADMIN_DATABASE_URL`.
 - Workpad comment `5398726896` is complete; no reviews or actionable comments remain. No skill draft.
 
+
+
 ## Issue #54 grade and homeroom vocabularies
 
 - Added migration `20260824180000_vocabularies.sql` with forced-RLS tenant tables `grade_levels`
@@ -68,6 +70,23 @@
   comments remain. Quiet-window wait is not applicable before review handoff; post-merge main CI is
   not running.
 - Skill draft: no — this turn uses the existing tenant-isolation patterns without a new reusable method.
+
+## Issue #62 frontend students and adults
+
+- Added `frontend/src/features/people/` with shared student/adult types, raw API boundary for
+  year-scoped list/get/create/update/soft-delete, server field-error extraction, semantic tables,
+  search/filter controls, detail forms, delete confirmation, and adult participation intent editing.
+- Routes are available at `/y/:schoolYearId/students[/:personId]` and the equivalent adults paths;
+  unscoped aliases render a choose-school-year message. The UI renders API `display_name` directly and
+  sorts by legal family name then legal given name. `include_deleted=true` is sent only after the
+  deliberate “Show deleted” toggle.
+- Focused coverage in `PeoplePages.test.tsx`: API display-name usage, legal-name sort, student search/
+  grade/homeroom filters, adult intent, and inline server errors.
+- Current dependency PRs #77 (auth shell), #79 (adult API), and #55 (student API) remain unmerged;
+  the UI is kept isolated and uses their established year-scoped path shape. When auth shell lands,
+  its authenticated fetch transport must be wired into the people API boundary before release.
+- Validation passed: frozen Bun install, 12 frontend tests, frontend build, frontend lint, and
+  `git diff --check`. No skill draft: this used ordinary feature-component patterns.
 
 ## Issue #46 trusted proxy Real-IP extraction
 
