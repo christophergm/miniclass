@@ -215,7 +215,8 @@ func (s *Service) RemoveStudentFromHousehold(ctx context.Context, organizationID
 			return fmt.Errorf("delete household student membership %s: %w", membership.ID, err)
 		}
 		if !deleted {
-			return fmt.Errorf("delete household student membership %s: %w", membership.ID, pgx.ErrNoRows)
+			probe, probeErr := tx.ProbeHouseholdStudentMembership(ctx, membership.SchoolYearID, membership.HouseholdID, membership.StudentID)
+			return fmt.Errorf("delete household student membership %s (probe=%+v, probe_error=%v): %w", membership.ID, probe, probeErr, pgx.ErrNoRows)
 		}
 		id, year := membership.ID, membership.SchoolYearID
 		return tx.Record(ctx, audit.Entry{Action: audit.ActionHardDelete, ObjectType: "household_student", ObjectID: &id, SchoolYearID: &year, ChangeSummary: membershipSummary("student", householdID, studentID, false)})

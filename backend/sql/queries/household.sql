@@ -67,6 +67,21 @@ where organization_id = sqlc.arg(organization_id)::public.xid20
   and household_id = sqlc.arg(household_id)::public.xid20
   and student_id = sqlc.arg(student_id)::public.xid20;
 
+-- name: ProbeHouseholdStudentMembership :one
+select
+    count(*)::bigint as visible_count,
+    count(*) filter (where school_year_id = sqlc.arg(school_year_id)::public.xid20)::bigint as year_count,
+    count(*) filter (where household_id = sqlc.arg(household_id)::public.xid20)::bigint as household_count,
+    count(*) filter (where student_id = sqlc.arg(student_id)::public.xid20)::bigint as student_count,
+    count(*) filter (
+        where school_year_id = sqlc.arg(school_year_id)::public.xid20
+          and household_id = sqlc.arg(household_id)::public.xid20
+          and student_id = sqlc.arg(student_id)::public.xid20
+    )::bigint as exact_count
+from household_students
+where organization_id = sqlc.arg(organization_id)::public.xid20
+  and household_id = sqlc.arg(household_id)::public.xid20;
+
 -- name: ListAllHouseholdStudentsForRegistry :many
 select id, organization_id, school_year_id, household_id, student_id, created_at, updated_at
 from household_students

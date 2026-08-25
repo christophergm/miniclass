@@ -64,6 +64,14 @@ type GuardianRelationship struct {
 	UpdatedAt        time.Time
 }
 
+type HouseholdStudentMembershipProbe struct {
+	VisibleCount  int64
+	YearCount     int64
+	HouseholdCount int64
+	StudentCount  int64
+	ExactCount    int64
+}
+
 func (tx *Tx) CreateHousehold(ctx context.Context, schoolYearID ids.XID, displayName string) (Household, error) {
 	displayName = strings.TrimSpace(displayName)
 	if strings.TrimSpace(string(schoolYearID)) == "" || displayName == "" {
@@ -199,6 +207,19 @@ func (tx *Tx) DeleteHouseholdStudentMembership(ctx context.Context, schoolYearID
 		return false, wrapHouseholdMutationError("delete household student membership", err)
 	}
 	return rows == 1, nil
+}
+
+func (tx *Tx) ProbeHouseholdStudentMembership(ctx context.Context, schoolYearID, householdID, studentID ids.XID) (HouseholdStudentMembershipProbe, error) {
+	row, err := tx.queries.ProbeHouseholdStudentMembership(ctx, db.ProbeHouseholdStudentMembershipParams{
+		OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, HouseholdID: householdID, StudentID: studentID,
+	})
+	if err != nil {
+		return HouseholdStudentMembershipProbe{}, err
+	}
+	return HouseholdStudentMembershipProbe{
+		VisibleCount: row.VisibleCount, YearCount: row.YearCount, HouseholdCount: row.HouseholdCount,
+		StudentCount: row.StudentCount, ExactCount: row.ExactCount,
+	}, nil
 }
 
 func (tx *Tx) ListAllHouseholdStudentsForRegistry(ctx context.Context) ([]HouseholdStudent, error) {

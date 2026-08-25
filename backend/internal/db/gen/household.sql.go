@@ -745,6 +745,55 @@ func (q *Queries) ListHouseholds(ctx context.Context, arg ListHouseholdsParams) 
 	return items, nil
 }
 
+const probeHouseholdStudentMembership = `-- name: ProbeHouseholdStudentMembership :one
+select
+    count(*)::bigint as visible_count,
+    count(*) filter (where school_year_id = $1::public.xid20)::bigint as year_count,
+    count(*) filter (where household_id = $2::public.xid20)::bigint as household_count,
+    count(*) filter (where student_id = $3::public.xid20)::bigint as student_count,
+    count(*) filter (
+        where school_year_id = $1::public.xid20
+          and household_id = $2::public.xid20
+          and student_id = $3::public.xid20
+    )::bigint as exact_count
+from household_students
+where organization_id = $4::public.xid20
+  and household_id = $2::public.xid20
+`
+
+type ProbeHouseholdStudentMembershipParams struct {
+	SchoolYearID   ids.XID `json:"school_year_id"`
+	HouseholdID    ids.XID `json:"household_id"`
+	StudentID      ids.XID `json:"student_id"`
+	OrganizationID ids.XID `json:"organization_id"`
+}
+
+type ProbeHouseholdStudentMembershipRow struct {
+	VisibleCount   int64 `json:"visible_count"`
+	YearCount      int64 `json:"year_count"`
+	HouseholdCount int64 `json:"household_count"`
+	StudentCount   int64 `json:"student_count"`
+	ExactCount     int64 `json:"exact_count"`
+}
+
+func (q *Queries) ProbeHouseholdStudentMembership(ctx context.Context, arg ProbeHouseholdStudentMembershipParams) (ProbeHouseholdStudentMembershipRow, error) {
+	row := q.db.QueryRow(ctx, probeHouseholdStudentMembership,
+		arg.SchoolYearID,
+		arg.HouseholdID,
+		arg.StudentID,
+		arg.OrganizationID,
+	)
+	var i ProbeHouseholdStudentMembershipRow
+	err := row.Scan(
+		&i.VisibleCount,
+		&i.YearCount,
+		&i.HouseholdCount,
+		&i.StudentCount,
+		&i.ExactCount,
+	)
+	return i, err
+}
+
 const softDeleteHousehold = `-- name: SoftDeleteHousehold :execrows
 update households
 set deleted_at = coalesce(deleted_at, now())
