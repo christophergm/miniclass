@@ -11,6 +11,7 @@ import { SignInPage } from '@/features/auth/SignInPage'
 import { SchoolYearGuard, SchoolYearListPage, SchoolYearNotFound, SchoolYearWorkspace } from '@/features/school-years/SchoolYearPages'
 import { SettingsPage } from '@/features/settings/SettingsPage'
 import { AdultDetailPage, AdultListPage, StudentDetailPage, StudentListPage } from '@/features/people/PeoplePages'
+import { AuditLog } from '@/features/audit/AuditLog'
 
 function App() {
   return (
@@ -65,6 +66,7 @@ function AppRoutes() {
           <Route path="/adults" element={<AdultListPage />} />
           <Route path="/adults/new" element={<AdultDetailPage />} />
           <Route path="/adults/:personId" element={<AdultDetailPage />} />
+          <Route path="/audit-log" element={<AuditLog />} />
         </Route>
       </Route>
       <Route path="*" element={<SchoolYearNotFound />} />

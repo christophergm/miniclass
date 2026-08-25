@@ -5,7 +5,6 @@ import { supabase } from './auth'
 
 export type HealthResponse = paths['/api/health']['get']['responses'][200]['content']['application/json']
 export type MeResponse = paths['/api/me']['get']['responses'][200]['content']['application/json']
-
 export type SchoolYear = {
   id: string
   organization_id: string
@@ -14,6 +13,8 @@ export type SchoolYear = {
   created_at: string
   updated_at: string
 }
+export type AuditLogResponse = paths['/api/audit-log']['get']['responses'][200]['content']['application/json']
+export type AuditLogEntry = NonNullable<AuditLogResponse['entries']>[number]
 
 export type ApiErrorKind = 'http' | 'network'
 
@@ -75,8 +76,26 @@ export class ApiClient {
       return result.data
     }
 
+    throw this.toApiError(result)
+  }
+
+  async getAuditLog(options: { objectType?: string; cursor?: string; limit?: number } = {}): Promise<AuditLogResponse> {
+    let result: Awaited<ReturnType<typeof this.client.GET>>
+    try {
+      result = await this.client.GET('/api/audit-log', {
+        params: { query: { object_type: options.objectType || undefined, cursor: options.cursor || undefined, limit: options.limit } },
+      })
+    } catch {
+      throw new ApiError('network', 'Unable to reach the API')
+    }
+
+    if (result.data !== undefined) return result.data as AuditLogResponse
+    throw this.toApiError(result)
+  }
+
+  private toApiError(result: { error?: { detail?: string; title?: string }; response: Response }): ApiError {
     const message = result.error?.detail ?? result.error?.title ?? `The API request failed with status ${result.response.status}`
-    throw new ApiError('http', message, result.response.status)
+    return new ApiError('http', message, result.response.status)
   }
 
   async getMe(): Promise<MeResponse> {

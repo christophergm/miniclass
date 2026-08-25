@@ -21,7 +21,7 @@ export function AppShell() {
     }
   }
 
-  const email = account?.principal.email ?? session?.user.email ?? 'Administrator'
+  const email = account?.principal.email ?? session?.user?.email ?? 'Administrator'
 
   return (
     <div className="min-h-screen bg-background">
