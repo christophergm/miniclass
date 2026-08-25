@@ -161,10 +161,15 @@ func (q *Queries) DeleteGuardianRelationship(ctx context.Context, arg DeleteGuar
 
 const deleteHouseholdAdult = `-- name: DeleteHouseholdAdult :one
 delete from household_adults
-where organization_id = $1::public.xid20
-  and school_year_id = $2::public.xid20
-  and household_id = $3::public.xid20
-  and adult_id = $4::public.xid20
+where id = (
+    select ha.id
+    from household_adults ha
+    where ha.organization_id = $1::public.xid20
+      and ha.school_year_id = $2::public.xid20
+      and ha.household_id = $3::public.xid20
+      and ha.adult_id = $4::public.xid20
+    limit 1
+)
 returning id
 `
 
@@ -214,10 +219,15 @@ func (q *Queries) DeleteHouseholdAdultMembership(ctx context.Context, arg Delete
 
 const deleteHouseholdStudent = `-- name: DeleteHouseholdStudent :one
 delete from household_students
-where organization_id = $1::public.xid20
-  and school_year_id = $2::public.xid20
-  and household_id = $3::public.xid20
-  and student_id = $4::public.xid20
+where id = (
+    select hs.id
+    from household_students hs
+    where hs.organization_id = $1::public.xid20
+      and hs.school_year_id = $2::public.xid20
+      and hs.household_id = $3::public.xid20
+      and hs.student_id = $4::public.xid20
+    limit 1
+)
 returning id
 `
 

@@ -49,10 +49,15 @@ order by student_id, id;
 
 -- name: DeleteHouseholdStudent :one
 delete from household_students
-where organization_id = sqlc.arg(organization_id)::public.xid20
-  and school_year_id = sqlc.arg(school_year_id)::public.xid20
-  and household_id = sqlc.arg(household_id)::public.xid20
-  and student_id = sqlc.arg(student_id)::public.xid20
+where id = (
+    select hs.id
+    from household_students hs
+    where hs.organization_id = sqlc.arg(organization_id)::public.xid20
+      and hs.school_year_id = sqlc.arg(school_year_id)::public.xid20
+      and hs.household_id = sqlc.arg(household_id)::public.xid20
+      and hs.student_id = sqlc.arg(student_id)::public.xid20
+    limit 1
+)
 returning id;
 
 -- name: DeleteHouseholdStudentMembership :execrows
@@ -89,10 +94,15 @@ order by adult_id, id;
 
 -- name: DeleteHouseholdAdult :one
 delete from household_adults
-where organization_id = sqlc.arg(organization_id)::public.xid20
-  and school_year_id = sqlc.arg(school_year_id)::public.xid20
-  and household_id = sqlc.arg(household_id)::public.xid20
-  and adult_id = sqlc.arg(adult_id)::public.xid20
+where id = (
+    select ha.id
+    from household_adults ha
+    where ha.organization_id = sqlc.arg(organization_id)::public.xid20
+      and ha.school_year_id = sqlc.arg(school_year_id)::public.xid20
+      and ha.household_id = sqlc.arg(household_id)::public.xid20
+      and ha.adult_id = sqlc.arg(adult_id)::public.xid20
+    limit 1
+)
 returning id;
 
 -- name: DeleteHouseholdAdultMembership :execrows
