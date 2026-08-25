@@ -263,6 +263,20 @@
   or inline comments. The final complete-tree CI run passed all nine required checks; Workpad completion
   declaration remains the final handoff.
 
+## Issue #58 administrator management
+
+- Added Owner-only `/api/administrators` list/invite, role-change, removal, invitation resend, and
+  invitation revoke operations. `WithIdentity` wires the Store as the manager; invitation links default
+  to `http://localhost:5173/claim` and may be overridden with `WithInvitationClaimBaseURL`.
+- Tenant mutations run through `data.InTenant`, and invitation/permission/add/remove actions record
+  same-transaction audit entries. The unscoped identity accessor remains restricted to `internal/identity`.
+- Added integration coverage for regeneration invalidation, revoke, role changes, removal, audit count,
+  tenant scoping, and last-Owner protection; it skips here because both test database URLs are absent.
+- Focused backend/API tests and OpenAPI/sqlc generation pass. PR #74 is open, non-draft, mergeable, and
+  cites SPEC §§6.6/9.3/9.5/20.1 plus ADRs 0007/0008/0009/0010. Its final current-head run passed all
+  nine required checks; slowest were Generated code drift (1m27s), Backend tests/lint (1m04s), and
+  Migration round-trip (1m08s). The Workpad is complete; Detent owns the completion-lane transition.
+
 ## Issue #53 school years, lifecycle, closed-year trigger, and Layer 2
 
 - Added timestamped migration `20260824160000_school_years.sql`: `school_year_state`, tenant-scoped

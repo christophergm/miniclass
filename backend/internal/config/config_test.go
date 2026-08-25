@@ -7,7 +7,7 @@ import (
 )
 
 func TestLoadFromDotEnv(t *testing.T) {
-	for _, key := range []string{"APP_ENV", "APP_VERSION", "PORT", "API_BASE_URL", "TRUSTED_PROXY_CIDRS", "DATABASE_URL", "TEST_DATABASE_URL", "AUTH_PROVIDER", "AUTH_ISSUER", "AUTH_AUDIENCE", "AUTH_LOCAL_PUBLIC_KEY", "AUTH_LOCAL_PRIVATE_KEY", "AUTH_LOCAL_KEY_ID"} {
+	for _, key := range []string{"APP_ENV", "APP_VERSION", "PORT", "API_BASE_URL", "INVITATION_CLAIM_BASE_URL", "TRUSTED_PROXY_CIDRS", "DATABASE_URL", "TEST_DATABASE_URL", "AUTH_PROVIDER", "AUTH_ISSUER", "AUTH_AUDIENCE", "AUTH_LOCAL_PUBLIC_KEY", "AUTH_LOCAL_PRIVATE_KEY", "AUTH_LOCAL_KEY_ID"} {
 		unsetEnv(t, key)
 	}
 
@@ -23,7 +23,7 @@ func TestLoadFromDotEnv(t *testing.T) {
 	if cfg.AppEnv != "test" || cfg.Port != "9090" || cfg.DatabaseURL != "postgres://example" {
 		t.Fatalf("LoadFrom() = %#v", cfg)
 	}
-	if cfg.AppVersion != defaultAppVersion || cfg.APIBaseURL != defaultAPIBaseURL {
+	if cfg.AppVersion != defaultAppVersion || cfg.APIBaseURL != defaultAPIBaseURL || cfg.InvitationClaimBaseURL != defaultInvitationClaimBaseURL {
 		t.Fatalf("defaults not applied: %#v", cfg)
 	}
 }

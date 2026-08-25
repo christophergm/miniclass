@@ -177,6 +177,25 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 	return i, err
 }
 
+const deleteOrganizationMember = `-- name: DeleteOrganizationMember :execrows
+delete from organization_members
+where id = $1
+  and organization_id = $2
+`
+
+type DeleteOrganizationMemberParams struct {
+	ID             ids.XID `json:"id"`
+	OrganizationID ids.XID `json:"organization_id"`
+}
+
+func (q *Queries) DeleteOrganizationMember(ctx context.Context, arg DeleteOrganizationMemberParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteOrganizationMember, arg.ID, arg.OrganizationID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getAccessTokenByHash = `-- name: GetAccessTokenByHash :one
 select id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation, created_at, updated_at
 from access_tokens
@@ -289,6 +308,61 @@ func (q *Queries) GetAccountMembershipsByProviderSubject(ctx context.Context, pr
 	return items, nil
 }
 
+const getOrganizationMember = `-- name: GetOrganizationMember :one
+select
+    om.id,
+    om.organization_id,
+    om.user_id,
+    om.role,
+    om.invited_email,
+    om.invitation_token_id,
+    om.created_at,
+    om.updated_at,
+    u.email as user_email,
+    at.expires_at as invitation_expires_at
+from organization_members om
+left join users u on u.id = om.user_id
+left join access_tokens at on at.id = om.invitation_token_id
+where om.id = $1
+  and om.organization_id = $2
+`
+
+type GetOrganizationMemberParams struct {
+	ID             ids.XID `json:"id"`
+	OrganizationID ids.XID `json:"organization_id"`
+}
+
+type GetOrganizationMemberRow struct {
+	ID                  ids.XID            `json:"id"`
+	OrganizationID      ids.XID            `json:"organization_id"`
+	UserID              *ids.XID           `json:"user_id"`
+	Role                OrganizationRole   `json:"role"`
+	InvitedEmail        pgtype.Text        `json:"invited_email"`
+	InvitationTokenID   *ids.XID           `json:"invitation_token_id"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	UserEmail           pgtype.Text        `json:"user_email"`
+	InvitationExpiresAt pgtype.Timestamptz `json:"invitation_expires_at"`
+}
+
+func (q *Queries) GetOrganizationMember(ctx context.Context, arg GetOrganizationMemberParams) (GetOrganizationMemberRow, error) {
+	row := q.db.QueryRow(ctx, getOrganizationMember, arg.ID, arg.OrganizationID)
+	var i GetOrganizationMemberRow
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.UserID,
+		&i.Role,
+		&i.InvitedEmail,
+		&i.InvitationTokenID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.UserEmail,
+		&i.InvitationExpiresAt,
+	)
+	return i, err
+}
+
 const getOrganizationMemberByInvitationToken = `-- name: GetOrganizationMemberByInvitationToken :one
 select id, organization_id, user_id, role, invited_email, invitation_token_id, created_at, updated_at
 from organization_members
@@ -330,6 +404,69 @@ func (q *Queries) GetUserByProviderSubject(ctx context.Context, providerSubject 
 	return i, err
 }
 
+const listOrganizationMembers = `-- name: ListOrganizationMembers :many
+select
+    om.id,
+    om.organization_id,
+    om.user_id,
+    om.role,
+    om.invited_email,
+    om.invitation_token_id,
+    om.created_at,
+    om.updated_at,
+    u.email as user_email,
+    at.expires_at as invitation_expires_at
+from organization_members om
+left join users u on u.id = om.user_id
+left join access_tokens at on at.id = om.invitation_token_id
+where om.organization_id = $1
+order by lower(coalesce(u.email, om.invited_email)), om.id
+`
+
+type ListOrganizationMembersRow struct {
+	ID                  ids.XID            `json:"id"`
+	OrganizationID      ids.XID            `json:"organization_id"`
+	UserID              *ids.XID           `json:"user_id"`
+	Role                OrganizationRole   `json:"role"`
+	InvitedEmail        pgtype.Text        `json:"invited_email"`
+	InvitationTokenID   *ids.XID           `json:"invitation_token_id"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	UserEmail           pgtype.Text        `json:"user_email"`
+	InvitationExpiresAt pgtype.Timestamptz `json:"invitation_expires_at"`
+}
+
+func (q *Queries) ListOrganizationMembers(ctx context.Context, organizationID ids.XID) ([]ListOrganizationMembersRow, error) {
+	rows, err := q.db.Query(ctx, listOrganizationMembers, organizationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListOrganizationMembersRow{}
+	for rows.Next() {
+		var i ListOrganizationMembersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrganizationID,
+			&i.UserID,
+			&i.Role,
+			&i.InvitedEmail,
+			&i.InvitationTokenID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.UserEmail,
+			&i.InvitationExpiresAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const replaceOrganizationMemberInvitation = `-- name: ReplaceOrganizationMemberInvitation :execrows
 update organization_members
 set invitation_token_id = $2
@@ -358,4 +495,56 @@ where id = $1
 func (q *Queries) RevokeAccessToken(ctx context.Context, id ids.XID) error {
 	_, err := q.db.Exec(ctx, revokeAccessToken, id)
 	return err
+}
+
+const setOrganizationMemberInvitation = `-- name: SetOrganizationMemberInvitation :execrows
+update organization_members
+set invitation_token_id = $2
+where id = $1
+  and organization_id = $3
+  and user_id is null
+`
+
+type SetOrganizationMemberInvitationParams struct {
+	ID                ids.XID  `json:"id"`
+	InvitationTokenID *ids.XID `json:"invitation_token_id"`
+	OrganizationID    ids.XID  `json:"organization_id"`
+}
+
+func (q *Queries) SetOrganizationMemberInvitation(ctx context.Context, arg SetOrganizationMemberInvitationParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setOrganizationMemberInvitation, arg.ID, arg.InvitationTokenID, arg.OrganizationID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const updateOrganizationMemberRole = `-- name: UpdateOrganizationMemberRole :one
+update organization_members
+set role = $2
+where id = $1
+  and organization_id = $3
+returning id, organization_id, user_id, role, invited_email, invitation_token_id, created_at, updated_at
+`
+
+type UpdateOrganizationMemberRoleParams struct {
+	ID             ids.XID          `json:"id"`
+	Role           OrganizationRole `json:"role"`
+	OrganizationID ids.XID          `json:"organization_id"`
+}
+
+func (q *Queries) UpdateOrganizationMemberRole(ctx context.Context, arg UpdateOrganizationMemberRoleParams) (OrganizationMember, error) {
+	row := q.db.QueryRow(ctx, updateOrganizationMemberRole, arg.ID, arg.Role, arg.OrganizationID)
+	var i OrganizationMember
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.UserID,
+		&i.Role,
+		&i.InvitedEmail,
+		&i.InvitationTokenID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }

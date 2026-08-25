@@ -12,35 +12,37 @@ import (
 )
 
 const (
-	defaultAppEnv       = "development"
-	defaultAppVersion   = "0.1.0"
-	defaultPort         = "8080"
-	defaultAPIBaseURL   = "http://localhost:8080"
-	defaultAuthIssuer   = "http://localhost:8080"
-	defaultAuthAudience = "authenticated"
-	defaultAuthProvider = "local"
+	defaultAppEnv                 = "development"
+	defaultAppVersion             = "0.1.0"
+	defaultPort                   = "8080"
+	defaultAPIBaseURL             = "http://localhost:8080"
+	defaultInvitationClaimBaseURL = "http://localhost:5173/claim"
+	defaultAuthIssuer             = "http://localhost:8080"
+	defaultAuthAudience           = "authenticated"
+	defaultAuthProvider           = "local"
 )
 
 // Config contains the settings used by the API and its dependencies.
 // Values are intentionally kept as strings because they originate in the
 // environment and are passed to the HTTP and database clients unchanged.
 type Config struct {
-	AppEnv              string
-	AppVersion          string
-	Port                string
-	APIBaseURL          string
-	TrustedProxyCIDRs   []string
-	DatabaseURL         string
-	TestDatabaseURL     string
-	SupabaseURL         string
-	SupabaseAnonKey     string
-	SupabaseJWTSecret   string
-	AuthProvider        string
-	AuthIssuer          string
-	AuthAudience        string
-	AuthLocalPublicKey  string
-	AuthLocalPrivateKey string
-	AuthLocalKeyID      string
+	AppEnv                 string
+	AppVersion             string
+	Port                   string
+	APIBaseURL             string
+	InvitationClaimBaseURL string
+	TrustedProxyCIDRs      []string
+	DatabaseURL            string
+	TestDatabaseURL        string
+	SupabaseURL            string
+	SupabaseAnonKey        string
+	SupabaseJWTSecret      string
+	AuthProvider           string
+	AuthIssuer             string
+	AuthAudience           string
+	AuthLocalPublicKey     string
+	AuthLocalPrivateKey    string
+	AuthLocalKeyID         string
 }
 
 // Load reads .env when it exists, then builds and validates the application
@@ -81,22 +83,23 @@ func fromEnvironment() (*Config, error) {
 		authIssuer = supabaseURL
 	}
 	cfg := &Config{
-		AppEnv:              getEnv("APP_ENV", defaultAppEnv),
-		AppVersion:          getEnv("APP_VERSION", defaultAppVersion),
-		Port:                port,
-		APIBaseURL:          getEnv("API_BASE_URL", defaultAPIBaseURL),
-		TrustedProxyCIDRs:   getListEnv("TRUSTED_PROXY_CIDRS"),
-		DatabaseURL:         strings.TrimSpace(os.Getenv("DATABASE_URL")),
-		TestDatabaseURL:     strings.TrimSpace(os.Getenv("TEST_DATABASE_URL")),
-		SupabaseURL:         supabaseURL,
-		SupabaseAnonKey:     strings.TrimSpace(os.Getenv("SUPABASE_ANON_KEY")),
-		SupabaseJWTSecret:   strings.TrimSpace(os.Getenv("SUPABASE_JWT_SECRET")),
-		AuthProvider:        getEnv("AUTH_PROVIDER", defaultAuthProvider),
-		AuthIssuer:          authIssuer,
-		AuthAudience:        getEnv("AUTH_AUDIENCE", defaultAuthAudience),
-		AuthLocalPublicKey:  strings.TrimSpace(os.Getenv("AUTH_LOCAL_PUBLIC_KEY")),
-		AuthLocalPrivateKey: strings.TrimSpace(os.Getenv("AUTH_LOCAL_PRIVATE_KEY")),
-		AuthLocalKeyID:      strings.TrimSpace(os.Getenv("AUTH_LOCAL_KEY_ID")),
+		AppEnv:                 getEnv("APP_ENV", defaultAppEnv),
+		AppVersion:             getEnv("APP_VERSION", defaultAppVersion),
+		Port:                   port,
+		APIBaseURL:             getEnv("API_BASE_URL", defaultAPIBaseURL),
+		InvitationClaimBaseURL: getEnv("INVITATION_CLAIM_BASE_URL", defaultInvitationClaimBaseURL),
+		TrustedProxyCIDRs:      getListEnv("TRUSTED_PROXY_CIDRS"),
+		DatabaseURL:            strings.TrimSpace(os.Getenv("DATABASE_URL")),
+		TestDatabaseURL:        strings.TrimSpace(os.Getenv("TEST_DATABASE_URL")),
+		SupabaseURL:            supabaseURL,
+		SupabaseAnonKey:        strings.TrimSpace(os.Getenv("SUPABASE_ANON_KEY")),
+		SupabaseJWTSecret:      strings.TrimSpace(os.Getenv("SUPABASE_JWT_SECRET")),
+		AuthProvider:           getEnv("AUTH_PROVIDER", defaultAuthProvider),
+		AuthIssuer:             authIssuer,
+		AuthAudience:           getEnv("AUTH_AUDIENCE", defaultAuthAudience),
+		AuthLocalPublicKey:     strings.TrimSpace(os.Getenv("AUTH_LOCAL_PUBLIC_KEY")),
+		AuthLocalPrivateKey:    strings.TrimSpace(os.Getenv("AUTH_LOCAL_PRIVATE_KEY")),
+		AuthLocalKeyID:         strings.TrimSpace(os.Getenv("AUTH_LOCAL_KEY_ID")),
 	}
 
 	if err := cfg.Validate(); err != nil {

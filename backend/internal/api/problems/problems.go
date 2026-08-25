@@ -29,6 +29,10 @@ const (
 	InvitationInvalid           Slug = "invitation-invalid"
 	InvitationEmailMismatch     Slug = "invitation-email-mismatch"
 	InvitationEmailUnverified   Slug = "invitation-email-unverified"
+	AdministratorConflict       Slug = "administrator-conflict"
+	AdministratorRoleInvalid    Slug = "administrator-role-invalid"
+	LastOwner                   Slug = "last-owner"
+	InvitationNotPending        Slug = "invitation-not-pending"
 	ResourceNotFound            Slug = "resource-not-found"
 	SchoolYearClosed            Slug = "school-year-closed"
 	SchoolYearTransitionInvalid Slug = "school-year-transition-invalid"
@@ -56,6 +60,10 @@ var registry = map[Slug]Definition{
 	InvitationInvalid:           {Slug: InvitationInvalid, Title: "Invitation invalid"},
 	InvitationEmailMismatch:     {Slug: InvitationEmailMismatch, Title: "Invitation email mismatch"},
 	InvitationEmailUnverified:   {Slug: InvitationEmailUnverified, Title: "Invitation email is not verified"},
+	AdministratorConflict:       {Slug: AdministratorConflict, Title: "Administrator conflict"},
+	AdministratorRoleInvalid:    {Slug: AdministratorRoleInvalid, Title: "Administrator role is invalid"},
+	LastOwner:                   {Slug: LastOwner, Title: "Last owner protection"},
+	InvitationNotPending:        {Slug: InvitationNotPending, Title: "Invitation is not pending"},
 	ResourceNotFound:            {Slug: ResourceNotFound, Title: "Resource not found"},
 	SchoolYearClosed:            {Slug: SchoolYearClosed, Title: "School year is closed"},
 	SchoolYearTransitionInvalid: {Slug: SchoolYearTransitionInvalid, Title: "Invalid school-year transition"},
