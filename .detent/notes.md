@@ -1,5 +1,6 @@
 # Detent handoff notes
 
+
 ## Issue #64 merge fallback
 
 - Rebased PR #82 onto current `origin/main` (`a723ef8`); resolved only the two expected conflicts.
@@ -23,6 +24,25 @@
   and the pre-existing checkout lacks `@supabase/supabase-js` for tests/build. PR has no reviews or inline
   comments, is open/non-draft/mergeable, and remains scoped to the existing implementation. No skill
   draft: this was a routine frontend feature using existing API/query patterns.
+
+## Issue #63 frontend households and guardian relationships
+
+- Built on the P1-13a frontend commit `d84f7e6` (PR #81 is still open); household UI is in
+  `frontend/src/features/people/HouseholdPages.tsx`, `householdApi.ts`, and related guardian files.
+- Routes are year-scoped under `/y/:schoolYearId/households`; person lists/details show all household
+  links and a warning-only empty-household state. Guardian relationships are explicitly independent
+  membership records and editable from both person directions.
+- Focused frontend tests currently cover list/detail two-household rendering, member add/remove,
+  relationship type edits, reverse adult view, and the non-blocking missing-household warning.
+- PR #83 is open, non-draft, clean/mergeable, references `Fixes #63`, and cites SPEC §§8.2/11.2/5.2.
+- Current-head CI run 32804112171 passed all nine required checks. Slowest: Backend lint 1m24s,
+  Backend tests 1m14s, Generated code drift 1m13s. No reviews or inline comments remain.
+- Local validation passed: 19 frontend tests, frontend build/lint, backend tests/lint/format, generated
+  drift, git diff --check, and PostgreSQL 18 disposable migration up/down/up. The exact migration
+  wrapper lacks host `psql`; its equivalent container sequence passed and cleaned up the database.
+- Telemetry: quiet-window wait 0s; local frontend gate about 5s; backend checks about 19s; disposable
+  migration equivalent about 2s; PR CI about 1m24s; latest main CI successful, no post-merge run active.
+- Skill draft: no — this was a scoped frontend feature using existing people-page patterns.
 
 ## Issue #59 audit log read endpoint
 
@@ -51,7 +71,6 @@
   migration up/down/up, frozen Bun tests/build/lint, and `git diff --check`.
 - Open items: commit/push, open PR with `Fixes #54` and SPEC §§10.1/20.1, inspect current-head CI
   and reviews, then update the Workpad to complete. No blocker or human action is known.
-- No skill draft.
 
 ## Issue #56 adults
 

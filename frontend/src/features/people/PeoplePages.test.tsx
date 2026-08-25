@@ -3,6 +3,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { PeopleApiError, peopleApi } from './api'
+import { guardianApi } from './guardianApi'
 import { AdultListPage, StudentDetailPage, StudentListPage } from './PeoplePages'
 import type { Adult } from './types'
 
@@ -32,6 +33,43 @@ function renderStudents(path = '/y/year-1/students') {
 }
 
 describe('people roster pages', () => {
+  it('shows every household for a student in the student list', async () => {
+    vi.spyOn(peopleApi, 'list').mockResolvedValue([{ ...students[0], households: [
+      { id: 'household-1', school_year_id: 'year-1', display_name: 'Primary home' },
+      { id: 'household-2', school_year_id: 'year-1', display_name: 'Second home' },
+    ] }])
+
+    renderStudents()
+
+    const table = await screen.findByRole('table', { name: 'Students' })
+    expect(within(table).getByRole('link', { name: 'Primary home' })).toBeInTheDocument()
+    expect(within(table).getByRole('link', { name: 'Second home' })).toBeInTheDocument()
+  })
+
+  it('shows both household links on student detail and warns without blocking a student with none', async () => {
+    const student = { ...students[0], households: [
+      { id: 'household-1', school_year_id: 'year-1', display_name: 'Primary home' },
+      { id: 'household-2', school_year_id: 'year-1', display_name: 'Second home' },
+    ] }
+    vi.spyOn(peopleApi, 'get').mockResolvedValue(student)
+    vi.spyOn(peopleApi, 'list').mockResolvedValue([])
+    vi.spyOn(guardianApi, 'listForStudent').mockResolvedValue([])
+
+    const detail = renderStudents('/y/year-1/students/student-2')
+
+    expect(await screen.findByRole('link', { name: 'Primary home' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Second home' })).toBeInTheDocument()
+
+    detail.unmount()
+    vi.restoreAllMocks()
+    vi.spyOn(peopleApi, 'get').mockResolvedValue({ ...students[0], households: [] })
+    vi.spyOn(peopleApi, 'list').mockResolvedValue([])
+    vi.spyOn(guardianApi, 'listForStudent').mockResolvedValue([])
+    renderStudents('/y/year-1/students/student-2')
+    expect(await screen.findByText('This person has no household yet. This is a warning only; you can still save the roster record.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled()
+  })
+
   it('uses the API display name and sorts by legal family then given name', async () => {
     vi.spyOn(peopleApi, 'list').mockResolvedValue(students)
 

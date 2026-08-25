@@ -12,7 +12,7 @@ export class PeopleApiError extends Error {
   }
 }
 
-type ApiErrorBody = {
+export type ApiErrorBody = {
   detail?: string
   title?: string
   errors?: Array<{ location?: string; message?: string }>
@@ -51,7 +51,7 @@ async function readError(response: Response): Promise<PeopleApiError> {
   )
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response
   try {
     response = await globalThis.fetch(`${configuredBaseUrl}${path}`, {
@@ -77,17 +77,17 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 }
 
-function asList(value: unknown): Person[] {
+export function asList<T>(value: unknown): T[] {
   if (!Array.isArray(value)) {
     throw new PeopleApiError('The people response was invalid.')
   }
-  return value as Person[]
+  return value as T[]
 }
 
 export const peopleApi: PeopleApi = {
   async list(kind, schoolYearId, includeDeleted = false) {
     const query = includeDeleted ? '?include_deleted=true' : ''
-    return asList(await request<unknown>(`${resourcePath(kind, schoolYearId)}${query}`))
+    return asList<Person>(await request<unknown>(`${resourcePath(kind, schoolYearId)}${query}`))
   },
 
   get(kind, schoolYearId, personId) {
