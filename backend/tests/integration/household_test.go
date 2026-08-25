@@ -55,6 +55,9 @@ func TestHouseholdsAllowMultipleMembershipsAndSeparateGuardianRelationships(t *t
 	require.Len(t, studentsA, 1)
 	require.Len(t, studentsB, 1)
 	require.NotEqual(t, studentsA[0].ID, studentsB[0].ID)
+	require.Equal(t, year.ID, studentsA[0].SchoolYearID)
+	require.Equal(t, householdA.ID, studentsA[0].HouseholdID)
+	require.Equal(t, student.ID, studentsA[0].StudentID)
 
 	// A relationship is its own record and need not imply a household membership.
 	relationship, err := service.CreateGuardianRelationship(ctx, string(organizationID), year.ID, actor, people.GuardianRelationshipCreateInput{
