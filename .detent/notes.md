@@ -11,8 +11,8 @@
   versus pinned v1.27.0; generated changes were discarded. Migration round-trip could not start because
   `POSTGRES_ADMIN_DATABASE_URL` is unset. Frozen Bun install is blocked by Bun tempdir permissions;
   without install, frontend lint passed, while tests/build could not resolve missing `@supabase/supabase-js`.
-- Rebase conflict resolution is complete. Fresh PR-head CI run `32807653471` passed all nine required
-  checks; slow checks were Generated code drift (1m24s), Backend lint (1m16s), and Backend tests (1m16s).
+- Rebase conflict resolution is complete. Final PR-head CI run `32807894013` passed all nine required
+  checks; slow checks were Generated code drift (1m29s), Backend lint (1m21s), and Backend tests (1m10s).
 
 ## Issue #64 frontend audit log view
 

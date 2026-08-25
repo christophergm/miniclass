@@ -31,7 +31,7 @@ function makeFakeClient(token: string | undefined) {
       if (payload && payload.email) {
         const userMaybe = session!.user as Session['user'] | undefined
         const id = userMaybe?.id ?? 'local:dev'
-        const merged = { id, ...(userMaybe as any), email: String(payload.email) } as Session['user']
+        const merged = { id, ...(userMaybe ?? {}), email: String(payload.email) } as Session['user']
         session!.user = merged
       }
     } catch (_e) {
