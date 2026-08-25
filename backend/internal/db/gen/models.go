@@ -214,6 +214,26 @@ type AuditLog struct {
 	RequestID      pgtype.Text        `json:"request_id"`
 }
 
+type GradeLevel struct {
+	ID             ids.XID            `json:"id"`
+	OrganizationID ids.XID            `json:"organization_id"`
+	Code           string             `json:"code"`
+	Label          string             `json:"label"`
+	Ordinal        int32              `json:"ordinal"`
+	RetiredAt      pgtype.Timestamptz `json:"retired_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type Homeroom struct {
+	ID             ids.XID            `json:"id"`
+	OrganizationID ids.XID            `json:"organization_id"`
+	Name           string             `json:"name"`
+	RetiredAt      pgtype.Timestamptz `json:"retired_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Organization struct {
 	ID            ids.XID            `json:"id"`
 	Name          string             `json:"name"`

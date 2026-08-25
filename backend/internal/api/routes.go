@@ -30,6 +30,7 @@ type RouterOptions struct {
 	InvitationClaimBaseURL string
 	SchoolYears            handlers.SchoolYearService
 	AuditLog               handlers.AuditLogReader
+	Vocabularies           handlers.VocabularyService
 	Verifier               auth.Verifier
 }
 
@@ -213,6 +214,82 @@ func registerOperations(api huma.API, options RouterOptions) {
 		Summary:     "Delete a school year",
 		Errors:      []int{http.StatusNotFound, http.StatusConflict},
 	}, auth.CapabilityManageSchoolYear, false, schoolYears.Delete)
+
+	vocabularies := handlers.NewVocabularyHandler(options.Vocabularies)
+	registerOperation(api, huma.Operation{
+		OperationID: "list-vocabularies",
+		Method:      http.MethodGet,
+		Path:        apiBasePath + "/vocabularies",
+		Summary:     "List grade and homeroom vocabularies",
+	}, auth.CapabilityManageRoster, false, vocabularies.List)
+	registerOperation(api, huma.Operation{
+		OperationID: "update-vocabulary-settings",
+		Method:      http.MethodPatch,
+		Path:        apiBasePath + "/vocabularies/settings",
+		Summary:     "Update the configured homeroom label",
+		Errors:      []int{http.StatusBadRequest, http.StatusConflict},
+	}, auth.CapabilityManageRoster, false, vocabularies.UpdateSettings)
+	registerOperation(api, huma.Operation{
+		OperationID: "list-grade-levels",
+		Method:      http.MethodGet,
+		Path:        apiBasePath + "/grade-levels",
+		Summary:     "List grade levels",
+	}, auth.CapabilityManageRoster, false, vocabularies.ListGrades)
+	registerOperation(api, huma.Operation{
+		OperationID: "create-grade-level",
+		Method:      http.MethodPost,
+		Path:        apiBasePath + "/grade-levels",
+		Summary:     "Create a grade level",
+		Errors:      []int{http.StatusBadRequest, http.StatusConflict},
+	}, auth.CapabilityManageRoster, false, vocabularies.CreateGrade)
+	registerOperation(api, huma.Operation{
+		OperationID: "reorder-grade-levels",
+		Method:      http.MethodPost,
+		Path:        apiBasePath + "/grade-levels/reorder",
+		Summary:     "Reorder grade levels",
+		Errors:      []int{http.StatusBadRequest, http.StatusConflict},
+	}, auth.CapabilityManageRoster, false, vocabularies.ReorderGrades)
+	registerOperation(api, huma.Operation{
+		OperationID: "get-grade-level",
+		Method:      http.MethodGet,
+		Path:        apiBasePath + "/grade-levels/{gradeLevelID}",
+		Summary:     "Get a grade level",
+		Errors:      []int{http.StatusNotFound},
+	}, auth.CapabilityManageRoster, false, vocabularies.GetGrade)
+	registerOperation(api, huma.Operation{
+		OperationID: "update-grade-level",
+		Method:      http.MethodPatch,
+		Path:        apiBasePath + "/grade-levels/{gradeLevelID}",
+		Summary:     "Edit or retire a grade level",
+		Errors:      []int{http.StatusBadRequest, http.StatusNotFound, http.StatusConflict},
+	}, auth.CapabilityManageRoster, false, vocabularies.UpdateGrade)
+	registerOperation(api, huma.Operation{
+		OperationID: "list-homerooms",
+		Method:      http.MethodGet,
+		Path:        apiBasePath + "/homerooms",
+		Summary:     "List homerooms",
+	}, auth.CapabilityManageRoster, false, vocabularies.ListHomerooms)
+	registerOperation(api, huma.Operation{
+		OperationID: "create-homeroom",
+		Method:      http.MethodPost,
+		Path:        apiBasePath + "/homerooms",
+		Summary:     "Create a homeroom",
+		Errors:      []int{http.StatusBadRequest, http.StatusConflict},
+	}, auth.CapabilityManageRoster, false, vocabularies.CreateHomeroom)
+	registerOperation(api, huma.Operation{
+		OperationID: "get-homeroom",
+		Method:      http.MethodGet,
+		Path:        apiBasePath + "/homerooms/{homeroomID}",
+		Summary:     "Get a homeroom",
+		Errors:      []int{http.StatusNotFound},
+	}, auth.CapabilityManageRoster, false, vocabularies.GetHomeroom)
+	registerOperation(api, huma.Operation{
+		OperationID: "update-homeroom",
+		Method:      http.MethodPatch,
+		Path:        apiBasePath + "/homerooms/{homeroomID}",
+		Summary:     "Edit or retire a homeroom",
+		Errors:      []int{http.StatusBadRequest, http.StatusNotFound, http.StatusConflict},
+	}, auth.CapabilityManageRoster, false, vocabularies.UpdateHomeroom)
 }
 
 func registerOperation[I, O any](api huma.API, operation huma.Operation, capability auth.Capability, allowUnresolved bool, handler func(context.Context, *I) (*O, error)) {

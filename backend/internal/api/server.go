@@ -30,6 +30,7 @@ type ServerOptions struct {
 	InvitationClaimBaseURL string
 	SchoolYears            handlers.SchoolYearService
 	AuditLog               handlers.AuditLogReader
+	Vocabularies           handlers.VocabularyService
 	Verifier               auth.Verifier
 	Logger                 *slog.Logger
 	TrustedProxyCIDRs      []string
@@ -80,6 +81,7 @@ func NewServer(options ...ServerOption) *Server {
 		InvitationClaimBaseURL: settings.InvitationClaimBaseURL,
 		SchoolYears:            settings.SchoolYears,
 		AuditLog:               settings.AuditLog,
+		Vocabularies:           settings.Vocabularies,
 		Verifier:               settings.Verifier,
 		Logger:                 settings.Logger,
 		TrustedProxyCIDRs:      settings.TrustedProxyCIDRs,
@@ -169,6 +171,11 @@ func WithInvitationClaimBaseURL(baseURL string) ServerOption {
 // WithSchoolYears supplies the school-year service used by lifecycle routes.
 func WithSchoolYears(service handlers.SchoolYearService) ServerOption {
 	return func(options *ServerOptions) { options.SchoolYears = service }
+}
+
+// WithVocabularies supplies the grade and homeroom vocabulary service.
+func WithVocabularies(service handlers.VocabularyService) ServerOption {
+	return func(options *ServerOptions) { options.Vocabularies = service }
 }
 
 // WithVerifier supplies the configured bearer-token verifier.

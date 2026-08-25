@@ -73,6 +73,12 @@ func TestLayerTwoEntityIsolation(t *testing.T) {
 func TestLayerTwoRegistryIsDeterministic(t *testing.T) {
 	entries := registry.Entries()
 	require.NotEmpty(t, entries)
-	require.Equal(t, "school_years", entries[0].TableName)
-	require.True(t, entries[0].YearScoped)
+	for _, table := range []string{"school_years", "grade_levels", "homerooms"} {
+		entry, ok := registry.ForTable(table)
+		require.True(t, ok, table+" is missing from the registry")
+		require.Equal(t, table, entry.TableName)
+	}
+	schoolYears, ok := registry.ForTable("school_years")
+	require.True(t, ok)
+	require.True(t, schoolYears.YearScoped)
 }

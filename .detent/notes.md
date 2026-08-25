@@ -10,6 +10,22 @@
   `POSTGRES_ADMIN_DATABASE_URL`.
 - Workpad comment `5398726896` is complete; no reviews or actionable comments remain. No skill draft.
 
+## Issue #54 grade and homeroom vocabularies
+
+- Added migration `20260824180000_vocabularies.sql` with forced-RLS tenant tables `grade_levels`
+  and `homerooms`, opaque XID keys, uniqueness, ordinal ordering, retirement timestamps, and
+  editable `organizations.homeroom_label` privilege.
+- Added `internal/data/vocabulary.go`, audited `internal/vocabulary` service operations, Huma routes
+  under `manage_roster`, and committed sqlc/OpenAPI output. Retired rows are excluded by default
+  picker/list queries but remain fetchable by ID; grades reorder by explicit ordinal.
+- Added per-entity registry files and a vocabulary integration test. Layer 2 confirms cross-tenant
+  read/fetch/update/retire/foreign-parent isolation for both tables.
+- Validation passed: PostgreSQL 18 race-enabled `make test` with migrator/app roles, `make lint`,
+  `make format`, pinned sqlc v1.27.0 generation plus `make generated-code-drift`, equivalent
+  migration up/down/up, frozen Bun tests/build/lint, and `git diff --check`.
+- Open items: commit/push, open PR with `Fixes #54` and SPEC §§10.1/20.1, inspect current-head CI
+  and reviews, then update the Workpad to complete. No blocker or human action is known.
+
 ## Issue #46 trusted proxy Real-IP extraction
 
 - Replaced deprecated unconditional `chi/middleware.RealIP` with `internal/api/realip.go`.
