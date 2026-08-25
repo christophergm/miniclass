@@ -135,6 +135,21 @@
   complete and successful; no post-merge main run is active.
 - Final handoff: update the persistent Workpad to `complete`; Detent owns the completion-lane transition.
 
+## Issue #57 households, memberships, and guardian relationships
+
+- Retry 2026-08-25: dependency #55 is closed through PR #85; #56 is closed through PR #79. The
+  worktree was rebased onto `origin/main` at `2adfeef` before implementation. Workpad comment
+  `5404194535` records the retry diagnosis, plan, evidence, and `in_progress` status.
+- Added migration `20260825100000_households.sql`, sqlc queries/output, data/service layers, Huma
+  household/membership/guardian routes, registry factories, Layer 2 registry assertions, and an
+  integration acceptance test. Membership is many-to-many; guardian relationships are separate;
+  household deletion is soft and link deletion is hard with audit entries.
+- Passed `go test ./... -count=1` (integration skips without test DB URLs), `make format`, `make lint`,
+  pinned sqlc v1.27 generation, frozen Bun tests/build/lint, and `git diff --check`.
+- The migration wrapper was attempted but its database URLs are absent and Docker Desktop is not
+  running. CI must supply migration round-trip and PostgreSQL isolation evidence. No dependency or
+  human blocker remains.
+
 ## Issue #38 Detent merge gate
 
 - Dependency #37 is closed through merged PR #43, and `origin/main` publishes exactly the nine required check names.

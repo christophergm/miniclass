@@ -75,7 +75,7 @@ func TestLayerTwoRegistryIsDeterministic(t *testing.T) {
 	require.NotEmpty(t, entries)
 
 	// Ensure essential tables are present and year-scoped where appropriate.
-	for _, table := range []string{"school_years", "grade_levels", "homerooms", "adults", "students"} {
+	for _, table := range []string{"school_years", "grade_levels", "homerooms", "adults", "students", "households", "household_students", "household_adults", "guardian_relationships"} {
 		entry, ok := registry.ForTable(table)
 		require.True(t, ok, table+" is missing from the registry")
 		require.Equal(t, table, entry.TableName)
@@ -90,4 +90,9 @@ func TestLayerTwoRegistryIsDeterministic(t *testing.T) {
 	students, ok := registry.ForTable("students")
 	require.True(t, ok)
 	require.True(t, students.YearScoped)
+	for _, table := range []string{"households", "household_students", "household_adults", "guardian_relationships"} {
+		entry, ok := registry.ForTable(table)
+		require.True(t, ok)
+		require.True(t, entry.YearScoped)
+	}
 }
