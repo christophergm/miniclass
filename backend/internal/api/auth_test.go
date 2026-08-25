@@ -7,12 +7,16 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/chrismott/miniclass/internal/api/problems"
 	"github.com/chrismott/miniclass/internal/auth"
+	"github.com/chrismott/miniclass/internal/data"
+	"github.com/chrismott/miniclass/internal/ids"
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/require"
 )
 
@@ -42,6 +46,72 @@ func TestAuthenticatedMeEndpointReturnsResolvedPrincipal(t *testing.T) {
 	require.Equal(t, "org-test", response.Organization.ID)
 	require.Equal(t, "Synthetic Academy", response.Organization.Name)
 	require.Equal(t, "owner", response.Role)
+}
+
+type auditLogReaderStub struct {
+	entries []data.AuditLogEntry
+	filter  data.AuditLogFilter
+}
+
+func (s *auditLogReaderStub) ListAuditLog(_ context.Context, _ string, filter data.AuditLogFilter) ([]data.AuditLogEntry, error) {
+	s.filter = filter
+	return s.entries, nil
+}
+
+func TestAuditLogEndpointReturnsKeysetPageAndFilter(t *testing.T) {
+	verifier, resolver, token := testAuth(t)
+	reader := &auditLogReaderStub{entries: []data.AuditLogEntry{{
+		ID: "audit-2", OccurredAt: pgtype.Timestamptz{Time: time.Date(2026, 8, 24, 12, 0, 0, 0, time.UTC), Valid: true},
+		ActorType: "user", ActorUserID: func() *ids.XID { id := ids.XID("user-1"); return &id }(), ActorLabel: "organizer@example.test",
+		Action: "edit", ObjectType: "student", ObjectID: func() *ids.XID { id := ids.XID("student-1"); return &id }(), ChangeSummary: []byte(`{"name":{"from":"A","to":"B"}}`), Reason: pgtype.Text{String: "correction", Valid: true},
+	}}}
+	router := NewRouter(RouterOptions{Verifier: verifier, Identity: resolver, AuditLog: reader})
+	request := httptest.NewRequest(http.MethodGet, "/api/audit-log?object_type=student&limit=1", nil)
+	request.Header.Set("Authorization", "Bearer "+token)
+	recording := httptest.NewRecorder()
+	router.ServeHTTP(recording, request)
+
+	require.Equal(t, http.StatusOK, recording.Code)
+	var response struct {
+		Entries []struct {
+			Action string `json:"action"`
+			Actor  struct {
+				Type string `json:"type"`
+			} `json:"actor"`
+			ObjectID string `json:"object_id"`
+			Reason   string `json:"reason"`
+		} `json:"entries"`
+		NextCursor string `json:"next_cursor"`
+	}
+	require.NoError(t, json.NewDecoder(recording.Body).Decode(&response))
+	require.Len(t, response.Entries, 1)
+	require.Equal(t, "edit", response.Entries[0].Action)
+	require.Equal(t, "user", response.Entries[0].Actor.Type)
+	require.Equal(t, "student-1", response.Entries[0].ObjectID)
+	require.Equal(t, "correction", response.Entries[0].Reason)
+	require.NotEmpty(t, response.NextCursor)
+	require.Equal(t, int32(1), reader.filter.PageSize)
+	require.Equal(t, "student", *reader.filter.ObjectType)
+}
+
+func TestCoordinatorCannotReadAuditLog(t *testing.T) {
+	verifier, _, token := testAuth(t)
+	resolver := testAccountResolver{account: auth.Account{
+		User:       auth.AccountUser{ID: "coordinator-1", ProviderSubject: "subject-test", Email: "coordinator@example.test"},
+		Membership: auth.AccountMembership{OrganizationID: "org-test", OrganizationName: "Synthetic Academy", Role: string(auth.RoleCoordinator)},
+	}}
+	reader := &auditLogReaderStub{}
+	router := NewRouter(RouterOptions{Verifier: verifier, Identity: resolver, AuditLog: reader})
+	request := httptest.NewRequest(http.MethodGet, "/api/audit-log", nil)
+	request.Header.Set("Authorization", "Bearer "+token)
+	recording := httptest.NewRecorder()
+	router.ServeHTTP(recording, request)
+
+	require.Equal(t, http.StatusForbidden, recording.Code)
+	var response huma.ErrorModel
+	require.NoError(t, json.NewDecoder(recording.Body).Decode(&response))
+	require.Equal(t, string(problems.CapabilityRequired), response.Type)
+	require.Nil(t, reader.entries)
 }
 
 func TestAuthenticationAndMembershipFailuresUseDistinctProblems(t *testing.T) {

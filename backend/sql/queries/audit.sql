@@ -25,3 +25,15 @@ select id, organization_id, occurred_at, actor_type, actor_user_id, actor_label,
     action, object_type, object_id, change_summary, reason, school_year_id, request_id
 from audit_log
 where id = $1;
+
+-- name: ListAuditLog :many
+select id, organization_id, occurred_at, actor_type, actor_user_id, actor_label,
+    action, object_type, object_id, change_summary, reason, school_year_id, request_id
+from audit_log
+where (sqlc.narg('object_type')::text is null or object_type = sqlc.narg('object_type')::text)
+  and (
+      sqlc.narg('cursor_occurred_at')::timestamptz is null
+      or (occurred_at, id) < (sqlc.narg('cursor_occurred_at')::timestamptz, sqlc.arg('cursor_id')::public.xid20)
+  )
+order by occurred_at desc, id desc
+limit sqlc.arg('page_size')::integer;
