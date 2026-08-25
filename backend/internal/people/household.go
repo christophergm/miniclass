@@ -194,11 +194,11 @@ func (s *Service) RemoveStudentFromHousehold(ctx context.Context, organizationID
 	}
 	err := s.database.InTenant(ctx, organizationID, actor, func(ctx context.Context, tx *data.Tx) error {
 		if _, err := tx.GetHouseholdByID(ctx, schoolYearID, householdID); err != nil {
-			return err
+			return fmt.Errorf("find household: %w", err)
 		}
 		memberships, err := tx.ListHouseholdStudents(ctx, schoolYearID, householdID)
 		if err != nil {
-			return err
+			return fmt.Errorf("list household student memberships: %w", err)
 		}
 		var membership data.HouseholdStudent
 		for _, candidate := range memberships {
@@ -208,14 +208,14 @@ func (s *Service) RemoveStudentFromHousehold(ctx context.Context, organizationID
 			}
 		}
 		if membership.ID == "" {
-			return pgx.ErrNoRows
+			return fmt.Errorf("find household student membership for student %s: %w", studentID, pgx.ErrNoRows)
 		}
 		deleted, err := tx.DeleteHouseholdStudent(ctx, membership.SchoolYearID, membership.ID)
 		if err != nil {
-			return err
+			return fmt.Errorf("delete household student membership %s: %w", membership.ID, err)
 		}
 		if !deleted {
-			return pgx.ErrNoRows
+			return fmt.Errorf("delete household student membership %s: %w", membership.ID, pgx.ErrNoRows)
 		}
 		id, year := membership.ID, membership.SchoolYearID
 		return tx.Record(ctx, audit.Entry{Action: audit.ActionHardDelete, ObjectType: "household_student", ObjectID: &id, SchoolYearID: &year, ChangeSummary: membershipSummary("student", householdID, studentID, false)})
@@ -277,11 +277,11 @@ func (s *Service) RemoveAdultFromHousehold(ctx context.Context, organizationID s
 	}
 	err := s.database.InTenant(ctx, organizationID, actor, func(ctx context.Context, tx *data.Tx) error {
 		if _, err := tx.GetHouseholdByID(ctx, schoolYearID, householdID); err != nil {
-			return err
+			return fmt.Errorf("find household: %w", err)
 		}
 		memberships, err := tx.ListHouseholdAdults(ctx, schoolYearID, householdID)
 		if err != nil {
-			return err
+			return fmt.Errorf("list household adult memberships: %w", err)
 		}
 		var membership data.HouseholdAdult
 		for _, candidate := range memberships {
@@ -291,14 +291,14 @@ func (s *Service) RemoveAdultFromHousehold(ctx context.Context, organizationID s
 			}
 		}
 		if membership.ID == "" {
-			return pgx.ErrNoRows
+			return fmt.Errorf("find household adult membership for adult %s: %w", adultID, pgx.ErrNoRows)
 		}
 		deleted, err := tx.DeleteHouseholdAdult(ctx, membership.SchoolYearID, membership.ID)
 		if err != nil {
-			return err
+			return fmt.Errorf("delete household adult membership %s: %w", membership.ID, err)
 		}
 		if !deleted {
-			return pgx.ErrNoRows
+			return fmt.Errorf("delete household adult membership %s: %w", membership.ID, pgx.ErrNoRows)
 		}
 		id, year := membership.ID, membership.SchoolYearID
 		return tx.Record(ctx, audit.Entry{Action: audit.ActionHardDelete, ObjectType: "household_adult", ObjectID: &id, SchoolYearID: &year, ChangeSummary: membershipSummary("adult", householdID, adultID, false)})
