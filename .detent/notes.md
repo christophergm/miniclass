@@ -343,3 +343,22 @@
   (1m09s), and Backend tests (1m02s). The exact wrapper's host `psql` limitation is the only local
   environment note; no blocker or human action remains.
 
+## Issue #61 frontend school years and settings
+
+- Added `/years` as the landing page, `/y/:schoolYearId` lifecycle/detail view, and `/settings`.
+  School-year creation, label editing, setup/active/closed transitions, owner-only reasoned reopen,
+  closed-year read-only messaging, and RFC 9457 field errors are covered in the schoolyear feature.
+- Added settings UI for ordered grade levels, homerooms, homeroom label, and Owner-only administrator
+  management. Retired grade/homeroom entries remain in the response but `activeGradeLevels` and
+  `activeHomerooms` exclude them from pickers. API paths match the P1-5 and P1-9 contracts.
+- Added the shared raw JSON API request/error parser for settings resources; generated OpenAPI output
+  remains untouched because the dependent backend contracts are still on their review PRs.
+- Validation passed: frozen Bun install, 14 frontend tests, frontend build, frontend lint, backend
+  tests (integration skipped without test database URLs), backend lint, backend format, generated-code
+  generation with no backend artifact diff, and `git diff --check`. Migration round-trip wrapper was
+  attempted but cannot run locally because `POSTGRES_ADMIN_DATABASE_URL` is unset.
+- PR #80 is open, non-draft, mergeable, references `Fixes #61`, cites SPEC §§11.1/10.1/6.6, and has
+  no review or inline comments. All nine current-head checks passed on `d2e2532`; slow checks were
+  Backend tests, Backend lint, and Generated code drift. CI migration round-trip passed despite the
+  local wrapper lacking `POSTGRES_ADMIN_DATABASE_URL`. Skill draft: no — this was standard
+  frontend/API integration work.

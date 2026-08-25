@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import App, { AppWithAuth } from './App'
+import { AppWithAuth } from './App'
 import type { AuthClient, Session } from './lib/auth'
 
 function renderApp(path: string, authClient: AuthClient | null) {
@@ -44,7 +44,7 @@ afterEach(() => {
 })
 
 vi.mock('./features/school-years/SchoolYearPages', async (importOriginal) => {
-  const actual = await importOriginal()
+  const actual = await importOriginal() as Record<string, unknown>
   return {
     ...actual,
     SchoolYearPage: () => <div data-testid="school-year">School year</div>,

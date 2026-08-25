@@ -11,7 +11,7 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 export let supabase: SupabaseClient | null = null
 
 if (supabaseUrl && supabaseAnonKey) {
-  ;(async () => {
+  void (async () => {
     const mod = await import('@supabase/supabase-js')
     supabase = mod.createClient(supabaseUrl, supabaseAnonKey, {
       auth: {

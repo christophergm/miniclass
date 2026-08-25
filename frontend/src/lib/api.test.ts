@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { ApiClient } from './api'
+import { ApiClient, ApiError } from './api'
 
 describe('ApiClient authentication', () => {
   it('adds the current Supabase access token to Go requests', async () => {
@@ -44,9 +44,6 @@ describe('ApiClient authentication', () => {
     await expect(client.claimInvitation('invitation-token')).resolves.toMatchObject({ role: 'Owner' })
   })
 })
-import { describe, expect, it, vi } from 'vitest'
-
-import { ApiClient, ApiError } from './api'
 
 describe('ApiClient resource errors', () => {
   it('turns RFC 9457 field errors into an ApiError for inline rendering', async () => {
