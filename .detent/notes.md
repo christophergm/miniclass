@@ -45,6 +45,26 @@
 - Open items: frozen Bun frontend tests/build/lint, stage and commit, push, open the PR with `Fixes #56`
   and SPEC §8.2/§15.2/§11.2 citation, then inspect current-head checks and review comments.
 
+## Issue #55 students (rechecked 2026-08-25)
+
+- Dependency #54 is now closed through merged PR #78; `origin/main` contains the vocabulary tables
+  and the student implementation can reference `grade_levels` and `homerooms`.
+- Rebased the worktree onto current `origin/main` (`d6da8cde`). Added migration
+  `20260825090000_students.sql`, generated sqlc queries/model, `internal/data/student.go`, audited
+  `internal/people` CRUD, Huma student routes under `manage_roster`, OpenAPI output, and Layer 2
+  registry/isolation coverage. The prior-year self-reference is the required two-column exception;
+  a supporting `(id, organization_id)` uniqueness constraint is retained alongside the required
+  year-scoped `(id, organization_id, school_year_id)` key.
+- Database validation passed on PostgreSQL 18: fresh up/down/up, student CRUD/soft-delete/re-add,
+  prior-year link, tenant isolation, registry coverage, and closed-year trigger meta-tests.
+- Unit/race backend tests, lint, format/vet, pinned sqlc generation in the `sqlc:1.27.0` container,
+  OpenAPI drift, frozen Bun frontend tests/build/lint, and `git diff --check` pass. The exact migration
+  wrapper was attempted but host `psql` is unavailable; its equivalent container-client sequence
+  passed.
+- Remaining handoff: commit and push, open the PR with `Fixes #55` and SPEC §§8.2/8.7/10.1/11.2,
+  inspect current-head checks/reviews, and update this Workpad to complete only after the PR gate.
+- Skill draft: no — this turn uses the existing tenant-isolation patterns without a new reusable method.
+
 ## Issue #46 trusted proxy Real-IP extraction
 
 - Replaced deprecated unconditional `chi/middleware.RealIP` with `internal/api/realip.go`.

@@ -321,6 +321,22 @@ type SchoolYear struct {
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
+type Student struct {
+	ID                 ids.XID            `json:"id"`
+	OrganizationID     ids.XID            `json:"organization_id"`
+	SchoolYearID       ids.XID            `json:"school_year_id"`
+	LegalGivenName     string             `json:"legal_given_name"`
+	LegalFamilyName    string             `json:"legal_family_name"`
+	PreferredGivenName pgtype.Text        `json:"preferred_given_name"`
+	GradeLevelID       ids.XID            `json:"grade_level_id"`
+	HomeroomID         ids.XID            `json:"homeroom_id"`
+	ExternalIdentifier pgtype.Text        `json:"external_identifier"`
+	PriorYearStudentID *ids.XID           `json:"prior_year_student_id"`
+	DeletedAt          pgtype.Timestamptz `json:"deleted_at"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
 type User struct {
 	ID              ids.XID            `json:"id"`
 	ProviderSubject string             `json:"provider_subject"`
