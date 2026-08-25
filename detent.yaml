@@ -36,7 +36,7 @@ tracker:
         Low: 4
         No priority: null
     dependency_auto_unblock:
-        enabled: false
+        enabled: true
         source_states:
             - Blocked
         target_state: Todo
@@ -89,7 +89,7 @@ agent:
     # session, so cached context is re-counted each turn. Use max_session_tokens
     # as an additional token-consumption backstop. max_session_context_multiplier is an opt-in, coarse
     # cap on roughly how many full-context turns fit; leave it unset by default.
-    max_session_tokens: 2000000
+    max_session_tokens: 4000000
     max_session_token_override_label: allow-large-session
     max_concurrent_agents_by_state:
         Merging: 1
