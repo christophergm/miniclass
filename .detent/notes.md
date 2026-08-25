@@ -41,6 +41,8 @@
   `POSTGRES_ADMIN_DATABASE_URL` are unset. Local sqlc is v1.31.1; pinned v1.27.0 installation also
   failed on the worker's restricted checksum/C parser environment, so generated artifacts were restored
   unchanged for CI's pinned drift gate.
+- PR #87 is open, non-draft, references `Fixes #65`, and all nine current-head checks pass. No reviews
+  or inline comments remain. Workpad comment `5404543711` is complete; Detent owns the lane transition.
 
 ## Issue #59 audit log read endpoint
 
