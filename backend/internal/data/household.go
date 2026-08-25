@@ -183,7 +183,7 @@ func (tx *Tx) ListHouseholdStudents(ctx context.Context, schoolYearID, household
 
 func (tx *Tx) DeleteHouseholdStudent(ctx context.Context, schoolYearID, householdID, studentID ids.XID) (bool, error) {
 	deletedID, err := tx.queries.DeleteHouseholdStudent(ctx, db.DeleteHouseholdStudentParams{
-		SchoolYearID: schoolYearID, HouseholdID: householdID, StudentID: studentID,
+		SchoolYearID: string(schoolYearID), HouseholdID: string(householdID), StudentID: string(studentID),
 	})
 	if err != nil {
 		return false, wrapHouseholdMutationError("delete household student membership", err)
@@ -268,7 +268,7 @@ func (tx *Tx) ListHouseholdAdults(ctx context.Context, schoolYearID, householdID
 
 func (tx *Tx) DeleteHouseholdAdult(ctx context.Context, schoolYearID, householdID, adultID ids.XID) (bool, error) {
 	deletedID, err := tx.queries.DeleteHouseholdAdult(ctx, db.DeleteHouseholdAdultParams{
-		SchoolYearID: schoolYearID, HouseholdID: householdID, AdultID: adultID,
+		SchoolYearID: string(schoolYearID), HouseholdID: string(householdID), AdultID: string(adultID),
 	})
 	if err != nil {
 		return false, wrapHouseholdMutationError("delete household adult membership", err)

@@ -161,16 +161,16 @@ func (q *Queries) DeleteGuardianRelationship(ctx context.Context, arg DeleteGuar
 
 const deleteHouseholdAdult = `-- name: DeleteHouseholdAdult :one
 delete from household_adults
-where school_year_id = $1
-  and household_id = $2
-  and adult_id = $3
+where btrim(school_year_id::text) = btrim($1::text)
+  and btrim(household_id::text) = btrim($2::text)
+  and btrim(adult_id::text) = btrim($3::text)
 returning id
 `
 
 type DeleteHouseholdAdultParams struct {
-	SchoolYearID ids.XID `json:"school_year_id"`
-	HouseholdID  ids.XID `json:"household_id"`
-	AdultID      ids.XID `json:"adult_id"`
+	SchoolYearID string `json:"school_year_id"`
+	HouseholdID  string `json:"household_id"`
+	AdultID      string `json:"adult_id"`
 }
 
 func (q *Queries) DeleteHouseholdAdult(ctx context.Context, arg DeleteHouseholdAdultParams) (ids.XID, error) {
@@ -207,16 +207,16 @@ func (q *Queries) DeleteHouseholdAdultMembership(ctx context.Context, arg Delete
 
 const deleteHouseholdStudent = `-- name: DeleteHouseholdStudent :one
 delete from household_students
-where school_year_id = $1
-  and household_id = $2
-  and student_id = $3
+where btrim(school_year_id::text) = btrim($1::text)
+  and btrim(household_id::text) = btrim($2::text)
+  and btrim(student_id::text) = btrim($3::text)
 returning id
 `
 
 type DeleteHouseholdStudentParams struct {
-	SchoolYearID ids.XID `json:"school_year_id"`
-	HouseholdID  ids.XID `json:"household_id"`
-	StudentID    ids.XID `json:"student_id"`
+	SchoolYearID string `json:"school_year_id"`
+	HouseholdID  string `json:"household_id"`
+	StudentID    string `json:"student_id"`
 }
 
 func (q *Queries) DeleteHouseholdStudent(ctx context.Context, arg DeleteHouseholdStudentParams) (ids.XID, error) {
