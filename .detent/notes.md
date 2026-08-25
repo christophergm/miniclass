@@ -25,6 +25,25 @@
   migration up/down/up, frozen Bun tests/build/lint, and `git diff --check`.
 - Open items: commit/push, open PR with `Fixes #54` and SPEC §§10.1/20.1, inspect current-head CI
   and reviews, then update the Workpad to complete. No blocker or human action is known.
+- No skill draft.
+
+## Issue #56 adults
+
+- Added `20260824190000_adults.sql` with a first-class, year-scoped `adults` table: XID keys,
+  composite `(school_year_id, organization_id)` parent integrity, forced tenant RLS, closed-year
+  trigger, soft delete, and a partial active-row external-identifier unique index. The schema has
+  no role, household, tag, or `general_availability` fields.
+- `internal/data/adult.go` keeps generated sqlc access behind the tenant boundary; `internal/people`
+  owns audited CRUD, the `lead`/`help`/`unavailable` intent, and the shared preferred-given-name
+  display helper. Adult routes are `/api/school-years/{schoolYearID}/adults[/{adultID}]` and require
+  `manage_roster`; OpenAPI and pinned sqlc artifacts are committed.
+- Added database-backed CRUD/soft-delete/audit coverage, Layer 2 registry coverage, and updated the
+  tenancy meta-test to recognize the required three-column identity key for year-scoped entities.
+- Validation passed with PostgreSQL 18 and both roles: `make test`, `make lint`, `make format`, full
+  integration isolation/CRUD tests, migration up/down/up equivalent (the wrapper itself requires
+  unavailable host `psql`), pinned sqlc generation, OpenAPI generation/drift, and `git diff --check`.
+- Open items: frozen Bun frontend tests/build/lint, stage and commit, push, open the PR with `Fixes #56`
+  and SPEC §8.2/§15.2/§11.2 citation, then inspect current-head checks and review comments.
 
 ## Issue #46 trusted proxy Real-IP extraction
 

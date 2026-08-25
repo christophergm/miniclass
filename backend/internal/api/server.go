@@ -31,6 +31,7 @@ type ServerOptions struct {
 	SchoolYears            handlers.SchoolYearService
 	AuditLog               handlers.AuditLogReader
 	Vocabularies           handlers.VocabularyService
+	Adults                 handlers.AdultService
 	Verifier               auth.Verifier
 	Logger                 *slog.Logger
 	TrustedProxyCIDRs      []string
@@ -82,6 +83,7 @@ func NewServer(options ...ServerOption) *Server {
 		SchoolYears:            settings.SchoolYears,
 		AuditLog:               settings.AuditLog,
 		Vocabularies:           settings.Vocabularies,
+		Adults:                 settings.Adults,
 		Verifier:               settings.Verifier,
 		Logger:                 settings.Logger,
 		TrustedProxyCIDRs:      settings.TrustedProxyCIDRs,
@@ -176,6 +178,11 @@ func WithSchoolYears(service handlers.SchoolYearService) ServerOption {
 // WithVocabularies supplies the grade and homeroom vocabulary service.
 func WithVocabularies(service handlers.VocabularyService) ServerOption {
 	return func(options *ServerOptions) { options.Vocabularies = service }
+}
+
+// WithAdults supplies the adult roster service used by CRUD routes.
+func WithAdults(service handlers.AdultService) ServerOption {
+	return func(options *ServerOptions) { options.Adults = service }
 }
 
 // WithVerifier supplies the configured bearer-token verifier.

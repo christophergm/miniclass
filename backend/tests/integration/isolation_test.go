@@ -160,11 +160,23 @@ func verifySchemaContract(t *testing.T, harness *testharness.Harness) {
 					from pg_constraint con
 					where con.conrelid = c.oid
 					  and con.contype = 'u'
-					  and (select array_agg(att.attname order by cols.ordinality)
-					       from unnest(con.conkey) with ordinality cols(attnum, ordinality)
-					       join pg_attribute att on att.attrelid = con.conrelid and att.attnum = cols.attnum)
-					      = array['id', 'organization_id']::name[]
-				) 
+					  and (
+						  (select array_agg(att.attname order by cols.ordinality)
+						   from unnest(con.conkey) with ordinality cols(attnum, ordinality)
+						   join pg_attribute att on att.attrelid = con.conrelid and att.attnum = cols.attnum)
+						      = array['id', 'organization_id']::name[]
+						  or (exists (
+							  select 1
+							  from pg_attribute year_attr
+							  where year_attr.attrelid = c.oid
+							    and year_attr.attname = 'school_year_id'
+							    and not year_attr.attisdropped
+						  ) and (select array_agg(att.attname order by cols.ordinality)
+						      from unnest(con.conkey) with ordinality cols(attnum, ordinality)
+						      join pg_attribute att on att.attrelid = con.conrelid and att.attnum = cols.attnum)
+						      = array['id', 'organization_id', 'school_year_id']::name[])
+					  )
+				)
 			from pg_class c
 			join pg_namespace n on n.oid = c.relnamespace
 			where n.nspname = current_schema() and c.relname = $1`, table).Scan(

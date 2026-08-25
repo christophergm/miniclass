@@ -57,6 +57,49 @@ func (ns NullAccessTokenPurpose) Value() (driver.Value, error) {
 	return string(ns.AccessTokenPurpose), nil
 }
 
+type AdultParticipationIntent string
+
+const (
+	AdultParticipationIntentLead        AdultParticipationIntent = "lead"
+	AdultParticipationIntentHelp        AdultParticipationIntent = "help"
+	AdultParticipationIntentUnavailable AdultParticipationIntent = "unavailable"
+)
+
+func (e *AdultParticipationIntent) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = AdultParticipationIntent(s)
+	case string:
+		*e = AdultParticipationIntent(s)
+	default:
+		return fmt.Errorf("unsupported scan type for AdultParticipationIntent: %T", src)
+	}
+	return nil
+}
+
+type NullAdultParticipationIntent struct {
+	AdultParticipationIntent AdultParticipationIntent `json:"adult_participation_intent"`
+	Valid                    bool                     `json:"valid"` // Valid is true if AdultParticipationIntent is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullAdultParticipationIntent) Scan(value interface{}) error {
+	if value == nil {
+		ns.AdultParticipationIntent, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.AdultParticipationIntent.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullAdultParticipationIntent) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.AdultParticipationIntent), nil
+}
+
 type AuditActorType string
 
 const (
@@ -196,6 +239,22 @@ type AccessToken struct {
 	Generation int32              `json:"generation"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
+type Adult struct {
+	ID                  ids.XID                  `json:"id"`
+	OrganizationID      ids.XID                  `json:"organization_id"`
+	SchoolYearID        ids.XID                  `json:"school_year_id"`
+	LegalGivenName      string                   `json:"legal_given_name"`
+	LegalFamilyName     string                   `json:"legal_family_name"`
+	PreferredGivenName  pgtype.Text              `json:"preferred_given_name"`
+	Email               pgtype.Text              `json:"email"`
+	Phone               pgtype.Text              `json:"phone"`
+	ExternalIdentifier  pgtype.Text              `json:"external_identifier"`
+	ParticipationIntent AdultParticipationIntent `json:"participation_intent"`
+	DeletedAt           pgtype.Timestamptz       `json:"deleted_at"`
+	CreatedAt           pgtype.Timestamptz       `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz       `json:"updated_at"`
 }
 
 type AuditLog struct {
