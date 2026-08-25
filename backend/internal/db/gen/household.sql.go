@@ -161,17 +161,16 @@ func (q *Queries) DeleteGuardianRelationship(ctx context.Context, arg DeleteGuar
 
 const deleteHouseholdAdult = `-- name: DeleteHouseholdAdult :execrows
 delete from household_adults
-where id = $1 and organization_id = $2 and school_year_id = $3
+where id = $1 and organization_id = $2
 `
 
 type DeleteHouseholdAdultParams struct {
 	ID             ids.XID `json:"id"`
 	OrganizationID ids.XID `json:"organization_id"`
-	SchoolYearID   ids.XID `json:"school_year_id"`
 }
 
 func (q *Queries) DeleteHouseholdAdult(ctx context.Context, arg DeleteHouseholdAdultParams) (int64, error) {
-	result, err := q.db.Exec(ctx, deleteHouseholdAdult, arg.ID, arg.OrganizationID, arg.SchoolYearID)
+	result, err := q.db.Exec(ctx, deleteHouseholdAdult, arg.ID, arg.OrganizationID)
 	if err != nil {
 		return 0, err
 	}
@@ -205,17 +204,16 @@ func (q *Queries) DeleteHouseholdAdultMembership(ctx context.Context, arg Delete
 
 const deleteHouseholdStudent = `-- name: DeleteHouseholdStudent :execrows
 delete from household_students
-where id = $1 and organization_id = $2 and school_year_id = $3
+where id = $1 and organization_id = $2
 `
 
 type DeleteHouseholdStudentParams struct {
 	ID             ids.XID `json:"id"`
 	OrganizationID ids.XID `json:"organization_id"`
-	SchoolYearID   ids.XID `json:"school_year_id"`
 }
 
 func (q *Queries) DeleteHouseholdStudent(ctx context.Context, arg DeleteHouseholdStudentParams) (int64, error) {
-	result, err := q.db.Exec(ctx, deleteHouseholdStudent, arg.ID, arg.OrganizationID, arg.SchoolYearID)
+	result, err := q.db.Exec(ctx, deleteHouseholdStudent, arg.ID, arg.OrganizationID)
 	if err != nil {
 		return 0, err
 	}

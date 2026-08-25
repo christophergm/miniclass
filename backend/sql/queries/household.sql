@@ -49,7 +49,7 @@ order by student_id, id;
 
 -- name: DeleteHouseholdStudent :execrows
 delete from household_students
-where id = $1 and organization_id = $2 and school_year_id = $3;
+where id = $1 and organization_id = $2;
 
 -- name: DeleteHouseholdStudentMembership :execrows
 delete from household_students
@@ -85,7 +85,7 @@ order by adult_id, id;
 
 -- name: DeleteHouseholdAdult :execrows
 delete from household_adults
-where id = $1 and organization_id = $2 and school_year_id = $3;
+where id = $1 and organization_id = $2;
 
 -- name: DeleteHouseholdAdultMembership :execrows
 delete from household_adults
