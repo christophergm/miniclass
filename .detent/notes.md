@@ -61,8 +61,12 @@
   OpenAPI drift, frozen Bun frontend tests/build/lint, and `git diff --check` pass. The exact migration
   wrapper was attempted but host `psql` is unavailable; its equivalent container-client sequence
   passed.
-- Remaining handoff: commit and push, open the PR with `Fixes #55` and SPEC §§8.2/8.7/10.1/11.2,
-  inspect current-head checks/reviews, and update this Workpad to complete only after the PR gate.
+- PR #85 is open, non-draft, mergeable, references `Fixes #55`, and cites SPEC §§8.2/8.7/10.1/11.2.
+  Current-head CI passed all nine required checks; durations were Backend tests 1m15s, Backend lint
+  1m07s, Backend format 34s, Generated code drift 1m26s, Migration round-trip 46s, Frontend tests
+  13s, Frontend build 17s, Frontend lint 9s, and Repository formatting 6s. No review or inline
+  comments remain. Quiet-window wait is not applicable before review handoff; post-merge main CI is
+  not running.
 - Skill draft: no — this turn uses the existing tenant-isolation patterns without a new reusable method.
 
 ## Issue #46 trusted proxy Real-IP extraction
