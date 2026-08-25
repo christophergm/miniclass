@@ -65,6 +65,81 @@
         ],
         "type": "object"
       },
+      "AdultResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/AdultResponse.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "external_identifier": {
+            "type": "string"
+          },
+          "id": {
+            "description": "Opaque adult identifier.",
+            "type": "string"
+          },
+          "legal_family_name": {
+            "type": "string"
+          },
+          "legal_given_name": {
+            "type": "string"
+          },
+          "organization_id": {
+            "description": "Opaque organization identifier.",
+            "type": "string"
+          },
+          "participation_intent": {
+            "enum": [
+              "lead",
+              "help",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "preferred_given_name": {
+            "type": "string"
+          },
+          "school_year_id": {
+            "description": "Opaque school-year identifier.",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "organization_id",
+          "school_year_id",
+          "legal_given_name",
+          "legal_family_name",
+          "participation_intent",
+          "display_name",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
       "ApiRootOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -250,6 +325,54 @@
         },
         "required": [
           "token"
+        ],
+        "type": "object"
+      },
+      "CreateAdultInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/CreateAdultInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "external_identifier": {
+            "type": "string"
+          },
+          "legal_family_name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "legal_given_name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "participation_intent": {
+            "enum": [
+              "lead",
+              "help",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "preferred_given_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "legal_given_name",
+          "legal_family_name",
+          "participation_intent"
         ],
         "type": "object"
       },
@@ -687,6 +810,7 @@
         "enum": [
           "administrator-conflict",
           "administrator-role-invalid",
+          "adult-external-identifier-conflict",
           "authentication-required",
           "authentication-unavailable",
           "capability-not-declared",
@@ -792,6 +916,49 @@
           "created_at",
           "updated_at"
         ],
+        "type": "object"
+      },
+      "UpdateAdultInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/UpdateAdultInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "external_identifier": {
+            "type": "string"
+          },
+          "legal_family_name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "legal_given_name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "participation_intent": {
+            "enum": [
+              "lead",
+              "help",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "preferred_given_name": {
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "UpdateGradeLevelInputBody": {
@@ -2716,6 +2883,437 @@
         "x-required-capability": "manage_school_year"
       }
     },
+    "/api/school-years/{schoolYearID}/adults": {
+      "get": {
+        "operationId": "list-adults",
+        "parameters": [
+          {
+            "description": "Opaque school-year identifier.",
+            "in": "path",
+            "name": "schoolYearID",
+            "required": true,
+            "schema": {
+              "description": "Opaque school-year identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AdultResponse"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List adults in a school year",
+        "x-required-capability": "manage_roster"
+      },
+      "post": {
+        "operationId": "create-adult",
+        "parameters": [
+          {
+            "description": "Opaque school-year identifier.",
+            "in": "path",
+            "name": "schoolYearID",
+            "required": true,
+            "schema": {
+              "description": "Opaque school-year identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAdultInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdultResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Create an adult",
+        "x-required-capability": "manage_roster"
+      }
+    },
+    "/api/school-years/{schoolYearID}/adults/{adultID}": {
+      "delete": {
+        "operationId": "delete-adult",
+        "parameters": [
+          {
+            "description": "Opaque school-year identifier.",
+            "in": "path",
+            "name": "schoolYearID",
+            "required": true,
+            "schema": {
+              "description": "Opaque school-year identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque adult identifier.",
+            "in": "path",
+            "name": "adultID",
+            "required": true,
+            "schema": {
+              "description": "Opaque adult identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Soft-delete an adult",
+        "x-required-capability": "manage_roster"
+      },
+      "get": {
+        "operationId": "get-adult",
+        "parameters": [
+          {
+            "description": "Opaque school-year identifier.",
+            "in": "path",
+            "name": "schoolYearID",
+            "required": true,
+            "schema": {
+              "description": "Opaque school-year identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque adult identifier.",
+            "in": "path",
+            "name": "adultID",
+            "required": true,
+            "schema": {
+              "description": "Opaque adult identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdultResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get an adult",
+        "x-required-capability": "manage_roster"
+      },
+      "patch": {
+        "operationId": "update-adult",
+        "parameters": [
+          {
+            "description": "Opaque school-year identifier.",
+            "in": "path",
+            "name": "schoolYearID",
+            "required": true,
+            "schema": {
+              "description": "Opaque school-year identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque adult identifier.",
+            "in": "path",
+            "name": "adultID",
+            "required": true,
+            "schema": {
+              "description": "Opaque adult identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAdultInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdultResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Edit an adult",
+        "x-required-capability": "manage_roster"
+      }
+    },
     "/api/vocabularies": {
       "get": {
         "operationId": "list-vocabularies",
@@ -2840,6 +3438,7 @@
   "x-miniclass-problem-types": [
     "administrator-conflict",
     "administrator-role-invalid",
+    "adult-external-identifier-conflict",
     "authentication-required",
     "authentication-unavailable",
     "capability-not-declared",
