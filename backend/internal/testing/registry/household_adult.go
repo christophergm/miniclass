@@ -66,11 +66,11 @@ func updateHouseholdAdultByID(ctx context.Context, tx *data.Tx, id ids.XID) (boo
 	return tx.TouchHouseholdAdult(ctx, year, id)
 }
 func deleteHouseholdAdultByID(ctx context.Context, tx *data.Tx, id ids.XID) (bool, error) {
-	row, year, err := tx.FindHouseholdAdultForRegistry(ctx, id)
+	row, _, err := tx.FindHouseholdAdultForRegistry(ctx, id)
 	if err != nil || row.ID == "" {
 		return false, err
 	}
-	return tx.DeleteHouseholdAdult(ctx, year, id)
+	return tx.DeleteHouseholdAdult(ctx, id)
 }
 func insertHouseholdAdultWithForeignParent(ctx context.Context, harness *testharness.Harness, tenantID, foreignOrganizationID ids.XID) error {
 	if harness == nil || harness.App == nil {

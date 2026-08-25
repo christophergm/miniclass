@@ -78,11 +78,11 @@ func updateHouseholdStudentByID(ctx context.Context, tx *data.Tx, id ids.XID) (b
 }
 
 func deleteHouseholdStudentByID(ctx context.Context, tx *data.Tx, id ids.XID) (bool, error) {
-	row, year, err := tx.FindHouseholdStudentForRegistry(ctx, id)
+	row, _, err := tx.FindHouseholdStudentForRegistry(ctx, id)
 	if err != nil || row.ID == "" {
 		return false, err
 	}
-	return tx.DeleteHouseholdStudent(ctx, year, id)
+	return tx.DeleteHouseholdStudent(ctx, id)
 }
 
 func insertHouseholdStudentWithForeignParent(ctx context.Context, harness *testharness.Harness, tenantID, foreignOrganizationID ids.XID) error {
