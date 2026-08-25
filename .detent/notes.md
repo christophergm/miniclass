@@ -343,25 +343,22 @@
   (1m09s), and Backend tests (1m02s). The exact wrapper's host `psql` limitation is the only local
   environment note; no blocker or human action remains.
 
-## Issue #60 frontend auth shell, session, and school-year routing
+## Issue #61 frontend school years and settings
 
-- `frontend/src/lib/auth.ts` creates the `supabase-js` browser client with persisted, auto-refreshing
-  sessions from `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`; `AuthProvider` subscribes to session
-  changes and exposes email/password sign-in, sign-up for invitation claim, password reset, and sign-out.
-- `frontend/src/lib/api.ts` adds dynamic `Authorization: Bearer` injection for `/api/me` and
-  `/api/auth/claim`, plus the P1-4 `/api/school-years` and `/api/school-years/:id` resource calls.
-- `frontend/src/App.tsx` protects `/years` and `/y/:schoolYearId/...`; the year remains route-only and
-  a 404 from Go renders `School year not found`. `AppShell` has the user menu/sign-out; there is no
-  dashboard or statistics page. `frontend/index.html` has a strict static CSP meta policy.
-- Focused coverage is in `frontend/src/App.test.tsx` and `frontend/src/lib/api.test.ts`; frozen Bun
-  install, 12 frontend tests, build, lint, and `git diff --check` pass. React Router emits only its
-  existing v7 future-flag warnings in tests.
-- PR #77 is open, non-draft, mergeable, references `Fixes #60`, cites SPEC §§9.3/9.4/6.6 and ADR 0009,
-  and has no review or inline comments. After rebasing onto merged P1-4, all nine current-head checks
-  pass on commit `1a6d049`: Backend tests, Backend lint, Backend format, Generated code drift,
-  Migration round-trip, Frontend tests, Frontend build, Frontend lint, and Repository formatting.
-- Telemetry: quiet-window wait 0s; local frontend gate under 8s; PR CI completed in about 1m20s after
-  the rebase, with slow checks Generated code drift (1m19s), Backend lint (1m16s), and Migration
-  round-trip (1m05s). No post-merge main CI run is active.
-- Final handoff: update the single Workpad comment to `complete`; Detent owns the completion-lane
-  transition. Skill draft: no — the implementation used standard frontend auth and routing patterns.
+- Added `/years` as the landing page, `/y/:schoolYearId` lifecycle/detail view, and `/settings`.
+  School-year creation, label editing, setup/active/closed transitions, owner-only reasoned reopen,
+  closed-year read-only messaging, and RFC 9457 field errors are covered in the schoolyear feature.
+- Added settings UI for ordered grade levels, homerooms, homeroom label, and Owner-only administrator
+  management. Retired grade/homeroom entries remain in the response but `activeGradeLevels` and
+  `activeHomerooms` exclude them from pickers. API paths match the P1-5 and P1-9 contracts.
+- Added the shared raw JSON API request/error parser for settings resources; generated OpenAPI output
+  remains untouched because the dependent backend contracts are still on their review PRs.
+- Validation passed: frozen Bun install, 14 frontend tests, frontend build, frontend lint, backend
+  tests (integration skipped without test database URLs), backend lint, backend format, generated-code
+  generation with no backend artifact diff, and `git diff --check`. Migration round-trip wrapper was
+  attempted but cannot run locally because `POSTGRES_ADMIN_DATABASE_URL` is unset.
+- PR #80 is open, non-draft, mergeable, references `Fixes #61`, cites SPEC §§11.1/10.1/6.6, and has
+  no review or inline comments. All nine current-head checks passed on `d2e2532`; slow checks were
+  Backend tests, Backend lint, and Generated code drift. CI migration round-trip passed despite the
+  local wrapper lacking `POSTGRES_ADMIN_DATABASE_URL`. Skill draft: no — this was standard
+  frontend/API integration work.

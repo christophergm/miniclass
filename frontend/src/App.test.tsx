@@ -43,7 +43,24 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+vi.mock('./features/school-years/SchoolYearPages', async (importOriginal) => {
+  const actual = await importOriginal() as Record<string, unknown>
+  return {
+    ...actual,
+    SchoolYearPage: () => <div data-testid="school-year">School year</div>,
+  }
+})
+
+vi.mock('./features/settings/SettingsPage', () => ({
+  SettingsPage: () => <div data-testid="settings">Settings</div>,
+}))
+
 describe('App routing', () => {
+  it('redirects the root route to the school-year list', async () => {
+    renderApp('/', authenticatedClient())
+    expect(await screen.findByRole('heading', { name: 'School years' })).toBeInTheDocument()
+  })
+
   it('redirects an unauthenticated user from a protected route to sign-in', async () => {
     renderApp('/years', null)
 

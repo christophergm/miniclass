@@ -9,7 +9,7 @@ import { ClaimInvitationPage } from '@/features/auth/ClaimInvitationPage'
 import { ResetPasswordPage } from '@/features/auth/ResetPasswordPage'
 import { SignInPage } from '@/features/auth/SignInPage'
 import { SchoolYearGuard, SchoolYearListPage, SchoolYearNotFound, SchoolYearWorkspace } from '@/features/school-years/SchoolYearPages'
-
+import { SettingsPage } from '@/features/settings/SettingsPage'
 function App() {
   return (
     <AuthProvider>
@@ -40,6 +40,7 @@ function AppRoutes() {
           <Route path="/y/:schoolYearId" element={<SchoolYearGuard />}>
             <Route index element={<SchoolYearWorkspace />} />
             <Route path="*" element={<SchoolYearWorkspace />} />
+            <Route path="settings" element={<SettingsPage />} />
           </Route>
         </Route>
       </Route>

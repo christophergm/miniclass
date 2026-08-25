@@ -17,17 +17,25 @@ export type SchoolYear = {
 
 export type ApiErrorKind = 'http' | 'network'
 
+export type ApiFieldError = {
+  location?: string
+  message?: string
+  value?: unknown
+}
+
 export class ApiError extends Error {
   readonly kind: ApiErrorKind
   readonly status?: number
   readonly code?: string
+  readonly fieldErrors: ApiFieldError[]
 
-  constructor(kind: ApiErrorKind, message: string, status?: number, code?: string) {
+  constructor(kind: ApiErrorKind, message: string, status?: number, code?: string, fieldErrors: ApiFieldError[] = []) {
     super(message)
     this.name = 'ApiError'
     this.kind = kind
     this.status = status
     this.code = code
+    this.fieldErrors = fieldErrors
   }
 }
 
@@ -156,6 +164,42 @@ export class ApiClient {
     const message = error?.detail ?? error?.title ?? `The API request failed with status ${response.status}`
     return new ApiError('http', message, response.status, error?.type)
   }
+
+  async requestJson<T>(path: string, init: RequestInit = {}): Promise<T> {
+    let response: Response
+    try {
+      const headers = new Headers(init.headers)
+      if (init.body !== undefined && !headers.has('Content-Type')) {
+        headers.set('Content-Type', 'application/json')
+      }
+      response = await this.fetcher(`${this.baseUrl}${path}`, { ...init, headers })
+    } catch {
+      throw new ApiError('network', 'Unable to reach the API')
+    }
+
+    let payload: unknown
+    try {
+      payload = response.status === 204 ? undefined : await response.json()
+    } catch {
+      if (!response.ok) {
+        throw new ApiError('http', `The API request failed with status ${response.status}`, response.status)
+      }
+      throw new ApiError('http', 'The API returned an invalid response.', response.status)
+    }
+
+    if (!response.ok) {
+      const problem = isProblem(payload) ? payload : undefined
+      throw new ApiError(
+        'http',
+        problem?.detail ?? problem?.title ?? `The API request failed with status ${response.status}`,
+        response.status,
+        problem?.type,
+        problem?.errors ?? [],
+      )
+    }
+
+    return payload as T
+  }
 }
 
 export const apiClient = new ApiClient()
@@ -190,4 +234,15 @@ function isSchoolYear(value: unknown): value is SchoolYear {
     typeof candidate.created_at === 'string' &&
     typeof candidate.updated_at === 'string'
   )
+}
+
+type ProblemPayload = {
+  type?: string
+  title?: string
+  detail?: string
+  errors?: ApiFieldError[] | null
+}
+
+function isProblem(value: unknown): value is ProblemPayload {
+  return Boolean(value && typeof value === 'object')
 }
