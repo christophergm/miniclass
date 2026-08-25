@@ -11,15 +11,18 @@
   versus pinned v1.27.0; generated changes were discarded. Migration round-trip could not start because
   `POSTGRES_ADMIN_DATABASE_URL` is unset. Frozen Bun install is blocked by Bun tempdir permissions;
   without install, frontend lint passed, while tests/build could not resolve missing `@supabase/supabase-js`.
-- Rebase conflict resolution is complete; final CI must revalidate the pushed head, especially frontend
-  dependency installation and the migration round-trip.
+- Rebase conflict resolution is complete. Fresh PR-head CI run `32807653471` passed all nine required
+  checks; slow checks were Generated code drift (1m24s), Backend lint (1m16s), and Backend tests (1m16s).
 
 ## Issue #64 frontend audit log view
 
 - PR #82 is open, non-draft, mergeable, references `Fixes #64`, and cites SPEC §20.1/§6.6.
 - Added `frontend/src/features/audit/AuditLog.tsx` and focused tests, typed `/api/me` and `/api/audit-log` client methods, hooks, and `/audit-log` routing. Owner/Administrator access is gated from `/api/me`; Coordinator renders no view. Object-type filtering and opaque-cursor pagination use the existing endpoint.
-- Local frozen Bun tests (10), build, lint, and `git diff --check` pass. All nine current-head CI checks pass on run `32803429865`; no reviews or inline comments remain.
-- Slow checks: Backend tests 1m10s, Generated code drift 1m09s, Backend lint 57s. No skill draft: this was a routine frontend feature using existing API/query patterns.
+- Fresh CI confirms frozen Bun tests/build/lint and migration round-trip pass on the rebased head. Local
+  `git diff --check` and frontend lint pass; local frozen Bun install is blocked by tempdir permissions,
+  and the pre-existing checkout lacks `@supabase/supabase-js` for tests/build. PR has no reviews or inline
+  comments, is open/non-draft/mergeable, and remains scoped to the existing implementation. No skill
+  draft: this was a routine frontend feature using existing API/query patterns.
 
 ## Issue #59 audit log read endpoint
 
