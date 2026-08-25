@@ -138,7 +138,7 @@
 ## Issue #57 households, memberships, and guardian relationships
 
 - Retry 2026-08-25: dependency #55 is closed through PR #85; #56 is closed through PR #79. The
-  worktree was rebased onto current `origin/main` before implementation. Workpad comment
+  worktree was rebased onto `origin/main` at `b4be02b` before final handoff. Workpad comment
   `5404194535` records the retry diagnosis, plan, evidence, and final status.
 - Added migration `20260825100000_households.sql`, sqlc queries/output, data/service layers, Huma
   household/membership/guardian routes, registry factories, Layer 2 registry assertions, and an
@@ -149,14 +149,14 @@
   every DELETE by returning `NEW` (NULL). Household membership deletion now uses ordinary scoped
   row-count deletes; temporary predicate probes were removed.
 - PR #86 is open, non-draft, mergeable, references `Fixes #57`, and cites SPEC §§8.2/9.2/11.2.
-  Current-head CI run `32854687343` passed all nine required checks. Slowest checks were Generated
-  code drift (1m23s), Backend lint (1m19s), and Backend tests (1m18s); the PR CI duration was about
-  1m23s from start to final check. No reviews, inline comments, blockers, or human action remain.
+  Rebased-head CI run `32855387627` passed all nine required checks. Slowest checks were Generated
+  code drift (1m26s), Backend tests (1m19s), and Backend lint (1m04s); the PR CI duration was about
+  1m29s from start to final check. No reviews, inline comments, blockers, or human action remain.
 - Local `make test`, `make lint`, `make format`, pinned sqlc/OpenAPI generation plus drift check,
-  frozen Bun tests (23), build, lint, and `git diff --check` pass. Integration tests skip without
+  frozen Bun tests (25), build, lint, and `git diff --check` pass. Integration tests skip without
   test DB URLs. The exact migration wrapper was attempted but stops because
   `POSTGRES_ADMIN_DATABASE_URL` is unavailable; CI migration round-trip passed. Quiet-window wait is
-  not applicable before review handoff; no post-merge main CI is running.
+  not applicable before review handoff; post-merge main CI run `32855108245` completed successfully.
 - Skill draft: no — the work used existing tenant-isolation and migration patterns; no new reusable
   procedure was needed.
 
