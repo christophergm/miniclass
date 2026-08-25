@@ -49,9 +49,9 @@ order by student_id, id;
 
 -- name: DeleteHouseholdStudent :one
 delete from household_students
-where btrim(school_year_id::text) = btrim(sqlc.arg(school_year_id)::text)
-  and btrim(household_id::text) = btrim(sqlc.arg(household_id)::text)
-  and btrim(student_id::text) = btrim(sqlc.arg(student_id)::text)
+where school_year_id = sqlc.arg(school_year_id)::public.xid20
+  and household_id = sqlc.arg(household_id)::public.xid20
+  and student_id = sqlc.arg(student_id)::public.xid20
 returning id;
 
 -- name: DeleteHouseholdStudentMembership :execrows
@@ -88,9 +88,9 @@ order by adult_id, id;
 
 -- name: DeleteHouseholdAdult :one
 delete from household_adults
-where btrim(school_year_id::text) = btrim(sqlc.arg(school_year_id)::text)
-  and btrim(household_id::text) = btrim(sqlc.arg(household_id)::text)
-  and btrim(adult_id::text) = btrim(sqlc.arg(adult_id)::text)
+where school_year_id = sqlc.arg(school_year_id)::public.xid20
+  and household_id = sqlc.arg(household_id)::public.xid20
+  and adult_id = sqlc.arg(adult_id)::public.xid20
 returning id;
 
 -- name: DeleteHouseholdAdultMembership :execrows
