@@ -1,5 +1,12 @@
 # Detent handoff notes
 
+## Issue #64 frontend audit log view
+
+- PR #82 is open, non-draft, mergeable, references `Fixes #64`, and cites SPEC §20.1/§6.6.
+- Added `frontend/src/features/audit/AuditLog.tsx` and focused tests, typed `/api/me` and `/api/audit-log` client methods, hooks, and `/audit-log` routing. Owner/Administrator access is gated from `/api/me`; Coordinator renders no view. Object-type filtering and opaque-cursor pagination use the existing endpoint.
+- Local frozen Bun tests (10), build, lint, and `git diff --check` pass. All nine current-head CI checks pass on run `32803429865`; no reviews or inline comments remain.
+- Slow checks: Backend tests 1m10s, Generated code drift 1m09s, Backend lint 57s. No skill draft: this was a routine frontend feature using existing API/query patterns.
+
 ## Issue #59 audit log read endpoint
 
 - PR #76 is open, non-draft, references `Fixes #59`, cites SPEC §20.1/§6.6 and ADR 0008/0010.
