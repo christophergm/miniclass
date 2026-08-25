@@ -210,7 +210,7 @@ func (s *Service) RemoveStudentFromHousehold(ctx context.Context, organizationID
 		if membership.ID == "" {
 			return pgx.ErrNoRows
 		}
-		deleted, err := tx.DeleteHouseholdStudentMembership(ctx, schoolYearID, householdID, studentID)
+		deleted, err := tx.DeleteHouseholdStudent(ctx, membership.SchoolYearID, membership.ID)
 		if err != nil {
 			return err
 		}
@@ -293,7 +293,7 @@ func (s *Service) RemoveAdultFromHousehold(ctx context.Context, organizationID s
 		if membership.ID == "" {
 			return pgx.ErrNoRows
 		}
-		deleted, err := tx.DeleteHouseholdAdultMembership(ctx, schoolYearID, householdID, adultID)
+		deleted, err := tx.DeleteHouseholdAdult(ctx, membership.SchoolYearID, membership.ID)
 		if err != nil {
 			return err
 		}
