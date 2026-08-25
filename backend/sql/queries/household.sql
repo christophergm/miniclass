@@ -62,7 +62,10 @@ returning id;
 
 -- name: DeleteHouseholdStudentMembership :execrows
 delete from household_students
-where organization_id = $1 and school_year_id = $2 and household_id = $3 and student_id = $4;
+where organization_id = sqlc.arg(organization_id)::public.xid20
+  and school_year_id = sqlc.arg(school_year_id)::public.xid20
+  and household_id = sqlc.arg(household_id)::public.xid20
+  and student_id = sqlc.arg(student_id)::public.xid20;
 
 -- name: ListAllHouseholdStudentsForRegistry :many
 select id, organization_id, school_year_id, household_id, student_id, created_at, updated_at
@@ -107,7 +110,10 @@ returning id;
 
 -- name: DeleteHouseholdAdultMembership :execrows
 delete from household_adults
-where organization_id = $1 and school_year_id = $2 and household_id = $3 and adult_id = $4;
+where organization_id = sqlc.arg(organization_id)::public.xid20
+  and school_year_id = sqlc.arg(school_year_id)::public.xid20
+  and household_id = sqlc.arg(household_id)::public.xid20
+  and adult_id = sqlc.arg(adult_id)::public.xid20;
 
 -- name: ListAllHouseholdAdultsForRegistry :many
 select id, organization_id, school_year_id, household_id, adult_id, created_at, updated_at
