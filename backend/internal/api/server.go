@@ -28,6 +28,7 @@ type ServerOptions struct {
 	Claimer                handlers.InvitationClaimer
 	Administrators         handlers.AdministratorManager
 	InvitationClaimBaseURL string
+	SchoolYears            handlers.SchoolYearService
 	Verifier               auth.Verifier
 	Logger                 *slog.Logger
 	TrustedProxyCIDRs      []string
@@ -76,6 +77,7 @@ func NewServer(options ...ServerOption) *Server {
 		Claimer:                settings.Claimer,
 		Administrators:         settings.Administrators,
 		InvitationClaimBaseURL: settings.InvitationClaimBaseURL,
+		SchoolYears:            settings.SchoolYears,
 		Verifier:               settings.Verifier,
 		Logger:                 settings.Logger,
 		TrustedProxyCIDRs:      settings.TrustedProxyCIDRs,
@@ -155,6 +157,11 @@ func WithAdministratorManager(manager handlers.AdministratorManager) ServerOptio
 // invitation links.
 func WithInvitationClaimBaseURL(baseURL string) ServerOption {
 	return func(options *ServerOptions) { options.InvitationClaimBaseURL = baseURL }
+}
+
+// WithSchoolYears supplies the school-year service used by lifecycle routes.
+func WithSchoolYears(service handlers.SchoolYearService) ServerOption {
+	return func(options *ServerOptions) { options.SchoolYears = service }
 }
 
 // WithVerifier supplies the configured bearer-token verifier.

@@ -107,6 +107,7 @@ func (d *DB) Pool() *pgxpool.Pool {
 // package and record audit entries against the same transaction.
 type Tx struct {
 	queries        *db.Queries
+	raw            pgx.Tx
 	organizationID ids.XID
 	actor          audit.Actor
 	readOnly       bool
@@ -162,6 +163,7 @@ func (d *DB) inTenant(ctx context.Context, organizationID string, actor audit.Ac
 	}
 	unit := &Tx{
 		queries:        db.New(tx),
+		raw:            tx,
 		organizationID: ids.XID(strings.TrimSpace(organizationID)),
 		actor:          actor,
 		readOnly:       accessMode == pgx.ReadOnly,

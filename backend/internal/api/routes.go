@@ -28,6 +28,7 @@ type RouterOptions struct {
 	Claimer                handlers.InvitationClaimer
 	Administrators         handlers.AdministratorManager
 	InvitationClaimBaseURL string
+	SchoolYears            handlers.SchoolYearService
 	Verifier               auth.Verifier
 }
 
@@ -166,6 +167,42 @@ func registerOperations(api huma.API, options RouterOptions) {
 		Summary: "Revoke an administrator invitation",
 		Errors:  []int{http.StatusConflict, http.StatusNotFound},
 	}, auth.CapabilityManageAdministrators, false, administrators.Revoke)
+
+	schoolYears := handlers.NewSchoolYearHandler(options.SchoolYears)
+	registerOperation(api, huma.Operation{
+		OperationID: "list-school-years",
+		Method:      http.MethodGet,
+		Path:        apiBasePath + "/school-years",
+		Summary:     "List school years",
+	}, auth.CapabilityManageSchoolYear, false, schoolYears.List)
+	registerOperation(api, huma.Operation{
+		OperationID: "create-school-year",
+		Method:      http.MethodPost,
+		Path:        apiBasePath + "/school-years",
+		Summary:     "Create a school year",
+		Errors:      []int{http.StatusBadRequest, http.StatusConflict},
+	}, auth.CapabilityManageSchoolYear, false, schoolYears.Create)
+	registerOperation(api, huma.Operation{
+		OperationID: "get-school-year",
+		Method:      http.MethodGet,
+		Path:        apiBasePath + "/school-years/{schoolYearID}",
+		Summary:     "Get a school year",
+		Errors:      []int{http.StatusNotFound},
+	}, auth.CapabilityManageSchoolYear, false, schoolYears.Get)
+	registerOperation(api, huma.Operation{
+		OperationID: "update-school-year",
+		Method:      http.MethodPatch,
+		Path:        apiBasePath + "/school-years/{schoolYearID}",
+		Summary:     "Edit or transition a school year",
+		Errors:      []int{http.StatusBadRequest, http.StatusNotFound, http.StatusConflict},
+	}, auth.CapabilityManageSchoolYear, false, schoolYears.Update)
+	registerOperation(api, huma.Operation{
+		OperationID: "delete-school-year",
+		Method:      http.MethodDelete,
+		Path:        apiBasePath + "/school-years/{schoolYearID}",
+		Summary:     "Delete a school year",
+		Errors:      []int{http.StatusNotFound, http.StatusConflict},
+	}, auth.CapabilityManageSchoolYear, false, schoolYears.Delete)
 }
 
 func registerOperation[I, O any](api huma.API, operation huma.Operation, capability auth.Capability, allowUnresolved bool, handler func(context.Context, *I) (*O, error)) {
