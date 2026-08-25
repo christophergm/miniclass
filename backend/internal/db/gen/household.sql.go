@@ -159,11 +159,12 @@ func (q *Queries) DeleteGuardianRelationship(ctx context.Context, arg DeleteGuar
 	return result.RowsAffected(), nil
 }
 
-const deleteHouseholdAdult = `-- name: DeleteHouseholdAdult :execrows
+const deleteHouseholdAdult = `-- name: DeleteHouseholdAdult :one
 delete from household_adults
 where school_year_id = $1
   and household_id = $2
   and adult_id = $3
+returning id
 `
 
 type DeleteHouseholdAdultParams struct {
@@ -172,12 +173,11 @@ type DeleteHouseholdAdultParams struct {
 	AdultID      ids.XID `json:"adult_id"`
 }
 
-func (q *Queries) DeleteHouseholdAdult(ctx context.Context, arg DeleteHouseholdAdultParams) (int64, error) {
-	result, err := q.db.Exec(ctx, deleteHouseholdAdult, arg.SchoolYearID, arg.HouseholdID, arg.AdultID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
+func (q *Queries) DeleteHouseholdAdult(ctx context.Context, arg DeleteHouseholdAdultParams) (ids.XID, error) {
+	row := q.db.QueryRow(ctx, deleteHouseholdAdult, arg.SchoolYearID, arg.HouseholdID, arg.AdultID)
+	var id ids.XID
+	err := row.Scan(&id)
+	return id, err
 }
 
 const deleteHouseholdAdultMembership = `-- name: DeleteHouseholdAdultMembership :execrows
@@ -205,11 +205,12 @@ func (q *Queries) DeleteHouseholdAdultMembership(ctx context.Context, arg Delete
 	return result.RowsAffected(), nil
 }
 
-const deleteHouseholdStudent = `-- name: DeleteHouseholdStudent :execrows
+const deleteHouseholdStudent = `-- name: DeleteHouseholdStudent :one
 delete from household_students
 where school_year_id = $1
   and household_id = $2
   and student_id = $3
+returning id
 `
 
 type DeleteHouseholdStudentParams struct {
@@ -218,12 +219,11 @@ type DeleteHouseholdStudentParams struct {
 	StudentID    ids.XID `json:"student_id"`
 }
 
-func (q *Queries) DeleteHouseholdStudent(ctx context.Context, arg DeleteHouseholdStudentParams) (int64, error) {
-	result, err := q.db.Exec(ctx, deleteHouseholdStudent, arg.SchoolYearID, arg.HouseholdID, arg.StudentID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
+func (q *Queries) DeleteHouseholdStudent(ctx context.Context, arg DeleteHouseholdStudentParams) (ids.XID, error) {
+	row := q.db.QueryRow(ctx, deleteHouseholdStudent, arg.SchoolYearID, arg.HouseholdID, arg.StudentID)
+	var id ids.XID
+	err := row.Scan(&id)
+	return id, err
 }
 
 const deleteHouseholdStudentMembership = `-- name: DeleteHouseholdStudentMembership :execrows

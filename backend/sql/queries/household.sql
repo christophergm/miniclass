@@ -47,11 +47,12 @@ from household_students
 where organization_id = $1 and school_year_id = $2 and household_id = $3
 order by student_id, id;
 
--- name: DeleteHouseholdStudent :execrows
+-- name: DeleteHouseholdStudent :one
 delete from household_students
 where school_year_id = sqlc.arg(school_year_id)
   and household_id = sqlc.arg(household_id)
-  and student_id = sqlc.arg(student_id);
+  and student_id = sqlc.arg(student_id)
+returning id;
 
 -- name: DeleteHouseholdStudentMembership :execrows
 delete from household_students
@@ -85,11 +86,12 @@ from household_adults
 where organization_id = $1 and school_year_id = $2 and household_id = $3
 order by adult_id, id;
 
--- name: DeleteHouseholdAdult :execrows
+-- name: DeleteHouseholdAdult :one
 delete from household_adults
 where school_year_id = sqlc.arg(school_year_id)
   and household_id = sqlc.arg(household_id)
-  and adult_id = sqlc.arg(adult_id);
+  and adult_id = sqlc.arg(adult_id)
+returning id;
 
 -- name: DeleteHouseholdAdultMembership :execrows
 delete from household_adults
