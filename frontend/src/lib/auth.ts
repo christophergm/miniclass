@@ -1,4 +1,4 @@
-import type { AuthChangeEvent, AuthError, Session, SupabaseClient } from '@supabase/supabase-js'
+import type { AuthChangeEvent, AuthError, Session, SupabaseClient, User } from '@supabase/supabase-js'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -20,7 +20,7 @@ function makeFakeClient(token: string | undefined) {
         refresh_token: 'dev-refresh',
         provider_token: null,
         // user is partial; the app only reads email in many places
-        user: { id: 'local:dev', email: '', app_metadata: {}, user_metadata: {} } as unknown as Session['user'],
+        user: { id: 'local:dev', email: '', app_metadata: {}, user_metadata: {} } as unknown as User,
       }
     : null
 
@@ -28,13 +28,10 @@ function makeFakeClient(token: string | undefined) {
   if (token) {
     try {
       const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
-      if (payload && payload.email) {
-        const userMaybe = session!.user as Session['user'] | undefined
-        const id = userMaybe?.id ?? 'local:dev'
-        const merged = { id, ...(userMaybe ?? {}), email: String(payload.email) } as Session['user']
-        session!.user = merged
+      if (payload && typeof payload.email === 'string') {
+        session!.user = { ...session!.user, email: payload.email }
       }
-    } catch (_e) {
+    } catch {
       // ignore
     }
   }
@@ -44,26 +41,21 @@ function makeFakeClient(token: string | undefined) {
       async getSession() {
         return { data: { session }, error: null }
       },
-      onAuthStateChange(_cb: (event: AuthChangeEvent, session: Session | null) => void) {
-        void _cb
+      onAuthStateChange() {
         // Return a noop unsubscribe compatible shape
         return { data: { subscription: { unsubscribe: () => {} } } }
       },
-      async signInWithPassword(_opts: { email: string; password: string }) {
-        void _opts
+      async signInWithPassword() {
         // In dev mode accept any credentials and return the session derived from VITE_DEV_TOKEN.
         return { data: { session, user: session?.user }, error: null }
       },
-      async signUp(_opts: { email: string; password: string }) {
-        void _opts
+      async signUp() {
         return { data: { session, user: session?.user }, error: null }
       },
       async signOut() {
         return { error: null }
       },
-      async resetPasswordForEmail(_email: string, _opts?: unknown) {
-        void _email
-        void _opts
+      async resetPasswordForEmail() {
         return { data: {}, error: null }
       },
     },
@@ -77,8 +69,7 @@ if (supabaseAnonKey === 'localdevkey') {
   supabase = makeFakeClient(devToken) as unknown as SupabaseClient
 } else if (supabaseUrl && supabaseAnonKey) {
   void (async () => {
-    const modName = '@supabase/supabase-js'
-    const mod = await import(/* @vite-ignore */ modName)
+    const mod = await import('@supabase/supabase-js')
     supabase = mod.createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
         autoRefreshToken: true,
@@ -91,4 +82,3 @@ if (supabaseAnonKey === 'localdevkey') {
 
 export type AuthClient = Pick<SupabaseClient, 'auth'>
 export type { AuthChangeEvent, AuthError, Session }
-

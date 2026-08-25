@@ -143,6 +143,50 @@ func (ns NullAuditActorType) Value() (driver.Value, error) {
 	return string(ns.AuditActorType), nil
 }
 
+type GuardianRelationshipType string
+
+const (
+	GuardianRelationshipTypeParent      GuardianRelationshipType = "parent"
+	GuardianRelationshipTypeGuardian    GuardianRelationshipType = "guardian"
+	GuardianRelationshipTypeGrandparent GuardianRelationshipType = "grandparent"
+	GuardianRelationshipTypeOther       GuardianRelationshipType = "other"
+)
+
+func (e *GuardianRelationshipType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = GuardianRelationshipType(s)
+	case string:
+		*e = GuardianRelationshipType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for GuardianRelationshipType: %T", src)
+	}
+	return nil
+}
+
+type NullGuardianRelationshipType struct {
+	GuardianRelationshipType GuardianRelationshipType `json:"guardian_relationship_type"`
+	Valid                    bool                     `json:"valid"` // Valid is true if GuardianRelationshipType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullGuardianRelationshipType) Scan(value interface{}) error {
+	if value == nil {
+		ns.GuardianRelationshipType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.GuardianRelationshipType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullGuardianRelationshipType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.GuardianRelationshipType), nil
+}
+
 type OrganizationRole string
 
 const (
@@ -284,11 +328,52 @@ type GradeLevel struct {
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
+type GuardianRelationship struct {
+	ID               ids.XID                  `json:"id"`
+	OrganizationID   ids.XID                  `json:"organization_id"`
+	SchoolYearID     ids.XID                  `json:"school_year_id"`
+	AdultID          ids.XID                  `json:"adult_id"`
+	StudentID        ids.XID                  `json:"student_id"`
+	RelationshipType GuardianRelationshipType `json:"relationship_type"`
+	CreatedAt        pgtype.Timestamptz       `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz       `json:"updated_at"`
+}
+
 type Homeroom struct {
 	ID             ids.XID            `json:"id"`
 	OrganizationID ids.XID            `json:"organization_id"`
 	Name           string             `json:"name"`
 	RetiredAt      pgtype.Timestamptz `json:"retired_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type Household struct {
+	ID             ids.XID            `json:"id"`
+	OrganizationID ids.XID            `json:"organization_id"`
+	SchoolYearID   ids.XID            `json:"school_year_id"`
+	DisplayName    string             `json:"display_name"`
+	DeletedAt      pgtype.Timestamptz `json:"deleted_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type HouseholdAdult struct {
+	ID             ids.XID            `json:"id"`
+	OrganizationID ids.XID            `json:"organization_id"`
+	SchoolYearID   ids.XID            `json:"school_year_id"`
+	HouseholdID    ids.XID            `json:"household_id"`
+	AdultID        ids.XID            `json:"adult_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type HouseholdStudent struct {
+	ID             ids.XID            `json:"id"`
+	OrganizationID ids.XID            `json:"organization_id"`
+	SchoolYearID   ids.XID            `json:"school_year_id"`
+	HouseholdID    ids.XID            `json:"household_id"`
+	StudentID      ids.XID            `json:"student_id"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }

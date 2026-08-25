@@ -40,6 +40,7 @@ const (
 	InvalidAuditCursor                Slug = "invalid-audit-cursor"
 	AdultExternalIdentifierConflict   Slug = "adult-external-identifier-conflict"
 	StudentExternalIdentifierConflict Slug = "student-external-identifier-conflict"
+	HouseholdConflict                 Slug = "household-conflict"
 )
 
 // Definition describes one registered problem type.
@@ -74,6 +75,7 @@ var registry = map[Slug]Definition{
 	InvalidAuditCursor:                {Slug: InvalidAuditCursor, Title: "Invalid audit cursor"},
 	AdultExternalIdentifierConflict:   {Slug: AdultExternalIdentifierConflict, Title: "Adult external identifier conflict"},
 	StudentExternalIdentifierConflict: {Slug: StudentExternalIdentifierConflict, Title: "Student external identifier conflict"},
+	HouseholdConflict:                 {Slug: HouseholdConflict, Title: "Household conflict"},
 }
 
 // Definitions returns the registry in stable slug order for contract
