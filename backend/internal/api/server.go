@@ -29,6 +29,7 @@ type ServerOptions struct {
 	Administrators         handlers.AdministratorManager
 	InvitationClaimBaseURL string
 	SchoolYears            handlers.SchoolYearService
+	AuditLog               handlers.AuditLogReader
 	Verifier               auth.Verifier
 	Logger                 *slog.Logger
 	TrustedProxyCIDRs      []string
@@ -78,6 +79,7 @@ func NewServer(options ...ServerOption) *Server {
 		Administrators:         settings.Administrators,
 		InvitationClaimBaseURL: settings.InvitationClaimBaseURL,
 		SchoolYears:            settings.SchoolYears,
+		AuditLog:               settings.AuditLog,
 		Verifier:               settings.Verifier,
 		Logger:                 settings.Logger,
 		TrustedProxyCIDRs:      settings.TrustedProxyCIDRs,
@@ -126,6 +128,11 @@ func WithAllowedOrigins(origins ...string) ServerOption {
 // WithDatabase sets the dependency checked by the health endpoint.
 func WithDatabase(database handlers.DatabasePinger) ServerOption {
 	return func(options *ServerOptions) { options.Database = database }
+}
+
+// WithAuditLog supplies the tenant-scoped audit log reader.
+func WithAuditLog(reader handlers.AuditLogReader) ServerOption {
+	return func(options *ServerOptions) { options.AuditLog = reader }
 }
 
 // WithIdentity supplies the local identity resolver used by authentication.

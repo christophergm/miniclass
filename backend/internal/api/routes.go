@@ -29,6 +29,7 @@ type RouterOptions struct {
 	Administrators         handlers.AdministratorManager
 	InvitationClaimBaseURL string
 	SchoolYears            handlers.SchoolYearService
+	AuditLog               handlers.AuditLogReader
 	Verifier               auth.Verifier
 }
 
@@ -127,6 +128,15 @@ func registerOperations(api huma.API, options RouterOptions) {
 		Path:        apiBasePath + "/me",
 		Summary:     "Get the authenticated principal",
 	}, auth.CapabilityAuthenticated, false, (handlers.MeHandler{}).Handle)
+
+	auditLog := handlers.NewAuditLogHandler(options.AuditLog)
+	registerOperation(api, huma.Operation{
+		OperationID: "get-audit-log",
+		Method:      http.MethodGet,
+		Path:        apiBasePath + "/audit-log",
+		Summary:     "Read the audit log",
+		Errors:      []int{http.StatusBadRequest, http.StatusInternalServerError},
+	}, auth.CapabilityReadAuditLog, false, auditLog.Handle)
 
 	claim := handlers.NewClaimInvitationHandler(options.Claimer)
 	registerOperation(api, huma.Operation{

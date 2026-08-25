@@ -117,3 +117,62 @@ func (q *Queries) GetAuditLogByID(ctx context.Context, id ids.XID) (AuditLog, er
 	)
 	return i, err
 }
+
+const listAuditLog = `-- name: ListAuditLog :many
+select id, organization_id, occurred_at, actor_type, actor_user_id, actor_label,
+    action, object_type, object_id, change_summary, reason, school_year_id, request_id
+from audit_log
+where ($1::text is null or object_type = $1::text)
+  and (
+      $2::timestamptz is null
+      or (occurred_at, id) < ($2::timestamptz, $3::public.xid20)
+  )
+order by occurred_at desc, id desc
+limit $4::integer
+`
+
+type ListAuditLogParams struct {
+	ObjectType       pgtype.Text        `json:"object_type"`
+	CursorOccurredAt pgtype.Timestamptz `json:"cursor_occurred_at"`
+	CursorID         ids.XID            `json:"cursor_id"`
+	PageSize         int32              `json:"page_size"`
+}
+
+func (q *Queries) ListAuditLog(ctx context.Context, arg ListAuditLogParams) ([]AuditLog, error) {
+	rows, err := q.db.Query(ctx, listAuditLog,
+		arg.ObjectType,
+		arg.CursorOccurredAt,
+		arg.CursorID,
+		arg.PageSize,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AuditLog{}
+	for rows.Next() {
+		var i AuditLog
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrganizationID,
+			&i.OccurredAt,
+			&i.ActorType,
+			&i.ActorUserID,
+			&i.ActorLabel,
+			&i.Action,
+			&i.ObjectType,
+			&i.ObjectID,
+			&i.ChangeSummary,
+			&i.Reason,
+			&i.SchoolYearID,
+			&i.RequestID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

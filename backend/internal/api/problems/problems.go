@@ -37,6 +37,7 @@ const (
 	SchoolYearClosed            Slug = "school-year-closed"
 	SchoolYearTransitionInvalid Slug = "school-year-transition-invalid"
 	SchoolYearReasonRequired    Slug = "school-year-reason-required"
+	InvalidAuditCursor          Slug = "invalid-audit-cursor"
 )
 
 // Definition describes one registered problem type.
@@ -68,6 +69,7 @@ var registry = map[Slug]Definition{
 	SchoolYearClosed:            {Slug: SchoolYearClosed, Title: "School year is closed"},
 	SchoolYearTransitionInvalid: {Slug: SchoolYearTransitionInvalid, Title: "Invalid school-year transition"},
 	SchoolYearReasonRequired:    {Slug: SchoolYearReasonRequired, Title: "School-year transition reason required"},
+	InvalidAuditCursor:          {Slug: InvalidAuditCursor, Title: "Invalid audit cursor"},
 }
 
 // Definitions returns the registry in stable slug order for contract

@@ -87,6 +87,126 @@
         ],
         "type": "object"
       },
+      "AuditLogActor": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Actor user identifier, when present.",
+            "type": "string"
+          },
+          "label": {
+            "description": "Actor label captured at the time of the action.",
+            "type": "string"
+          },
+          "type": {
+            "description": "Actor principal type.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "label"
+        ],
+        "type": "object"
+      },
+      "AuditLogEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "create",
+              "edit",
+              "soft_delete",
+              "hard_delete",
+              "import_commit",
+              "school_year_create",
+              "program_create",
+              "membership_change",
+              "session_non_participation",
+              "session_state_transition",
+              "offering_edit_after_publish",
+              "tag_definition_change",
+              "tag_assignment_change",
+              "pairing_change",
+              "exclusion_change",
+              "vocabulary_change",
+              "solve_run",
+              "manual_operation",
+              "override",
+              "publish",
+              "republish",
+              "link_generate",
+              "link_regenerate",
+              "link_revoke",
+              "permission_change",
+              "administrator_add",
+              "administrator_remove"
+            ],
+            "type": "string"
+          },
+          "actor": {
+            "$ref": "#/components/schemas/AuditLogActor"
+          },
+          "change_summary": {},
+          "id": {
+            "description": "Opaque audit entry identifier.",
+            "type": "string"
+          },
+          "object_id": {
+            "type": "string"
+          },
+          "object_type": {
+            "type": "string"
+          },
+          "occurred_at": {
+            "description": "Time the action occurred.",
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "occurred_at",
+          "actor",
+          "action",
+          "object_type",
+          "change_summary"
+        ],
+        "type": "object"
+      },
+      "AuditLogOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/AuditLogOutputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/AuditLogEntry"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "next_cursor": {
+            "description": "Cursor for the next page, when more entries exist.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entries"
+        ],
+        "type": "object"
+      },
       "ChangeAdministratorRoleInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -424,6 +544,7 @@
           "capability-required",
           "database-unavailable",
           "internal-error",
+          "invalid-audit-cursor",
           "invalid-token",
           "invitation-email-mismatch",
           "invitation-email-unverified",
@@ -1038,6 +1159,96 @@
         "x-required-capability": "manage_administrators"
       }
     },
+    "/api/audit-log": {
+      "get": {
+        "operationId": "get-audit-log",
+        "parameters": [
+          {
+            "description": "Filter by affected object type.",
+            "explode": false,
+            "in": "query",
+            "name": "object_type",
+            "schema": {
+              "description": "Filter by affected object type.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque cursor returned by the previous page.",
+            "explode": false,
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "description": "Opaque cursor returned by the previous page.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Number of entries to return.",
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "description": "Number of entries to return.",
+              "format": "int32",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditLogOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Read the audit log",
+        "x-required-capability": "read_audit_log"
+      }
+    },
     "/api/auth/claim": {
       "post": {
         "operationId": "post-auth-claim-invitation",
@@ -1543,6 +1754,7 @@
     "capability-required",
     "database-unavailable",
     "internal-error",
+    "invalid-audit-cursor",
     "invalid-token",
     "invitation-email-mismatch",
     "invitation-email-unverified",

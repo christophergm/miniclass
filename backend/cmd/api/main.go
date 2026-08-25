@@ -61,6 +61,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	server := api.NewServerWithConfig(
 		*cfg,
 		api.WithDatabase(database),
+		api.WithAuditLog(database),
 		api.WithIdentity(identity.NewStore(database)),
 		api.WithSchoolYears(schoolyear.New(database)),
 		api.WithVerifier(verifier),
