@@ -32,6 +32,7 @@ type RouterOptions struct {
 	AuditLog               handlers.AuditLogReader
 	Vocabularies           handlers.VocabularyService
 	Adults                 handlers.AdultService
+	Students               handlers.StudentService
 	Verifier               auth.Verifier
 }
 
@@ -328,6 +329,43 @@ func registerOperations(api huma.API, options RouterOptions) {
 		Summary:     "Soft-delete an adult",
 		Errors:      []int{http.StatusConflict, http.StatusNotFound},
 	}, auth.CapabilityManageRoster, false, adults.Delete)
+
+	students := handlers.NewStudentHandler(options.Students)
+	registerOperation(api, huma.Operation{
+		OperationID: "list-students",
+		Method:      http.MethodGet,
+		Path:        apiBasePath + "/school-years/{schoolYearID}/students",
+		Summary:     "List students in a school year",
+		Errors:      []int{http.StatusNotFound},
+	}, auth.CapabilityManageRoster, false, students.List)
+	registerOperation(api, huma.Operation{
+		OperationID: "create-student",
+		Method:      http.MethodPost,
+		Path:        apiBasePath + "/school-years/{schoolYearID}/students",
+		Summary:     "Create a student",
+		Errors:      []int{http.StatusBadRequest, http.StatusConflict, http.StatusNotFound},
+	}, auth.CapabilityManageRoster, false, students.Create)
+	registerOperation(api, huma.Operation{
+		OperationID: "get-student",
+		Method:      http.MethodGet,
+		Path:        apiBasePath + "/school-years/{schoolYearID}/students/{studentID}",
+		Summary:     "Get a student",
+		Errors:      []int{http.StatusNotFound},
+	}, auth.CapabilityManageRoster, false, students.Get)
+	registerOperation(api, huma.Operation{
+		OperationID: "update-student",
+		Method:      http.MethodPatch,
+		Path:        apiBasePath + "/school-years/{schoolYearID}/students/{studentID}",
+		Summary:     "Edit a student",
+		Errors:      []int{http.StatusBadRequest, http.StatusConflict, http.StatusNotFound},
+	}, auth.CapabilityManageRoster, false, students.Update)
+	registerOperation(api, huma.Operation{
+		OperationID: "delete-student",
+		Method:      http.MethodDelete,
+		Path:        apiBasePath + "/school-years/{schoolYearID}/students/{studentID}",
+		Summary:     "Soft-delete a student",
+		Errors:      []int{http.StatusConflict, http.StatusNotFound},
+	}, auth.CapabilityManageRoster, false, students.Delete)
 }
 
 func registerOperation[I, O any](api huma.API, operation huma.Operation, capability auth.Capability, allowUnresolved bool, handler func(context.Context, *I) (*O, error)) {

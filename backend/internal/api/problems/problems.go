@@ -15,30 +15,31 @@ import (
 type Slug string
 
 const (
-	RouteNotFound                   Slug = "route-not-found"
-	MethodNotAllowed                Slug = "method-not-allowed"
-	InternalError                   Slug = "internal-error"
-	DatabaseUnavailable             Slug = "database-unavailable"
-	AuthenticationRequired          Slug = "authentication-required"
-	InvalidToken                    Slug = "invalid-token"
-	AuthenticationUnavailable       Slug = "authentication-unavailable"
-	NoOrganization                  Slug = "no-organization"
-	MultipleOrganizations           Slug = "multiple-organizations"
-	CapabilityRequired              Slug = "capability-required"
-	CapabilityNotDeclared           Slug = "capability-not-declared"
-	InvitationInvalid               Slug = "invitation-invalid"
-	InvitationEmailMismatch         Slug = "invitation-email-mismatch"
-	InvitationEmailUnverified       Slug = "invitation-email-unverified"
-	AdministratorConflict           Slug = "administrator-conflict"
-	AdministratorRoleInvalid        Slug = "administrator-role-invalid"
-	LastOwner                       Slug = "last-owner"
-	InvitationNotPending            Slug = "invitation-not-pending"
-	ResourceNotFound                Slug = "resource-not-found"
-	SchoolYearClosed                Slug = "school-year-closed"
-	SchoolYearTransitionInvalid     Slug = "school-year-transition-invalid"
-	SchoolYearReasonRequired        Slug = "school-year-reason-required"
-	InvalidAuditCursor              Slug = "invalid-audit-cursor"
-	AdultExternalIdentifierConflict Slug = "adult-external-identifier-conflict"
+	RouteNotFound                     Slug = "route-not-found"
+	MethodNotAllowed                  Slug = "method-not-allowed"
+	InternalError                     Slug = "internal-error"
+	DatabaseUnavailable               Slug = "database-unavailable"
+	AuthenticationRequired            Slug = "authentication-required"
+	InvalidToken                      Slug = "invalid-token"
+	AuthenticationUnavailable         Slug = "authentication-unavailable"
+	NoOrganization                    Slug = "no-organization"
+	MultipleOrganizations             Slug = "multiple-organizations"
+	CapabilityRequired                Slug = "capability-required"
+	CapabilityNotDeclared             Slug = "capability-not-declared"
+	InvitationInvalid                 Slug = "invitation-invalid"
+	InvitationEmailMismatch           Slug = "invitation-email-mismatch"
+	InvitationEmailUnverified         Slug = "invitation-email-unverified"
+	AdministratorConflict             Slug = "administrator-conflict"
+	AdministratorRoleInvalid          Slug = "administrator-role-invalid"
+	LastOwner                         Slug = "last-owner"
+	InvitationNotPending              Slug = "invitation-not-pending"
+	ResourceNotFound                  Slug = "resource-not-found"
+	SchoolYearClosed                  Slug = "school-year-closed"
+	SchoolYearTransitionInvalid       Slug = "school-year-transition-invalid"
+	SchoolYearReasonRequired          Slug = "school-year-reason-required"
+	InvalidAuditCursor                Slug = "invalid-audit-cursor"
+	AdultExternalIdentifierConflict   Slug = "adult-external-identifier-conflict"
+	StudentExternalIdentifierConflict Slug = "student-external-identifier-conflict"
 )
 
 // Definition describes one registered problem type.
@@ -48,30 +49,31 @@ type Definition struct {
 }
 
 var registry = map[Slug]Definition{
-	RouteNotFound:                   {Slug: RouteNotFound, Title: "Route not found"},
-	MethodNotAllowed:                {Slug: MethodNotAllowed, Title: "Method not allowed"},
-	InternalError:                   {Slug: InternalError, Title: "Internal server error"},
-	DatabaseUnavailable:             {Slug: DatabaseUnavailable, Title: "Database unavailable"},
-	AuthenticationRequired:          {Slug: AuthenticationRequired, Title: "Authentication required"},
-	InvalidToken:                    {Slug: InvalidToken, Title: "Invalid token"},
-	AuthenticationUnavailable:       {Slug: AuthenticationUnavailable, Title: "Authentication unavailable"},
-	NoOrganization:                  {Slug: NoOrganization, Title: "No organization"},
-	MultipleOrganizations:           {Slug: MultipleOrganizations, Title: "Multiple organizations"},
-	CapabilityRequired:              {Slug: CapabilityRequired, Title: "Capability required"},
-	CapabilityNotDeclared:           {Slug: CapabilityNotDeclared, Title: "Capability not declared"},
-	InvitationInvalid:               {Slug: InvitationInvalid, Title: "Invitation invalid"},
-	InvitationEmailMismatch:         {Slug: InvitationEmailMismatch, Title: "Invitation email mismatch"},
-	InvitationEmailUnverified:       {Slug: InvitationEmailUnverified, Title: "Invitation email is not verified"},
-	AdministratorConflict:           {Slug: AdministratorConflict, Title: "Administrator conflict"},
-	AdministratorRoleInvalid:        {Slug: AdministratorRoleInvalid, Title: "Administrator role is invalid"},
-	LastOwner:                       {Slug: LastOwner, Title: "Last owner protection"},
-	InvitationNotPending:            {Slug: InvitationNotPending, Title: "Invitation is not pending"},
-	ResourceNotFound:                {Slug: ResourceNotFound, Title: "Resource not found"},
-	SchoolYearClosed:                {Slug: SchoolYearClosed, Title: "School year is closed"},
-	SchoolYearTransitionInvalid:     {Slug: SchoolYearTransitionInvalid, Title: "Invalid school-year transition"},
-	SchoolYearReasonRequired:        {Slug: SchoolYearReasonRequired, Title: "School-year transition reason required"},
-	InvalidAuditCursor:              {Slug: InvalidAuditCursor, Title: "Invalid audit cursor"},
-	AdultExternalIdentifierConflict: {Slug: AdultExternalIdentifierConflict, Title: "Adult external identifier conflict"},
+	RouteNotFound:                     {Slug: RouteNotFound, Title: "Route not found"},
+	MethodNotAllowed:                  {Slug: MethodNotAllowed, Title: "Method not allowed"},
+	InternalError:                     {Slug: InternalError, Title: "Internal server error"},
+	DatabaseUnavailable:               {Slug: DatabaseUnavailable, Title: "Database unavailable"},
+	AuthenticationRequired:            {Slug: AuthenticationRequired, Title: "Authentication required"},
+	InvalidToken:                      {Slug: InvalidToken, Title: "Invalid token"},
+	AuthenticationUnavailable:         {Slug: AuthenticationUnavailable, Title: "Authentication unavailable"},
+	NoOrganization:                    {Slug: NoOrganization, Title: "No organization"},
+	MultipleOrganizations:             {Slug: MultipleOrganizations, Title: "Multiple organizations"},
+	CapabilityRequired:                {Slug: CapabilityRequired, Title: "Capability required"},
+	CapabilityNotDeclared:             {Slug: CapabilityNotDeclared, Title: "Capability not declared"},
+	InvitationInvalid:                 {Slug: InvitationInvalid, Title: "Invitation invalid"},
+	InvitationEmailMismatch:           {Slug: InvitationEmailMismatch, Title: "Invitation email mismatch"},
+	InvitationEmailUnverified:         {Slug: InvitationEmailUnverified, Title: "Invitation email is not verified"},
+	AdministratorConflict:             {Slug: AdministratorConflict, Title: "Administrator conflict"},
+	AdministratorRoleInvalid:          {Slug: AdministratorRoleInvalid, Title: "Administrator role is invalid"},
+	LastOwner:                         {Slug: LastOwner, Title: "Last owner protection"},
+	InvitationNotPending:              {Slug: InvitationNotPending, Title: "Invitation is not pending"},
+	ResourceNotFound:                  {Slug: ResourceNotFound, Title: "Resource not found"},
+	SchoolYearClosed:                  {Slug: SchoolYearClosed, Title: "School year is closed"},
+	SchoolYearTransitionInvalid:       {Slug: SchoolYearTransitionInvalid, Title: "Invalid school-year transition"},
+	SchoolYearReasonRequired:          {Slug: SchoolYearReasonRequired, Title: "School-year transition reason required"},
+	InvalidAuditCursor:                {Slug: InvalidAuditCursor, Title: "Invalid audit cursor"},
+	AdultExternalIdentifierConflict:   {Slug: AdultExternalIdentifierConflict, Title: "Adult external identifier conflict"},
+	StudentExternalIdentifierConflict: {Slug: StudentExternalIdentifierConflict, Title: "Student external identifier conflict"},
 }
 
 // Definitions returns the registry in stable slug order for contract

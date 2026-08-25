@@ -448,6 +448,55 @@
         ],
         "type": "object"
       },
+      "CreateStudentInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/CreateStudentInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "external_identifier": {
+            "type": "string"
+          },
+          "grade_level_id": {
+            "description": "Opaque grade-level identifier.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "homeroom_id": {
+            "description": "Opaque homeroom identifier.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "legal_family_name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "legal_given_name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "preferred_given_name": {
+            "type": "string"
+          },
+          "prior_year_student_id": {
+            "description": "Opaque prior-year student identifier.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "legal_given_name",
+          "legal_family_name",
+          "grade_level_id",
+          "homeroom_id"
+        ],
+        "type": "object"
+      },
       "EmptyAdministratorOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -831,7 +880,8 @@
           "route-not-found",
           "school-year-closed",
           "school-year-reason-required",
-          "school-year-transition-invalid"
+          "school-year-transition-invalid",
+          "student-external-identifier-conflict"
         ],
         "type": "string"
       },
@@ -913,6 +963,80 @@
           "organization_id",
           "label",
           "state",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "StudentResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/StudentResponse.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "external_identifier": {
+            "type": "string"
+          },
+          "grade_level_id": {
+            "description": "Opaque grade-level identifier.",
+            "type": "string"
+          },
+          "homeroom_id": {
+            "description": "Opaque homeroom identifier.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Opaque student identifier.",
+            "type": "string"
+          },
+          "legal_family_name": {
+            "type": "string"
+          },
+          "legal_given_name": {
+            "type": "string"
+          },
+          "organization_id": {
+            "description": "Opaque organization identifier.",
+            "type": "string"
+          },
+          "preferred_given_name": {
+            "type": "string"
+          },
+          "prior_year_student_id": {
+            "description": "Opaque prior-year student identifier.",
+            "type": "string"
+          },
+          "school_year_id": {
+            "description": "Opaque school-year identifier.",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "organization_id",
+          "school_year_id",
+          "legal_given_name",
+          "legal_family_name",
+          "grade_level_id",
+          "homeroom_id",
+          "display_name",
           "created_at",
           "updated_at"
         ],
@@ -1037,6 +1161,46 @@
               "active",
               "closed"
             ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "UpdateStudentInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/UpdateStudentInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "external_identifier": {
+            "type": "string"
+          },
+          "grade_level_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "homeroom_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "legal_family_name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "legal_given_name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "preferred_given_name": {
+            "type": "string"
+          },
+          "prior_year_student_id": {
             "type": "string"
           }
         },
@@ -3314,6 +3478,437 @@
         "x-required-capability": "manage_roster"
       }
     },
+    "/api/school-years/{schoolYearID}/students": {
+      "get": {
+        "operationId": "list-students",
+        "parameters": [
+          {
+            "description": "Opaque school-year identifier.",
+            "in": "path",
+            "name": "schoolYearID",
+            "required": true,
+            "schema": {
+              "description": "Opaque school-year identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StudentResponse"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List students in a school year",
+        "x-required-capability": "manage_roster"
+      },
+      "post": {
+        "operationId": "create-student",
+        "parameters": [
+          {
+            "description": "Opaque school-year identifier.",
+            "in": "path",
+            "name": "schoolYearID",
+            "required": true,
+            "schema": {
+              "description": "Opaque school-year identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateStudentInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Create a student",
+        "x-required-capability": "manage_roster"
+      }
+    },
+    "/api/school-years/{schoolYearID}/students/{studentID}": {
+      "delete": {
+        "operationId": "delete-student",
+        "parameters": [
+          {
+            "description": "Opaque school-year identifier.",
+            "in": "path",
+            "name": "schoolYearID",
+            "required": true,
+            "schema": {
+              "description": "Opaque school-year identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque student identifier.",
+            "in": "path",
+            "name": "studentID",
+            "required": true,
+            "schema": {
+              "description": "Opaque student identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Soft-delete a student",
+        "x-required-capability": "manage_roster"
+      },
+      "get": {
+        "operationId": "get-student",
+        "parameters": [
+          {
+            "description": "Opaque school-year identifier.",
+            "in": "path",
+            "name": "schoolYearID",
+            "required": true,
+            "schema": {
+              "description": "Opaque school-year identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque student identifier.",
+            "in": "path",
+            "name": "studentID",
+            "required": true,
+            "schema": {
+              "description": "Opaque student identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get a student",
+        "x-required-capability": "manage_roster"
+      },
+      "patch": {
+        "operationId": "update-student",
+        "parameters": [
+          {
+            "description": "Opaque school-year identifier.",
+            "in": "path",
+            "name": "schoolYearID",
+            "required": true,
+            "schema": {
+              "description": "Opaque school-year identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque student identifier.",
+            "in": "path",
+            "name": "studentID",
+            "required": true,
+            "schema": {
+              "description": "Opaque student identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateStudentInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Edit a student",
+        "x-required-capability": "manage_roster"
+      }
+    },
     "/api/vocabularies": {
       "get": {
         "operationId": "list-vocabularies",
@@ -3459,6 +4054,7 @@
     "route-not-found",
     "school-year-closed",
     "school-year-reason-required",
-    "school-year-transition-invalid"
+    "school-year-transition-invalid",
+    "student-external-identifier-conflict"
   ]
 }

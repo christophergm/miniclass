@@ -68,6 +68,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		api.WithSchoolYears(schoolyear.New(database)),
 		api.WithVocabularies(vocabulary.New(database)),
 		api.WithAdults(people.New(database)),
+		api.WithStudents(people.New(database)),
 		api.WithVerifier(verifier),
 		api.WithLogger(logger),
 	)
