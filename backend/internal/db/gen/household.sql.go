@@ -161,12 +161,13 @@ func (q *Queries) DeleteGuardianRelationship(ctx context.Context, arg DeleteGuar
 
 const deleteHouseholdAdult = `-- name: DeleteHouseholdAdult :execrows
 delete from household_adults
-where id = $1 and organization_id = $2
+where btrim(id::text) = btrim($1::text)
+  and btrim(organization_id::text) = btrim($2::text)
 `
 
 type DeleteHouseholdAdultParams struct {
-	ID             ids.XID `json:"id"`
-	OrganizationID ids.XID `json:"organization_id"`
+	ID             string `json:"id"`
+	OrganizationID string `json:"organization_id"`
 }
 
 func (q *Queries) DeleteHouseholdAdult(ctx context.Context, arg DeleteHouseholdAdultParams) (int64, error) {
@@ -204,12 +205,13 @@ func (q *Queries) DeleteHouseholdAdultMembership(ctx context.Context, arg Delete
 
 const deleteHouseholdStudent = `-- name: DeleteHouseholdStudent :execrows
 delete from household_students
-where id = $1 and organization_id = $2
+where btrim(id::text) = btrim($1::text)
+  and btrim(organization_id::text) = btrim($2::text)
 `
 
 type DeleteHouseholdStudentParams struct {
-	ID             ids.XID `json:"id"`
-	OrganizationID ids.XID `json:"organization_id"`
+	ID             string `json:"id"`
+	OrganizationID string `json:"organization_id"`
 }
 
 func (q *Queries) DeleteHouseholdStudent(ctx context.Context, arg DeleteHouseholdStudentParams) (int64, error) {
