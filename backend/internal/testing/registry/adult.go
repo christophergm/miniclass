@@ -9,8 +9,8 @@ import (
 	"github.com/chrismott/miniclass/internal/data"
 	"github.com/chrismott/miniclass/internal/ids"
 	"github.com/chrismott/miniclass/internal/people"
-	"github.com/chrismott/miniclass/internal/schoolyear"
 	testharness "github.com/chrismott/miniclass/internal/testing"
+	"github.com/chrismott/miniclass/internal/testing/factories"
 )
 
 func init() {
@@ -26,11 +26,13 @@ func createAdult(ctx context.Context, harness *testharness.Harness, organization
 	if harness == nil {
 		return "", errors.New("create adult fixture: harness is nil")
 	}
-	year, err := schoolyear.New(harness.Database).Create(ctx, string(organizationID), audit.Actor{Type: audit.ActorTypeSystem, Label: "layer 2 school-year fixture"}, fmt.Sprintf("Synthetic year %s", organizationID))
+	actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "layer 2 adult factory"}
+	factory := factories.New(harness.Database, string(organizationID), actor)
+	year, err := factory.CreateSchoolYear(ctx, fmt.Sprintf("Synthetic year %s", organizationID))
 	if err != nil {
 		return "", err
 	}
-	row, err := people.New(harness.Database).Create(ctx, string(organizationID), year.ID, audit.Actor{Type: audit.ActorTypeSystem, Label: "layer 2 adult factory"}, people.AdultCreateInput{
+	row, err := factory.CreateAdult(ctx, year.ID, people.AdultCreateInput{
 		LegalGivenName: "Synthetic", LegalFamilyName: fmt.Sprintf("Adult %s", organizationID),
 		ParticipationIntent: data.AdultParticipationHelp,
 	})

@@ -9,9 +9,8 @@ import (
 	"github.com/chrismott/miniclass/internal/data"
 	"github.com/chrismott/miniclass/internal/ids"
 	"github.com/chrismott/miniclass/internal/people"
-	"github.com/chrismott/miniclass/internal/schoolyear"
 	testharness "github.com/chrismott/miniclass/internal/testing"
-	"github.com/chrismott/miniclass/internal/vocabulary"
+	"github.com/chrismott/miniclass/internal/testing/factories"
 )
 
 func init() {
@@ -25,27 +24,28 @@ func createGuardianRelationship(ctx context.Context, harness *testharness.Harnes
 		return "", errors.New("create guardian relationship fixture: harness is nil")
 	}
 	actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "layer 2 guardian relationship factory"}
-	year, err := schoolyear.New(harness.Database).Create(ctx, string(organizationID), actor, fmt.Sprintf("Synthetic relationship year %s", organizationID))
+	factory := factories.New(harness.Database, string(organizationID), actor)
+	year, err := factory.CreateSchoolYear(ctx, fmt.Sprintf("Synthetic relationship year %s", organizationID))
 	if err != nil {
 		return "", err
 	}
-	grade, err := vocabulary.New(harness.Database).CreateGrade(ctx, string(organizationID), actor, "synthetic-relationship", "Synthetic Grade")
+	grade, err := factory.CreateGradeLevel(ctx, "synthetic-relationship", "Synthetic Grade")
 	if err != nil {
 		return "", err
 	}
-	homeroom, err := vocabulary.New(harness.Database).CreateHomeroom(ctx, string(organizationID), actor, "Synthetic Relationship Room")
+	homeroom, err := factory.CreateHomeroom(ctx, "Synthetic Relationship Room")
 	if err != nil {
 		return "", err
 	}
-	student, err := people.New(harness.Database).CreateStudent(ctx, string(organizationID), year.ID, actor, people.StudentCreateInput{LegalGivenName: "Synthetic", LegalFamilyName: "Relationship Student", GradeLevelID: grade.ID, HomeroomID: homeroom.ID})
+	student, err := factory.CreateStudent(ctx, year.ID, people.StudentCreateInput{LegalGivenName: "Synthetic", LegalFamilyName: "Relationship Student", GradeLevelID: grade.ID, HomeroomID: homeroom.ID})
 	if err != nil {
 		return "", err
 	}
-	adult, err := people.New(harness.Database).Create(ctx, string(organizationID), year.ID, actor, people.AdultCreateInput{LegalGivenName: "Synthetic", LegalFamilyName: "Relationship Adult", ParticipationIntent: data.AdultParticipationHelp})
+	adult, err := factory.CreateAdult(ctx, year.ID, people.AdultCreateInput{LegalGivenName: "Synthetic", LegalFamilyName: "Relationship Adult", ParticipationIntent: data.AdultParticipationHelp})
 	if err != nil {
 		return "", err
 	}
-	relationship, err := people.New(harness.Database).CreateGuardianRelationship(ctx, string(organizationID), year.ID, actor, people.GuardianRelationshipCreateInput{AdultID: adult.ID, StudentID: student.ID, RelationshipType: data.GuardianRelationshipParent})
+	relationship, err := factory.CreateGuardianRelationship(ctx, year.ID, people.GuardianRelationshipCreateInput{AdultID: adult.ID, StudentID: student.ID, RelationshipType: data.GuardianRelationshipParent})
 	if err != nil {
 		return "", err
 	}

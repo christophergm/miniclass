@@ -9,9 +9,8 @@ import (
 	"github.com/chrismott/miniclass/internal/data"
 	"github.com/chrismott/miniclass/internal/ids"
 	"github.com/chrismott/miniclass/internal/people"
-	"github.com/chrismott/miniclass/internal/schoolyear"
 	testharness "github.com/chrismott/miniclass/internal/testing"
-	"github.com/chrismott/miniclass/internal/vocabulary"
+	"github.com/chrismott/miniclass/internal/testing/factories"
 )
 
 func init() {
@@ -28,19 +27,20 @@ func createStudent(ctx context.Context, harness *testharness.Harness, organizati
 		return "", errors.New("create student fixture: harness is nil")
 	}
 	actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "layer 2 student factory"}
-	year, err := schoolyear.New(harness.Database).Create(ctx, string(organizationID), actor, fmt.Sprintf("Synthetic year %s", organizationID))
+	factory := factories.New(harness.Database, string(organizationID), actor)
+	year, err := factory.CreateSchoolYear(ctx, fmt.Sprintf("Synthetic year %s", organizationID))
 	if err != nil {
 		return "", err
 	}
-	grade, err := vocabulary.New(harness.Database).CreateGrade(ctx, string(organizationID), actor, "synthetic", "Synthetic Grade")
+	grade, err := factory.CreateGradeLevel(ctx, "synthetic", "Synthetic Grade")
 	if err != nil {
 		return "", err
 	}
-	homeroom, err := vocabulary.New(harness.Database).CreateHomeroom(ctx, string(organizationID), actor, "Synthetic Homeroom")
+	homeroom, err := factory.CreateHomeroom(ctx, "Synthetic Homeroom")
 	if err != nil {
 		return "", err
 	}
-	row, err := people.New(harness.Database).CreateStudent(ctx, string(organizationID), year.ID, actor, people.StudentCreateInput{
+	row, err := factory.CreateStudent(ctx, year.ID, people.StudentCreateInput{
 		LegalGivenName: "Synthetic", LegalFamilyName: fmt.Sprintf("Student %s", organizationID),
 		GradeLevelID: grade.ID, HomeroomID: homeroom.ID,
 	})

@@ -36,3 +36,19 @@ linters-settings:
           - "**/backend/internal/identity/**/*.go"
         allow:
           - github.com/chrismott/miniclass/internal/data/identity$
+      seed-boundary:
+        list-mode: lax
+        files:
+          - "$all"
+          - "!**/backend/cmd/seed/*.go"
+          - "!**/backend/internal/seed/*.go"
+          - "!**/backend/internal/seed/**/*.go"
+          - "!**/backend/internal/testing/registry/*.go"
+          - "!**/*_test.go"
+        allow:
+          - $gostd
+        deny:
+          - pkg: github.com/chrismott/miniclass/internal/seed
+            desc: the seed corpus belongs only in cmd/seed and tests
+          - pkg: github.com/chrismott/miniclass/internal/testing/factories
+            desc: test and seed factories belong only in cmd/seed and test support

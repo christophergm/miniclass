@@ -24,6 +24,26 @@
   and the pre-existing checkout lacks `@supabase/supabase-js` for tests/build. PR has no reviews or inline
   comments, is open/non-draft/mergeable, and remains scoped to the existing implementation. No skill
   draft: this was a routine frontend feature using existing API/query patterns.
+## Issue #65 seed corpus and test factories
+
+- Dependencies #55, #56, and #57 are complete through merged PRs #85, #79, and #86. Current `origin/main`
+  is `5fd1b2c`; the branch was rebased onto it after resolving only the handoff-note conflict.
+- Added deterministic synthetic corpus generation in `internal/seed`: 139 students with the exact
+  Appendix B.1 grade split, six homerooms, 102 adults with 13/45/44 participation, 90 households,
+  opaque-index relationships, and all required awkward cases. `Load` bootstraps a fresh organization
+  and Owner invitation, then composes audited roster services through `internal/testing/factories`.
+- Replaced the empty SQL seed with flag-driven `cmd/seed` and `make seed` output for organization,
+  school year, roster counts, and claim URL. The isolation registry now uses the same minimal factories;
+  depguard restricts seed/factory imports to seed command and test support. Added pure and integration
+  corpus distribution/edge-case coverage.
+- Validation: focused and full race backend tests, lint/depguard, format/vet, frontend frozen tests
+  (25), build, lint, and `git diff --check` pass. Integration and migration round-trip database checks
+  skip/fail locally because `TEST_DATABASE_URL`, `TEST_APP_DATABASE_URL`, and
+  `POSTGRES_ADMIN_DATABASE_URL` are unset. Local sqlc is v1.31.1; pinned v1.27.0 installation also
+  failed on the worker's restricted checksum/C parser environment, so generated artifacts were restored
+  unchanged for CI's pinned drift gate.
+- PR #87 is open, non-draft, references `Fixes #65`, and all nine current-head checks pass. No reviews
+  or inline comments remain. Workpad comment `5404543711` is complete; Detent owns the lane transition.
 
 ## Issue #63 frontend households and guardian relationships
 
