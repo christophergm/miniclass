@@ -47,45 +47,12 @@ from household_students
 where organization_id = $1 and school_year_id = $2 and household_id = $3
 order by student_id, id;
 
--- name: DeleteHouseholdStudent :one
+-- name: DeleteHouseholdStudent :execrows
 delete from household_students
-where id = (
-    select hs.id
-    from household_students hs
-    where hs.organization_id = sqlc.arg(organization_id)::public.xid20
-      and hs.school_year_id = sqlc.arg(school_year_id)::public.xid20
-      and hs.household_id = sqlc.arg(household_id)::public.xid20
-      and hs.student_id = sqlc.arg(student_id)::public.xid20
-    limit 1
-)
-returning id;
-
--- name: DeleteHouseholdStudentMembership :execrows
-delete from household_students
-where ctid = (
-    select hs.ctid
-    from household_students hs
-    where hs.organization_id = sqlc.arg(organization_id)::public.xid20
-      and hs.school_year_id = sqlc.arg(school_year_id)::public.xid20
-      and hs.household_id = sqlc.arg(household_id)::public.xid20
-      and hs.student_id = sqlc.arg(student_id)::public.xid20
-    limit 1
-);
-
--- name: ProbeHouseholdStudentMembership :one
-select
-    count(*)::bigint as visible_count,
-    count(*) filter (where school_year_id = sqlc.arg(school_year_id)::public.xid20)::bigint as year_count,
-    count(*) filter (where household_id = sqlc.arg(household_id)::public.xid20)::bigint as household_count,
-    count(*) filter (where student_id = sqlc.arg(student_id)::public.xid20)::bigint as student_count,
-    count(*) filter (
-        where school_year_id = sqlc.arg(school_year_id)::public.xid20
-          and household_id = sqlc.arg(household_id)::public.xid20
-          and student_id = sqlc.arg(student_id)::public.xid20
-    )::bigint as exact_count
-from household_students
 where organization_id = sqlc.arg(organization_id)::public.xid20
-  and household_id = sqlc.arg(household_id)::public.xid20;
+  and school_year_id = sqlc.arg(school_year_id)::public.xid20
+  and household_id = sqlc.arg(household_id)::public.xid20
+  and student_id = sqlc.arg(student_id)::public.xid20;
 
 -- name: ListAllHouseholdStudentsForRegistry :many
 select id, organization_id, school_year_id, household_id, student_id, created_at, updated_at
@@ -115,20 +82,7 @@ from household_adults
 where organization_id = $1 and school_year_id = $2 and household_id = $3
 order by adult_id, id;
 
--- name: DeleteHouseholdAdult :one
-delete from household_adults
-where id = (
-    select ha.id
-    from household_adults ha
-    where ha.organization_id = sqlc.arg(organization_id)::public.xid20
-      and ha.school_year_id = sqlc.arg(school_year_id)::public.xid20
-      and ha.household_id = sqlc.arg(household_id)::public.xid20
-      and ha.adult_id = sqlc.arg(adult_id)::public.xid20
-    limit 1
-)
-returning id;
-
--- name: DeleteHouseholdAdultMembership :execrows
+-- name: DeleteHouseholdAdult :execrows
 delete from household_adults
 where organization_id = sqlc.arg(organization_id)::public.xid20
   and school_year_id = sqlc.arg(school_year_id)::public.xid20

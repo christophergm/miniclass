@@ -159,18 +159,12 @@ func (q *Queries) DeleteGuardianRelationship(ctx context.Context, arg DeleteGuar
 	return result.RowsAffected(), nil
 }
 
-const deleteHouseholdAdult = `-- name: DeleteHouseholdAdult :one
+const deleteHouseholdAdult = `-- name: DeleteHouseholdAdult :execrows
 delete from household_adults
-where id = (
-    select ha.id
-    from household_adults ha
-    where ha.organization_id = $1::public.xid20
-      and ha.school_year_id = $2::public.xid20
-      and ha.household_id = $3::public.xid20
-      and ha.adult_id = $4::public.xid20
-    limit 1
-)
-returning id
+where organization_id = $1::public.xid20
+  and school_year_id = $2::public.xid20
+  and household_id = $3::public.xid20
+  and adult_id = $4::public.xid20
 `
 
 type DeleteHouseholdAdultParams struct {
@@ -180,35 +174,8 @@ type DeleteHouseholdAdultParams struct {
 	AdultID        ids.XID `json:"adult_id"`
 }
 
-func (q *Queries) DeleteHouseholdAdult(ctx context.Context, arg DeleteHouseholdAdultParams) (ids.XID, error) {
-	row := q.db.QueryRow(ctx, deleteHouseholdAdult,
-		arg.OrganizationID,
-		arg.SchoolYearID,
-		arg.HouseholdID,
-		arg.AdultID,
-	)
-	var id ids.XID
-	err := row.Scan(&id)
-	return id, err
-}
-
-const deleteHouseholdAdultMembership = `-- name: DeleteHouseholdAdultMembership :execrows
-delete from household_adults
-where organization_id = $1::public.xid20
-  and school_year_id = $2::public.xid20
-  and household_id = $3::public.xid20
-  and adult_id = $4::public.xid20
-`
-
-type DeleteHouseholdAdultMembershipParams struct {
-	OrganizationID ids.XID `json:"organization_id"`
-	SchoolYearID   ids.XID `json:"school_year_id"`
-	HouseholdID    ids.XID `json:"household_id"`
-	AdultID        ids.XID `json:"adult_id"`
-}
-
-func (q *Queries) DeleteHouseholdAdultMembership(ctx context.Context, arg DeleteHouseholdAdultMembershipParams) (int64, error) {
-	result, err := q.db.Exec(ctx, deleteHouseholdAdultMembership,
+func (q *Queries) DeleteHouseholdAdult(ctx context.Context, arg DeleteHouseholdAdultParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteHouseholdAdult,
 		arg.OrganizationID,
 		arg.SchoolYearID,
 		arg.HouseholdID,
@@ -220,18 +187,12 @@ func (q *Queries) DeleteHouseholdAdultMembership(ctx context.Context, arg Delete
 	return result.RowsAffected(), nil
 }
 
-const deleteHouseholdStudent = `-- name: DeleteHouseholdStudent :one
+const deleteHouseholdStudent = `-- name: DeleteHouseholdStudent :execrows
 delete from household_students
-where id = (
-    select hs.id
-    from household_students hs
-    where hs.organization_id = $1::public.xid20
-      and hs.school_year_id = $2::public.xid20
-      and hs.household_id = $3::public.xid20
-      and hs.student_id = $4::public.xid20
-    limit 1
-)
-returning id
+where organization_id = $1::public.xid20
+  and school_year_id = $2::public.xid20
+  and household_id = $3::public.xid20
+  and student_id = $4::public.xid20
 `
 
 type DeleteHouseholdStudentParams struct {
@@ -241,40 +202,8 @@ type DeleteHouseholdStudentParams struct {
 	StudentID      ids.XID `json:"student_id"`
 }
 
-func (q *Queries) DeleteHouseholdStudent(ctx context.Context, arg DeleteHouseholdStudentParams) (ids.XID, error) {
-	row := q.db.QueryRow(ctx, deleteHouseholdStudent,
-		arg.OrganizationID,
-		arg.SchoolYearID,
-		arg.HouseholdID,
-		arg.StudentID,
-	)
-	var id ids.XID
-	err := row.Scan(&id)
-	return id, err
-}
-
-const deleteHouseholdStudentMembership = `-- name: DeleteHouseholdStudentMembership :execrows
-delete from household_students
-where ctid = (
-    select hs.ctid
-    from household_students hs
-    where hs.organization_id = $1::public.xid20
-      and hs.school_year_id = $2::public.xid20
-      and hs.household_id = $3::public.xid20
-      and hs.student_id = $4::public.xid20
-    limit 1
-)
-`
-
-type DeleteHouseholdStudentMembershipParams struct {
-	OrganizationID ids.XID `json:"organization_id"`
-	SchoolYearID   ids.XID `json:"school_year_id"`
-	HouseholdID    ids.XID `json:"household_id"`
-	StudentID      ids.XID `json:"student_id"`
-}
-
-func (q *Queries) DeleteHouseholdStudentMembership(ctx context.Context, arg DeleteHouseholdStudentMembershipParams) (int64, error) {
-	result, err := q.db.Exec(ctx, deleteHouseholdStudentMembership,
+func (q *Queries) DeleteHouseholdStudent(ctx context.Context, arg DeleteHouseholdStudentParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteHouseholdStudent,
 		arg.OrganizationID,
 		arg.SchoolYearID,
 		arg.HouseholdID,
@@ -748,55 +677,6 @@ func (q *Queries) ListHouseholds(ctx context.Context, arg ListHouseholdsParams) 
 		return nil, err
 	}
 	return items, nil
-}
-
-const probeHouseholdStudentMembership = `-- name: ProbeHouseholdStudentMembership :one
-select
-    count(*)::bigint as visible_count,
-    count(*) filter (where school_year_id = $1::public.xid20)::bigint as year_count,
-    count(*) filter (where household_id = $2::public.xid20)::bigint as household_count,
-    count(*) filter (where student_id = $3::public.xid20)::bigint as student_count,
-    count(*) filter (
-        where school_year_id = $1::public.xid20
-          and household_id = $2::public.xid20
-          and student_id = $3::public.xid20
-    )::bigint as exact_count
-from household_students
-where organization_id = $4::public.xid20
-  and household_id = $2::public.xid20
-`
-
-type ProbeHouseholdStudentMembershipParams struct {
-	SchoolYearID   ids.XID `json:"school_year_id"`
-	HouseholdID    ids.XID `json:"household_id"`
-	StudentID      ids.XID `json:"student_id"`
-	OrganizationID ids.XID `json:"organization_id"`
-}
-
-type ProbeHouseholdStudentMembershipRow struct {
-	VisibleCount   int64 `json:"visible_count"`
-	YearCount      int64 `json:"year_count"`
-	HouseholdCount int64 `json:"household_count"`
-	StudentCount   int64 `json:"student_count"`
-	ExactCount     int64 `json:"exact_count"`
-}
-
-func (q *Queries) ProbeHouseholdStudentMembership(ctx context.Context, arg ProbeHouseholdStudentMembershipParams) (ProbeHouseholdStudentMembershipRow, error) {
-	row := q.db.QueryRow(ctx, probeHouseholdStudentMembership,
-		arg.SchoolYearID,
-		arg.HouseholdID,
-		arg.StudentID,
-		arg.OrganizationID,
-	)
-	var i ProbeHouseholdStudentMembershipRow
-	err := row.Scan(
-		&i.VisibleCount,
-		&i.YearCount,
-		&i.HouseholdCount,
-		&i.StudentCount,
-		&i.ExactCount,
-	)
-	return i, err
 }
 
 const softDeleteHousehold = `-- name: SoftDeleteHousehold :execrows

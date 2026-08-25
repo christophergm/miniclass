@@ -64,14 +64,6 @@ type GuardianRelationship struct {
 	UpdatedAt        time.Time
 }
 
-type HouseholdStudentMembershipProbe struct {
-	VisibleCount  int64
-	YearCount     int64
-	HouseholdCount int64
-	StudentCount  int64
-	ExactCount    int64
-}
-
 func (tx *Tx) CreateHousehold(ctx context.Context, schoolYearID ids.XID, displayName string) (Household, error) {
 	displayName = strings.TrimSpace(displayName)
 	if strings.TrimSpace(string(schoolYearID)) == "" || displayName == "" {
@@ -190,36 +182,13 @@ func (tx *Tx) ListHouseholdStudents(ctx context.Context, schoolYearID, household
 }
 
 func (tx *Tx) DeleteHouseholdStudent(ctx context.Context, schoolYearID, householdID, studentID ids.XID) (bool, error) {
-	rows, err := tx.queries.DeleteHouseholdStudentMembership(ctx, db.DeleteHouseholdStudentMembershipParams{
+	rows, err := tx.queries.DeleteHouseholdStudent(ctx, db.DeleteHouseholdStudentParams{
 		OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, HouseholdID: householdID, StudentID: studentID,
 	})
 	if err != nil {
 		return false, wrapHouseholdMutationError("delete household student membership", err)
 	}
 	return rows == 1, nil
-}
-
-func (tx *Tx) DeleteHouseholdStudentMembership(ctx context.Context, schoolYearID, householdID, studentID ids.XID) (bool, error) {
-	rows, err := tx.queries.DeleteHouseholdStudentMembership(ctx, db.DeleteHouseholdStudentMembershipParams{
-		OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, HouseholdID: householdID, StudentID: studentID,
-	})
-	if err != nil {
-		return false, wrapHouseholdMutationError("delete household student membership", err)
-	}
-	return rows == 1, nil
-}
-
-func (tx *Tx) ProbeHouseholdStudentMembership(ctx context.Context, schoolYearID, householdID, studentID ids.XID) (HouseholdStudentMembershipProbe, error) {
-	row, err := tx.queries.ProbeHouseholdStudentMembership(ctx, db.ProbeHouseholdStudentMembershipParams{
-		OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, HouseholdID: householdID, StudentID: studentID,
-	})
-	if err != nil {
-		return HouseholdStudentMembershipProbe{}, err
-	}
-	return HouseholdStudentMembershipProbe{
-		VisibleCount: row.VisibleCount, YearCount: row.YearCount, HouseholdCount: row.HouseholdCount,
-		StudentCount: row.StudentCount, ExactCount: row.ExactCount,
-	}, nil
 }
 
 func (tx *Tx) ListAllHouseholdStudentsForRegistry(ctx context.Context) ([]HouseholdStudent, error) {
@@ -288,17 +257,7 @@ func (tx *Tx) ListHouseholdAdults(ctx context.Context, schoolYearID, householdID
 }
 
 func (tx *Tx) DeleteHouseholdAdult(ctx context.Context, schoolYearID, householdID, adultID ids.XID) (bool, error) {
-	rows, err := tx.queries.DeleteHouseholdAdultMembership(ctx, db.DeleteHouseholdAdultMembershipParams{
-		OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, HouseholdID: householdID, AdultID: adultID,
-	})
-	if err != nil {
-		return false, wrapHouseholdMutationError("delete household adult membership", err)
-	}
-	return rows == 1, nil
-}
-
-func (tx *Tx) DeleteHouseholdAdultMembership(ctx context.Context, schoolYearID, householdID, adultID ids.XID) (bool, error) {
-	rows, err := tx.queries.DeleteHouseholdAdultMembership(ctx, db.DeleteHouseholdAdultMembershipParams{
+	rows, err := tx.queries.DeleteHouseholdAdult(ctx, db.DeleteHouseholdAdultParams{
 		OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, HouseholdID: householdID, AdultID: adultID,
 	})
 	if err != nil {
