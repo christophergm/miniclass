@@ -1,5 +1,12 @@
 export type PersonKind = 'student' | 'adult'
 
+export type HouseholdSummary = {
+  id: string
+  school_year_id: string
+  display_name: string
+  deleted_at?: string | null
+}
+
 export type Person = {
   id: string
   school_year_id: string
@@ -9,6 +16,7 @@ export type Person = {
   display_name: string
   external_identifier?: string | null
   deleted_at?: string | null
+  households?: HouseholdSummary[]
 }
 
 export type Student = Person & {
@@ -43,6 +51,30 @@ export type AdultInput = PersonInput & {
 }
 
 export type FieldErrors = Record<string, string>
+
+export type HouseholdMemberKind = 'student' | 'adult'
+
+export type Household = HouseholdSummary & {
+  students?: Student[]
+  adults?: Adult[]
+  student_count?: number
+  adult_count?: number
+}
+
+export type HouseholdInput = {
+  display_name: string
+}
+
+export type GuardianRelationshipType = 'parent' | 'guardian' | 'grandparent' | 'other'
+
+export type GuardianRelationship = {
+  id?: string
+  adult_id: string
+  student_id: string
+  relationship_type: GuardianRelationshipType
+  adult?: Adult
+  student?: Student
+}
 
 export type PeopleApi = {
   list(kind: PersonKind, schoolYearId: string, includeDeleted?: boolean): Promise<Person[]>

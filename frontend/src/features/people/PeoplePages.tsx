@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
 import { peopleApi, PeopleApiError } from './api'
+import { GuardianRelationships } from './GuardianRelationships'
 import type { Adult, AdultInput, FieldErrors, ParticipationIntent, Person, PersonKind, Student, StudentInput } from './types'
 
 type PageProps = { kind: PersonKind }
@@ -126,7 +127,7 @@ function PeopleTable({ kind, schoolYearId, people }: { kind: PersonKind; schoolY
         <TableRow>
           <TableHead>Name</TableHead>
           {kind === 'student' ? <><TableHead>Grade</TableHead><TableHead>Homeroom</TableHead></> : <><TableHead>Email</TableHead><TableHead>Participation</TableHead></>}
-          <TableHead>External ID</TableHead>
+          <TableHead>Households</TableHead><TableHead>External ID</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -134,7 +135,7 @@ function PeopleTable({ kind, schoolYearId, people }: { kind: PersonKind; schoolY
           <TableRow key={person.id} className={person.deleted_at ? 'opacity-60' : undefined}>
             <TableCell><Link className="font-medium text-primary hover:underline" to={`/y/${schoolYearId}/${copy.path}/${person.id}`}>{person.display_name}</Link>{person.deleted_at && <span className="ml-2 text-xs text-muted-foreground">Deleted</span>}</TableCell>
             {kind === 'student' ? <><TableCell>{(person as Student).grade}</TableCell><TableCell>{(person as Student).homeroom}</TableCell></> : <><TableCell>{(person as Adult).email ?? '—'}</TableCell><TableCell className="capitalize">{(person as Adult).participation_intent}</TableCell></>}
-            <TableCell>{person.external_identifier ?? '—'}</TableCell>
+            <TableCell><HouseholdLinks person={person} schoolYearId={schoolYearId} /></TableCell><TableCell>{person.external_identifier ?? '—'}</TableCell>
           </TableRow>
         ))}
       </TableBody>
@@ -252,6 +253,10 @@ export function PersonDetailPage({ kind }: PageProps) {
         </div>
         <div className="flex gap-3"><Button type="submit" disabled={isSaving}>{isSaving ? 'Saving…' : 'Save'}</Button><Button asChild type="button" variant="outline"><Link to={`/y/${schoolYearId}/${copy.path}`}>Cancel</Link></Button></div>
       </form>
+      {!isNew && person && <>
+        <HouseholdMembershipSection person={person} schoolYearId={yearId} />
+        <GuardianRelationships kind={kind} schoolYearId={yearId} personId={person.id} />
+      </>}
     </PageFrame>
   )
 }
@@ -294,6 +299,17 @@ function Field({ label, name, value, error, hint, type = 'text', onChange }: { l
 
 function FieldError({ id, message }: { id?: string; message: string }) {
   return <span id={id} className="mt-1 block text-xs font-normal text-destructive" role="alert">{message}</span>
+}
+
+
+function HouseholdLinks({ person, schoolYearId }: { person: Person; schoolYearId: string }) {
+  if (!person.households || person.households.length === 0) return <span className="text-amber-700" role="status">No household assigned</span>
+  return <span className="flex flex-wrap gap-x-2 gap-y-1">{person.households.map((household) => <Link key={household.id} className="text-primary hover:underline" to={`/y/${schoolYearId}/households/${household.id}`}>{household.display_name}</Link>)}</span>
+}
+
+function HouseholdMembershipSection({ person, schoolYearId }: { person: Person; schoolYearId: string }) {
+  const households = person.households ?? []
+  return <section className="mt-10 rounded-lg border bg-card p-6" aria-labelledby="person-households-heading"><h2 id="person-households-heading" className="text-xl font-semibold">Household membership</h2><p className="mt-2 text-sm text-muted-foreground">Membership is independent from guardian relationships. Editing a guardian relationship will not add this person to a household.</p>{households.length === 0 ? <p className="mt-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">This person has no household yet. This is a warning only; you can still save the roster record.</p> : <ul className="mt-4 flex flex-wrap gap-2">{households.map((household) => <li key={household.id}><Link className="inline-flex rounded-md border px-3 py-2 text-sm text-primary hover:bg-accent" to={`/y/${schoolYearId}/households/${household.id}`}>{household.display_name}</Link></li>)}</ul>}</section>
 }
 
 function MissingSchoolYear({ kind }: PageProps) {

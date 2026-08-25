@@ -11,6 +11,7 @@ import { SignInPage } from '@/features/auth/SignInPage'
 import { SchoolYearGuard, SchoolYearListPage, SchoolYearNotFound, SchoolYearWorkspace } from '@/features/school-years/SchoolYearPages'
 import { SettingsPage } from '@/features/settings/SettingsPage'
 import { AdultDetailPage, AdultListPage, StudentDetailPage, StudentListPage } from '@/features/people/PeoplePages'
+import { HouseholdDetailPage, HouseholdListPage } from '@/features/people/HouseholdPages'
 import { AuditLog } from '@/features/audit/AuditLog'
 
 function App() {
@@ -54,6 +55,11 @@ function AppRoutes() {
             <Route path="adults" element={<AdultListPage />} />
             <Route path="adults/new" element={<AdultDetailPage />} />
             <Route path="adults/:personId" element={<AdultDetailPage />} />
+
+            {/* Households scoped to a school year */}
+            <Route path="households" element={<HouseholdListPage />} />
+            <Route path="households/new" element={<HouseholdDetailPage />} />
+            <Route path="households/:personId" element={<HouseholdDetailPage />} />
 
             {/* Fallback inside a school year goes to the workspace */}
             <Route path="*" element={<SchoolYearWorkspace />} />
