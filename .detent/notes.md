@@ -27,10 +27,20 @@
 
 - Dependencies #55, #56, and #57 are complete through merged PRs #85, #79, and #86. Current `origin/main`
   is `5fd1b2c`; the branch was rebased onto it after resolving only the handoff-note conflict.
-- No implementation existed before this turn. The Workpad comment `5404543711` is updated to
-  `status: in_progress` with the implementation, acceptance, and validation plan.
-- Re-read the merged student, adult, household, membership, guardian, invitation, and registry APIs
-  before adding `internal/seed`, `internal/testing/factories`, `cmd/seed`, depguard, and corpus tests.
+- Added deterministic synthetic corpus generation in `internal/seed`: 139 students with the exact
+  Appendix B.1 grade split, six homerooms, 102 adults with 13/45/44 participation, 90 households,
+  opaque-index relationships, and all required awkward cases. `Load` bootstraps a fresh organization
+  and Owner invitation, then composes audited roster services through `internal/testing/factories`.
+- Replaced the empty SQL seed with flag-driven `cmd/seed` and `make seed` output for organization,
+  school year, roster counts, and claim URL. The isolation registry now uses the same minimal factories;
+  depguard restricts seed/factory imports to seed command and test support. Added pure and integration
+  corpus distribution/edge-case coverage.
+- Validation: focused and full race backend tests, lint/depguard, format/vet, frontend frozen tests
+  (25), build, lint, and `git diff --check` pass. Integration and migration round-trip database checks
+  skip/fail locally because `TEST_DATABASE_URL`, `TEST_APP_DATABASE_URL`, and
+  `POSTGRES_ADMIN_DATABASE_URL` are unset. Local sqlc is v1.31.1; pinned v1.27.0 installation also
+  failed on the worker's restricted checksum/C parser environment, so generated artifacts were restored
+  unchanged for CI's pinned drift gate.
 
 ## Issue #59 audit log read endpoint
 

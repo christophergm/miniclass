@@ -9,8 +9,8 @@ import (
 	"github.com/chrismott/miniclass/internal/data"
 	"github.com/chrismott/miniclass/internal/ids"
 	"github.com/chrismott/miniclass/internal/people"
-	"github.com/chrismott/miniclass/internal/schoolyear"
 	testharness "github.com/chrismott/miniclass/internal/testing"
+	"github.com/chrismott/miniclass/internal/testing/factories"
 )
 
 func init() {
@@ -24,11 +24,12 @@ func createHousehold(ctx context.Context, harness *testharness.Harness, organiza
 		return "", errors.New("create household fixture: harness is nil")
 	}
 	actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "layer 2 household factory"}
-	year, err := schoolyear.New(harness.Database).Create(ctx, string(organizationID), actor, fmt.Sprintf("Synthetic household year %s", organizationID))
+	factory := factories.New(harness.Database, string(organizationID), actor)
+	year, err := factory.CreateSchoolYear(ctx, fmt.Sprintf("Synthetic household year %s", organizationID))
 	if err != nil {
 		return "", err
 	}
-	row, err := people.New(harness.Database).CreateHousehold(ctx, string(organizationID), year.ID, actor, people.HouseholdCreateInput{DisplayName: "Synthetic Household"})
+	row, err := factory.CreateHousehold(ctx, year.ID, people.HouseholdCreateInput{DisplayName: "Synthetic Household"})
 	if err != nil {
 		return "", err
 	}

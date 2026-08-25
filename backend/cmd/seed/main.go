@@ -1,57 +1,63 @@
-// Command seed loads the development seed SQL into PostgreSQL.
+// Command seed creates a fresh synthetic organization and roster in PostgreSQL.
 package main
 
 import (
 	"context"
-	"database/sql"
 	"errors"
+	"flag"
 	"fmt"
+	"io"
 	"os"
-	"path/filepath"
-	"runtime"
 	"strings"
+	"time"
 
-	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/chrismott/miniclass/internal/data"
+	"github.com/chrismott/miniclass/internal/seed"
 )
 
-const seedFile = "scripts/seed.sql"
+const defaultClaimBaseURL = "http://localhost:5173/claim"
 
 func main() {
-	if err := run(context.Background(), os.Getenv("DATABASE_URL")); err != nil {
+	if err := run(context.Background(), os.Args[1:], os.Getenv("DATABASE_URL"), os.Stdout); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func run(ctx context.Context, databaseURL string) error {
+func run(ctx context.Context, args []string, databaseURL string, output io.Writer) error {
 	if strings.TrimSpace(databaseURL) == "" {
 		return errors.New("seed failed: DATABASE_URL is required")
 	}
-
-	sqlPath := filepath.Join(sourceDir(), "..", "..", seedFile)
-	script, err := os.ReadFile(sqlPath)
+	if output == nil {
+		return errors.New("seed failed: output is nil")
+	}
+	flags := flag.NewFlagSet("seed", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	defaults := seed.DefaultOptions()
+	organizationName := flags.String("organization-name", defaults.OrganizationName, "fresh organization name")
+	ownerEmail := flags.String("owner-email", defaults.OwnerEmail, "Owner invitation email")
+	homeroomLabel := flags.String("homeroom-label", defaults.HomeroomLabel, "organization homeroom label")
+	claimBaseURL := flags.String("claim-base-url", defaultClaimBaseURL, "absolute invitation claim page URL")
+	invitationTTL := flags.Duration("invitation-ttl", 48*time.Hour, "Owner invitation lifetime")
+	if err := flags.Parse(args); err != nil {
+		return fmt.Errorf("seed failed: %w", err)
+	}
+	database, err := data.NewFromURL(ctx, databaseURL)
 	if err != nil {
-		return fmt.Errorf("seed failed: read %s: %w", seedFile, err)
+		return fmt.Errorf("seed failed: connect database: %w", err)
 	}
-
-	db, err := sql.Open("pgx", databaseURL)
+	defer database.Close()
+	result, err := seed.Load(ctx, database, seed.Options{
+		OrganizationName: *organizationName, OwnerEmail: *ownerEmail, HomeroomLabel: *homeroomLabel,
+		ClaimBaseURL: *claimBaseURL, InvitationTTL: *invitationTTL,
+	})
 	if err != nil {
-		return fmt.Errorf("seed failed: open database: %w", err)
+		return err
 	}
-	defer db.Close()
-
-	if err := db.PingContext(ctx); err != nil {
-		return fmt.Errorf("seed failed: database connection: %w", err)
-	}
-	if _, err := db.ExecContext(ctx, string(script)); err != nil {
-		return fmt.Errorf("seed failed: execute %s: %w", seedFile, err)
-	}
-
-	fmt.Println("Seed data loaded successfully.")
+	_, _ = fmt.Fprintf(output, "Organization: %s (%s)\n", result.OrganizationName, result.OrganizationID)
+	_, _ = fmt.Fprintf(output, "School year: %s\n", result.SchoolYearID)
+	_, _ = fmt.Fprintf(output, "Roster: %d students, %d adults, %d households\n", result.Students, result.Adults, result.Households)
+	_, _ = fmt.Fprintf(output, "Owner invitation claim URL: %s\n", result.ClaimURL)
+	_, _ = fmt.Fprintf(output, "Expires: %s\n", result.ExpiresAt.UTC().Format(time.RFC3339))
 	return nil
-}
-
-func sourceDir() string {
-	_, filename, _, _ := runtime.Caller(0)
-	return filepath.Dir(filename)
 }

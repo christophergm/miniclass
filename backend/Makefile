@@ -38,9 +38,18 @@ migrate-create: ## Create a new migration (usage: make migrate-create NAME=creat
 	@if [ -z "$(NAME)" ]; then echo "Error: NAME is required. Usage: make migrate-create NAME=your_migration_name"; exit 1; fi
 	goose -dir migrations create $(NAME) sql
 
-seed: ## Load seed data
-	@echo "Loading seed data..."
-	go run ./cmd/seed
+SEED_ORGANIZATION_NAME ?= Synthetic Academy
+SEED_OWNER_EMAIL ?= owner@example.test
+SEED_HOMEROOM_LABEL ?= homeroom
+SEED_CLAIM_BASE_URL ?= http://localhost:5173/claim
+
+seed: ## Create a fresh synthetic organization, roster, and Owner invitation
+	@echo "Creating fresh synthetic seed organization..."
+	go run ./cmd/seed \
+		-organization-name "$(SEED_ORGANIZATION_NAME)" \
+		-owner-email "$(SEED_OWNER_EMAIL)" \
+		-homeroom-label "$(SEED_HOMEROOM_LABEL)" \
+		-claim-base-url "$(SEED_CLAIM_BASE_URL)"
 
 reset-db: ## Drop, recreate, migrate, and seed the local database (requires RESET_DB_CONFIRM=1)
 	@if [ "$(RESET_DB_CONFIRM)" != "1" ]; then echo "Refusing to reset database. Re-run with RESET_DB_CONFIRM=1."; exit 1; fi
