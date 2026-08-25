@@ -138,17 +138,27 @@
 ## Issue #57 households, memberships, and guardian relationships
 
 - Retry 2026-08-25: dependency #55 is closed through PR #85; #56 is closed through PR #79. The
-  worktree was rebased onto `origin/main` at `2adfeef` before implementation. Workpad comment
-  `5404194535` records the retry diagnosis, plan, evidence, and `in_progress` status.
+  worktree was rebased onto current `origin/main` before implementation. Workpad comment
+  `5404194535` records the retry diagnosis, plan, evidence, and final status.
 - Added migration `20260825100000_households.sql`, sqlc queries/output, data/service layers, Huma
   household/membership/guardian routes, registry factories, Layer 2 registry assertions, and an
   integration acceptance test. Membership is many-to-many; guardian relationships are separate;
   household deletion is soft and link deletion is hard with audit entries.
-- Passed `go test ./... -count=1` (integration skips without test DB URLs), `make format`, `make lint`,
-  pinned sqlc v1.27 generation, frozen Bun tests/build/lint, and `git diff --check`.
-- The migration wrapper was attempted but its database URLs are absent and Docker Desktop is not
-  running. CI must supply migration round-trip and PostgreSQL isolation evidence. No dependency or
-  human blocker remains.
+- Corrected the merged closed-year trigger in `20260825150000_fix_closed_year_trigger_operation_case.sql`:
+  PostgreSQL exposes `TG_OP` in uppercase, and the old lowercase comparisons silently cancelled
+  every DELETE by returning `NEW` (NULL). Household membership deletion now uses ordinary scoped
+  row-count deletes; temporary predicate probes were removed.
+- PR #86 is open, non-draft, mergeable, references `Fixes #57`, and cites SPEC §§8.2/9.2/11.2.
+  Current-head CI run `32854687343` passed all nine required checks. Slowest checks were Generated
+  code drift (1m23s), Backend lint (1m19s), and Backend tests (1m18s); the PR CI duration was about
+  1m23s from start to final check. No reviews, inline comments, blockers, or human action remain.
+- Local `make test`, `make lint`, `make format`, pinned sqlc/OpenAPI generation plus drift check,
+  frozen Bun tests (23), build, lint, and `git diff --check` pass. Integration tests skip without
+  test DB URLs. The exact migration wrapper was attempted but stops because
+  `POSTGRES_ADMIN_DATABASE_URL` is unavailable; CI migration round-trip passed. Quiet-window wait is
+  not applicable before review handoff; no post-merge main CI is running.
+- Skill draft: no — the work used existing tenant-isolation and migration patterns; no new reusable
+  procedure was needed.
 
 ## Issue #38 Detent merge gate
 
