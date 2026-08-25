@@ -41,3 +41,8 @@ logs/
 
 # OS
 Thumbs.db
+
+# Certificates
+*.pem
+*.crt
+*.key
