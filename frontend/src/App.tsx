@@ -10,6 +10,8 @@ import { ResetPasswordPage } from '@/features/auth/ResetPasswordPage'
 import { SignInPage } from '@/features/auth/SignInPage'
 import { SchoolYearGuard, SchoolYearListPage, SchoolYearNotFound, SchoolYearWorkspace } from '@/features/school-years/SchoolYearPages'
 import { SettingsPage } from '@/features/settings/SettingsPage'
+import { AdultDetailPage, AdultListPage, StudentDetailPage, StudentListPage } from '@/features/people/PeoplePages'
+
 function App() {
   return (
     <AuthProvider>
@@ -37,11 +39,32 @@ function AppRoutes() {
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
           <Route path="/years" element={<SchoolYearListPage />} />
+
           <Route path="/y/:schoolYearId" element={<SchoolYearGuard />}>
             <Route index element={<SchoolYearWorkspace />} />
-            <Route path="*" element={<SchoolYearWorkspace />} />
             <Route path="settings" element={<SettingsPage />} />
+
+            {/* Students scoped to a school year */}
+            <Route path="students" element={<StudentListPage />} />
+            <Route path="students/new" element={<StudentDetailPage />} />
+            <Route path="students/:personId" element={<StudentDetailPage />} />
+
+            {/* Adults scoped to a school year */}
+            <Route path="adults" element={<AdultListPage />} />
+            <Route path="adults/new" element={<AdultDetailPage />} />
+            <Route path="adults/:personId" element={<AdultDetailPage />} />
+
+            {/* Fallback inside a school year goes to the workspace */}
+            <Route path="*" element={<SchoolYearWorkspace />} />
           </Route>
+
+          {/* Global people routes (no school year in path) */}
+          <Route path="/students" element={<StudentListPage />} />
+          <Route path="/students/new" element={<StudentDetailPage />} />
+          <Route path="/students/:personId" element={<StudentDetailPage />} />
+          <Route path="/adults" element={<AdultListPage />} />
+          <Route path="/adults/new" element={<AdultDetailPage />} />
+          <Route path="/adults/:personId" element={<AdultDetailPage />} />
         </Route>
       </Route>
       <Route path="*" element={<SchoolYearNotFound />} />
