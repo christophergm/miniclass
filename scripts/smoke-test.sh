@@ -140,13 +140,42 @@ curl --fail --silent --show-error "$FRONTEND_URL/api/health" >"$LOG_DIR/proxied-
 grep -Eq '"status"[[:space:]]*:[[:space:]]*"healthy"' "$LOG_DIR/proxied-api-health.json" \
   || die "GET $FRONTEND_URL/api/health did not report a healthy API"
 
+# GET /api/health is deliberately unauthenticated, so everything above proves
+# only that the process is up. Exercising one authenticated route is what proves
+# the whole local identity chain — signing key, token subject, seeded
+# organisation, bound membership — actually lines up. It is conditional because
+# the smoke test must not mutate the developer's database by seeding.
+authenticated_check="skipped: VITE_DEV_TOKEN is empty (run 'make login')"
+if [[ -n "${VITE_DEV_TOKEN:-}" ]]; then
+  echo "Checking an authenticated route..."
+  curl --silent --show-error --max-time 10 \
+    -H "Authorization: Bearer ${VITE_DEV_TOKEN}" \
+    "$API_BASE_URL/api/me" >"$LOG_DIR/api-me.json" 2>"$LOG_DIR/api-me.err" \
+    || die "GET $API_BASE_URL/api/me could not be reached"
+  me_response="$(cat "$LOG_DIR/api-me.json")"
+  case "$me_response" in
+    *'"no-organization"'*)
+      die "GET $API_BASE_URL/api/me returned no-organization; the dev token's subject is not bound. Run 'make seed'."
+      ;;
+    *'"invalid-token"'*)
+      die "GET $API_BASE_URL/api/me rejected the dev token; it is expired or signed by another key. Run 'make login --force'."
+      ;;
+    *'"role"'*) ;;
+    *)
+      die "GET $API_BASE_URL/api/me did not return a principal; it returned: ${me_response:-<no response>}"
+      ;;
+  esac
+  authenticated_check="$API_BASE_URL/api/me resolves the seeded principal: $me_response"
+fi
+
 echo
 echo "Automated checks passed:"
 echo "  - PostgreSQL is ready and migrations are applied"
-echo "  - $API_BASE_URL/api/health reports healthy/connected"
+echo "  - $API_BASE_URL/api/health reports healthy/connected without a token"
 echo "  - $FRONTEND_URL/health is served by Vite"
 echo "  - frontend health page contains 'All systems operational'"
 echo "  - $FRONTEND_URL/api/health is proxied to the API, so connect-src 'self' suffices"
+echo "  - $authenticated_check"
 echo
 echo "Manual browser check: open $FRONTEND_URL/health and confirm"
 echo "  'All systems operational', 'Connected', and the current API version are visible."

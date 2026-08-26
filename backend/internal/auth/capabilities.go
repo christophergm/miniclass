@@ -8,7 +8,7 @@ import (
 
 // Capability is a closed authorization permission. The first eight values
 // are the §6.6 matrix; Authenticated is the non-domain gate used by identity
-// and operational endpoints.
+// and operational endpoints; Public is the absence of a gate, stated out loud.
 type Capability string
 
 const (
@@ -21,6 +21,14 @@ const (
 	CapabilityManagePublishing     Capability = "manage_publishing"
 	CapabilityReadAuditLog         Capability = "read_audit_log"
 	CapabilityAuthenticated        Capability = "authenticated"
+	// CapabilityPublic declares that an operation is deliberately
+	// unauthenticated. It exists so that "no authentication" is something an
+	// operation must say, rather than something it can achieve by saying
+	// nothing: the middleware still rejects an operation with no declared
+	// capability, and the operation-enumeration test still requires every
+	// operation to carry one. It is a property of the operation and never of a
+	// principal, so it is absent from the §6.6 matrix and no role grants it.
+	CapabilityPublic Capability = "public"
 )
 
 // OrganizationRole is the role vocabulary used by the identity schema and
@@ -95,6 +103,12 @@ func MatrixCapabilities() []Capability {
 // HasRoleCapability answers one closed-matrix cell. Unknown roles and
 // capabilities are default-deny.
 func HasRoleCapability(role OrganizationRole, capability Capability) bool {
+	if capability == CapabilityPublic {
+		// Denied for every role on purpose. Public is an operation's declaration
+		// that it needs no principal, so granting it to a principal would turn a
+		// route annotation into an authorization grant.
+		return false
+	}
 	if capability == CapabilityAuthenticated {
 		return role == RoleOwner || role == RoleAdministrator || role == RoleCoordinator
 	}

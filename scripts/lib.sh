@@ -83,6 +83,81 @@ env_violations() {
   ' "$file"
 }
 
+# env_set writes NAME=value into the given file, replacing the first existing
+# assignment in place and appending only when the name is absent. Every other
+# line, including comments and ordering, is preserved byte for byte, because a
+# developer's .env is a file they edit and this is a tool that edits it behind
+# their back.
+#
+# The invariant is checked here rather than trusted: a value with whitespace or
+# '#' would make the whole file unloadable for every consumer, and the write is
+# the last moment at which that can be refused by name.
+env_set() {
+  local file="$1"
+  local key="$2"
+  local value="$3"
+  local temporary
+
+  [[ -f "$file" ]] || die "missing $file; run ./scripts/setup.sh first"
+  case "$value" in
+    *[[:space:]]* | *"#"*)
+      die "refusing to write $key: the value contains whitespace or '#', which no .env parser reads identically"
+      ;;
+  esac
+
+  temporary="$(mktemp "${TMPDIR:-/tmp}/miniclass-env.XXXXXX")" || die "could not create a temporary file"
+  awk -v key="$key" -v value="$value" '
+    BEGIN { written = 0 }
+    index($0, key "=") == 1 {
+      if (!written) { print key "=" value; written = 1 }
+      next
+    }
+    { print }
+    END { if (!written) print key "=" value }
+  ' "$file" >"$temporary" || die "could not rewrite $key in $file"
+
+  # Copy over the original rather than moving the temporary onto it, so the
+  # file keeps its inode and permissions instead of inheriting mktemp's 0600.
+  cat "$temporary" >"$file" || die "could not write $file"
+  rm -f "$temporary"
+}
+
+# jwt_expiry prints the exp claim of a JWT as a Unix timestamp, and fails for
+# anything it cannot read. No signature is checked: the caller is deciding
+# whether to re-mint a token it is about to hand to a verifier that will check
+# the signature properly.
+jwt_expiry() {
+  local token="$1"
+  local payload
+  local decoded
+  local expiry
+
+  [[ "$(printf '%s' "$token" | awk -F. '{ print NF }')" == "3" ]] || return 1
+  payload="$(printf '%s' "$token" | cut -d. -f2 | tr '_-' '/+')"
+  [[ -n "$payload" ]] || return 1
+  while [[ $(( ${#payload} % 4 )) -ne 0 ]]; do
+    payload="${payload}="
+  done
+
+  decoded="$(printf '%s' "$payload" | openssl base64 -d -A 2>/dev/null)" || return 1
+  expiry="$(printf '%s' "$decoded" | sed -n 's/.*"exp"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p')"
+  [[ -n "$expiry" ]] || return 1
+  printf '%s\n' "$expiry"
+}
+
+# dev_admin_subject prints the local provider subject for DEV_ADMIN_EMAIL.
+#
+# One derivation, in one place. The seed's invitation email, the token's email
+# claim and the token's subject all have to agree or the claim is refused and
+# the login silently does not exist; deriving the subject from the address
+# rather than configuring it separately is what makes disagreement impossible.
+dev_admin_subject() {
+  local email="${1:-${DEV_ADMIN_EMAIL:-}}"
+
+  [[ -n "$email" ]] || die "DEV_ADMIN_EMAIL is not set; add it to .env (see .env.example)"
+  printf 'local:%s\n' "$email"
+}
+
 # env_keys prints the variable names assigned in the given file, in order.
 env_keys() {
   local file="$1"
@@ -123,12 +198,17 @@ load_env() {
 
 # port_in_use reports whether anything is listening on a local TCP port. bash's
 # /dev/tcp is used rather than lsof or nc so that no extra prerequisite appears.
+#
+# The probe runs in a subshell, whose exit both closes the descriptor and
+# supplies this function's status. Do not "tidy up" afterwards with
+# `exec 3>&- 2>/dev/null`: an exec with redirections and no command applies them
+# to the calling shell permanently, so that line sent stderr to /dev/null for
+# the remainder of every script that called this function, and warnings and
+# `set -x` traces vanished for no visible reason.
 port_in_use() {
   local port="$1"
 
-  (exec 3<>"/dev/tcp/127.0.0.1/$port") >/dev/null 2>&1 || return 1
-  exec 3>&- 2>/dev/null || true
-  return 0
+  (exec 3<>"/dev/tcp/127.0.0.1/$port") >/dev/null 2>&1
 }
 
 # require_free_port fails unless the given port is free.

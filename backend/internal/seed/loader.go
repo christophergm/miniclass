@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/chrismott/miniclass/internal/audit"
+	"github.com/chrismott/miniclass/internal/auth"
 	"github.com/chrismott/miniclass/internal/data"
 	"github.com/chrismott/miniclass/internal/identity"
 	"github.com/chrismott/miniclass/internal/ids"
@@ -21,8 +23,14 @@ type Options struct {
 	OrganizationName string
 	HomeroomLabel    string
 	OwnerEmail       string
-	ClaimBaseURL     string
-	InvitationTTL    time.Duration
+	// OwnerSubject, when set, is the verified provider subject the seed binds
+	// to the Owner invitation it just created, so a non-interactive caller
+	// reaches a usable login without opening ClaimURL. The claim reuses
+	// OwnerEmail from this same value, which is why no separate claim email
+	// exists to disagree with the invited one.
+	OwnerSubject  string
+	ClaimBaseURL  string
+	InvitationTTL time.Duration
 }
 
 // Result is the operator-facing outcome of a successful seed.
@@ -35,6 +43,21 @@ type Result struct {
 	Students         int
 	Adults           int
 	Households       int
+	// BoundOwner is nil unless Options.OwnerSubject was set.
+	BoundOwner *BoundAccount
+}
+
+// BoundAccount describes the login the seed bound to the Owner invitation. It
+// is read back from the claim rather than copied from Options, so what is
+// reported is what a later token exchange will actually resolve to.
+type BoundAccount struct {
+	ProviderSubject  string
+	Email            string
+	UserID           string
+	MembershipID     string
+	OrganizationID   string
+	OrganizationName string
+	Role             string
 }
 
 // DefaultOptions provides a safe, synthetic local-development configuration.
@@ -50,6 +73,8 @@ func DefaultOptions() Options {
 
 // Load creates a new organization, its Owner invitation, and the complete
 // synthetic corpus. It intentionally never reuses an existing organization.
+// With Options.OwnerSubject set it also claims that invitation, so a
+// non-interactive caller ends with a usable login rather than a URL to click.
 func Load(ctx context.Context, database *data.DB, options Options) (Result, error) {
 	if database == nil {
 		return Result{}, errors.New("seed: database is nil")
@@ -70,12 +95,23 @@ func Load(ctx context.Context, database *data.DB, options Options) (Result, erro
 	if options.InvitationTTL == 0 {
 		options.InvitationTTL = defaults.InvitationTTL
 	}
+	options.OwnerSubject = strings.TrimSpace(options.OwnerSubject)
+
+	store := identity.NewStore(database)
+	if options.OwnerSubject != "" {
+		// Refuse before the organization is created: Load commits it on its own,
+		// so a refusal afterwards would leave an orphan organization and a full
+		// roster behind.
+		if err := CheckOwnerSubjectAvailable(ctx, database, options.OwnerSubject); err != nil {
+			return Result{}, err
+		}
+	}
 
 	corpus := Generate()
 	if err := corpus.Validate(); err != nil {
 		return Result{}, fmt.Errorf("seed: validate corpus: %w", err)
 	}
-	bootstrap, err := identity.Bootstrap(ctx, identity.NewStore(database), identity.BootstrapInput{
+	bootstrap, err := identity.Bootstrap(ctx, store, identity.BootstrapInput{
 		OrganizationName: options.OrganizationName,
 		HomeroomLabel:    options.HomeroomLabel,
 		OwnerEmail:       options.OwnerEmail,
@@ -84,6 +120,32 @@ func Load(ctx context.Context, database *data.DB, options Options) (Result, erro
 	})
 	if err != nil {
 		return Result{}, fmt.Errorf("seed: bootstrap organization: %w", err)
+	}
+
+	// Claim before the corpus so a failure to bind does not leave a roster
+	// behind either.
+	var boundOwner *BoundAccount
+	if options.OwnerSubject != "" {
+		// The invited email and the claimed email are the same field of the same
+		// Options value, so the pair cannot disagree; the claim still compares
+		// them exactly as it does for a human. The seed is both inviter and
+		// claimant, so the verified-email precondition holds by construction
+		// rather than by trusting a caller.
+		account, err := store.ClaimAdminInvitation(ctx, auth.InvitationClaimInput{
+			Bearer:          bootstrap.TokenValue,
+			ProviderSubject: options.OwnerSubject,
+			Email:           options.OwnerEmail,
+			EmailVerified:   true,
+		})
+		if err != nil {
+			return Result{}, fmt.Errorf("seed: claim owner invitation for %q: %w", options.OwnerSubject, err)
+		}
+		boundOwner = &BoundAccount{
+			ProviderSubject: account.User.ProviderSubject, Email: account.User.Email,
+			UserID: string(account.User.ID), MembershipID: string(account.Membership.ID),
+			OrganizationID:   string(account.Membership.OrganizationID),
+			OrganizationName: account.Membership.OrganizationName, Role: account.Membership.Role,
+		}
 	}
 
 	actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "deterministic seed corpus"}
@@ -167,7 +229,33 @@ func Load(ctx context.Context, database *data.DB, options Options) (Result, erro
 		OrganizationID: string(bootstrap.Organization.ID), OrganizationName: bootstrap.Organization.Name,
 		SchoolYearID: string(year.ID), ClaimURL: bootstrap.ClaimURL, ExpiresAt: bootstrap.Token.ExpiresAt,
 		Students: len(studentIDs), Adults: len(adultIDs), Households: len(householdIDs),
+		BoundOwner: boundOwner,
 	}, nil
+}
+
+// CheckOwnerSubjectAvailable refuses a seed whose owner subject already holds a
+// membership. Load never reuses an existing organization, so binding an
+// already-bound subject would commit a second organization and then leave that
+// subject with two memberships, which ResolveAccount treats as a hard error:
+// the working login would break rather than gain a tenant. Callers that seed
+// without going through Load should run this first.
+func CheckOwnerSubjectAvailable(ctx context.Context, database *data.DB, providerSubject string) error {
+	if database == nil {
+		return errors.New("seed: database is nil")
+	}
+	providerSubject = strings.TrimSpace(providerSubject)
+	if providerSubject == "" {
+		return errors.New("seed: owner subject is empty")
+	}
+	_, err := identity.NewStore(database).ResolveAccount(ctx, providerSubject)
+	switch {
+	case errors.Is(err, auth.ErrNoOrganization):
+		return nil
+	case err == nil, errors.Is(err, auth.ErrMultipleOrganizations):
+		return fmt.Errorf("seed: provider subject %q already has an organization membership; the seed only ever creates a new organization, so start from an empty database: make reset CONFIRM=1", providerSubject)
+	default:
+		return fmt.Errorf("seed: resolve owner subject: %w", err)
+	}
 }
 
 func mustXID(value string) ids.XID { return ids.XID(value) }
