@@ -1,3 +1,5 @@
+import { getAccessToken } from '@/lib/auth'
+
 import type { AdultInput, FieldErrors, PeopleApi, Person, PersonKind, StudentInput } from './types'
 
 export class PeopleApiError extends Error {
@@ -51,12 +53,24 @@ async function readError(response: Response): Promise<PeopleApiError> {
   )
 }
 
+// Every roster call goes through here, so this is the one place that has to
+// attach the bearer token. It did not, which made students, adults, households
+// and guardian relationships answer "a bearer token is required" while the rest
+// of the app worked — the tests mock peopleApi's methods, so nothing exercised
+// this function. The headers are spread after init deliberately: with `...init`
+// last, a caller passing any header at all would replace this object wholesale
+// and silently drop the Authorization header again.
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = await getAccessToken()
   let response: Response
   try {
     response = await globalThis.fetch(`${configuredBaseUrl}${path}`, {
-      headers: { 'Content-Type': 'application/json', ...init?.headers },
       ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...init?.headers,
+      },
     })
   } catch {
     throw new PeopleApiError('Unable to reach the API')

@@ -1,7 +1,7 @@
 import createClient from 'openapi-fetch'
 
 import type { paths } from './api.generated'
-import { supabase } from './auth'
+import { getAccessToken } from './auth'
 
 export type HealthResponse = paths['/api/health']['get']['responses'][200]['content']['application/json']
 export type MeResponse = paths['/api/me']['get']['responses'][200]['content']['application/json']
@@ -57,7 +57,7 @@ export class ApiClient {
   constructor(options: ApiClientOptions = {}) {
     this.baseUrl = options.baseUrl ?? configuredBaseUrl
     this.fetcher = options.fetch ?? ((input, init) => globalThis.fetch(input, init))
-    this.getAccessToken = options.getAccessToken ?? getSupabaseAccessToken
+    this.getAccessToken = options.getAccessToken ?? getAccessToken
     this.client = createClient<paths>({
       baseUrl: this.baseUrl,
       fetch: this.authenticatedFetch,
@@ -223,14 +223,6 @@ export class ApiClient {
 
 export const apiClient = new ApiClient()
 
-async function getSupabaseAccessToken(): Promise<string | null> {
-  if (!supabase) {
-    return null
-  }
-
-  const { data } = await supabase.auth.getSession()
-  return data.session?.access_token ?? null
-}
 
 function parseSchoolYear(value: unknown): SchoolYear {
   if (!isSchoolYear(value)) {
