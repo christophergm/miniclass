@@ -125,7 +125,7 @@ func registerOperations(api huma.API, options RouterOptions) {
 		Path:        apiBasePath + "/health",
 		Summary:     "Check API and database health",
 		Errors:      []int{http.StatusServiceUnavailable},
-	}, auth.CapabilityAuthenticated, false, health.Handle)
+	}, auth.CapabilityPublic, false, health.Handle)
 
 	registerOperation(api, huma.Operation{
 		OperationID: "get-me",
@@ -403,7 +403,14 @@ func registerOperation[I, O any](api huma.API, operation huma.Operation, capabil
 		operation.Extensions[auth.AllowUnresolvedPrincipalExtension] = true
 		operation.Metadata[auth.AllowUnresolvedPrincipalExtension] = true
 	}
-	operation.Security = []map[string][]string{{"bearerAuth": {}}}
+	// A public operation states "no security" explicitly rather than leaving
+	// Security nil, which would let it inherit any future document-level
+	// default and quietly advertise a token it will never read.
+	if capability == auth.CapabilityPublic {
+		operation.Security = []map[string][]string{}
+	} else {
+		operation.Security = []map[string][]string{{"bearerAuth": {}}}
+	}
 	huma.Register(api, operation, handler)
 }
 

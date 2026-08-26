@@ -39,15 +39,24 @@ migrate-create: ## Create a new migration (usage: make migrate-create NAME=creat
 	goose -dir migrations create $(NAME) sql
 
 SEED_ORGANIZATION_NAME ?= Synthetic Academy
-SEED_OWNER_EMAIL ?= owner@example.test
+# The one local identity. .env supplies DEV_ADMIN_EMAIL through the include
+# above; the fallback keeps `make seed` working in a checkout with no .env yet.
+# The subject is derived rather than configured separately, because the invited
+# email and the token's email claim must agree or the claim is refused and the
+# login silently does not exist. Set SEED_OWNER_SUBJECT= (empty) to seed an
+# unclaimed invitation, as a human-claimed flow would.
+DEV_ADMIN_EMAIL ?= owner@example.test
+SEED_OWNER_EMAIL ?= $(DEV_ADMIN_EMAIL)
+SEED_OWNER_SUBJECT ?= local:$(SEED_OWNER_EMAIL)
 SEED_HOMEROOM_LABEL ?= homeroom
 SEED_CLAIM_BASE_URL ?= http://localhost:5173/claim
 
-seed: ## Create a fresh synthetic organization, roster, and Owner invitation
+seed: ## Create a fresh synthetic organization and roster, and bind the Owner login
 	@echo "Creating fresh synthetic seed organization..."
 	go run ./cmd/seed \
 		-organization-name "$(SEED_ORGANIZATION_NAME)" \
 		-owner-email "$(SEED_OWNER_EMAIL)" \
+		-owner-subject "$(SEED_OWNER_SUBJECT)" \
 		-homeroom-label "$(SEED_HOMEROOM_LABEL)" \
 		-claim-base-url "$(SEED_CLAIM_BASE_URL)"
 

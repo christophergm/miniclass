@@ -186,12 +186,18 @@ func TestInvitationClaimAllowsAnUnresolvedVerifiedSubject(t *testing.T) {
 }
 
 func TestEveryRegisteredOperationDeclaresCapabilityMetadata(t *testing.T) {
+	// Exhaustive list of operations that may be reached with no principal.
+	// Every entry is a decision to expose an endpoint to the internet, so this
+	// test fails on a new public operation until someone adds it here.
+	allowedPublicOperations := map[string]bool{"GET /api/health": true}
+
 	document := NewOpenAPI(RouterOptions{})
 	encoded, err := json.Marshal(document)
 	require.NoError(t, err)
 	var raw map[string]any
 	require.NoError(t, json.Unmarshal(encoded, &raw))
 	paths := raw["paths"].(map[string]any)
+	declaredPublic := map[string]bool{}
 	for path, value := range paths {
 		operations := value.(map[string]any)
 		for method, operation := range operations {
@@ -199,10 +205,67 @@ func TestEveryRegisteredOperationDeclaresCapabilityMetadata(t *testing.T) {
 				continue
 			}
 			op := operation.(map[string]any)
-			require.NotEmpty(t, op[auth.RequiredCapabilityExtension], "%s %s has no required capability", method, path)
-			require.NotEmpty(t, op["security"], "%s %s has no bearer security declaration", method, path)
+			capability, _ := op[auth.RequiredCapabilityExtension].(string)
+			require.NotEmpty(t, capability, "%s %s has no required capability", method, path)
+			if capability == string(auth.CapabilityPublic) {
+				declaredPublic[strings.ToUpper(method)+" "+path] = true
+				require.Equal(t, []any{}, op["security"], "%s %s is public but does not state an empty security requirement", method, path)
+				continue
+			}
+			require.Equal(t, []any{map[string]any{"bearerAuth": []any{}}}, op["security"], "%s %s has no bearer security declaration", method, path)
 		}
 	}
+	require.Equal(t, allowedPublicOperations, declaredPublic, "the set of unauthenticated operations changed")
+}
+
+func TestHealthEndpointIsReachableWithoutAPrincipal(t *testing.T) {
+	verifier, resolver, token := testAuth(t)
+
+	t.Run("no authorization header", func(t *testing.T) {
+		router := NewRouter(RouterOptions{Database: routeHealthDatabase{}, Version: "1.2.3", Verifier: verifier, Identity: resolver})
+		recording := httptest.NewRecorder()
+		router.ServeHTTP(recording, httptest.NewRequest(http.MethodGet, "/api/health", nil))
+
+		require.Equal(t, http.StatusOK, recording.Code)
+		var response map[string]string
+		require.NoError(t, json.NewDecoder(recording.Body).Decode(&response))
+		require.Equal(t, "healthy", response["status"])
+		require.Equal(t, "connected", response["database"])
+	})
+
+	t.Run("verified subject with no membership", func(t *testing.T) {
+		router := NewRouter(RouterOptions{Database: routeHealthDatabase{}, Verifier: verifier, Identity: errorResolver{err: auth.ErrNoOrganization}})
+		request := httptest.NewRequest(http.MethodGet, "/api/health", nil)
+		request.Header.Set("Authorization", "Bearer "+token)
+		recording := httptest.NewRecorder()
+		router.ServeHTTP(recording, request)
+
+		require.Equal(t, http.StatusOK, recording.Code)
+	})
+
+	t.Run("unhealthy database without a token still reports the failure", func(t *testing.T) {
+		router := NewRouter(RouterOptions{Database: failingHealthDatabase{}, Verifier: verifier, Identity: resolver})
+		recording := httptest.NewRecorder()
+		router.ServeHTTP(recording, httptest.NewRequest(http.MethodGet, "/api/health", nil))
+
+		require.Equal(t, http.StatusServiceUnavailable, recording.Code)
+		require.Equal(t, "application/problem+json", recording.Header().Get("Content-Type"))
+		var response huma.ErrorModel
+		require.NoError(t, json.NewDecoder(recording.Body).Decode(&response))
+		require.Equal(t, string(problems.DatabaseUnavailable), response.Type)
+	})
+}
+
+func TestPublicHealthDoesNotExemptOtherOperations(t *testing.T) {
+	verifier, resolver, _ := testAuth(t)
+	router := NewRouter(RouterOptions{Verifier: verifier, Identity: resolver})
+	recording := httptest.NewRecorder()
+	router.ServeHTTP(recording, httptest.NewRequest(http.MethodGet, "/api/me", nil))
+
+	require.Equal(t, http.StatusUnauthorized, recording.Code)
+	var response huma.ErrorModel
+	require.NoError(t, json.NewDecoder(recording.Body).Decode(&response))
+	require.Equal(t, string(problems.AuthenticationRequired), response.Type)
 }
 
 func TestAdministratorManagementRejectsAdministratorAndCoordinator(t *testing.T) {

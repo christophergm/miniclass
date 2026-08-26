@@ -107,9 +107,10 @@ func TestHealthIntegration(t *testing.T) {
 	httpServer := httptest.NewServer(server.Handler())
 	t.Cleanup(httpServer.Close)
 
+	// Deliberately no Authorization header: the liveness endpoint must be
+	// reachable by an orchestrator that holds no token.
 	request, err := http.NewRequest(http.MethodGet, httpServer.URL+"/api/health", nil)
 	require.NoError(t, err)
-	request.Header.Set("Authorization", "Bearer integration")
 	response, err := http.DefaultClient.Do(request)
 	require.NoError(t, err)
 	if err != nil {
@@ -139,7 +140,6 @@ func TestHealthFailureUsesProblemDetails(t *testing.T) {
 
 	request, err := http.NewRequest(http.MethodGet, httpServer.URL+"/api/health", nil)
 	require.NoError(t, err)
-	request.Header.Set("Authorization", "Bearer integration")
 	response, err := http.DefaultClient.Do(request)
 	require.NoError(t, err)
 	if err != nil {

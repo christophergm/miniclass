@@ -91,6 +91,17 @@ func Middleware(verifier Verifier, resolver AccountResolver, writeError ErrorWri
 			writeError(ctx, Failure{Status: http.StatusInternalServerError, Code: FailureMissingCapability, Detail: "required capability is not declared"})
 			return
 		}
+		// A public operation has declared that it needs no principal, so there is
+		// nothing to verify or resolve and no reason to require the auth
+		// dependencies to be configured. This branch is reached only after the
+		// declaration check above, so it cannot be entered by omitting the
+		// declaration. Any Authorization header is ignored rather than rejected:
+		// a liveness probe must not start failing because a caller sent a stale
+		// token.
+		if Capability(strings.TrimSpace(capability)) == CapabilityPublic {
+			next(ctx)
+			return
+		}
 
 		if verifier == nil || resolver == nil {
 			writeError(ctx, Failure{Status: http.StatusInternalServerError, Code: FailureAuthUnavailable, Detail: "authentication is not configured"})

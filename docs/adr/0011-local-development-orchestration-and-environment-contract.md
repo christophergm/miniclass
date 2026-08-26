@@ -158,7 +158,9 @@ setup cannot drift into two different notions of "PostgreSQL is ready".
 Local tokens are minted with a **30-day** lifetime. `cmd/devtoken` defaults to five minutes, which is
 right for a test and wrong for a person, who otherwise re-mints a token several times an hour and
 learns to distrust every authentication failure. A local token is signed by a key on the developer's
-own disk, so its lifetime is not a security boundary. Seed and token behaviour is DX-3.
+own disk, so its lifetime is not a security boundary. Seed and token behaviour is DX-3, which
+implements this as `scripts/login.sh`: the lifetime stays a caller's argument rather than becoming
+`cmd/devtoken`'s default, since the five-minute default is the correct one for a test.
 
 ### `make check` is the CI equivalent
 
@@ -229,9 +231,13 @@ copy, keys are files and the two processes run in two terminals, nothing is left
 - Nothing yet enforces the invariant at review time; it is enforced when a script loads the file.
   A CI check belongs with DX-5.
 - Two defects were found by running the smoke test against a correct `.env` for the first time, and
-  are left for their owning issues rather than fixed here. `GET /api/health` is registered with
-  `CapabilityAuthenticated` and no unresolved-principal exemption, so the smoke test cannot reach it
-  without seeded identity data; and `cmd/seed` fails with `permission denied for table organizations`
-  under the `miniclass_migrator` role that `.env.example` prescribes. Both are seed and token
-  behaviour, which is DX-3. Until they are resolved the smoke test stops at the health check, now
-  quoting the API's problem document so the cause is visible.
+  were left for their owning issue rather than fixed here. `GET /api/health` was registered with
+  `CapabilityAuthenticated` and no unresolved-principal exemption, so the smoke test could not reach
+  it without seeded identity data; and `cmd/seed` failed with `permission denied for table
+  organizations`. Both were resolved in DX-3. Health now declares `CapabilityPublic`, a capability
+  that exists so that "no authentication" is something an operation must state rather than something
+  it can achieve by omission. The permission failure turned out not to be a property of the
+  `miniclass_migrator` role at all: it reproduces only on a database whose objects were created by
+  the superuser under the pre-this-ADR `DATABASE_URL`, leaving the migrator with neither ownership
+  nor grants. On a database created by `scripts/setup.sh` the tables are migrator-owned and the seed
+  succeeds, so the remedy is `make reset CONFIRM=1` rather than a code change.
