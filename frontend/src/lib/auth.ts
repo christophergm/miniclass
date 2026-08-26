@@ -126,5 +126,17 @@ if (isLocalDevAuth) {
   })()
 }
 
+// The one place the bearer token is read. Both API clients call this, so a new
+// caller cannot acquire the habit of fetching without one — which is exactly
+// how the roster pages ended up unauthenticated.
+export async function getAccessToken(): Promise<string | null> {
+  if (!supabase) {
+    return null
+  }
+
+  const { data } = await supabase.auth.getSession()
+  return data.session?.access_token ?? null
+}
+
 export type AuthClient = Pick<SupabaseClient, 'auth'>
 export type { AuthChangeEvent, AuthError, Session }
