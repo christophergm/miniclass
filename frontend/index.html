@@ -4,7 +4,23 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#f7f8fc" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; connect-src 'self' http://localhost:8080 http://127.0.0.1:8080 ws: wss: https://*.supabase.co https://*.supabase.in; font-src 'self'; form-action 'self'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'" />
+    <!--
+      connect-src carries no API origin: the client bundle leaves VITE_API_URL
+      empty in local development and requests a relative /api, which the Vite dev
+      server proxies to API_PROXY_TARGET. ws:/wss: are for Vite HMR.
+
+      style-src keeps 'unsafe-inline' for the dev server only: Vite 5 delivers all
+      CSS in dev (including Tailwind's output from @tailwindcss/vite) by creating
+      a style element and assigning textContent, per updateStyle in
+      vite/dist/client/client.mjs, and the HMR error overlay injects its own
+      inline stylesheet. Both are blocked by style-src without 'unsafe-inline'.
+      The production build needs neither (CSS ships as an external stylesheet
+      link, and no component uses inline styles), but this is the shared dev and
+      prod entry template, so removing it would break dev.
+
+      frame-ancestors is deliberately absent: it is ignored in a meta CSP.
+    -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; connect-src 'self' ws: wss: https://*.supabase.co https://*.supabase.in; font-src 'self'; form-action 'self'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'" />
     <title>MiniClass</title>
   </head>
   <body>

@@ -2,6 +2,11 @@
 .env
 .env.local
 
+# Local signing keys and other generated secrets. Listed explicitly rather than
+# left to the *.pem rule below, so that adding a secret in another format cannot
+# quietly become committable.
+.secrets/
+
 # Backend (Go)
 backend/tmp/
 backend/api

@@ -19,7 +19,9 @@ Leave `model` unset so the issue inherits the fleet-standard model.
 ## Standing rules
 
 1. **Cite the spec.** Every pull request names the `SPEC.md` section it implements. Behaviour with no
-   spec citation is either undiscovered scope or invention; both need a human.
+   spec citation is either undiscovered scope or invention; both need a human. A change that is
+   purely developer tooling — build, scripts, local environment, CI — may cite an ADR instead, because
+   `SPEC.md` describes the product and has no tooling section.
 2. **No tenant-scoped table without an isolation test.** SPEC §9.2 states that omitting one is a
    defect, not an oversight.
 3. **Never weaken a test to make CI green.** If a test is wrong, fix the test in its own change with

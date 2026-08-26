@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/netip"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/joho/godotenv"
@@ -82,6 +83,16 @@ func fromEnvironment() (*Config, error) {
 	if supabaseURL != "" && strings.TrimSpace(os.Getenv("AUTH_ISSUER")) == "" {
 		authIssuer = supabaseURL
 	}
+
+	authLocalPublicKey, err := keyMaterial("AUTH_LOCAL_PUBLIC_KEY_FILE", "AUTH_LOCAL_PUBLIC_KEY")
+	if err != nil {
+		return nil, err
+	}
+	authLocalPrivateKey, err := keyMaterial("AUTH_LOCAL_PRIVATE_KEY_FILE", "AUTH_LOCAL_PRIVATE_KEY")
+	if err != nil {
+		return nil, err
+	}
+
 	cfg := &Config{
 		AppEnv:                 getEnv("APP_ENV", defaultAppEnv),
 		AppVersion:             getEnv("APP_VERSION", defaultAppVersion),
@@ -97,8 +108,8 @@ func fromEnvironment() (*Config, error) {
 		AuthProvider:           getEnv("AUTH_PROVIDER", defaultAuthProvider),
 		AuthIssuer:             authIssuer,
 		AuthAudience:           getEnv("AUTH_AUDIENCE", defaultAuthAudience),
-		AuthLocalPublicKey:     strings.TrimSpace(os.Getenv("AUTH_LOCAL_PUBLIC_KEY")),
-		AuthLocalPrivateKey:    strings.TrimSpace(os.Getenv("AUTH_LOCAL_PRIVATE_KEY")),
+		AuthLocalPublicKey:     authLocalPublicKey,
+		AuthLocalPrivateKey:    authLocalPrivateKey,
 		AuthLocalKeyID:         strings.TrimSpace(os.Getenv("AUTH_LOCAL_KEY_ID")),
 	}
 
@@ -107,6 +118,31 @@ func fromEnvironment() (*Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// keyMaterial returns the PEM text for a local auth signing key, preferring the
+// file named by fileKey and falling back to the inline value in inlineKey.
+//
+// Key material lives in a file because a PEM header contains spaces, which no
+// .env value may; ADR 0011 records why. A relative path resolves against the
+// process working directory, and no searching is attempted, so the absolute path
+// is reported on failure: a path that resolved against an unexpected directory
+// then says so rather than looking like a missing key.
+func keyMaterial(fileKey, inlineKey string) (string, error) {
+	path := strings.TrimSpace(os.Getenv(fileKey))
+	if path == "" {
+		return strings.TrimSpace(os.Getenv(inlineKey)), nil
+	}
+
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		absolute = path
+	}
+	pem, err := os.ReadFile(absolute)
+	if err != nil {
+		return "", fmt.Errorf("read %s %q: %w", fileKey, absolute, err)
+	}
+	return strings.TrimSpace(string(pem)), nil
 }
 
 func getEnv(key, fallback string) string {
