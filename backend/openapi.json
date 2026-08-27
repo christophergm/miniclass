@@ -232,6 +232,7 @@
         "additionalProperties": false,
         "properties": {
           "action": {
+            "description": "Action recorded against the affected object.",
             "enum": [
               "create",
               "edit",
@@ -239,6 +240,7 @@
               "hard_delete",
               "import_commit",
               "school_year_create",
+              "school_year_state_transition",
               "program_create",
               "membership_change",
               "session_non_participation",

@@ -10,9 +10,11 @@ import (
 	"time"
 
 	"github.com/chrismott/miniclass/internal/api/problems"
+	"github.com/chrismott/miniclass/internal/audit"
 	"github.com/chrismott/miniclass/internal/auth"
 	"github.com/chrismott/miniclass/internal/data"
 	"github.com/chrismott/miniclass/internal/ids"
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -38,11 +40,26 @@ type AuditLogActor struct {
 	Label string `json:"label" doc:"Actor label captured at the time of the action."`
 }
 
+// AuditAction is the action recorded against an audit entry. Its schema is
+// derived from the audit vocabulary rather than restated as an enum tag, so a
+// new action cannot reach the response without reaching the contract too.
+type AuditAction string
+
+// Schema implements huma.SchemaProvider.
+func (AuditAction) Schema(huma.Registry) *huma.Schema {
+	actions := audit.Actions()
+	values := make([]any, len(actions))
+	for i, action := range actions {
+		values[i] = string(action)
+	}
+	return &huma.Schema{Type: huma.TypeString, Enum: values, Description: "Action recorded against the affected object."}
+}
+
 type AuditLogEntry struct {
 	ID            string          `json:"id" doc:"Opaque audit entry identifier."`
 	OccurredAt    string          `json:"occurred_at" doc:"Time the action occurred."`
 	Actor         AuditLogActor   `json:"actor"`
-	Action        string          `json:"action" enum:"create,edit,soft_delete,hard_delete,import_commit,school_year_create,program_create,membership_change,session_non_participation,session_state_transition,offering_edit_after_publish,tag_definition_change,tag_assignment_change,pairing_change,exclusion_change,vocabulary_change,solve_run,manual_operation,override,publish,republish,link_generate,link_regenerate,link_revoke,permission_change,administrator_add,administrator_remove"`
+	Action        AuditAction     `json:"action"`
 	ObjectType    string          `json:"object_type"`
 	ObjectID      string          `json:"object_id,omitempty"`
 	ChangeSummary json.RawMessage `json:"change_summary"`
@@ -114,7 +131,7 @@ func authPrincipal(ctx context.Context) (auth.AccountPrincipal, bool) {
 }
 
 func auditResponse(row data.AuditLogEntry) AuditLogEntry {
-	response := AuditLogEntry{ID: string(row.ID), OccurredAt: row.OccurredAt.Time.UTC().Format(time.RFC3339Nano), Actor: AuditLogActor{Type: row.ActorType, Label: row.ActorLabel}, Action: row.Action, ObjectType: row.ObjectType, ChangeSummary: row.ChangeSummary}
+	response := AuditLogEntry{ID: string(row.ID), OccurredAt: row.OccurredAt.Time.UTC().Format(time.RFC3339Nano), Actor: AuditLogActor{Type: row.ActorType, Label: row.ActorLabel}, Action: AuditAction(row.Action), ObjectType: row.ObjectType, ChangeSummary: row.ChangeSummary}
 	if row.ActorUserID != nil {
 		response.Actor.ID = string(*row.ActorUserID)
 	}
