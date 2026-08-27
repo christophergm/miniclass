@@ -33,7 +33,7 @@ from audit_log
 where (sqlc.narg('object_type')::text is null or object_type = sqlc.narg('object_type')::text)
   and (
       sqlc.narg('cursor_occurred_at')::timestamptz is null
-      or (occurred_at, id) < (sqlc.narg('cursor_occurred_at')::timestamptz, sqlc.arg('cursor_id')::public.xid20)
+      or (occurred_at, id) < (sqlc.narg('cursor_occurred_at')::timestamptz, sqlc.narg('cursor_id')::public.xid20)
   )
 order by occurred_at desc, id desc
 limit sqlc.arg('page_size')::integer;

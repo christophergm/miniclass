@@ -134,7 +134,7 @@ limit $4::integer
 type ListAuditLogParams struct {
 	ObjectType       pgtype.Text        `json:"object_type"`
 	CursorOccurredAt pgtype.Timestamptz `json:"cursor_occurred_at"`
-	CursorID         ids.XID            `json:"cursor_id"`
+	CursorID         *ids.XID           `json:"cursor_id"`
 	PageSize         int32              `json:"page_size"`
 }
 

@@ -47,9 +47,13 @@ func (d *DB) ListAuditLog(ctx context.Context, organizationID string, filter Aud
 		if filter.CursorOccurredAt != nil {
 			occurredAt = *filter.CursorOccurredAt
 		}
-		var cursorID ids.XID
+		// The cursor id stays nil when there is no cursor. Sending the zero
+		// XID instead fails the public.xid20 domain check during parameter
+		// coercion, before the `is null` guard above can short-circuit it.
+		var cursorID *ids.XID
 		if filter.CursorID != nil {
-			cursorID = *filter.CursorID
+			value := *filter.CursorID
+			cursorID = &value
 		}
 		rows, err := tx.Queries().ListAuditLog(ctx, db.ListAuditLogParams{
 			ObjectType:       objectType,
