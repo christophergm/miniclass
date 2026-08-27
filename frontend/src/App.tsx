@@ -67,8 +67,13 @@ function AppRoutes() {
             <Route path="households/new" element={<HouseholdDetailPage />} />
             <Route path="households/:householdId" element={<HouseholdDetailPage />} />
 
-            {/* Fallback inside a school year goes to the workspace */}
-            <Route path="*" element={<SchoolYearWorkspace />} />
+            {/* An unknown address inside a resolved school year reports itself.
+                It used to fall back to the workspace, which renders the year's
+                lifecycle controls — Activate, Close and the owner-only reopen —
+                so a mistyped in-year URL offered destructive actions it was
+                never asked for. NotFoundPage rather than SchoolYearNotFound:
+                the year resolved, so the year is not the cause. */}
+            <Route path="*" element={<NotFoundPage />} />
           </Route>
 
           {/* Global people routes (no school year in path) */}
