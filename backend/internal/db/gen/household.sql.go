@@ -591,6 +591,22 @@ where organization_id = $1::public.xid20
   and school_year_id = $2::public.xid20
   and ($3::public.xid20 is null or adult_id = $3::public.xid20)
   and ($4::public.xid20 is null or student_id = $4::public.xid20)
+  and exists (
+    select 1
+    from adults
+    where adults.id = guardian_relationships.adult_id
+      and adults.organization_id = guardian_relationships.organization_id
+      and adults.school_year_id = guardian_relationships.school_year_id
+      and adults.deleted_at is null
+  )
+  and exists (
+    select 1
+    from students
+    where students.id = guardian_relationships.student_id
+      and students.organization_id = guardian_relationships.organization_id
+      and students.school_year_id = guardian_relationships.school_year_id
+      and students.deleted_at is null
+  )
 order by adult_id, student_id, id
 `
 
@@ -641,6 +657,14 @@ from household_adults
 where household_adults.organization_id = $1
   and household_adults.school_year_id = $2
   and household_adults.household_id = $3
+  and exists (
+    select 1
+    from households
+    where households.id = household_adults.household_id
+      and households.organization_id = household_adults.organization_id
+      and households.school_year_id = household_adults.school_year_id
+      and households.deleted_at is null
+  )
   and exists (
     select 1
     from adults
@@ -749,6 +773,14 @@ from household_students
 where household_students.organization_id = $1
   and household_students.school_year_id = $2
   and household_students.household_id = $3
+  and exists (
+    select 1
+    from households
+    where households.id = household_students.household_id
+      and households.organization_id = household_students.organization_id
+      and households.school_year_id = household_students.school_year_id
+      and households.deleted_at is null
+  )
   and exists (
     select 1
     from students

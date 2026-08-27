@@ -168,17 +168,47 @@ func TestHouseholdMembershipExcludesSoftDeletedPeopleAndHouseholds(t *testing.T)
 	require.NoError(t, err)
 	require.Empty(t, householdStudents)
 
+	// Soft deletion is reversible (SPEC §21.3), so the hidden row must come back
+	// from restoring the person alone.
+	restoreStudent(t, harness, organizationID, tenant.student.ID)
+	householdStudents, err = service.ListHouseholdStudents(ctx, organizationID, tenant.year.ID, tenant.household.ID)
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{string(tenant.student.ID)}, studentIDsOf(householdStudents))
+	require.NoError(t, service.DeleteStudent(ctx, organizationID, tenant.year.ID, tenant.student.ID, actor))
+
 	// Removing the retained membership row is still possible: the deletion path
 	// looks the row up directly rather than through the filtered listing.
+	var retainedStudentMembership data.HouseholdStudent
+	err = harness.Database.InTenantRead(ctx, organizationID, func(ctx context.Context, tx *data.Tx) error {
+		var err error
+		retainedStudentMembership, err = tx.GetHouseholdStudent(ctx, tenant.year.ID, tenant.household.ID, tenant.student.ID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, tenant.student.ID, retainedStudentMembership.StudentID)
 	require.NoError(t, service.RemoveStudentFromHousehold(ctx, organizationID, tenant.year.ID, tenant.household.ID, tenant.student.ID, actor))
 
 	require.NoError(t, service.Delete(ctx, organizationID, tenant.year.ID, tenant.adult.ID, actor))
+	var retainedAdultMembership data.HouseholdAdult
+	err = harness.Database.InTenantRead(ctx, organizationID, func(ctx context.Context, tx *data.Tx) error {
+		var err error
+		retainedAdultMembership, err = tx.GetHouseholdAdult(ctx, tenant.year.ID, tenant.household.ID, tenant.adult.ID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, tenant.adult.ID, retainedAdultMembership.AdultID)
 	membership, err = service.ListHouseholdMembership(ctx, organizationID, tenant.year.ID)
 	require.NoError(t, err)
 	require.Empty(t, adultIDsOf(membership.Adults))
 	householdAdults, err := service.ListHouseholdAdults(ctx, organizationID, tenant.year.ID, tenant.household.ID)
 	require.NoError(t, err)
 	require.Empty(t, householdAdults)
+
+	restoreAdult(t, harness, organizationID, tenant.adult.ID)
+	householdAdults, err = service.ListHouseholdAdults(ctx, organizationID, tenant.year.ID, tenant.household.ID)
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{string(tenant.adult.ID)}, adultIDsOf(householdAdults))
+	require.NoError(t, service.Delete(ctx, organizationID, tenant.year.ID, tenant.adult.ID, actor))
 
 	// A soft-deleted household is absent from the household listing, so its
 	// membership must be absent from the year's membership too; otherwise the
@@ -197,6 +227,126 @@ func TestHouseholdMembershipExcludesSoftDeletedPeopleAndHouseholds(t *testing.T)
 	households, err := service.ListHouseholds(ctx, organizationID, tenant.year.ID)
 	require.NoError(t, err)
 	require.Empty(t, households)
+
+	// The per-household query itself also excludes a deleted household. The
+	// service normally rejects a deleted household before reaching this query,
+	// so exercise the data listing directly to cover the predicate.
+	var deletedHouseholdStudents []data.HouseholdStudent
+	err = harness.Database.InTenantRead(ctx, organizationID, func(ctx context.Context, tx *data.Tx) error {
+		var err error
+		deletedHouseholdStudents, err = tx.ListHouseholdStudents(ctx, tenant.year.ID, tenant.household.ID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Empty(t, deletedHouseholdStudents)
+}
+
+// SPEC §21.3: relationship rows remain historical records, but a live listing
+// excludes a row if either endpoint has been soft-deleted. Each side gets a
+// separate fixture relationship so both filtered directions are exercised.
+func TestGuardianRelationshipListingExcludesSoftDeletedPeople(t *testing.T) {
+	harness := testharness.Open(t)
+	ctx := harness.Context
+	service := people.New(harness.Database)
+	actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "guardian relationship soft delete test"}
+	tenant := newMembershipFixture(t, harness, service, actor, "GuardianSoftDelete")
+	organizationID := string(tenant.organizationID)
+
+	studentB, err := service.CreateStudent(ctx, organizationID, tenant.year.ID, actor, people.StudentCreateInput{
+		LegalGivenName: "Synthetic", LegalFamilyName: "Guardian Student B", GradeLevelID: tenant.gradeID, HomeroomID: tenant.homeroomID,
+	})
+	require.NoError(t, err)
+	adultB, err := service.Create(ctx, organizationID, tenant.year.ID, actor, people.AdultCreateInput{
+		LegalGivenName: "Synthetic", LegalFamilyName: "Guardian Adult B", ParticipationIntent: data.AdultParticipationHelp,
+	})
+	require.NoError(t, err)
+
+	adultDeletedRelationship, err := service.CreateGuardianRelationship(ctx, organizationID, tenant.year.ID, actor, people.GuardianRelationshipCreateInput{
+		AdultID: adultB.ID, StudentID: tenant.student.ID, RelationshipType: data.GuardianRelationshipParent,
+	})
+	require.NoError(t, err)
+	studentDeletedRelationship, err := service.CreateGuardianRelationship(ctx, organizationID, tenant.year.ID, actor, people.GuardianRelationshipCreateInput{
+		AdultID: tenant.adult.ID, StudentID: studentB.ID, RelationshipType: data.GuardianRelationshipGuardian,
+	})
+	require.NoError(t, err)
+
+	relationshipIDs := func(rows []data.GuardianRelationship) []string {
+		result := make([]string, 0, len(rows))
+		for _, row := range rows {
+			result = append(result, string(row.ID))
+		}
+		return result
+	}
+
+	byStudent, err := service.ListGuardianRelationships(ctx, organizationID, tenant.year.ID, data.GuardianRelationshipFilter{StudentID: tenant.student.ID})
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{string(adultDeletedRelationship.ID)}, relationshipIDs(byStudent))
+	byAdult, err := service.ListGuardianRelationships(ctx, organizationID, tenant.year.ID, data.GuardianRelationshipFilter{AdultID: tenant.adult.ID})
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{string(studentDeletedRelationship.ID)}, relationshipIDs(byAdult))
+
+	require.NoError(t, service.Delete(ctx, organizationID, tenant.year.ID, adultB.ID, actor))
+	byStudent, err = service.ListGuardianRelationships(ctx, organizationID, tenant.year.ID, data.GuardianRelationshipFilter{StudentID: tenant.student.ID})
+	require.NoError(t, err)
+	require.Empty(t, byStudent)
+	retainedAdultDeleted, err := service.GetGuardianRelationship(ctx, organizationID, tenant.year.ID, adultDeletedRelationship.ID)
+	require.NoError(t, err)
+	require.Equal(t, adultDeletedRelationship.ID, retainedAdultDeleted.ID)
+
+	require.NoError(t, service.DeleteStudent(ctx, organizationID, tenant.year.ID, studentB.ID, actor))
+	byAdult, err = service.ListGuardianRelationships(ctx, organizationID, tenant.year.ID, data.GuardianRelationshipFilter{AdultID: tenant.adult.ID})
+	require.NoError(t, err)
+	require.Empty(t, byAdult)
+	retainedStudentDeleted, err := service.GetGuardianRelationship(ctx, organizationID, tenant.year.ID, studentDeletedRelationship.ID)
+	require.NoError(t, err)
+	require.Equal(t, studentDeletedRelationship.ID, retainedStudentDeleted.ID)
+
+	unfiltered, err := service.ListGuardianRelationships(ctx, organizationID, tenant.year.ID, data.GuardianRelationshipFilter{})
+	require.NoError(t, err)
+	require.Empty(t, unfiltered)
+
+	// Restoring both people restores both rows, with no mutation of the link
+	// rows themselves: the exclusion is a read-time predicate (SPEC §21.3).
+	restoreAdult(t, harness, organizationID, adultB.ID)
+	restoreStudent(t, harness, organizationID, studentB.ID)
+	restored, err := service.ListGuardianRelationships(ctx, organizationID, tenant.year.ID, data.GuardianRelationshipFilter{})
+	require.NoError(t, err)
+	require.ElementsMatch(t,
+		[]string{string(adultDeletedRelationship.ID), string(studentDeletedRelationship.ID)},
+		relationshipIDs(restored))
+}
+
+// SPEC §21.3 requires soft deletion to be reversible, but the restore endpoint
+// is tracked separately in #103. Until it lands, clearing deleted_at directly
+// is the closest available stand-in, and it is the stricter check for this
+// issue: nothing but the person's own flag changes, so a row that reappears in
+// a listing proves the exclusion is a read-time predicate and not a mutation.
+func restoreStudent(t *testing.T, harness *testharness.Harness, organizationID string, studentID ids.XID) {
+	t.Helper()
+	restorePerson(t, harness, organizationID, studentID,
+		`update students set deleted_at = null where id = $1 and organization_id = $2`)
+}
+
+func restoreAdult(t *testing.T, harness *testharness.Harness, organizationID string, adultID ids.XID) {
+	t.Helper()
+	restorePerson(t, harness, organizationID, adultID,
+		`update adults set deleted_at = null where id = $1 and organization_id = $2`)
+}
+
+func restorePerson(t *testing.T, harness *testharness.Harness, organizationID string, personID ids.XID, statement string) {
+	t.Helper()
+	ctx := harness.Context
+	tx, err := harness.Migrator.Begin(ctx)
+	require.NoError(t, err)
+	defer func() { _ = tx.Rollback(ctx) }()
+	// Row-level security is forced on the person tables (SPEC §9.2), so this
+	// transaction sets the same tenant setting an application transaction sets.
+	_, err = tx.Exec(ctx, `select set_config('app.organization_id', $1, true)`, organizationID)
+	require.NoError(t, err)
+	tag, err := tx.Exec(ctx, statement, string(personID), organizationID)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), tag.RowsAffected())
+	require.NoError(t, tx.Commit(ctx))
 }
 
 type membershipFixture struct {
