@@ -6,7 +6,8 @@
 - Extended `scripts/smoke-test.sh` to mint a temporary local JWT, follow the generated `/claim?token=...` URL through Vite, assert the frontend route/query contract, complete `POST /api/auth/claim` through the Vite proxy, and verify `/api/me` plus `/api/school-years`. It restores `.env` on exit and handles the normal already-bound Owner quickstart by inviting a synthetic administrator.
 - Focused validation passed: shell syntax, YAML parse, `.env.example` sourcing, Vite route-source runtime assertion, backend race tests (integration skipped without test DB URLs), backend lint/format, OpenAPI determinism, frontend tests (69), build, lint, and `git diff --check`.
 - Local full `make check` stopped at the pre-existing parent-checkout `miniclass-postgres` fixed-name conflict; migration round-trip lacks `MIGRATION_ROUNDTRIP_*`; local generation has sqlc v1.31.1 while the repository pins v1.27.0. CI must verify the isolated Developer tooling job and all ten checks.
-- PR/push and final current-head CI/review inspection remain open.
+- PR #109 is open, non-draft, mergeable, references `Fixes #92`, and has no reviews or inline comments. Current-head CI run `33067515985` passed all ten checks, including Developer tooling; slowest were Generated code drift (1m30s), Backend tests (1m23s), and Backend lint (1m08s). Quiet-window wait was 0s; local merge-gate duration was about 0s after the already-running local checks; PR CI duration was about 1m34s; no post-merge main run is active.
+- This notes-only update must be pushed and its current-head checks rechecked before the final Workpad completion declaration.
 
 
 ## Issue #64 merge fallback
