@@ -6,6 +6,7 @@ package audit
 import (
 	"encoding/json"
 	"errors"
+	"slices"
 	"strings"
 
 	"github.com/chrismott/miniclass/internal/ids"
@@ -54,6 +55,49 @@ const (
 	ActionAdministratorAdd          Action = "administrator_add"
 	ActionAdministratorRemove       Action = "administrator_remove"
 )
+
+// actions is the published vocabulary in declaration order. The OpenAPI enum
+// for an audit entry's action is derived from it, so a new action reaches the
+// API contract by being added here and nowhere else. Hand-copying the list
+// into a struct tag is what let school_year_state_transition be returned by
+// an endpoint that did not admit it existed.
+//
+// A meta-test fails if a constant above is missing from this slice.
+var actions = []Action{
+	ActionCreate,
+	ActionEdit,
+	ActionSoftDelete,
+	ActionHardDelete,
+	ActionImportCommit,
+	ActionSchoolYearCreate,
+	ActionSchoolYearStateTransition,
+	ActionProgramCreate,
+	ActionMembershipChange,
+	ActionSessionNonParticipation,
+	ActionSessionStateTransition,
+	ActionOfferingEdit,
+	ActionTagDefinitionChange,
+	ActionTagAssignmentChange,
+	ActionPairingChange,
+	ActionExclusionChange,
+	ActionVocabularyChange,
+	ActionSolveRun,
+	ActionManualOperation,
+	ActionOverride,
+	ActionPublish,
+	ActionRepublish,
+	ActionLinkGenerate,
+	ActionLinkRegenerate,
+	ActionLinkRevoke,
+	ActionPermissionChange,
+	ActionAdministratorAdd,
+	ActionAdministratorRemove,
+}
+
+// Actions returns the audit vocabulary in declaration order.
+func Actions() []Action {
+	return slices.Clone(actions)
+}
 
 // Actor identifies who performed a unit of work. ActorLabel is copied into
 // each entry so later redaction can preserve the fact that an action occurred.
