@@ -53,14 +53,9 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-vi.mock('./features/school-years/SchoolYearPages', async (importOriginal) => {
-  const actual = await importOriginal() as Record<string, unknown>
-  return {
-    ...actual,
-    SchoolYearPage: () => <div data-testid="school-year">School year</div>,
-  }
-})
-
+// The school-year pages are deliberately not mocked: these tests assert what
+// the routed module actually renders. An earlier mock named a `SchoolYearPage`
+// export that the routed module never had, so it silently did nothing.
 vi.mock('./features/settings/SettingsPage', () => ({
   SettingsPage: () => <div data-testid="settings">Settings</div>,
 }))
