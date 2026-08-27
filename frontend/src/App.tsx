@@ -8,7 +8,8 @@ import { HealthCheck } from '@/features/health/HealthCheck'
 import { ClaimInvitationPage } from '@/features/auth/ClaimInvitationPage'
 import { ResetPasswordPage } from '@/features/auth/ResetPasswordPage'
 import { SignInPage } from '@/features/auth/SignInPage'
-import { SchoolYearGuard, SchoolYearListPage, SchoolYearNotFound, SchoolYearWorkspace } from '@/features/school-years/SchoolYearPages'
+import { NotFoundPage } from '@/features/errors/NotFoundPage'
+import { SchoolYearGuard, SchoolYearListPage, SchoolYearWorkspace } from '@/features/school-years/SchoolYearPages'
 import { SettingsPage } from '@/features/settings/SettingsPage'
 import { AdultDetailPage, AdultListPage, StudentDetailPage, StudentListPage } from '@/features/people/PeoplePages'
 import { HouseholdDetailPage, HouseholdListPage } from '@/features/people/HouseholdPages'
@@ -37,7 +38,9 @@ function AppRoutes() {
       <Route path="/health" element={<HealthCheck />} />
       <Route path="/sign-in" element={<SignInPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
-      <Route path="/claim/:token" element={<ClaimInvitationPage />} />
+      {/* The token is a query parameter, matching identity.addTokenToURL. See
+          the contract note in ClaimInvitationPage. */}
+      <Route path="/claim" element={<ClaimInvitationPage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
           <Route path="/years" element={<SchoolYearListPage />} />
@@ -75,7 +78,7 @@ function AppRoutes() {
           <Route path="/audit-log" element={<AuditLog />} />
         </Route>
       </Route>
-      <Route path="*" element={<SchoolYearNotFound />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   )
 }

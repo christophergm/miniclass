@@ -58,13 +58,18 @@ func run(ctx context.Context, args []string, databaseURL string, output io.Write
 	_, _ = fmt.Fprintf(output, "Organization: %s (%s)\n", result.OrganizationName, result.OrganizationID)
 	_, _ = fmt.Fprintf(output, "School year: %s\n", result.SchoolYearID)
 	_, _ = fmt.Fprintf(output, "Roster: %d students, %d adults, %d households\n", result.Students, result.Adults, result.Households)
-	_, _ = fmt.Fprintf(output, "Owner invitation claim URL: %s\n", result.ClaimURL)
-	_, _ = fmt.Fprintf(output, "Expires: %s\n", result.ExpiresAt.UTC().Format(time.RFC3339))
 	if bound := result.BoundOwner; bound != nil {
 		_, _ = fmt.Fprintf(output, "Bound provider subject: %s\n", bound.ProviderSubject)
 		_, _ = fmt.Fprintf(output, "Bound email: %s\n", bound.Email)
 		_, _ = fmt.Fprintf(output, "Bound organization: %s (%s)\n", bound.OrganizationName, bound.OrganizationID)
 		_, _ = fmt.Fprintf(output, "Bound role: %s\n", bound.Role)
+		// Deliberately no claim URL. The binding above consumed the invitation, so
+		// the URL is a dead link, and now that claim links resolve again someone
+		// would click it and be told the invitation is invalid.
+		_, _ = fmt.Fprintln(output, "Owner invitation: consumed by the binding above; it cannot be claimed again")
+		return nil
 	}
+	_, _ = fmt.Fprintf(output, "Owner invitation claim URL: %s\n", result.ClaimURL)
+	_, _ = fmt.Fprintf(output, "Expires: %s\n", result.ExpiresAt.UTC().Format(time.RFC3339))
 	return nil
 }
