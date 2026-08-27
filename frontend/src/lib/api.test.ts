@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { ApiError, createApiClient, fieldErrorMap, unwrap, unwrapList, unwrapNoContent } from './api'
+import { onSessionEnded } from './auth'
 
 // These tests drive the real request-assembly path: a stub `fetch` receives the
 // Request the client actually built, so the URL, the method, the headers and the
@@ -150,6 +151,23 @@ describe('response handling', () => {
       status: 502,
       message: 'The API request failed with status 502',
     })
+  })
+
+  it('reports an invalid bearer as a terminal session event', async () => {
+    const ended = vi.fn()
+    const unsubscribe = onSessionEnded(ended)
+    try {
+      const { client } = stubClient(() => new Response(JSON.stringify({
+        type: 'invalid-token',
+        title: 'Invalid token',
+        detail: 'the bearer token is invalid',
+      }), { status: 401, headers: { 'Content-Type': 'application/problem+json' } }))
+
+      await expect(unwrap(client.GET('/api/me'))).rejects.toMatchObject({ status: 401, code: 'invalid-token' })
+      expect(ended).toHaveBeenCalledWith({ kind: 'api-invalid-token' })
+    } finally {
+      unsubscribe()
+    }
   })
 })
 

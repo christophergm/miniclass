@@ -1,9 +1,10 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { AuthClient, DevTokenStatus } from '@/lib/auth'
+import { createLocalDevAuthClient, reportSessionEnded, type AuthClient, type DevTokenStatus } from '@/lib/auth'
 import { AuthProvider } from '@/lib/hooks/AuthProvider'
+import { useAuth } from '@/lib/hooks/useAuth'
 
 import { SignInPage } from './SignInPage'
 
@@ -15,6 +16,7 @@ function sessionlessClient(): AuthClient {
       getSession: vi.fn(async () => ({ data: { session: null }, error: null })),
       onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
       signInWithPassword: vi.fn(async () => ({ data: { session: null, user: null }, error: null })),
+      signOut: vi.fn(async () => ({ error: null })),
     },
   } as unknown as AuthClient
 }
@@ -28,6 +30,23 @@ function renderSignIn(props: { localDevAuth: boolean; devToken: DevTokenStatus }
     </MemoryRouter>,
   )
 }
+
+function base64url(value: unknown): string {
+  return btoa(JSON.stringify(value)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+function token(payload: Record<string, unknown>): string {
+  return `${base64url({ alg: 'ES256', kid: 'local', typ: 'JWT' })}.${base64url(payload)}.c2lnbmF0dXJl`
+}
+
+function SessionSurface({ devToken }: { devToken: DevTokenStatus }) {
+  const { session } = useAuth()
+  return session ? <p>Authenticated session</p> : <SignInPage localDevAuth devToken={devToken} />
+}
+
+afterEach(() => {
+  vi.useRealTimers()
+})
 
 describe('sign-in page under local development auth', () => {
   it('replaces the form with a banner naming make login when no token is set', async () => {
@@ -79,5 +98,53 @@ describe('sign-in page under local development auth', () => {
     expect(await screen.findByLabelText('Password')).toBeInTheDocument()
     expect(screen.getByLabelText('Email')).toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('changes the visible surface when a local session crosses its expiry boundary', async () => {
+    vi.useFakeTimers()
+    const now = new Date('2026-08-25T12:00:00Z')
+    vi.setSystemTime(now)
+    const expiresAt = new Date(now.getTime() + 1000)
+    const localToken = token({ exp: expiresAt.getTime() / 1000 })
+    const client = createLocalDevAuthClient(localToken, { kind: 'valid', expiresAt }) as AuthClient
+
+    render(
+      <MemoryRouter initialEntries={['/sign-in']}>
+        <AuthProvider client={client}>
+          <SessionSurface devToken={{ kind: 'valid', expiresAt }} />
+        </AuthProvider>
+      </MemoryRouter>,
+    )
+
+    await act(async () => {})
+    expect(screen.getByText('Authenticated session')).toBeInTheDocument()
+
+    await act(async () => {
+      vi.advanceTimersByTime(1000)
+    })
+
+    const banner = screen.getByRole('alert')
+    expect(banner).toHaveTextContent(/VITE_DEV_TOKEN expired on .*2026/)
+    expect(banner).toHaveTextContent('make login')
+    expect(screen.queryByText('Authenticated session')).not.toBeInTheDocument()
+  })
+
+  it('explains an API-invalid session and signs out the persisted client', async () => {
+    const client = sessionlessClient()
+    render(
+      <MemoryRouter initialEntries={['/sign-in']}>
+        <AuthProvider client={client}>
+          <SignInPage />
+        </AuthProvider>
+      </MemoryRouter>,
+    )
+
+    await act(async () => {})
+    await act(async () => {
+      reportSessionEnded({ kind: 'api-invalid-token' })
+    })
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Your session expired or is no longer valid. Please sign in again.')
+    expect(client.auth.signOut).toHaveBeenCalledTimes(1)
   })
 })

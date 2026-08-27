@@ -1,9 +1,9 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { devTokenStatus, isLocalDevAuth, type DevTokenStatus } from '@/lib/auth'
+import { devTokenStatus, getDevTokenStatus, isLocalDevAuth, type DevTokenStatus } from '@/lib/auth'
 import { useAuth } from '@/lib/hooks/useAuth'
 
 import { AuthErrorMessage, AuthLayout } from './AuthLayout'
@@ -21,8 +21,33 @@ type SignInPageProps = {
   devToken?: DevTokenStatus
 }
 
-export function SignInPage({ localDevAuth = isLocalDevAuth, devToken = devTokenStatus }: SignInPageProps = {}) {
-  const { authConfigured, authError, isLoading, signIn } = useAuth()
+function useRuntimeDevTokenStatus(enabled: boolean): DevTokenStatus {
+  const [status, setStatus] = useState(devTokenStatus)
+
+  useEffect(() => {
+    if (!enabled) return
+
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const refresh = () => {
+      const next = getDevTokenStatus()
+      setStatus(next)
+      if (next.kind === 'valid') {
+        timer = setTimeout(refresh, Math.max(0, next.expiresAt.getTime() - Date.now()))
+      }
+    }
+
+    refresh()
+    return () => {
+      if (timer !== undefined) clearTimeout(timer)
+    }
+  }, [enabled])
+
+  return status
+}
+
+export function SignInPage({ localDevAuth = isLocalDevAuth, devToken }: SignInPageProps = {}) {
+  const { authConfigured, authError, isLoading, sessionEndedReason, signIn } = useAuth()
+  const runtimeDevToken = useRuntimeDevTokenStatus(localDevAuth && devToken === undefined)
   const location = useLocation()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
@@ -47,7 +72,11 @@ export function SignInPage({ localDevAuth = isLocalDevAuth, devToken = devTokenS
 
   // With no auth client at all there is nothing to explain about a dev token:
   // the missing configuration is the accurate message.
-  const devTokenBlocks = localDevAuth && authConfigured && devToken.kind !== 'valid'
+  const configuredDevToken = devToken ?? runtimeDevToken
+  const displayedDevToken = sessionEndedReason?.kind === 'local-dev-token-expired'
+    ? { kind: 'expired' as const, expiresAt: sessionEndedReason.expiresAt }
+    : configuredDevToken
+  const devTokenBlocks = localDevAuth && authConfigured && displayedDevToken.kind !== 'valid'
 
   return (
     <AuthLayout>
@@ -58,6 +87,7 @@ export function SignInPage({ localDevAuth = isLocalDevAuth, devToken = devTokenS
 
       <div className="mt-6 space-y-3">
         {!authConfigured && <AuthErrorMessage message="Authentication is not configured for this site." />}
+        {sessionEndedReason?.kind === 'api-invalid-token' && <AuthErrorMessage message="Your session expired or is no longer valid. Please sign in again." />}
         {authError && <AuthErrorMessage message={authError.message ?? ''} /> }
         {error && <AuthErrorMessage message={error} />}
       </div>
@@ -65,7 +95,7 @@ export function SignInPage({ localDevAuth = isLocalDevAuth, devToken = devTokenS
       {devTokenBlocks ? (
         <>
           <div className="mt-6">
-            <LocalDevAuthBanner status={devToken} />
+            <LocalDevAuthBanner status={displayedDevToken} />
           </div>
 
           {/* /health is the one route that works without a session. */}

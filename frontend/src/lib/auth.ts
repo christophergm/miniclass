@@ -14,6 +14,24 @@ export type DevTokenStatus =
   | { kind: 'expired'; expiresAt: Date }
   | { kind: 'valid'; expiresAt: Date }
 
+export type SessionEndedReason =
+  | { kind: 'local-dev-token-expired'; expiresAt: Date }
+  | { kind: 'api-invalid-token' }
+
+type SessionEndedListener = (reason: SessionEndedReason) => void
+const sessionEndedListeners = new Set<SessionEndedListener>()
+
+export function onSessionEnded(listener: SessionEndedListener): () => void {
+  sessionEndedListeners.add(listener)
+  return () => sessionEndedListeners.delete(listener)
+}
+
+export function reportSessionEnded(reason: SessionEndedReason): void {
+  for (const listener of sessionEndedListeners) {
+    listener(reason)
+  }
+}
+
 // Reads a JWT payload without verifying the signature, which a browser cannot
 // do and the API does on every request anyway.
 function decodeTokenPayload(token: string): Record<string, unknown> | null {
@@ -45,11 +63,14 @@ export function inspectDevToken(token: string | undefined, now: Date): DevTokenS
     : { kind: 'valid', expiresAt }
 }
 
-// Evaluated once, like every other VITE_* read: the token is inlined when the
-// dev server starts. A token that expires mid-session therefore still produces
-// unexplained 401s until a reload; the banner addresses the common case of
-// starting the dev server without a usable token.
+// This value preserves the startup diagnostic for callers such as the sign-in
+// page. Runtime consumers should use getDevTokenStatus so expiry is
+// re-evaluated after the Vite process has started.
 export const devTokenStatus = inspectDevToken(devToken, new Date())
+
+export function getDevTokenStatus(now = new Date()): DevTokenStatus {
+  return inspectDevToken(devToken, now)
+}
 
 // Export a runtime-initialized client. For local development we support a
 // lightweight fake-auth client when the special dev anon key is used. This
@@ -58,11 +79,10 @@ export let supabase: SupabaseClient | null = null
 
 // Minimal fake client implementing the small supabase auth surface the app
 // uses. It stores a single session derived from a provided JWT (VITE_DEV_TOKEN).
-function makeFakeClient(token: string | undefined, status: DevTokenStatus) {
+export function createLocalDevAuthClient(token: string | undefined, status: DevTokenStatus) {
   // Only a usable token becomes a session. There is no refresh path here, so a
-  // fabricated session for an expired or unreadable token would present as an
-  // authenticated app whose every request fails with 401 invalid-token.
-  const session: Session | null = token && status.kind === 'valid'
+  // local expiry is a terminal session event rather than a silent API failure.
+  let session: Session | null = token && status.kind === 'valid'
     ? {
         access_token: token,
         token_type: 'bearer',
@@ -82,23 +102,67 @@ function makeFakeClient(token: string | undefined, status: DevTokenStatus) {
     }
   }
 
+  const listeners = new Set<(event: AuthChangeEvent, nextSession: Session | null) => void>()
+  let expirationTimer: ReturnType<typeof setTimeout> | undefined
+
+  function notify(event: AuthChangeEvent, nextSession: Session | null) {
+    for (const listener of listeners) {
+      listener(event, nextSession)
+    }
+  }
+
+  function expireIfNeeded() {
+    if (!session || !session.expires_at || Date.now() < session.expires_at * 1000) {
+      return
+    }
+    const expiresAt = new Date(session.expires_at * 1000)
+    session = null
+    if (expirationTimer !== undefined) {
+      clearTimeout(expirationTimer)
+      expirationTimer = undefined
+    }
+    reportSessionEnded({ kind: 'local-dev-token-expired', expiresAt })
+    notify('SIGNED_OUT', null)
+  }
+
+  function scheduleExpiration() {
+    if (!session?.expires_at) return
+    const delay = Math.max(0, session.expires_at * 1000 - Date.now())
+    expirationTimer = setTimeout(() => {
+      expireIfNeeded()
+      if (session) scheduleExpiration()
+    }, delay)
+  }
+
+  scheduleExpiration()
+
   return {
     auth: {
       async getSession() {
+        expireIfNeeded()
         return { data: { session }, error: null }
       },
-      onAuthStateChange() {
-        // Return a noop unsubscribe compatible shape
-        return { data: { subscription: { unsubscribe: () => {} } } }
+      onAuthStateChange(callback: (event: AuthChangeEvent, nextSession: Session | null) => void) {
+        listeners.add(callback)
+        return { data: { subscription: { unsubscribe: () => listeners.delete(callback) } } }
       },
       async signInWithPassword() {
         // In dev mode accept any credentials and return the session derived from VITE_DEV_TOKEN.
+        expireIfNeeded()
+        if (session) notify('SIGNED_IN', session)
         return { data: { session, user: session?.user }, error: null }
       },
       async signUp() {
+        expireIfNeeded()
         return { data: { session, user: session?.user }, error: null }
       },
       async signOut() {
+        session = null
+        if (expirationTimer !== undefined) {
+          clearTimeout(expirationTimer)
+          expirationTimer = undefined
+        }
+        notify('SIGNED_OUT', null)
         return { error: null }
       },
       async resetPasswordForEmail() {
@@ -112,7 +176,7 @@ if (isLocalDevAuth) {
   // Use a fake client in dev when the dev anon key is present. This avoids
   // attempting to reach a Supabase project while letting the UI behave like
   // an authenticated app when a VITE_DEV_TOKEN is provided.
-  supabase = makeFakeClient(devToken, devTokenStatus) as unknown as SupabaseClient
+  supabase = createLocalDevAuthClient(devToken, devTokenStatus) as unknown as SupabaseClient
 } else if (supabaseUrl && supabaseAnonKey) {
   void (async () => {
     const mod = await import('@supabase/supabase-js')

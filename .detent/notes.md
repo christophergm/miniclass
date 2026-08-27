@@ -12,6 +12,31 @@
 - Open items: commit/push, open PR with `Fixes #94` and ADR 0011 citation, inspect CI/reviews, and
   update the Workpad after the required checks pass. Skill draft: no — routine auth-surface reuse.
 
+## Issue #95 mid-session token expiry
+
+- The frontend now re-checks local fake-auth JWT expiry on a timer and on token reads. At `exp`, it
+  emits a session-ended event, signs out the fake client, and redirects the auth shell to the existing
+  local banner naming `make login` and the required Vite restart.
+- The API boundary emits the same event only for HTTP 401 responses with RFC 9457 type
+  `invalid-token`; the auth provider clears the session, calls Supabase `signOut`, and the sign-in page
+  explains that the session expired or is no longer valid. ADR 0009 records this decision.
+- Added API event, provider/surface, and fake-clock boundary coverage. Focused frontend auth/API tests
+  pass (21), and the full frontend test gate passes (83); frontend build and lint also pass.
+- The preserved commit was rebased onto current `origin/main` at `14ea2e0`; the only conflict was this
+  handoff-notes file, with both the #94 and #95 entries retained. Backend race tests, backend lint,
+  backend format/vet, and `git diff --check` pass.
+- Local `make test-backend` is blocked by the pre-existing fixed-name `miniclass-postgres` Docker
+  container conflict; direct `go test -race -v ./... -count=1` passes with DB integration cases skipped.
+  `make generate` is blocked by local sqlc v1.31.1 versus pinned v1.27.0; migration round-trip lacks
+  `MIGRATION_ROUNDTRIP_DATABASE_URL`; `make smoke` lacks the checkout `.env`. CI must verify the
+  required current-head checks after push.
+- PR #114 is open, non-draft, mergeable, references `Fixes #95`, and cites SPEC §9.3 plus ADR 0009.
+  Current head `4280936b` passed all ten required checks in run `33126534875`; no reviews or inline
+  comments remain. CI duration was about 87s; slowest checks were Backend tests (83s), Backend lint
+  (80s), and Generated code drift (76s). Quiet-window wait was 0s; local final merge gate was under
+  1s; latest main CI is successful and no post-merge run is active.
+- Skill draft: no — this is a scoped auth lifecycle fix using existing frontend and ADR patterns.
+
 ## Issue #92 developer tooling CI check
 
 - Added the tenth `Developer tooling` CI check, with `.env.example` sourcing validation, Compose/PostgreSQL role provisioning, `make setup`, unclaimed `make db-seed`, and `make smoke`; no path filters are used. Added it to `detent.yaml` and root `make check`, and updated `WORKFLOW.md`, README, and QUICKSTART documentation.

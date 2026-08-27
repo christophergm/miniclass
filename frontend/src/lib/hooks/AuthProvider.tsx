@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { AuthError, Session } from '@supabase/supabase-js'
 
-import { supabase } from '@/lib/auth'
+import { onSessionEnded, supabase } from '@/lib/auth'
 
 import { AuthContext, type AuthContextValue, type AuthProviderProps } from './auth-context'
 
@@ -9,6 +9,7 @@ export function AuthProvider({ children, client = supabase }: AuthProviderProps)
   const [session, setSession] = useState<Session | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [authError, setAuthError] = useState<AuthError | null>(null)
+  const [sessionEndedReason, setSessionEndedReason] = useState<AuthContextValue['sessionEndedReason']>(null)
 
   useEffect(() => {
     let mounted = true
@@ -20,12 +21,23 @@ export function AuthProvider({ children, client = supabase }: AuthProviderProps)
       }
     }
 
-    const { data } = client.auth.onAuthStateChange((_event, nextSession) => {
+    const { data } = client.auth.onAuthStateChange((event, nextSession) => {
       if (mounted) {
         setSession(nextSession)
+        if (nextSession && event !== 'SIGNED_OUT') {
+          setSessionEndedReason(null)
+        }
         setAuthError(null)
         setIsLoading(false)
       }
+    })
+
+    const unsubscribeSessionEnded = onSessionEnded((reason) => {
+      if (!mounted) return
+      setSession(null)
+      setSessionEndedReason(reason)
+      setIsLoading(false)
+      void client.auth.signOut()
     })
 
     void client.auth.getSession().then(({ data: sessionData, error }) => {
@@ -40,6 +52,7 @@ export function AuthProvider({ children, client = supabase }: AuthProviderProps)
     return () => {
       mounted = false
       data.subscription.unsubscribe()
+      unsubscribeSessionEnded()
     }
   }, [client])
 
@@ -49,6 +62,7 @@ export function AuthProvider({ children, client = supabase }: AuthProviderProps)
       authError,
       isLoading,
       session,
+      sessionEndedReason,
       signIn: async (email, password) => {
         if (!client) {
           throw new Error('Authentication is not configured.')
@@ -90,7 +104,7 @@ export function AuthProvider({ children, client = supabase }: AuthProviderProps)
         }
       },
     }),
-    [authError, client, isLoading, session],
+    [authError, client, isLoading, session, sessionEndedReason],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
