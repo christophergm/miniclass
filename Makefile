@@ -64,7 +64,7 @@ setup: ## Prepare a checkout: .env, signing keys, bun install, PostgreSQL, migra
 	@./scripts/setup.sh
 
 tools-install: ## Install the pinned Go tools (air, sqlc, goose, golangci-lint)
-	@$(MAKE) -C backend install-tools
+	@$(MAKE) -C backend tools-install
 
 generate: ## Regenerate the committed backend artifacts (sqlc, openapi.json)
 	@$(MAKE) -C backend generate
