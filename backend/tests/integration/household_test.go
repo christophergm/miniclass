@@ -84,7 +84,7 @@ func TestHouseholdsAllowMultipleMembershipsAndSeparateGuardianRelationships(t *t
 	require.NoError(t, err)
 	require.Len(t, studentsB, 1)
 	require.NoError(t, service.DeleteGuardianRelationship(ctx, string(organizationID), year.ID, relationship.ID, actor))
-	relationships, err := service.ListGuardianRelationships(ctx, string(organizationID), year.ID)
+	relationships, err := service.ListGuardianRelationships(ctx, string(organizationID), year.ID, data.GuardianRelationshipFilter{})
 	require.NoError(t, err)
 	require.Empty(t, relationships)
 
@@ -96,4 +96,72 @@ func TestHouseholdsAllowMultipleMembershipsAndSeparateGuardianRelationships(t *t
 	})
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, auditCount, int64(13))
+}
+
+// A person detail page asks for one person's relationships. SPEC §8.2 makes the
+// relationship a link between a named adult and a named student, so an unfiltered
+// listing shows the whole school year's links on every person's page.
+func TestGuardianRelationshipListFiltersToOnePerson(t *testing.T) {
+	harness := testharness.Open(t)
+	ctx := harness.Context
+	organizationID := harness.MintOrganization(t)
+	actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "guardian relationship filter test"}
+	year, err := schoolyear.New(harness.Database).Create(ctx, string(organizationID), actor, "2026–2027")
+	require.NoError(t, err)
+	grade, err := vocabulary.New(harness.Database).CreateGrade(ctx, string(organizationID), actor, "filter-grade", "Filter Grade")
+	require.NoError(t, err)
+	homeroom, err := vocabulary.New(harness.Database).CreateHomeroom(ctx, string(organizationID), actor, "Filter Room")
+	require.NoError(t, err)
+
+	service := people.New(harness.Database)
+	newStudent := func(name string) data.Student {
+		student, err := service.CreateStudent(ctx, string(organizationID), year.ID, actor, people.StudentCreateInput{
+			LegalGivenName: "Synthetic", LegalFamilyName: name, GradeLevelID: grade.ID, HomeroomID: homeroom.ID,
+		})
+		require.NoError(t, err)
+		return student
+	}
+	newAdult := func(name string) data.Adult {
+		adult, err := service.Create(ctx, string(organizationID), year.ID, actor, people.AdultCreateInput{
+			LegalGivenName: "Synthetic", LegalFamilyName: name, ParticipationIntent: data.AdultParticipationHelp,
+		})
+		require.NoError(t, err)
+		return adult
+	}
+
+	adultA, adultB := newAdult("Filter Adult A"), newAdult("Filter Adult B")
+	studentA, studentB := newStudent("Filter Student A"), newStudent("Filter Student B")
+	link := func(adult data.Adult, student data.Student) data.GuardianRelationship {
+		relationship, err := service.CreateGuardianRelationship(ctx, string(organizationID), year.ID, actor, people.GuardianRelationshipCreateInput{
+			AdultID: adult.ID, StudentID: student.ID, RelationshipType: data.GuardianRelationshipParent,
+		})
+		require.NoError(t, err)
+		return relationship
+	}
+	aToA, aToB, bToB := link(adultA, studentA), link(adultA, studentB), link(adultB, studentB)
+
+	relationshipIDs := func(relationships []data.GuardianRelationship) []string {
+		result := make([]string, 0, len(relationships))
+		for _, relationship := range relationships {
+			result = append(result, string(relationship.ID))
+		}
+		return result
+	}
+
+	byAdult, err := service.ListGuardianRelationships(ctx, string(organizationID), year.ID, data.GuardianRelationshipFilter{AdultID: adultA.ID})
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{string(aToA.ID), string(aToB.ID)}, relationshipIDs(byAdult))
+
+	byStudent, err := service.ListGuardianRelationships(ctx, string(organizationID), year.ID, data.GuardianRelationshipFilter{StudentID: studentB.ID})
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{string(aToB.ID), string(bToB.ID)}, relationshipIDs(byStudent))
+
+	byPair, err := service.ListGuardianRelationships(ctx, string(organizationID), year.ID, data.GuardianRelationshipFilter{AdultID: adultB.ID, StudentID: studentB.ID})
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{string(bToB.ID)}, relationshipIDs(byPair))
+
+	// The zero filter still lists the year, scoped to this test's organisation.
+	unfiltered, err := service.ListGuardianRelationships(ctx, string(organizationID), year.ID, data.GuardianRelationshipFilter{})
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{string(aToA.ID), string(aToB.ID), string(bToB.ID)}, relationshipIDs(unfiltered))
 }

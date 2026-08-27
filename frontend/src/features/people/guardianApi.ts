@@ -2,6 +2,7 @@ import { asList, request } from './api'
 import type { GuardianRelationship, GuardianRelationshipType } from './types'
 
 const basePath = (schoolYearId: string) => `/api/school-years/${encodeURIComponent(schoolYearId)}/guardian-relationships`
+const relationshipPath = (schoolYearId: string, relationshipId: string) => `${basePath(schoolYearId)}/${encodeURIComponent(relationshipId)}`
 
 export const guardianApi = {
   async listForStudent(schoolYearId: string, studentId: string) {
@@ -12,14 +13,21 @@ export const guardianApi = {
     return asList<GuardianRelationship>(await request<unknown>(`${basePath(schoolYearId)}?adult_id=${encodeURIComponent(adultId)}`))
   },
 
-  save(schoolYearId: string, adultId: string, studentId: string, relationshipType: GuardianRelationshipType) {
+  create(schoolYearId: string, adultId: string, studentId: string, relationshipType: GuardianRelationshipType) {
     return request<GuardianRelationship>(basePath(schoolYearId), {
-      method: 'PUT',
+      method: 'POST',
       body: JSON.stringify({ adult_id: adultId, student_id: studentId, relationship_type: relationshipType }),
     })
   },
 
-  async remove(schoolYearId: string, adultId: string, studentId: string) {
-    await request<void>(`${basePath(schoolYearId)}/${encodeURIComponent(adultId)}/${encodeURIComponent(studentId)}`, { method: 'DELETE' })
+  update(schoolYearId: string, relationshipId: string, relationshipType: GuardianRelationshipType) {
+    return request<GuardianRelationship>(relationshipPath(schoolYearId, relationshipId), {
+      method: 'PATCH',
+      body: JSON.stringify({ relationship_type: relationshipType }),
+    })
+  },
+
+  async remove(schoolYearId: string, relationshipId: string) {
+    await request<void>(relationshipPath(schoolYearId, relationshipId), { method: 'DELETE' })
   },
 }

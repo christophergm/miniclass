@@ -309,7 +309,7 @@ func (s *Service) RemoveAdultFromHousehold(ctx context.Context, organizationID s
 	return nil
 }
 
-func (s *Service) ListGuardianRelationships(ctx context.Context, organizationID string, schoolYearID ids.XID) ([]data.GuardianRelationship, error) {
+func (s *Service) ListGuardianRelationships(ctx context.Context, organizationID string, schoolYearID ids.XID, filter data.GuardianRelationshipFilter) ([]data.GuardianRelationship, error) {
 	if s == nil || s.database == nil {
 		return nil, errors.New("list guardian relationships: data service is nil")
 	}
@@ -319,7 +319,7 @@ func (s *Service) ListGuardianRelationships(ctx context.Context, organizationID 
 			return err
 		}
 		var err error
-		result, err = tx.ListGuardianRelationships(ctx, schoolYearID)
+		result, err = tx.ListGuardianRelationships(ctx, schoolYearID, filter)
 		return err
 	})
 	if err != nil {

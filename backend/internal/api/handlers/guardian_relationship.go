@@ -36,6 +36,8 @@ type GuardianRelationshipPathInput struct {
 }
 type ListGuardianRelationshipsInput struct {
 	GuardianRelationshipYearPathInput
+	AdultID   string `query:"adult_id" doc:"Only return relationships for this adult."`
+	StudentID string `query:"student_id" doc:"Only return relationships for this student."`
 }
 type CreateGuardianRelationshipInput struct {
 	GuardianRelationshipYearPathInput
@@ -56,7 +58,7 @@ type DeleteGuardianRelationshipInput struct{ GuardianRelationshipPathInput }
 type GuardianRelationshipDeleteOutput struct{}
 
 type GuardianRelationshipService interface {
-	ListGuardianRelationships(context.Context, string, ids.XID) ([]data.GuardianRelationship, error)
+	ListGuardianRelationships(context.Context, string, ids.XID, data.GuardianRelationshipFilter) ([]data.GuardianRelationship, error)
 	CreateGuardianRelationship(context.Context, string, ids.XID, audit.Actor, people.GuardianRelationshipCreateInput) (data.GuardianRelationship, error)
 	GetGuardianRelationship(context.Context, string, ids.XID, ids.XID) (data.GuardianRelationship, error)
 	UpdateGuardianRelationship(context.Context, string, ids.XID, ids.XID, audit.Actor, people.GuardianRelationshipUpdateInput) (data.GuardianRelationship, error)
@@ -77,7 +79,11 @@ func (h *GuardianRelationshipHandler) List(ctx context.Context, input *ListGuard
 	if h == nil || h.service == nil || input == nil {
 		return nil, householdNotFound()
 	}
-	rows, err := h.service.ListGuardianRelationships(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID))
+	filter := data.GuardianRelationshipFilter{
+		AdultID:   ids.XID(strings.TrimSpace(input.AdultID)),
+		StudentID: ids.XID(strings.TrimSpace(input.StudentID)),
+	}
+	rows, err := h.service.ListGuardianRelationships(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), filter)
 	if err != nil {
 		return nil, householdProblem(err)
 	}
