@@ -1,83 +1,46 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 
-import { displayNamesById, guardianApi, listPeople, type GuardianRelationship, type GuardianRelationshipType, type PersonKind, type PersonSummary } from './roster'
+import { displayNamesById, guardianApi, type GuardianRelationship, type GuardianRelationshipType, type PersonKind } from './roster'
+import { useGuardianRelationships, usePeople, useRosterMutation } from './roster-queries'
 
 const relationshipOptions: GuardianRelationshipType[] = ['parent', 'guardian', 'grandparent', 'other']
 
 export function GuardianRelationships({ kind, schoolYearId, personId }: { kind: PersonKind; schoolYearId: string; personId: string }) {
-  const [relationships, setRelationships] = useState<GuardianRelationship[]>([])
-  const [candidates, setCandidates] = useState<PersonSummary[]>([])
+  const relationshipsQuery = useGuardianRelationships(kind, schoolYearId, personId)
+  const candidatesQuery = usePeople(kind === 'student' ? 'adult' : 'student', schoolYearId)
+  const update = useRosterMutation(schoolYearId, (value: { relationshipId: string; type: GuardianRelationshipType }) => guardianApi.update(schoolYearId, value.relationshipId, value.type))
+  const remove = useRosterMutation(schoolYearId, (relationshipId: string) => guardianApi.remove(schoolYearId, relationshipId))
+  const create = useRosterMutation(schoolYearId, (value: { adult_id: string; student_id: string; relationship_type: GuardianRelationshipType }) => guardianApi.create(schoolYearId, value))
   const [selectedPersonId, setSelectedPersonId] = useState('')
   const [relationshipType, setRelationshipType] = useState<GuardianRelationshipType>('parent')
-  const [isLoading, setIsLoading] = useState(true)
-  const [isSaving, setIsSaving] = useState(false)
-  const [error, setError] = useState<unknown>(null)
 
-  // The listing is filtered by this person server-side. Asking for the whole
-  // school year and rendering it here showed every family's relationships on
-  // every person's page.
-  const load = useCallback(async () => {
-    setIsLoading(true)
-    try {
-      const result = kind === 'student' ? await guardianApi.listForStudent(schoolYearId, personId) : await guardianApi.listForAdult(schoolYearId, personId)
-      setRelationships(result)
-      const people = await listPeople(kind === 'student' ? 'adult' : 'student', schoolYearId)
-      setCandidates(people)
-    } catch (reason: unknown) {
-      setError(reason)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [kind, personId, schoolYearId])
-
-  useEffect(() => { void load() }, [load])
+  const relationships = relationshipsQuery.data ?? []
+  const candidates = candidatesQuery.data ?? []
+  const isLoading = relationshipsQuery.isLoading || candidatesQuery.isLoading
+  const isSaving = update.isPending || remove.isPending || create.isPending
+  const error = relationshipsQuery.error ?? candidatesQuery.error ?? update.error ?? remove.error ?? create.error
 
   const otherPersonId = (relationship: GuardianRelationship) => kind === 'student' ? relationship.adult_id : relationship.student_id
   const displayNames = displayNamesById(candidates)
 
-  async function updateRelationship(relationshipId: string, type: GuardianRelationshipType) {
-    setIsSaving(true)
-    setError(null)
-    try {
-      await guardianApi.update(schoolYearId, relationshipId, type)
-      await load()
-    } catch (reason: unknown) {
-      setError(reason)
-    } finally {
-      setIsSaving(false)
-    }
+  function updateRelationship(relationshipId: string, type: GuardianRelationshipType) {
+    update.mutate({ relationshipId, type })
   }
 
-  async function removeRelationship(relationshipId: string) {
-    setError(null)
-    try {
-      await guardianApi.remove(schoolYearId, relationshipId)
-      await load()
-    } catch (reason: unknown) {
-      setError(reason)
-    }
+  function removeRelationship(relationshipId: string) {
+    remove.mutate(relationshipId)
   }
 
-  async function addRelationship() {
+  function addRelationship() {
     if (!selectedPersonId) return
-    setIsSaving(true)
-    setError(null)
-    try {
-      await guardianApi.create(schoolYearId, {
-        adult_id: kind === 'student' ? selectedPersonId : personId,
-        student_id: kind === 'student' ? personId : selectedPersonId,
-        relationship_type: relationshipType,
-      })
-      setSelectedPersonId('')
-      await load()
-    } catch (reason: unknown) {
-      setError(reason)
-    } finally {
-      setIsSaving(false)
-    }
+    create.mutate({
+      adult_id: kind === 'student' ? selectedPersonId : personId,
+      student_id: kind === 'student' ? personId : selectedPersonId,
+      relationship_type: relationshipType,
+    }, { onSuccess: () => setSelectedPersonId('') })
   }
 
   return (
@@ -91,18 +54,18 @@ export function GuardianRelationships({ kind, schoolYearId, personId }: { kind: 
         <div className="mt-6 flex flex-wrap items-end gap-3 border-t pt-6">
           <label className="min-w-64 flex-1 text-sm font-medium">{kind === 'student' ? 'Adult' : 'Student'}<select className="mt-2 flex h-9 w-full rounded-md border bg-transparent px-3 text-sm" value={selectedPersonId} onChange={(event) => setSelectedPersonId(event.target.value)}><option value="">Choose a {kind === 'student' ? 'adult' : 'student'}</option>{candidates.filter((candidate) => !relationships.some((relationship) => otherPersonId(relationship) === candidate.id)).map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.display_name}</option>)}</select></label>
           <label className="text-sm font-medium">Relationship type<select aria-label="New relationship type" className="mt-2 flex h-9 rounded-md border bg-transparent px-3 text-sm" value={relationshipType} onChange={(event) => setRelationshipType(event.target.value as GuardianRelationshipType)}>{relationshipOptions.map((option) => <option key={option} value={option}>{labelForRelationship(option)}</option>)}</select></label>
-          <Button type="button" onClick={() => void addRelationship()} disabled={!selectedPersonId || isSaving}>{isSaving ? 'Saving…' : 'Add relationship'}</Button>
+          <Button type="button" onClick={addRelationship} disabled={!selectedPersonId || isSaving}>{isSaving ? 'Saving…' : 'Add relationship'}</Button>
         </div>
       </>}
     </section>
   )
 }
 
-function RelationshipRow({ kind, schoolYearId, relationship, label, disabled, onSave, onRemove }: { kind: PersonKind; schoolYearId: string; relationship: GuardianRelationship; label: string; disabled: boolean; onSave: (relationshipId: string, type: GuardianRelationshipType) => Promise<void>; onRemove: (relationshipId: string) => Promise<void> }) {
+function RelationshipRow({ kind, schoolYearId, relationship, label, disabled, onSave, onRemove }: { kind: PersonKind; schoolYearId: string; relationship: GuardianRelationship; label: string; disabled: boolean; onSave: (relationshipId: string, type: GuardianRelationshipType) => void; onRemove: (relationshipId: string) => void }) {
   const personPath = kind === 'student' ? 'adults' : 'students'
   const otherPersonId = kind === 'student' ? relationship.adult_id : relationship.student_id
   const [type, setType] = useState(relationship.relationship_type)
-  return <li className="flex flex-wrap items-center justify-between gap-3 rounded-md border px-3 py-3 text-sm"><Link className="text-primary hover:underline" to={`/y/${schoolYearId}/${personPath}/${otherPersonId}`}>{label}</Link><div className="flex items-center gap-2"><label className="sr-only" htmlFor={`relationship-${relationship.id}`}>Relationship for {label}</label><select id={`relationship-${relationship.id}`} value={type} onChange={(event) => setType(event.target.value as GuardianRelationshipType)} className="h-9 rounded-md border bg-transparent px-3 text-sm">{relationshipOptions.map((option) => <option key={option} value={option}>{labelForRelationship(option)}</option>)}</select><Button type="button" size="sm" disabled={disabled || type === relationship.relationship_type} onClick={() => void onSave(relationship.id, type)}>Save</Button><Button type="button" size="sm" variant="outline" disabled={disabled} onClick={() => void onRemove(relationship.id)}>Remove</Button></div></li>
+  return <li className="flex flex-wrap items-center justify-between gap-3 rounded-md border px-3 py-3 text-sm"><Link className="text-primary hover:underline" to={`/y/${schoolYearId}/${personPath}/${otherPersonId}`}>{label}</Link><div className="flex items-center gap-2"><label className="sr-only" htmlFor={`relationship-${relationship.id}`}>Relationship for {label}</label><select id={`relationship-${relationship.id}`} value={type} onChange={(event) => setType(event.target.value as GuardianRelationshipType)} className="h-9 rounded-md border bg-transparent px-3 text-sm">{relationshipOptions.map((option) => <option key={option} value={option}>{labelForRelationship(option)}</option>)}</select><Button type="button" size="sm" disabled={disabled || type === relationship.relationship_type} onClick={() => onSave(relationship.id, type)}>Save</Button><Button type="button" size="sm" variant="outline" disabled={disabled} onClick={() => onRemove(relationship.id)}>Remove</Button></div></li>
 }
 
 function labelForRelationship(value: GuardianRelationshipType) {

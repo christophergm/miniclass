@@ -1,17 +1,18 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { fieldErrorMap } from '@/lib/api'
-import { activeGradeLevels, activeHomerooms, resourceApi, type GradeLevel, type Homeroom, type VocabularyResponse } from '@/lib/apiResources'
+import { activeGradeLevels, activeHomerooms, type GradeLevel, type Homeroom } from '@/lib/apiResources'
+import { useVocabulary } from '@/lib/hooks/useVocabulary'
 
 import { GuardianRelationships } from './GuardianRelationships'
+import { useHouseholdMembership, usePeople, usePerson, useRosterMutation } from './roster-queries'
 import {
   adultApi,
   householdsByPerson,
-  listHouseholdMembership,
   studentApi,
   type Adult,
   type AdultInput,
@@ -45,59 +46,30 @@ export function AdultListPage() {
 export function PeopleListPage({ kind }: PageProps) {
   const { schoolYearId } = useParams<{ schoolYearId: string }>()
   const copy = pageCopy[kind]
-  const [people, setPeople] = useState<PersonSummary[]>([])
-  const [households, setHouseholds] = useState<Map<string, Household[]>>(new Map())
-  const [vocabulary, setVocabulary] = useState<VocabularyResponse | null>(null)
+  const peopleQuery = usePeople(kind, schoolYearId)
+  const membershipQuery = useHouseholdMembership(schoolYearId)
+  // Only the student roster renders grade and homeroom labels.
+  const vocabularyQuery = useVocabulary({ enabled: kind === 'student' })
   const [query, setQuery] = useState('')
   const [gradeLevelId, setGradeLevelId] = useState('')
   const [homeroomId, setHomeroomId] = useState('')
-  const [isLoading, setIsLoading] = useState(Boolean(schoolYearId))
-  const [error, setError] = useState<unknown>(null)
 
-  useEffect(() => {
-    if (!schoolYearId) {
-      setIsLoading(false)
-      return
-    }
-    let active = true
-    setIsLoading(true)
-    setError(null)
-    void (kind === 'student' ? studentApi.list(schoolYearId) : adultApi.list(schoolYearId))
-      .then((result) => {
-        if (active) setPeople(result)
-      })
-      .catch((reason: unknown) => {
-        if (active) setError(reason)
-      })
-      .finally(() => {
-        if (active) setIsLoading(false)
-      })
-    return () => { active = false }
-  }, [kind, schoolYearId])
+  const isLoading = peopleQuery.isLoading
+  const error = peopleQuery.error
 
-  useEffect(() => {
-    if (!schoolYearId) return
-    let active = true
-    void listHouseholdMembership(schoolYearId)
-      .then((memberships) => { if (active) setHouseholds(householdsByPerson(memberships, kind)) })
-      .catch(() => { /* Membership is supporting context; a failure must not hide the roster. */ })
-    return () => { active = false }
-  }, [kind, schoolYearId])
-
-  useEffect(() => {
-    if (kind !== 'student') return
-    let active = true
-    void resourceApi.getVocabulary()
-      .then((result) => { if (active) setVocabulary(result) })
-      .catch(() => { /* Falls back to rendering identifiers rather than labels. */ })
-    return () => { active = false }
-  }, [kind])
-
+  // Membership and the vocabulary are supporting context, so their errors are
+  // not surfaced: a membership failure must not hide the roster, and an absent
+  // vocabulary falls back to rendering identifiers rather than labels.
+  const households = useMemo(
+    () => householdsByPerson(membershipQuery.data ?? [], kind),
+    [kind, membershipQuery.data],
+  )
+  const vocabulary = vocabularyQuery.data ?? null
   const grades = vocabulary ? activeGradeLevels(vocabulary) : []
   const homerooms = vocabulary ? activeHomerooms(vocabulary) : []
   const filteredPeople = useMemo(
-    () => filterAndSortPeople(people, kind, query, gradeLevelId, homeroomId),
-    [gradeLevelId, homeroomId, kind, people, query],
+    () => filterAndSortPeople(peopleQuery.data ?? [], kind, query, gradeLevelId, homeroomId),
+    [gradeLevelId, homeroomId, kind, peopleQuery.data, query],
   )
 
   if (!schoolYearId) {
@@ -205,87 +177,58 @@ export function PersonDetailPage({ kind }: PageProps) {
   const navigate = useNavigate()
   const copy = pageCopy[kind]
   const isNew = !personId || personId === 'new'
-  const [person, setPerson] = useState<PersonSummary | null>(null)
-  const [households, setHouseholds] = useState<Household[]>([])
-  const [vocabulary, setVocabulary] = useState<VocabularyResponse | null>(null)
+  const recordId = isNew ? undefined : personId
+
+  const personQuery = usePerson(kind, schoolYearId, recordId)
+  const membershipQuery = useHouseholdMembership(schoolYearId)
+  const vocabularyQuery = useVocabulary({ enabled: kind === 'student' })
+  const save = useRosterMutation<PersonInputValues, Student | Adult>(schoolYearId, (next) => savePerson(kind, schoolYearId!, recordId, next))
+  const remove = useRosterMutation<void, void>(schoolYearId, () => (kind === 'student' ? studentApi.remove(schoolYearId!, personId!) : adultApi.remove(schoolYearId!, personId!)))
   const [values, setValues] = useState<PersonInputValues>(() => emptyValues(kind))
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
-  const [error, setError] = useState<unknown>(null)
-  const [isLoading, setIsLoading] = useState(!isNew && Boolean(schoolYearId))
-  const [isSaving, setIsSaving] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
 
-  useEffect(() => {
-    if (isNew || !schoolYearId || !personId) {
-      setIsLoading(false)
-      return
-    }
-    let active = true
-    setIsLoading(true)
-    void (kind === 'student' ? studentApi.get(schoolYearId, personId) : adultApi.get(schoolYearId, personId))
-      .then((result) => {
-        if (!active) return
-        setPerson(result)
-        setValues(valuesFromPerson(kind, result))
-      })
-      .catch((reason: unknown) => { if (active) setError(reason) })
-      .finally(() => { if (active) setIsLoading(false) })
-    return () => { active = false }
-  }, [isNew, kind, personId, schoolYearId])
+  const person: PersonSummary | null = personQuery.data ?? null
 
+  // The form binds to a record once. Re-seeding it from every resolved query
+  // would let a background refetch of the same record overwrite what the
+  // organiser is part-way through typing, so only a different person reseeds.
+  const boundPersonId = useRef<string | null>(null)
   useEffect(() => {
-    if (isNew || !schoolYearId || !personId) return
-    let active = true
-    void listHouseholdMembership(schoolYearId)
-      .then((memberships) => { if (active) setHouseholds(householdsByPerson(memberships, kind).get(personId) ?? []) })
-      .catch(() => { /* Membership is supporting context; a failure must not block editing. */ })
-    return () => { active = false }
-  }, [isNew, kind, personId, schoolYearId])
+    if (!person || boundPersonId.current === person.id) return
+    boundPersonId.current = person.id
+    setValues(valuesFromPerson(kind, person))
+  }, [kind, person])
 
-  useEffect(() => {
-    if (kind !== 'student') return
-    let active = true
-    void resourceApi.getVocabulary()
-      .then((result) => { if (active) setVocabulary(result) })
-      .catch((reason: unknown) => { if (active) setError(reason) })
-    return () => { active = false }
-  }, [kind])
+  // Membership is supporting context; a failure must not block editing.
+  const households = useMemo(
+    () => (personId ? householdsByPerson(membershipQuery.data ?? [], kind).get(personId) ?? [] : []),
+    [kind, membershipQuery.data, personId],
+  )
+  const fieldErrors = fieldErrorMap(save.error)
+  const error = save.error ?? remove.error ?? personQuery.error ?? vocabularyQuery.error ?? null
+  const isSaving = save.isPending
+  const isDeleting = remove.isPending
 
   if (!schoolYearId) return <PageFrame><MissingSchoolYear kind={kind} /></PageFrame>
   const yearId = schoolYearId
-  if (isLoading) return <PageFrame><p className="text-sm text-muted-foreground" role="status">Loading {copy.singular}…</p></PageFrame>
+  if (personQuery.isLoading) return <PageFrame><p className="text-sm text-muted-foreground" role="status">Loading {copy.singular}…</p></PageFrame>
   if (error && !isNew && !person) return <PageFrame><p className="rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive" role="alert">{errorMessage(error, `Unable to load ${copy.singular}.`)}</p></PageFrame>
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    setIsSaving(true)
-    setError(null)
-    setFieldErrors({})
-    try {
-      const saved = await savePerson(kind, yearId, isNew ? undefined : personId, values)
-      navigate(`/y/${yearId}/${copy.path}/${saved.id}`, { replace: true })
-    } catch (reason: unknown) {
-      setFieldErrors(fieldErrorMap(reason))
-      setError(reason)
-    } finally {
-      setIsSaving(false)
-    }
+    save.mutate(values, {
+      onSuccess: (saved) => navigate(`/y/${yearId}/${copy.path}/${saved.id}`, { replace: true }),
+    })
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (!personId || isDeleting) return
     if (!window.confirm(`Delete ${person?.display_name ?? copy.singular}?`)) return
-    setIsDeleting(true)
-    setError(null)
-    try {
-      await (kind === 'student' ? studentApi.remove(yearId, personId) : adultApi.remove(yearId, personId))
-      navigate(`/y/${yearId}/${copy.path}`, { replace: true })
-    } catch (reason: unknown) {
-      setError(reason)
-      setIsDeleting(false)
-    }
+    remove.mutate(undefined, {
+      onSuccess: () => navigate(`/y/${yearId}/${copy.path}`, { replace: true }),
+    })
   }
 
+  const vocabulary = vocabularyQuery.data ?? null
   const grades = vocabulary ? activeGradeLevels(vocabulary) : []
   const homerooms = vocabulary ? activeHomerooms(vocabulary) : []
 
@@ -297,11 +240,11 @@ export function PersonDetailPage({ kind }: PageProps) {
           <p className="text-sm font-medium text-primary">{isNew ? `New ${copy.singular}` : 'Roster record'}</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">{isNew ? `Add ${copy.singular}` : person?.display_name}</h1>
         </div>
-        {!isNew && <Button type="button" variant="outline" onClick={() => void handleDelete()} disabled={isDeleting}>{isDeleting ? 'Deleting…' : 'Delete'}</Button>}
+        {!isNew && <Button type="button" variant="outline" onClick={handleDelete} disabled={isDeleting}>{isDeleting ? 'Deleting…' : 'Delete'}</Button>}
       </div>
 
       {error !== null && <p className="mt-6 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive" role="alert">{errorMessage(error, `Unable to save this ${copy.singular}.`)}</p>}
-      <form className="mt-8 max-w-2xl space-y-6 rounded-lg border bg-card p-6" onSubmit={(event) => void handleSubmit(event)} noValidate>
+      <form className="mt-8 max-w-2xl space-y-6 rounded-lg border bg-card p-6" onSubmit={handleSubmit} noValidate>
         <div className="grid gap-5 sm:grid-cols-2">
           <Field label="Legal given name" name="legal_given_name" value={values.legal_given_name} error={fieldErrors.legal_given_name} onChange={(value) => setValues({ ...values, legal_given_name: value })} />
           <Field label="Legal family name" name="legal_family_name" value={values.legal_family_name} error={fieldErrors.legal_family_name} onChange={(value) => setValues({ ...values, legal_family_name: value })} />
@@ -374,7 +317,7 @@ function valuesFromPerson(kind: PersonKind, person: PersonSummary): PersonInputV
 // typed and lets the server's RFC 9457 field errors come back. Empty optional
 // strings are dropped rather than sent, because the contract types them as
 // absent-or-set, not as "".
-function savePerson(kind: PersonKind, schoolYearId: string, personId: string | undefined, values: PersonInputValues) {
+function savePerson(kind: PersonKind, schoolYearId: string, personId: string | undefined, values: PersonInputValues): Promise<Student | Adult> {
   if (kind === 'student') {
     const student = values as StudentInputValues
     const body: StudentInput = {

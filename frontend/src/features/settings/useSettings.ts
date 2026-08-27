@@ -1,13 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { resourceApi } from '@/lib/apiResources'
+import { useVocabulary, vocabularyKey } from '@/lib/hooks/useVocabulary'
 
-export const vocabularyKey = ['vocabulary'] as const
+// The vocabulary query itself lives in lib/hooks because the roster reads it
+// too; it is re-exported here so this module stays the settings page's one
+// import.
+export { useVocabulary, vocabularyKey }
+
 export const administratorsKey = ['administrators'] as const
-
-export function useVocabulary() {
-  return useQuery({ queryKey: vocabularyKey, queryFn: () => resourceApi.getVocabulary(true) })
-}
 
 function useInvalidateVocabulary() {
   const queryClient = useQueryClient()
