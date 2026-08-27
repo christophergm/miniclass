@@ -13,12 +13,12 @@ const (
 )
 
 func TestLoadFromDotEnv(t *testing.T) {
-	for _, key := range []string{"APP_ENV", "APP_VERSION", "PORT", "API_BASE_URL", "INVITATION_CLAIM_BASE_URL", "TRUSTED_PROXY_CIDRS", "DATABASE_URL", "TEST_DATABASE_URL", "AUTH_PROVIDER", "AUTH_ISSUER", "AUTH_AUDIENCE", "AUTH_LOCAL_PUBLIC_KEY", "AUTH_LOCAL_PRIVATE_KEY", "AUTH_LOCAL_PUBLIC_KEY_FILE", "AUTH_LOCAL_PRIVATE_KEY_FILE", "AUTH_LOCAL_KEY_ID"} {
+	for _, key := range []string{"APP_ENV", "APP_VERSION", "PORT", "API_BASE_URL", "INVITATION_CLAIM_BASE_URL", "TRUSTED_PROXY_CIDRS", "DATABASE_URL", "APP_DATABASE_URL", "TEST_DATABASE_URL", "AUTH_PROVIDER", "AUTH_ISSUER", "AUTH_AUDIENCE", "AUTH_LOCAL_PUBLIC_KEY", "AUTH_LOCAL_PRIVATE_KEY", "AUTH_LOCAL_PUBLIC_KEY_FILE", "AUTH_LOCAL_PRIVATE_KEY_FILE", "AUTH_LOCAL_KEY_ID"} {
 		unsetEnv(t, key)
 	}
 
 	path := filepath.Join(t.TempDir(), ".env")
-	if err := os.WriteFile(path, []byte("APP_ENV=test\nPORT=9090\nDATABASE_URL=postgres://example\n"), 0600); err != nil {
+	if err := os.WriteFile(path, []byte("APP_ENV=test\nPORT=9090\nAPP_DATABASE_URL=postgres://example\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -26,7 +26,7 @@ func TestLoadFromDotEnv(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadFrom() error = %v", err)
 	}
-	if cfg.AppEnv != "test" || cfg.Port != "9090" || cfg.DatabaseURL != "postgres://example" {
+	if cfg.AppEnv != "test" || cfg.Port != "9090" || cfg.AppDatabaseURL != "postgres://example" {
 		t.Fatalf("LoadFrom() = %#v", cfg)
 	}
 	if cfg.AppVersion != defaultAppVersion || cfg.APIBaseURL != defaultAPIBaseURL || cfg.InvitationClaimBaseURL != defaultInvitationClaimBaseURL {
@@ -37,10 +37,10 @@ func TestLoadFromDotEnv(t *testing.T) {
 func TestEnvironmentOverridesDotEnv(t *testing.T) {
 	unsetLocalAuthKeyFileEnv(t)
 	t.Setenv("PORT", "7070")
-	t.Setenv("DATABASE_URL", "postgres://environment")
+	t.Setenv("APP_DATABASE_URL", "postgres://environment")
 
 	path := filepath.Join(t.TempDir(), ".env")
-	if err := os.WriteFile(path, []byte("PORT=9090\nDATABASE_URL=postgres://file\n"), 0600); err != nil {
+	if err := os.WriteFile(path, []byte("PORT=9090\nAPP_DATABASE_URL=postgres://file\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -48,17 +48,17 @@ func TestEnvironmentOverridesDotEnv(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadFrom() error = %v", err)
 	}
-	if cfg.Port != "7070" || cfg.DatabaseURL != "postgres://environment" {
+	if cfg.Port != "7070" || cfg.AppDatabaseURL != "postgres://environment" {
 		t.Fatalf("environment did not override dotenv: %#v", cfg)
 	}
 }
 
-func TestLoadRequiresDatabaseURL(t *testing.T) {
+func TestLoadRequiresAppDatabaseURL(t *testing.T) {
 	unsetLocalAuthKeyFileEnv(t)
-	unsetEnv(t, "DATABASE_URL")
+	unsetEnv(t, "APP_DATABASE_URL")
 
 	_, err := LoadFrom(filepath.Join(t.TempDir(), "missing.env"))
-	if err == nil || err.Error() != "configuration error: DATABASE_URL is required" {
+	if err == nil || err.Error() != "configuration error: APP_DATABASE_URL is required" {
 		t.Fatalf("LoadFrom() error = %v", err)
 	}
 }
@@ -73,7 +73,7 @@ func TestLoadReadsLocalAuthKeysFromFiles(t *testing.T) {
 	privateKeyPath := writeKeyFile(t, dir, "local_auth_private.pem", testPrivateKeyPEM)
 
 	path := filepath.Join(dir, ".env")
-	contents := "DATABASE_URL=postgres://example\n" +
+	contents := "APP_DATABASE_URL=postgres://example\n" +
 		"AUTH_LOCAL_PUBLIC_KEY_FILE=" + publicKeyPath + "\n" +
 		"AUTH_LOCAL_PRIVATE_KEY_FILE=" + privateKeyPath + "\n"
 	if err := os.WriteFile(path, []byte(contents), 0600); err != nil {
@@ -96,7 +96,7 @@ func TestLoadFallsBackToInlineLocalAuthKeys(t *testing.T) {
 	for _, key := range []string{"AUTH_LOCAL_PUBLIC_KEY_FILE", "AUTH_LOCAL_PRIVATE_KEY_FILE"} {
 		unsetEnv(t, key)
 	}
-	t.Setenv("DATABASE_URL", "postgres://example")
+	t.Setenv("APP_DATABASE_URL", "postgres://example")
 	t.Setenv("AUTH_LOCAL_PUBLIC_KEY", testPublicKeyPEM)
 	t.Setenv("AUTH_LOCAL_PRIVATE_KEY", testPrivateKeyPEM)
 
@@ -117,7 +117,7 @@ func TestLoadPrefersLocalAuthKeyFileOverInlineKey(t *testing.T) {
 	publicKeyPath := writeKeyFile(t, dir, "local_auth_public.pem", testPublicKeyPEM)
 	privateKeyPath := writeKeyFile(t, dir, "local_auth_private.pem", testPrivateKeyPEM)
 
-	t.Setenv("DATABASE_URL", "postgres://example")
+	t.Setenv("APP_DATABASE_URL", "postgres://example")
 	t.Setenv("AUTH_LOCAL_PUBLIC_KEY", "-----BEGIN PUBLIC KEY-----\naW5saW5l\n-----END PUBLIC KEY-----")
 	t.Setenv("AUTH_LOCAL_PRIVATE_KEY", "-----BEGIN EC PRIVATE KEY-----\naW5saW5l\n-----END EC PRIVATE KEY-----")
 	t.Setenv("AUTH_LOCAL_PUBLIC_KEY_FILE", publicKeyPath)
@@ -140,7 +140,7 @@ func TestLoadRejectsUnreadableLocalAuthKeyFile(t *testing.T) {
 	dir := t.TempDir()
 	missing := filepath.Join(dir, "absent.pem")
 
-	t.Setenv("DATABASE_URL", "postgres://example")
+	t.Setenv("APP_DATABASE_URL", "postgres://example")
 	t.Setenv("AUTH_LOCAL_PRIVATE_KEY", testPrivateKeyPEM)
 	t.Setenv("AUTH_LOCAL_PRIVATE_KEY_FILE", missing)
 
@@ -190,7 +190,7 @@ func unsetEnv(t *testing.T, key string) {
 }
 
 func TestConfigValidateRejectsEmptyPort(t *testing.T) {
-	err := (Config{DatabaseURL: "postgres://example"}).Validate()
+	err := (Config{AppDatabaseURL: "postgres://example"}).Validate()
 	if err == nil || err.Error() != "configuration error: PORT must not be empty" {
 		t.Fatalf("Validate() error = %v", err)
 	}
@@ -200,7 +200,7 @@ func TestLoadReadsTrustedProxyCIDRs(t *testing.T) {
 	unsetLocalAuthKeyFileEnv(t)
 	unsetEnv(t, "TRUSTED_PROXY_CIDRS")
 	path := filepath.Join(t.TempDir(), ".env")
-	if err := os.WriteFile(path, []byte("DATABASE_URL=postgres://example\nTRUSTED_PROXY_CIDRS=10.0.0.0/8, 192.0.2.10/32\n"), 0600); err != nil {
+	if err := os.WriteFile(path, []byte("APP_DATABASE_URL=postgres://example\nTRUSTED_PROXY_CIDRS=10.0.0.0/8, 192.0.2.10/32\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -214,7 +214,7 @@ func TestLoadReadsTrustedProxyCIDRs(t *testing.T) {
 }
 
 func TestConfigValidateRejectsInvalidTrustedProxyCIDR(t *testing.T) {
-	err := (Config{DatabaseURL: "postgres://example", Port: "8080", TrustedProxyCIDRs: []string{"not-a-cidr"}}).Validate()
+	err := (Config{AppDatabaseURL: "postgres://example", Port: "8080", TrustedProxyCIDRs: []string{"not-a-cidr"}}).Validate()
 	if err == nil || err.Error() != `configuration error: TRUSTED_PROXY_CIDRS contains invalid CIDR "not-a-cidr"` {
 		t.Fatalf("Validate() error = %v", err)
 	}

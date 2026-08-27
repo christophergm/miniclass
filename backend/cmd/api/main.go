@@ -29,6 +29,7 @@ type httpServer interface {
 	Shutdown(context.Context) error
 }
 
+// main starts the API with the least-privileged miniclass_app database role.
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	if err := run(context.Background(), logger); err != nil {

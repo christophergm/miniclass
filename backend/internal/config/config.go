@@ -33,7 +33,7 @@ type Config struct {
 	APIBaseURL             string
 	InvitationClaimBaseURL string
 	TrustedProxyCIDRs      []string
-	DatabaseURL            string
+	AppDatabaseURL         string
 	TestDatabaseURL        string
 	SupabaseURL            string
 	SupabaseAnonKey        string
@@ -100,7 +100,7 @@ func fromEnvironment() (*Config, error) {
 		APIBaseURL:             getEnv("API_BASE_URL", defaultAPIBaseURL),
 		InvitationClaimBaseURL: getEnv("INVITATION_CLAIM_BASE_URL", defaultInvitationClaimBaseURL),
 		TrustedProxyCIDRs:      getListEnv("TRUSTED_PROXY_CIDRS"),
-		DatabaseURL:            strings.TrimSpace(os.Getenv("DATABASE_URL")),
+		AppDatabaseURL:         strings.TrimSpace(os.Getenv("APP_DATABASE_URL")),
 		TestDatabaseURL:        strings.TrimSpace(os.Getenv("TEST_DATABASE_URL")),
 		SupabaseURL:            supabaseURL,
 		SupabaseAnonKey:        strings.TrimSpace(os.Getenv("SUPABASE_ANON_KEY")),
@@ -171,8 +171,8 @@ func getListEnv(key string) []string {
 
 // Validate checks the configuration required to start the API.
 func (c Config) Validate() error {
-	if strings.TrimSpace(c.DatabaseURL) == "" {
-		return fmt.Errorf("configuration error: DATABASE_URL is required")
+	if strings.TrimSpace(c.AppDatabaseURL) == "" {
+		return fmt.Errorf("configuration error: APP_DATABASE_URL is required")
 	}
 	if strings.TrimSpace(c.Port) == "" {
 		return fmt.Errorf("configuration error: PORT must not be empty")

@@ -1,4 +1,5 @@
-// Command migrate applies or rolls back Goose migrations.
+// Command migrate applies or rolls back Goose migrations through the
+// schema-owning miniclass_migrator role from DATABASE_URL.
 package main
 
 import (

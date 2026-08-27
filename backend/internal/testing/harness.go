@@ -80,7 +80,7 @@ func Open(t gotesting.TB) *Harness {
 	}
 	require.NoError(t, app.Ping(ctx))
 
-	database, err := data.NewFromURL(ctx, appSchemaURL)
+	database, err := data.NewApplicationFromURL(ctx, appSchemaURL)
 	require.NoError(t, err)
 	if err != nil {
 		return nil

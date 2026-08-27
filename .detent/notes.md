@@ -10,6 +10,22 @@
 - This notes-only update must be pushed and its current-head checks rechecked before the final Workpad completion declaration.
 
 
+## Issue #93 API database role separation
+
+- `DATABASE_URL` remains migrator-only for `cmd/migrate` and migration/reset operations. Added
+  required `APP_DATABASE_URL` for `cmd/api`, `cmd/seed`, and `cmd/bootstrap`.
+- `internal/data.NewApplicationFromURL` verifies `current_user = miniclass_app`, `nobypassrls`, and
+  no `CREATE` on `public`; `New` uses it. Generic `NewFromURL` remains for migrator/test paths.
+- Added config, startup, and integration coverage; updated `.env.example`, smoke script, and ADR 0011.
+- Full race backend suite, lint/depguard, format/vet, migration round-trip, generated OpenAPI drift,
+  shell syntax, and `git diff --check` pass. Root `make test-backend` was blocked by the shared fixed
+  `/miniclass-postgres` container name, while backend tests passed against that healthy PostgreSQL 18
+  service. Frontend tests/build/lint could not run because dependencies are absent and Bun temp writes
+  are denied; generated sqlc drift could not run because local sqlc is v1.31.1 vs pinned v1.27.0.
+- Open items: commit/push, open PR with `Fixes #93`, inspect current-head CI/reviews, then update the
+  Workpad and hand off. No skill draft planned; this is a scoped role/configuration fix.
+
+
 ## Issue #64 merge fallback
 
 - Rebased PR #82 onto current `origin/main` (`a723ef8`); resolved only the two expected conflicts.

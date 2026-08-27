@@ -40,12 +40,36 @@ func New(ctx context.Context, cfg *config.Config) (*DB, error) {
 		return nil, fmt.Errorf("create database: %w", err)
 	}
 
-	return NewFromURL(ctx, cfg.DatabaseURL)
+	return NewApplicationFromURL(ctx, cfg.AppDatabaseURL)
 }
 
 // NewFromURL creates and verifies a database connection pool from a PostgreSQL
-// connection string.
+// connection string. It is used by migration and test paths whose role is
+// intentionally not the API role.
 func NewFromURL(ctx context.Context, databaseURL string) (*DB, error) {
+	return newFromURL(ctx, databaseURL)
+}
+
+// NewApplicationFromURL creates an application connection pool and verifies
+// that it has the least-privileged API role. Keeping this check at connection
+// startup makes an API pointed at DATABASE_URL fail instead of silently
+// running with migrator privileges.
+func NewApplicationFromURL(ctx context.Context, databaseURL string) (*DB, error) {
+	if strings.TrimSpace(databaseURL) == "" {
+		return nil, errors.New("create application database: APP_DATABASE_URL is empty")
+	}
+	database, err := newFromURL(ctx, databaseURL)
+	if err != nil {
+		return nil, err
+	}
+	if err := verifyApplicationRole(ctx, database); err != nil {
+		database.Close()
+		return nil, fmt.Errorf("create application database: %w", err)
+	}
+	return database, nil
+}
+
+func newFromURL(ctx context.Context, databaseURL string) (*DB, error) {
 	if strings.TrimSpace(databaseURL) == "" {
 		return nil, errors.New("create database: DATABASE_URL is empty")
 	}
@@ -66,6 +90,31 @@ func NewFromURL(ctx context.Context, databaseURL string) (*DB, error) {
 	}
 
 	return database, nil
+}
+
+func verifyApplicationRole(ctx context.Context, database *DB) error {
+	var currentUser string
+	if err := database.pool.QueryRow(ctx, "select current_user").Scan(&currentUser); err != nil {
+		return fmt.Errorf("verify database role: %w", err)
+	}
+	if currentUser != "miniclass_app" {
+		return fmt.Errorf("verify database role: API must connect as miniclass_app, got %q", currentUser)
+	}
+
+	var bypassRLS, canCreateSchema bool
+	if err := database.pool.QueryRow(ctx, `
+		select r.rolbypassrls, has_schema_privilege(current_user, 'public', 'create')
+		from pg_roles r
+		where r.rolname = current_user`).Scan(&bypassRLS, &canCreateSchema); err != nil {
+		return fmt.Errorf("verify database role privileges: %w", err)
+	}
+	if bypassRLS {
+		return errors.New("verify database role: miniclass_app must not bypass row-level security")
+	}
+	if canCreateSchema {
+		return errors.New("verify database role: miniclass_app must not create objects in the public schema")
+	}
+	return nil
 }
 
 // PingDB verifies the database with the same query used by the health

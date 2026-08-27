@@ -128,7 +128,7 @@ func setLocalAuthEnv(t *testing.T, values map[string]string) {
 	t.Setenv("AUTH_PROVIDER", "local")
 	t.Setenv("AUTH_ISSUER", "http://localhost:8080")
 	t.Setenv("AUTH_AUDIENCE", "authenticated")
-	t.Setenv("DATABASE_URL", "postgres://example")
+	t.Setenv("APP_DATABASE_URL", "postgres://example")
 }
 
 func loadConfig(t *testing.T) *config.Config {
