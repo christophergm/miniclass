@@ -3,7 +3,8 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { apiClient, ApiError } from '@/lib/api'
+import { ApiError } from '@/lib/api'
+import { resourceApi } from '@/lib/apiResources'
 import { useAuth } from '@/lib/hooks/useAuth'
 
 import { AuthErrorMessage, AuthLayout } from './AuthLayout'
@@ -30,7 +31,7 @@ export function ClaimInvitationPage() {
     if (!token) {
       throw new Error('This invitation link is incomplete.')
     }
-    await apiClient.claimInvitation(token)
+    await resourceApi.claimInvitation(token)
     navigate('/years', { replace: true })
   }
 

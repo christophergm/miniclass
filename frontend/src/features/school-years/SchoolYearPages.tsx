@@ -2,7 +2,8 @@ import type { ReactNode } from 'react'
 import { Link, Outlet, useOutletContext, useParams } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
-import { ApiError, type SchoolYear } from '@/lib/api'
+import { ApiError } from '@/lib/api'
+import type { SchoolYear } from '@/lib/apiResources'
 import { useSchoolYear, useSchoolYears } from '@/lib/hooks/useSchoolYears'
 
 function PageFrame({ children }: { children: ReactNode }) {

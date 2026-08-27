@@ -23,7 +23,7 @@ function Section({ title, description, children }: { title: string; description:
 }
 
 export function SettingsPage() {
-  const account = useQuery({ queryKey: ['account'], queryFn: resourceApi.getAccount })
+  const account = useQuery({ queryKey: ['account'], queryFn: resourceApi.getMe })
   const vocabulary = useVocabulary()
   const administrators = useAdministrators(account.data?.role?.toLowerCase() === 'owner')
   const isOwner = account.data?.role?.toLowerCase() === 'owner'
@@ -35,7 +35,7 @@ export function SettingsPage() {
       <p className="mt-2 max-w-2xl text-sm text-muted-foreground">Manage the vocabulary used by roster records and the people who can administer this organisation.</p>
       {vocabulary.isLoading && <p className="mt-8 text-sm text-muted-foreground" role="status">Loading settings…</p>}
       {vocabulary.isError && <Problem error={vocabulary.error} fallback="Unable to load organisation settings." />}
-      {vocabulary.data && <div className="mt-8 grid gap-6 lg:grid-cols-2"><GradeLevelsSection levels={vocabulary.data.grade_levels} /><HomeroomsSection homerooms={vocabulary.data.homerooms} /><HomeroomLabelSection label={vocabulary.data.homeroom_label} /><AdministratorSection enabled={isOwner} administrators={administrators.data?.members ?? []} isLoading={administrators.isLoading} /></div>}
+      {vocabulary.data && <div className="mt-8 grid gap-6 lg:grid-cols-2"><GradeLevelsSection levels={vocabulary.data.grade_levels ?? []} /><HomeroomsSection homerooms={vocabulary.data.homerooms ?? []} /><HomeroomLabelSection label={vocabulary.data.homeroom_label} /><AdministratorSection enabled={isOwner} administrators={administrators.data?.members ?? []} isLoading={administrators.isLoading} /></div>}
     </main>
   )
 }

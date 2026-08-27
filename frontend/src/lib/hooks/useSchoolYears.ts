@@ -1,11 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
 
-import { apiClient } from '@/lib/api'
+import { resourceApi } from '@/lib/apiResources'
 
 export function useSchoolYears() {
   return useQuery({
     queryKey: ['school-years'],
-    queryFn: () => apiClient.getSchoolYears(),
+    queryFn: () => resourceApi.listSchoolYears(),
     staleTime: 30 * 1000,
     retry: false,
   })
@@ -14,7 +14,7 @@ export function useSchoolYears() {
 export function useSchoolYear(id: string | undefined) {
   return useQuery({
     queryKey: ['school-year', id],
-    queryFn: () => apiClient.getSchoolYear(id!),
+    queryFn: () => resourceApi.getSchoolYear(id!),
     enabled: Boolean(id),
     staleTime: 5 * 60 * 1000,
     retry: false,

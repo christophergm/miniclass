@@ -2,14 +2,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { AuditLogResponse, MeResponse } from '@/lib/api'
+import type { AuditLogResponse, MeResponse } from '@/lib/apiResources'
 
-vi.mock('@/lib/api', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/api')>()
-  return { ...actual, apiClient: { getMe: vi.fn(), getAuditLog: vi.fn() } }
+vi.mock('@/lib/apiResources', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/apiResources')>()
+  return { ...actual, resourceApi: { getMe: vi.fn(), getAuditLog: vi.fn() } }
 })
 
-import { apiClient } from '@/lib/api'
+import { resourceApi } from '@/lib/apiResources'
 import { AuditLog } from './AuditLog'
 
 const owner: MeResponse = { role: 'owner', principal: { id: 'user-1', email: 'owner@example.com' }, organization: { id: 'org-1', name: 'Synthetic Academy' } }
@@ -26,21 +26,21 @@ afterEach(() => { vi.clearAllMocks() })
 
 describe('AuditLog', () => {
   it('does not render for a coordinator', async () => {
-    vi.mocked(apiClient.getMe).mockResolvedValue({ ...owner, role: 'coordinator' })
+    vi.mocked(resourceApi.getMe).mockResolvedValue({ ...owner, role: 'coordinator' })
     renderAuditLog()
     await new Promise((resolve) => setTimeout(resolve, 0))
     expect(screen.queryByRole('heading', { name: 'Audit log' })).not.toBeInTheDocument()
-    expect(apiClient.getAuditLog).not.toHaveBeenCalled()
+    expect(resourceApi.getAuditLog).not.toHaveBeenCalled()
   })
 
   it('renders readable entries and requests the next page with the cursor', async () => {
-    vi.mocked(apiClient.getMe).mockResolvedValue(owner)
-    vi.mocked(apiClient.getAuditLog).mockResolvedValue({ entries: [entry], next_cursor: 'next-page' })
+    vi.mocked(resourceApi.getMe).mockResolvedValue(owner)
+    vi.mocked(resourceApi.getAuditLog).mockResolvedValue({ entries: [entry], next_cursor: 'next-page' })
     renderAuditLog()
     expect(await screen.findByRole('heading', { name: 'Audit log' })).toBeInTheDocument()
     expect(screen.getByText('name: 2026–2027; state: setup')).toBeInTheDocument()
     expect(screen.getByText('Annual setup')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Load older entries' }))
-    await waitFor(() => expect(apiClient.getAuditLog).toHaveBeenLastCalledWith({ cursor: 'next-page' }))
+    await waitFor(() => expect(resourceApi.getAuditLog).toHaveBeenLastCalledWith({ cursor: 'next-page' }))
   })
 })

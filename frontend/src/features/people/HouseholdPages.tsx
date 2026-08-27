@@ -5,9 +5,18 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
-import { peopleApi } from './api'
-import { householdApi } from './householdApi'
-import type { Household, HouseholdInput, HouseholdMemberKind, Person } from './types'
+import {
+  adultApi,
+  displayNamesById,
+  householdApi,
+  listHouseholdMembership,
+  studentApi,
+  type Household,
+  type HouseholdInput,
+  type HouseholdMembership,
+  type PersonKind,
+  type PersonSummary,
+} from './roster'
 
 function PageFrame({ children }: { children: ReactNode }) {
   return <main className="mx-auto w-full max-w-6xl px-6 py-10">{children}</main>
@@ -15,8 +24,7 @@ function PageFrame({ children }: { children: ReactNode }) {
 
 export function HouseholdListPage() {
   const { schoolYearId } = useParams<{ schoolYearId: string }>()
-  const [households, setHouseholds] = useState<Household[]>([])
-  const [includeDeleted, setIncludeDeleted] = useState(false)
+  const [memberships, setMemberships] = useState<HouseholdMembership[]>([])
   const [isLoading, setIsLoading] = useState(Boolean(schoolYearId))
   const [error, setError] = useState<unknown>(null)
 
@@ -28,12 +36,12 @@ export function HouseholdListPage() {
     let active = true
     setIsLoading(true)
     setError(null)
-    void householdApi.list(schoolYearId, includeDeleted)
-      .then((result) => { if (active) setHouseholds(result) })
+    void listHouseholdMembership(schoolYearId)
+      .then((result) => { if (active) setMemberships(result) })
       .catch((reason: unknown) => { if (active) setError(reason) })
       .finally(() => { if (active) setIsLoading(false) })
     return () => { active = false }
-  }, [includeDeleted, schoolYearId])
+  }, [schoolYearId])
 
   if (!schoolYearId) return <PageFrame><MissingSchoolYear /></PageFrame>
 
@@ -47,28 +55,24 @@ export function HouseholdListPage() {
         </div>
         <Button asChild><Link to={`/y/${schoolYearId}/households/new`}>Add household</Link></Button>
       </div>
-      <label className="mt-8 flex items-center gap-2 text-sm font-medium">
-        <input type="checkbox" checked={includeDeleted} onChange={(event) => setIncludeDeleted(event.target.checked)} />
-        Show deleted
-      </label>
       {isLoading && <p className="mt-8 text-sm text-muted-foreground" role="status">Loading households…</p>}
       {error !== null && <ErrorMessage error={error} fallback="Unable to load households." />}
-      {!isLoading && !error && households.length === 0 && <p className="mt-8 rounded-lg border bg-card p-6 text-sm text-muted-foreground">No households yet.</p>}
-      {!isLoading && !error && households.length > 0 && <HouseholdTable schoolYearId={schoolYearId} households={households} />}
+      {!isLoading && !error && memberships.length === 0 && <p className="mt-8 rounded-lg border bg-card p-6 text-sm text-muted-foreground">No households yet.</p>}
+      {!isLoading && !error && memberships.length > 0 && <HouseholdTable schoolYearId={schoolYearId} memberships={memberships} />}
     </PageFrame>
   )
 }
 
-function HouseholdTable({ schoolYearId, households }: { schoolYearId: string; households: Household[] }) {
+function HouseholdTable({ schoolYearId, memberships }: { schoolYearId: string; memberships: HouseholdMembership[] }) {
   return (
     <Table className="mt-8" aria-label="Households">
       <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Students</TableHead><TableHead>Adults</TableHead></TableRow></TableHeader>
       <TableBody>
-        {households.map((household) => (
-          <TableRow key={household.id} className={household.deleted_at ? 'opacity-60' : undefined}>
-            <TableCell><Link className="font-medium text-primary hover:underline" to={`/y/${schoolYearId}/households/${household.id}`}>{household.display_name}</Link>{household.deleted_at && <span className="ml-2 text-xs text-muted-foreground">Deleted</span>}</TableCell>
-            <TableCell>{household.students?.length ?? household.student_count ?? 0}</TableCell>
-            <TableCell>{household.adults?.length ?? household.adult_count ?? 0}</TableCell>
+        {memberships.map((membership) => (
+          <TableRow key={membership.household.id}>
+            <TableCell><Link className="font-medium text-primary hover:underline" to={`/y/${schoolYearId}/households/${membership.household.id}`}>{membership.household.display_name}</Link></TableCell>
+            <TableCell>{membership.studentIds.length}</TableCell>
+            <TableCell>{membership.adultIds.length}</TableCell>
           </TableRow>
         ))}
       </TableBody>
@@ -81,9 +85,10 @@ export function HouseholdDetailPage() {
   const navigate = useNavigate()
   const isNew = !householdId || householdId === 'new'
   const [household, setHousehold] = useState<Household | null>(null)
+  const [memberIds, setMemberIds] = useState<{ student: string[]; adult: string[] }>({ student: [], adult: [] })
+  const [roster, setRoster] = useState<{ student: PersonSummary[]; adult: PersonSummary[] }>({ student: [], adult: [] })
   const [values, setValues] = useState<HouseholdInput>({ display_name: '' })
-  const [memberKind, setMemberKind] = useState<HouseholdMemberKind>('student')
-  const [availablePeople, setAvailablePeople] = useState<Person[]>([])
+  const [memberKind, setMemberKind] = useState<PersonKind>('student')
   const [selectedPersonId, setSelectedPersonId] = useState('')
   const [isLoading, setIsLoading] = useState(!isNew && Boolean(schoolYearId))
   const [isSaving, setIsSaving] = useState(false)
@@ -94,8 +99,13 @@ export function HouseholdDetailPage() {
     if (!schoolYearId || !householdId || isNew) return
     setIsLoading(true)
     try {
-      const result = await householdApi.get(schoolYearId, householdId)
+      const [result, students, adults] = await Promise.all([
+        householdApi.get(schoolYearId, householdId),
+        householdApi.listStudents(schoolYearId, householdId),
+        householdApi.listAdults(schoolYearId, householdId),
+      ])
       setHousehold(result)
+      setMemberIds({ student: students.map((row) => row.student_id), adult: adults.map((row) => row.adult_id) })
       setValues({ display_name: result.display_name })
     } catch (reason: unknown) {
       setError(reason)
@@ -106,19 +116,19 @@ export function HouseholdDetailPage() {
 
   useEffect(() => { void loadHousehold() }, [loadHousehold])
 
+  // Membership rows carry identifiers only, so both rosters are loaded to
+  // resolve names for the member lists and to offer the people not yet in this
+  // household (SPEC §8.7: the join is on the identifier, never the name).
   useEffect(() => {
     if (!schoolYearId || isNew) return
     let active = true
-    setSelectedPersonId('')
-    void peopleApi.list(memberKind, schoolYearId)
-      .then((people) => {
-        if (!active) return
-        const memberIds = new Set((memberKind === 'student' ? household?.students : household?.adults)?.map((person) => person.id))
-        setAvailablePeople(people.filter((person) => !memberIds.has(person.id)))
-      })
+    void Promise.all([studentApi.list(schoolYearId), adultApi.list(schoolYearId)])
+      .then(([students, adults]) => { if (active) setRoster({ student: students, adult: adults }) })
       .catch((reason: unknown) => { if (active) setError(reason) })
     return () => { active = false }
-  }, [household, isNew, memberKind, schoolYearId])
+  }, [isNew, schoolYearId])
+
+  useEffect(() => { setSelectedPersonId('') }, [memberKind])
 
   if (!schoolYearId) return <PageFrame><MissingSchoolYear /></PageFrame>
   if (isLoading) return <PageFrame><p className="text-sm text-muted-foreground" role="status">Loading household…</p></PageFrame>
@@ -144,7 +154,12 @@ export function HouseholdDetailPage() {
     setIsAdding(true)
     setError(null)
     try {
-      await householdApi.addMember(schoolYearId!, householdId, memberKind, selectedPersonId)
+      if (memberKind === 'student') {
+        await householdApi.addStudent(schoolYearId!, householdId, selectedPersonId)
+      } else {
+        await householdApi.addAdult(schoolYearId!, householdId, selectedPersonId)
+      }
+      setSelectedPersonId('')
       await loadHousehold()
     } catch (reason: unknown) {
       setError(reason)
@@ -153,16 +168,22 @@ export function HouseholdDetailPage() {
     }
   }
 
-  async function handleRemoveMember(kind: HouseholdMemberKind, personId: string) {
+  async function handleRemoveMember(kind: PersonKind, personId: string) {
     if (!householdId) return
     setError(null)
     try {
-      await householdApi.removeMember(schoolYearId!, householdId, kind, personId)
+      if (kind === 'student') {
+        await householdApi.removeStudent(schoolYearId!, householdId, personId)
+      } else {
+        await householdApi.removeAdult(schoolYearId!, householdId, personId)
+      }
       await loadHousehold()
     } catch (reason: unknown) {
       setError(reason)
     }
   }
+
+  const availablePeople = roster[memberKind].filter((person) => !memberIds[memberKind].includes(person.id))
 
   return (
     <PageFrame>
@@ -177,9 +198,12 @@ export function HouseholdDetailPage() {
         <section className="mt-10 rounded-lg border bg-card p-6" aria-labelledby="household-members-heading">
           <h2 id="household-members-heading" className="text-xl font-semibold">Household membership</h2>
           <p className="mt-2 text-sm text-muted-foreground">Membership controls who is grouped with this household. It does not create or change a guardian relationship.</p>
-          <div className="mt-6 grid gap-8 md:grid-cols-2"><MemberGroup kind="student" schoolYearId={schoolYearId} household={household} onRemove={handleRemoveMember} /><MemberGroup kind="adult" schoolYearId={schoolYearId} household={household} onRemove={handleRemoveMember} /></div>
+          <div className="mt-6 grid gap-8 md:grid-cols-2">
+            <MemberGroup kind="student" schoolYearId={schoolYearId} memberIds={memberIds.student} roster={roster.student} onRemove={handleRemoveMember} />
+            <MemberGroup kind="adult" schoolYearId={schoolYearId} memberIds={memberIds.adult} roster={roster.adult} onRemove={handleRemoveMember} />
+          </div>
           <form className="mt-8 flex flex-wrap items-end gap-3 border-t pt-6" onSubmit={(event) => void handleAddMember(event)}>
-            <label className="text-sm font-medium">Member type<select className="mt-2 flex h-9 rounded-md border bg-transparent px-3 text-sm" value={memberKind} onChange={(event) => setMemberKind(event.target.value as HouseholdMemberKind)}><option value="student">Student</option><option value="adult">Adult</option></select></label>
+            <label className="text-sm font-medium">Member type<select className="mt-2 flex h-9 rounded-md border bg-transparent px-3 text-sm" value={memberKind} onChange={(event) => setMemberKind(event.target.value as PersonKind)}><option value="student">Student</option><option value="adult">Adult</option></select></label>
             <label className="min-w-64 flex-1 text-sm font-medium">Person<select className="mt-2 flex h-9 w-full rounded-md border bg-transparent px-3 text-sm" value={selectedPersonId} onChange={(event) => setSelectedPersonId(event.target.value)}><option value="">Choose a person</option>{availablePeople.map((person) => <option key={person.id} value={person.id}>{person.display_name}</option>)}</select></label>
             <Button type="submit" disabled={!selectedPersonId || isAdding}>{isAdding ? 'Adding…' : 'Add member'}</Button>
           </form>
@@ -189,10 +213,10 @@ export function HouseholdDetailPage() {
   )
 }
 
-function MemberGroup({ kind, schoolYearId, household, onRemove }: { kind: HouseholdMemberKind; schoolYearId: string; household: Household; onRemove: (kind: HouseholdMemberKind, personId: string) => Promise<void> }) {
-  const people = kind === 'student' ? household.students ?? [] : household.adults ?? []
+function MemberGroup({ kind, schoolYearId, memberIds, roster, onRemove }: { kind: PersonKind; schoolYearId: string; memberIds: string[]; roster: PersonSummary[]; onRemove: (kind: PersonKind, personId: string) => Promise<void> }) {
+  const names = displayNamesById(roster)
   const path = kind === 'student' ? 'students' : 'adults'
-  return <div><h3 className="font-medium">{kind === 'student' ? 'Students' : 'Adults'}</h3>{people.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">No {kind}s in this household.</p> : <ul className="mt-3 space-y-2">{people.map((person) => <li className="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm" key={person.id}><Link className="text-primary hover:underline" to={`/y/${schoolYearId}/${path}/${person.id}`}>{person.display_name}</Link><Button type="button" size="sm" variant="outline" onClick={() => void onRemove(kind, person.id)}>Remove</Button></li>)}</ul>}</div>
+  return <div><h3 className="font-medium">{kind === 'student' ? 'Students' : 'Adults'}</h3>{memberIds.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">No {kind}s in this household.</p> : <ul className="mt-3 space-y-2">{memberIds.map((personId) => <li className="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm" key={personId}><Link className="text-primary hover:underline" to={`/y/${schoolYearId}/${path}/${personId}`}>{names.get(personId) ?? personId}</Link><Button type="button" size="sm" variant="outline" onClick={() => void onRemove(kind, personId)}>Remove</Button></li>)}</ul>}</div>
 }
 
 function MissingSchoolYear() {
