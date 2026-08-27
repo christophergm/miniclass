@@ -286,7 +286,7 @@ curl http://localhost:8080/api/health
 | `403 no-organization` | the token's subject is bound to no membership | `make db-seed` |
 | `409 multiple-organizations` | the subject was bound twice | `make db-reset CONFIRM=1` |
 | `401 invalid-token` | the token expired, or `.secrets/` was regenerated after it was minted | `make token-mint FORCE=1` |
-| `make db-seed` refuses immediately | the subject already has a membership | `make db-reset CONFIRM=1` |
+| `make db-seed` refuses immediately | the subject already has a membership | nothing, if you just ran `make db-reset CONFIRM=1` — that seeds as part of the reset. Otherwise `make db-reset CONFIRM=1` |
 | `permission denied for table organizations` | the database predates the migrator-owned schema | `make db-reset CONFIRM=1` |
 | `sh: EC: command not found`, or any `command not found` naming part of a value | a `.env` value contains whitespace | move the value into `.secrets/` and reference its path; see the invariant at the top of `.env.example` |
 | A variable reads as empty and nothing else explains it | `.env.example` gained a key after your `.env` was copied | `make setup` names every missing key |

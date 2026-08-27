@@ -106,7 +106,7 @@ outlives the schema the reset replaces.
 | `403 no-organization` from the API | the token's subject is not bound to a membership | `make db-seed` |
 | `409 multiple-organizations` | the subject was bound twice | `make db-reset CONFIRM=1` |
 | `401 invalid-token` | the token is expired, or `.secrets/` was regenerated after it was minted | `make token-mint FORCE=1` |
-| `make db-seed` refuses immediately | the subject already has a membership | `make db-reset CONFIRM=1`, or seed an unclaimed invitation with `make db-seed SEED_OWNER_SUBJECT=` |
+| `make db-seed` refuses immediately | the subject already has a membership — `make db-reset CONFIRM=1` leaves one, because it seeds | nothing after a reset; otherwise `make db-reset CONFIRM=1`, or seed an unclaimed invitation with `make db-seed SEED_OWNER_SUBJECT=` |
 | `permission denied for table organizations` | the database predates the migrator-owned schema | `make db-reset CONFIRM=1` |
 | `sh: EC: command not found` from a script | a `.env` value contains whitespace | see the invariant at the top of `.env.example` |
 | `address already in use` | a previous API or Vite process is still running | stop it, or change `PORT` / `VITE_PORT` in `.env` |
