@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,8 +9,14 @@ import { useAuth } from '@/lib/hooks/useAuth'
 import { AuthErrorMessage, AuthLayout } from './AuthLayout'
 import { errorMessage } from './auth-utils'
 
+// THE CLAIM URL CONTRACT: the token is the `token` query parameter, not a path
+// segment. identity.addTokenToURL builds it that way, and it does so while
+// preserving any other query parameters already on INVITATION_CLAIM_BASE_URL.
+// Both sides are pinned by tests that reference each other:
+// backend/internal/identity/bootstrap_test.go and App.test.tsx.
 export function ClaimInvitationPage() {
-  const { token } = useParams<{ token: string }>()
+  const [searchParams] = useSearchParams()
+  const token = searchParams.get('token')
   const { authConfigured, isLoading, session, signIn, signUp } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
@@ -60,6 +66,22 @@ export function ClaimInvitationPage() {
 
   if (isLoading) {
     return <AuthLayout><p className="text-sm text-muted-foreground" role="status">Checking your session…</p></AuthLayout>
+  }
+
+  // Said before the form rather than on submit: a truncated link is the common
+  // way to arrive here, and asking for a password first only to reject it
+  // afterwards teaches the wrong lesson about which part was wrong.
+  if (!token) {
+    return (
+      <AuthLayout>
+        <h1 className="text-2xl font-semibold tracking-tight">This invitation link is incomplete</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          The link is missing its invitation token, so there is nothing to claim. Open the full link
+          from your invitation email, or ask an administrator to resend it.
+        </p>
+        <p className="mt-6 text-sm text-muted-foreground"><Link className="font-medium text-primary hover:underline" to="/sign-in">Back to sign in</Link></p>
+      </AuthLayout>
+    )
   }
 
   return (
