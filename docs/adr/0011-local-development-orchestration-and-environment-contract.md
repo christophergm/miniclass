@@ -137,8 +137,8 @@ development. A nonce is the principled fix and requires server-rendered HTML; it
 
 ### The two-terminal development model
 
-MiniClass runs as two long-lived processes with independent hot reload: `make -C backend dev` and
-`cd frontend && bun run dev`. Nothing supervises them.
+MiniClass runs as two long-lived processes with independent hot reload: `make dev-backend` and
+`make dev-frontend`, one per terminal. Nothing supervises them.
 
 `frontend/package.json`'s `dev` script sources `../.env` itself when present. `envDir` already gives
 Vite the `VITE_*` values; the sourcing is for the two things `envDir` cannot reach — `VITE_PORT`,
@@ -162,11 +162,81 @@ own disk, so its lifetime is not a security boundary. Seed and token behaviour i
 implements this as `scripts/login.sh`: the lifetime stays a caller's argument rather than becoming
 `cmd/devtoken`'s default, since the five-minute default is the correct one for a test.
 
+### The root `Makefile` is the sole entry point, and it delegates
+
+Every action is available from the repository root, and every root target is a delegation —
+`$(MAKE) -C backend <target>`, `cd frontend && bun run <script>`, or a script under `scripts/`. The
+root file holds no implementation of its own and therefore cannot drift from what it invokes.
+`backend/Makefile`'s target names are **unchanged**, which keeps `WORKFLOW.md`'s contract and the
+four CI jobs that use `working-directory: backend` valid.
+
+Names are noun-first and grouped, so `make help` reads as a map rather than an alphabetical list.
+The grouping also removes a collision: root `dev` provisioned the whole environment while
+`backend/Makefile`'s `dev` started one hot-reloading process — the same verb at two incompatible
+scopes. The four quality-gate verbs stay bare, because they are typed most and `WORKFLOW.md` already
+names them.
+
+| Group | Targets |
+| --- | --- |
+| Setup | `help`, `setup`, `tools-install`, `generate`, `smoke` |
+| Database | `db-up`, `db-down`, `db-migrate`, `db-rollback`, `db-status`, `db-migration-new NAME=`, `db-seed`, `db-reset CONFIRM=1` |
+| Development | `dev`, `dev-backend`, `dev-frontend`, `token-mint` |
+| Quality gates | `test`, `test-backend`, `test-frontend`, `test-migrations`, `lint`, `lint-backend`, `lint-frontend`, `format`, `build-frontend`, `check` |
+
+`test-migrations` and `build-frontend` exist so that each of the nine CI gates has exactly one root
+command, which is what lets `WORKFLOW.md` name a root command in every row. `check`'s gates invoke
+those root targets rather than restating their delegations, so a gate cannot diverge from the target
+a developer runs by hand.
+
+Prerequisites differ per target because the needs differ. `dev-backend` takes `db-up`: the API needs
+PostgreSQL, and needs no token, because it verifies whatever arrives. `dev-frontend` takes
+`token-mint`: Vite inlines `VITE_DEV_TOKEN` when it starts, and needs no database. `make dev`
+implements nothing at all — it prints both commands with their URLs and exits 0, which turns a bare
+Make error into an instruction.
+
+`db-reset` requires `CONFIRM=1` and passes the confirmation through as `RESET_DB_CONFIRM=1` rather
+than setting it unconditionally, so the shim cannot quietly satisfy the guard it delegates to. It
+ends by refreshing the token, because "start clean" should land you logged in; `db-migrate` remains
+the way to reach an empty migrated database.
+
+Two targets were added to `backend/Makefile` rather than implemented at root, because a root
+implementation would have been a second one: `migrate-status`, which `README.md` previously
+documented as a bare `goose` invocation, and `migration-round-trip`, which needs the `.env` values
+that `backend/Makefile`'s `include` already exports. Neither renames anything.
+
+The root `Makefile` reads `.env` with `-include`, for `PORT` and `VITE_PORT` in the signposts only,
+and exports nothing: each delegate loads the file itself. That adds a consumer but no parser — it is
+GNU Make again, so the invariant above already covers it.
+
 ### `make check` is the CI equivalent
 
 A single root target runs what CI runs, so "it passes locally" and "it passes in CI" are the same
-claim. The root `Makefile` remains near-empty until DX-4, which owns it along with `README.md` and
-`WORKFLOW.md`; CI is DX-5.
+claim. `make check` runs the nine checks named in `WORKFLOW.md`, in CI order, fails fast, and names
+the CI check each failure maps to — `FAILED: Generated code drift (CI check: "Generated code drift")
+— run 'make generate' and commit the result` — so a local failure reads the way the CI summary will.
+`format`, `lint` and `test` remain the fast loop.
+
+No target runs `bun install` implicitly: `setup` owns installation and CI keeps `--frozen-lockfile`,
+so a lockfile change stays a deliberate act in both places. `test` and `check` take `db-up` as a
+prerequisite, because the backend tests and the migration round-trip need PostgreSQL.
+
+Reproducing CI locally made the migration round-trip's two scratch-database URLs — which CI supplies
+as job `env` and nothing local supplied at all — into `.env.example` keys. That is this record's own
+rule, that the example is the single source of local defaults, applied to the one gate that had
+escaped it. It also means `scripts/setup.sh` reports them as missing from an older `.env`, rather
+than the gate failing with `MIGRATION_ROUNDTRIP_DATABASE_URL is required` and no indication of where
+the value should come from.
+
+Two details of the drift gate differ from CI, both because CI's checkout is clean and a developer's
+is not. The gate diffs only `backend/internal/db/gen` and `backend/openapi.json`, where a
+repository-wide `git diff --exit-code` would report any work in progress as generated drift. And
+`backend/Makefile`'s `sqlc` target now refuses a `sqlc` that is not the pinned version, exactly as
+`lint` already refuses a stray `golangci-lint`: the version string is written into every generated
+file, so an unpinned binary rewrites all of `internal/db/gen`, and the gate's own remedy — "run
+`make generate` and commit the result" — would then have a developer commit a toolchain bump instead
+of a fix.
+
+CI configuration itself is DX-5.
 
 ## Alternatives considered
 
@@ -198,10 +268,18 @@ result, and is kept anyway as a guard on `.env.example` itself.
 paths could be root-relative. Rejected: a search that silently succeeds against the wrong directory is
 worse than an explicit path that fails loudly, and it stops working outside a checkout.
 
-**A root `Makefile` as the sole entry point**, wrapping both dev processes. Rejected in favour of
-per-component commands plus a thin root target: two hot-reloading watchers multiplexed by Make give
-interleaved output, one shared exit status and a Ctrl-C that leaves orphans — which is exactly what the
+**A root `Makefile` target that wraps both dev processes.** Rejected in favour of `dev-backend` and
+`dev-frontend` plus a `dev` signpost: two hot-reloading watchers multiplexed by Make give interleaved
+output, one shared exit status and a Ctrl-C that leaves orphans — which is exactly what the
 commented-out background-and-tail block in the removed `scripts/dev.sh` had already discovered.
+Declining to combine them is what retires the `.tmp/` log directory, log fan-in and signal fan-out
+along with it.
+
+**Bare `seed`, `login` and `reset` at root**, as the first cut of this Makefile had them. Rejected
+once the surface grew: `seed` and `reset` are database actions and `login` mints a token, so under
+noun-first grouping they are `db-seed`, `db-reset` and `token-mint`. Keeping the old names as aliases
+was rejected too, because two spellings of one action is the documentation defect this work exists to
+remove.
 
 **A task runner** (Just, Task, mise). Rejected: another prerequisite to install and another syntax to
 learn, to replace a Makefile that already works. Make is present on every developer and CI machine
@@ -230,6 +308,20 @@ copy, keys are files and the two processes run in two terminals, nothing is left
   outright when `APP_ENV=production`.
 - Nothing yet enforces the invariant at review time; it is enforced when a script loads the file.
   A CI check belongs with DX-5.
+- Every action runs from the repository root, so `cd backend` in documentation is now a signal that
+  the documentation is stale rather than a normal way to work. The exceptions are deliberate:
+  `backend/Makefile` is still the implementation and CI still invokes it directly.
+- `make` with no target prints `help` rather than running `setup`, which is what the first version of
+  this file did.
+- The three commands DX-3 introduced were renamed: `make seed` is `make db-seed`, `make login` is
+  `make token-mint`, and `make reset CONFIRM=1` is `make db-reset CONFIRM=1`. `QUICKSTART.md` and the
+  hints printed by `scripts/login.sh` and `scripts/smoke-test.sh` name the new spellings.
+- `make check` needs Docker, Go, Bun, `golangci-lint` and `sqlc` present, so it is the slow gate a
+  developer runs before pushing; `format`, `lint` and `test` stay the loop during work.
+- The pinned `sqlc` v1.27.0 does not compile on a current macOS SDK — its vendored
+  `pg_query_go` C code redeclares `strchrnul` — so on such a machine `make generate` and the drift
+  gate refuse rather than run. That is the correct refusal for this record, and moving the pin is a
+  separate change with its own generated diff; it is filed rather than fixed here.
 - Two defects were found by running the smoke test against a correct `.env` for the first time, and
   were left for their owning issue rather than fixed here. `GET /api/health` was registered with
   `CapabilityAuthenticated` and no unresolved-principal exemption, so the smoke test could not reach
@@ -240,4 +332,4 @@ copy, keys are files and the two processes run in two terminals, nothing is left
   `miniclass_migrator` role at all: it reproduces only on a database whose objects were created by
   the superuser under the pre-this-ADR `DATABASE_URL`, leaving the migrator with neither ownership
   nor grants. On a database created by `scripts/setup.sh` the tables are migrator-owned and the seed
-  succeeds, so the remedy is `make reset CONFIRM=1` rather than a code change.
+  succeeds, so the remedy is `make db-reset CONFIRM=1` rather than a code change.

@@ -10,9 +10,10 @@ preference collection, constraint-based placement, and published class and dismi
 | [`SPEC.md`](./SPEC.md) | **What the system does.** Normative, technology-agnostic. The source of truth for behaviour. |
 | [`PLAN.md`](./PLAN.md) | **When it gets built, and in what order.** Phases, milestones, exit criteria. |
 | [`docs/adr/`](./docs/adr/) | **Why it is built this way.** Architecture decisions, including the rejected alternatives. |
-| [`WORKFLOW.md`](./WORKFLOW.md) | How agents pick up, validate and hand off work. |
+| [`QUICKSTART.md`](./QUICKSTART.md) | The shortest path from a fresh clone to a logged-in local stack. |
+| [`WORKFLOW.md`](./WORKFLOW.md) | How agents pick up, validate and hand off work, and the nine quality gates. |
 | [`AGENTS.md`](./AGENTS.md) | Repository rules that apply to every change. |
-| This file | How to run it locally. |
+| This file | How to run, drive and troubleshoot it locally. |
 
 If `SPEC.md` and any other document disagree, `SPEC.md` is right and the other document is a bug.
 
@@ -21,7 +22,7 @@ If `SPEC.md` and any other document disagree, `SPEC.md` is right and the other d
 See [ADR 0001](./docs/adr/0001-application-stack-and-topology.md) for the full rationale.
 
 **Stack:**
-- Frontend: React + TypeScript + Vite, TanStack Query
+- Frontend: React + TypeScript + Vite, TanStack Query, Tailwind CSS v4 and shadcn/ui
 - Backend: Go + chi + pgx + sqlc, Goose migrations
 - Database: PostgreSQL 18 (Supabase in production, Docker locally)
 - Auth: Supabase Auth for administrators; application-owned tokens for household, class-leader and
@@ -41,165 +42,206 @@ one thing only — acquiring and refreshing an authentication token — and neve
 
 ```
 miniclass/
+├── Makefile              # The entry point: every command runs from here
 ├── backend/              # Go API server
-│   ├── cmd/             # Entry points (api, migrate, seed)
-│   ├── internal/        # Application code
-│   ├── migrations/      # Database migrations (Goose)
-│   ├── sql/             # SQL queries (sqlc)
-│   ├── scripts/         # Utility scripts
-│   └── tests/           # Integration tests
-├── frontend/            # React application
+│   ├── cmd/              # Entry points (api, migrate, seed, devtoken, openapi, bootstrap)
+│   ├── internal/         # Application code
+│   ├── migrations/       # Database migrations (Goose)
+│   ├── sql/              # SQL queries (sqlc)
+│   ├── scripts/          # Backend utility scripts and role provisioning SQL
+│   └── tests/            # Integration tests
+├── frontend/             # React application
 │   ├── src/
-│   │   ├── components/  # Shared UI components
-│   │   ├── features/    # Feature modules
-│   │   ├── lib/         # Utilities and API client
-│   │   └── hooks/       # Custom React hooks
-│   └── public/          # Static assets
-├── docs/adr/            # Architecture decision records
-└── compose.yaml         # Local development services (Docker Compose)
+│   │   ├── components/   # Shared UI components
+│   │   ├── features/     # Feature modules
+│   │   ├── lib/          # Utilities and API client
+│   │   └── hooks/        # Custom React hooks
+│   └── public/           # Static assets
+├── scripts/              # setup, login and smoke-test scripts
+├── docs/adr/             # Architecture decision records
+├── .env.example          # The single source of local configuration defaults
+└── compose.yaml          # Local development services (Docker Compose)
 ```
 
 ## Getting Started
 
+Everything runs from the repository root through `make`. `make help` lists every command, grouped;
+[`QUICKSTART.md`](./QUICKSTART.md) is the same path with less commentary.
+
 ### Prerequisites
 
-**Recommended:**
-- [proto](https://moonrepo.dev/proto) - Automatically manages Go, Node, Bun, and other tools
+| Tool | Used for |
+|---|---|
+| Docker with Compose v2, daemon running | PostgreSQL and Adminer |
+| Go 1.26+ | the API, migrations, and the `cmd/*` tools |
+| Bun 1.3+ | the frontend |
+| `make`, `openssl`, `awk`, `curl`, `psql` | the setup, login, reset and smoke-test paths |
 
-**Or install manually:**
-- Docker & Docker Compose
-- Go 1.26+
-- Node.js 24+
-- Bun 1.3+
-- Make
+[proto](https://moonrepo.dev/proto) manages the Go, Node and Bun versions pinned in `.prototools`;
+`proto install` is the one-command way to get them. `make setup` checks for the rest and names
+whatever is missing, so this list does not need auditing by hand.
 
-### First Time Setup
+### First run
 
-1. **Clone and setup environment:**
-   ```bash
-   git clone <repo-url>
-   cd miniclass
-   cp .env.example .env
-   ```
+```sh
+git clone https://github.com/christophergm/miniclass.git
+cd miniclass
 
-2. **Install development tools:**
-   
-   **Option A - Using proto (Recommended):**
-   ```bash
-   proto install
-   ```
-   
-   **Option B - Manual installation:**
-   - Install Go 1.26+, Node 24+, Bun 1.3+, Docker, Make
-
-3. **Start database:**
-   ```bash
-   docker compose up -d postgres
-   ```
-
-4. **Install backend tools:**
-   ```bash
-   cd backend
-   make install-tools
-   ```
-
-5. **Run migrations:**
-   ```bash
-   make migrate-up
-   ```
-
-6. **Seed database (optional):**
-   ```bash
-   make seed
-   ```
-
-7. **Install frontend dependencies:**
-   ```bash
-   cd ../frontend
-   bun install
-   ```
-
-### Running Locally
-
-**Terminal 1 - Database:**
-```bash
-docker compose up postgres
+make setup             # .env, signing keys, bun install, PostgreSQL, migrations
+make db-seed           # a synthetic organisation, its roster, and a bound Owner login
+make tools-install     # air, sqlc, goose and golangci-lint, for hot reload and linting
 ```
 
-**Terminal 2 - Backend:**
-```bash
-cd backend
-make dev
+`make setup` is idempotent. It copies `.env.example` to `.env` and **never overwrites an existing
+one**; when `.env.example` has since gained a key, it reports that key by name rather than letting it
+read as empty.
+
+### Configuration
+
+There is exactly one environment file, `.env` at the repository root — no `frontend/.env`; Vite's
+`envDir` points here. It is read by GNU Make, by POSIX shell sourcing, by `godotenv` and by Docker
+Compose, which is why one invariant holds:
+
+> **No value in `.env` may contain whitespace or `#`.**
+
+Only an unquoted value containing neither is read identically by all four. Anything that cannot
+satisfy that — a PEM key, for instance — lives in a file and is referenced by path. `make setup`
+generates the local ES256 signing keypair into `.secrets/`, which is gitignored explicitly, and
+`.env` carries only `AUTH_LOCAL_PUBLIC_KEY_FILE` and `AUTH_LOCAL_PRIVATE_KEY_FILE`. Those paths are
+relative to `backend/`, because every process that reads them runs from there.
+
+`.env` defines one local identity, `DEV_ADMIN_EMAIL`. The seeded invitation, the token's `email`
+claim and the provider subject are all derived from it, so they cannot disagree.
+
+The reasoning behind all of this is
+[ADR 0011](./docs/adr/0011-local-development-orchestration-and-environment-contract.md).
+
+## Running Locally
+
+MiniClass runs as **two long-lived processes, one per terminal**. Nothing supervises them, so each
+hot-reloads independently and logs to its own terminal.
+
+```sh
+make dev-backend     # terminal 1: API on http://localhost:8080
+make dev-frontend    # terminal 2: app on http://localhost:5173
 ```
 
-**Terminal 3 - Frontend:**
-```bash
-cd frontend
-bun run dev
-```
+`make dev` prints exactly those two lines and exits; there is no combined runner.
+
+Their prerequisites differ because their needs differ. `dev-backend` starts PostgreSQL first and
+needs no token, since it verifies whatever arrives. `dev-frontend` refreshes the development token
+first, because Vite inlines `VITE_DEV_TOKEN` when it starts — which is also why a token minted after
+Vite started does not take effect until Vite is restarted.
 
 **Access:**
-- Frontend: http://localhost:5173
-- Backend API: http://localhost:8080
-- Adminer (DB GUI): http://localhost:8081
 
-### Frontend
+| Surface | URL |
+|---|---|
+| App | <http://localhost:5173> — signed in as `owner@example.test` in Synthetic Academy |
+| API | <http://localhost:8080/api/health> — unauthenticated by design, so it answers when a login does not |
+| Adminer | <http://localhost:8081> — server `postgres`, credentials from `.env`; start it with `docker compose up -d adminer` |
 
-The frontend currently provides one deliberately narrow surface: a live backend
-health page. The root route redirects to `/health`, which shows API and database
-status, the running version, the last check time, and a manual refresh action.
+To check the whole stack, including the authenticated route, without touching the two terminals:
 
-The UI foundation uses Tailwind CSS v4 through `@tailwindcss/vite` and shadcn/ui
-with the initial `button`, `input`, and `table` primitives. There is no dashboard
-or fabricated classroom data until the specification defines those workflows.
-
-Run `bun run dev` from `frontend/` for Vite development with hot module
-replacement, or `bun run build` to verify the production bundle.
-
-### Development Commands
-
-#### Backend integration test
-
-The PostgreSQL health integration test requires an isolated test database. Start
-the local PostgreSQL service, then set `TEST_DATABASE_URL` to the
-`miniclass_test` database created by Docker Compose:
-
-```bash
-docker compose up -d postgres
-export TEST_DATABASE_URL='postgres://miniclass_migrator:miniclass_migrator_dev_password@localhost:5432/miniclass_test?sslmode=disable'
-export TEST_APP_DATABASE_URL='postgres://miniclass_app:miniclass_app_dev_password@localhost:5432/miniclass_test?sslmode=disable'
-cd backend
-make test
+```sh
+make smoke
 ```
 
-Each test run creates a unique schema, applies the migrations, and drops that
-schema during cleanup. Do not point `TEST_DATABASE_URL` at a development or
-production database.
+`make smoke` starts its own throwaway API and Vite processes, so stop yours first or it will report
+the ports as busy. It keeps logs in a temporary directory under `TMPDIR` and prints the path.
 
-**Backend:**
-```bash
-cd backend
-make help              # Show all available commands
-make dev               # Run with hot reload
-make test              # Run integration tests
-make migrate-create NAME=my_migration  # Create new migration
-make seed              # Load repeatable development fixtures
-make reset-db RESET_DB_CONFIRM=1  # Drop, migrate, and seed the local database
-make sqlc              # Regenerate DB code
+## Development Commands
+
+`make help` is generated from this Makefile, so it cannot go stale. The groups are:
+
+**Setup**
+
+| Command | Does |
+|---|---|
+| `make help` | List every command, grouped |
+| `make setup` | Prepare a checkout: `.env`, signing keys, `bun install`, PostgreSQL, migrations |
+| `make tools-install` | Install the pinned Go tools (air, sqlc, goose, golangci-lint) |
+| `make generate` | Regenerate the committed backend artifacts (`internal/db/gen`, `openapi.json`) |
+| `make smoke` | Run the full-stack smoke test in throwaway processes |
+
+**Database**
+
+| Command | Does |
+|---|---|
+| `make db-up` | Start PostgreSQL and wait for it to be healthy |
+| `make db-down` | Stop the local database services; the data volume survives |
+| `make db-migrate` | Apply every pending migration |
+| `make db-rollback` | Roll back the most recent migration |
+| `make db-status` | Show which migrations are applied |
+| `make db-migration-new NAME=add_widgets` | Create a timestamped migration; versions are never sequential |
+| `make db-seed` | Create a fresh synthetic organisation and bind the local admin login |
+| `make db-reset CONFIRM=1` | Drop the schema, migrate, seed, and refresh the login |
+
+`make db-seed` creates a **fresh** organisation on every successful run — it is not a set of
+repeatable fixtures — with a deterministic synthetic corpus of 139 students, and it claims the Owner
+invitation for the local subject so that a usable login exists without anyone clicking a link. It
+refuses to run a second time for the same subject, *before* writing anything, because two
+memberships for one subject resolve to no tenant at all. The remedy it names is
+`make db-reset CONFIRM=1`.
+
+`make db-reset` refuses without `CONFIRM=1`, since it destroys every row in `DATABASE_URL`. Stop the
+API before running it: a running API pools connections to the schema the reset replaces. Use
+`make db-migrate` when an empty migrated database is what you want.
+
+Test and seed data is generated with synthetic names. Never load real roster data into a development
+or test database.
+
+**Development**
+
+| Command | Does |
+|---|---|
+| `make dev` | Print how to run the two development processes |
+| `make dev-backend` | Run the API with hot reload; starts PostgreSQL first |
+| `make dev-frontend` | Run the Vite dev server with hot reload; refreshes the token first |
+| `make token-mint` | Refresh `VITE_DEV_TOKEN` in `.env` when it is stale (`FORCE=1` always mints) |
+
+`make token-mint` re-mints only when the token is absent, unreadable, or expiring within 24 hours,
+and says which applied. Local tokens last 30 days: they are signed by a key on your own disk, so
+their lifetime is not a security boundary, and a five-minute token teaches you to distrust every
+authentication failure. If the API is running, the target then calls `GET /api/me` and tells you
+whether the token resolves to a principal.
+
+**Quality gates**
+
+| Command | Does |
+|---|---|
+| `make test` | Run both test suites |
+| `make test-backend` | Run the Go unit and integration tests |
+| `make test-frontend` | Run the frontend tests once |
+| `make test-migrations` | Apply, roll back, and reapply every migration on a scratch database |
+| `make lint` | Lint both components |
+| `make lint-backend` | Run golangci-lint and the depguard boundary proof |
+| `make lint-frontend` | Run ESLint |
+| `make format` | Check Go formatting and run the vet analyzer |
+| `make build-frontend` | Type-check and build the production frontend bundle |
+| `make check` | Run all nine CI gates in CI order, failing fast |
+
+`make format`, `make lint` and `make test` are the fast loop during work. `make check` is what to run
+before pushing: it reproduces the nine checks CI publishes, in CI order, and each failure names the
+CI check it maps to, for example:
+
+```
+FAILED: Generated code drift (CI check: "Generated code drift") — run 'make generate' and commit the result
 ```
 
-**Frontend:**
-```bash
-cd frontend
-bun run dev            # Start dev server
-bun run build          # Production build
-bun run test           # Run tests
-bun run lint           # Lint code
-```
+The gate list, with the single-gate command for each, is in [`WORKFLOW.md`](./WORKFLOW.md). No gate
+installs dependencies: `make setup` owns `bun install` and `make tools-install` owns the Go tools, so
+a lockfile change is always deliberate. Backend tests use the `miniclass_test` database created by
+Docker Compose and create a unique schema per run, which they drop on cleanup;
+`make test-migrations` creates and drops its own scratch database. Neither touches your development
+data.
+
+Where a root command is not enough — a single Go package, one Vitest file — `backend/Makefile` and
+`frontend/package.json` are the implementations, and their names are unchanged.
 
 ## Ports
 
-All ports are configurable via `.env` so that parallel worktrees can run simultaneously.
+All ports are configurable in `.env` so that parallel worktrees can run simultaneously.
 
 | Service | Default | Environment variable |
 |---|---|---|
@@ -208,176 +250,60 @@ All ports are configurable via `.env` so that parallel worktrees can run simulta
 | PostgreSQL | 5432 | `POSTGRES_PORT` |
 | Adminer | 8081 | `ADMINER_PORT` |
 
-For deployments behind a reverse proxy, set `TRUSTED_PROXY_CIDRS` to a
-comma-separated list of the proxy networks. Forwarded client-IP headers are
-ignored unless the connecting peer belongs to one of those networks; leave it
-empty when the API is directly exposed.
+The browser reaches the API through the Vite dev proxy, so `VITE_API_URL` — the client bundle's API
+base — is **empty** locally and requests are same-origin relative `/api` calls. `API_PROXY_TARGET` is
+the node-side proxy target and deliberately carries no `VITE_` prefix, so Vite cannot expose it to the
+browser. Setting `VITE_API_URL` locally breaks the Content-Security-Policy in `frontend/index.html`,
+which allows `connect-src 'self'` only.
+
+For deployments behind a reverse proxy, set `TRUSTED_PROXY_CIDRS` to a comma-separated list of the
+proxy networks. Forwarded client-IP headers are ignored unless the connecting peer belongs to one of
+those networks; leave it empty when the API is directly exposed.
 
 ## Parallel Development (Multiple Worktrees)
 
-To run multiple instances in parallel:
-
-1. Create a new worktree
-2. Copy `.env.example` to `.env` in the worktree
-3. Edit `.env` to use different ports from the table above
-4. Start services with the custom `.env`
+1. Create a new worktree.
+2. Run `make setup` in it, which creates that worktree's own `.env` and signing keys.
+3. Edit `.env` to use different ports from the table above, and a different `POSTGRES_DB`.
+4. Run `make db-up` and the two development processes as usual.
 
 `.prototools` is read from the current directory, so each worktree may pin its own tool versions.
 
-## Testing
-
-The reproducible quality gates are:
-
-```bash
-cd backend && make test
-cd backend && make lint
-cd backend && make format
-cd backend && make generate && git diff --exit-code
-cd backend && ./scripts/migration-round-trip.sh
-cd frontend && bun install --frozen-lockfile && bun run test -- --run
-cd frontend && bun install --frozen-lockfile && bun run build
-cd frontend && bun install --frozen-lockfile && bun run lint
-git diff --check
-```
-
-CI runs the backend integration test against PostgreSQL and publishes exactly
-nine checks: Backend tests, Backend lint, Backend format, Generated code drift,
-Migration round-trip, Frontend tests, Frontend build, Frontend lint, and
-Repository formatting.
-
-**Backend Integration Tests:**
-```bash
-cd backend
-make test
-```
-
-Tests use the `miniclass_test` database automatically created by Docker.
-
-**Frontend Tests:**
-```bash
-cd frontend
-bun run test
-```
-
-## Database Management
-
-**Create migration:**
-```bash
-cd backend
-make migrate-create NAME=add_users_table
-```
-
-**Apply migrations:**
-```bash
-make migrate-up
-```
-
-**Rollback last migration:**
-```bash
-make migrate-down
-```
-
-**Reset database:**
-```bash
-RESET_DB_CONFIRM=1 make reset-db
-```
-
-Reset drops and recreates the `public` schema, reapplies every migration, and
-loads the development seed. It is intentionally guarded by
-`RESET_DB_CONFIRM=1` because it destroys all data in `DATABASE_URL`; use only
-with the local database from `.env`, never with a shared, staging, or
-production database. To inspect the migration state without changing data:
-
-```bash
-make migrate-up       # Apply pending migrations
-make migrate-down     # Roll back the latest migration
-goose -dir migrations postgres "$DATABASE_URL" status
-```
-
-The Compose PostgreSQL volume persists across restarts. A database reset does
-not remove that volume; stop the services with `docker compose down`. If the
-database itself needs to be recreated after a broken local volume, use
-`docker compose down -v` and then start PostgreSQL again. This removes the
-local Compose volume and all data in it.
-
 ## Troubleshooting
 
-- **`connection refused` or `database does not exist`:** confirm Docker is
-  running, start PostgreSQL with `docker compose up -d postgres`, and check
-  that `DATABASE_URL` uses the same credentials and port as `.env`.
-- **`DATABASE_URL is required`:** run commands from `backend/` so the Makefile
-  can load the repository `.env`, or export `DATABASE_URL` explicitly.
-- **`make reset-db` refuses to run:** include the deliberate confirmation,
-  `RESET_DB_CONFIRM=1 make reset-db`, after checking the database URL.
-- **Port already in use:** set `POSTGRES_PORT`, `PORT`, `VITE_PORT`, or
-  `ADMINER_PORT` in `.env`, then use matching URLs when connecting.
-- **Migrations fail after changing the schema:** inspect the migration status,
-  fix the migration, and use the confirmed reset command for a clean local
-  database. Do not edit the Goose version table manually.
-- **Frontend cannot reach the API:** set `VITE_API_URL` to the backend origin
-  (for example `http://localhost:8080`), restart Vite, and check
-  `http://localhost:8080/api/health` directly.
-- **Integration tests touch the wrong database:** set
-  `TEST_DATABASE_URL` to `miniclass_test`; tests create and remove an isolated
-  schema and must never use the development or production URL.
-- **TypeScript errors about modern syntax:** an ancient global `tsc` is shadowing the project's
-  TypeScript. All `frontend/package.json` scripts use `bunx --bun` specifically to force resolution
-  from `node_modules`; do not remove it.
-- **`air` is missing:** it is not a proto plugin and is therefore not in `.prototools`. Install it
-  with `go install github.com/air-verse/air@latest`.
-- **`command not found: docker-compose`:** expected. Use `docker compose` (v2, with a space).
+Start with `GET /api/health`: it is unauthenticated by design, so it answers even when your login is
+broken. If it reports `healthy` and `connected`, the problem is identity rather than the stack.
 
-## Health Check
-
-Verify the stack is running:
-```bash
+```sh
 curl http://localhost:8080/api/health
+# {"status":"healthy","timestamp":"2026-08-22T10:30:00Z","database":"connected","version":"0.1.0"}
 ```
 
-Expected response:
-```json
-{
-  "status": "healthy",
-  "timestamp": "2026-08-22T10:30:00Z",
-  "database": "connected",
-  "version": "0.1.0"
-}
-```
+| Symptom | Cause | Fix |
+|---|---|---|
+| A red "Local development authentication has no token" banner | `VITE_DEV_TOKEN` is absent or expired | `make token-mint`, then restart `make dev-frontend` |
+| The banner persists after minting a token | `VITE_*` values are inlined when Vite starts | restart `make dev-frontend` |
+| `403 no-organization` | the token's subject is bound to no membership | `make db-seed` |
+| `409 multiple-organizations` | the subject was bound twice | `make db-reset CONFIRM=1` |
+| `401 invalid-token` | the token expired, or `.secrets/` was regenerated after it was minted | `make token-mint FORCE=1` |
+| `make db-seed` refuses immediately | the subject already has a membership | `make db-reset CONFIRM=1` |
+| `permission denied for table organizations` | the database predates the migrator-owned schema | `make db-reset CONFIRM=1` |
+| `sh: EC: command not found`, or any `command not found` naming part of a value | a `.env` value contains whitespace | move the value into `.secrets/` and reference its path; see the invariant at the top of `.env.example` |
+| A variable reads as empty and nothing else explains it | `.env.example` gained a key after your `.env` was copied | `make setup` names every missing key |
+| `MIGRATION_ROUNDTRIP_DATABASE_URL is unset` | the same, for the migration round-trip gate | add the `MIGRATION_ROUNDTRIP_*` keys from `.env.example` |
+| `connection refused`, or `database does not exist` | PostgreSQL is not running | `make db-up`; confirm the Docker daemon is running |
+| `address already in use` | a previous API, Vite or smoke-test process is still running | stop it, or change `PORT` / `VITE_PORT` in `.env` |
+| A migration fails after a schema change | the migration itself, or a schema that drifted | `make db-status`, fix the migration, then `make db-reset CONFIRM=1`. Never edit the Goose version table, and never edit a merged migration |
+| `air: command not found` | `air` is not a proto plugin, so it is not in `.prototools` | `make tools-install` |
+| `golangci-lint … is required` | the pinned version is not installed | `make tools-install` |
+| `sqlc … is required` | a different `sqlc` is on `PATH`, and its version is written into every generated file | `make tools-install`; never commit generated files produced by an unpinned `sqlc` |
+| TypeScript errors about modern syntax | an ancient global `tsc` is shadowing the project's TypeScript | nothing: every `frontend/package.json` script uses `bunx --bun` to force resolution from `node_modules`. Do not remove it |
+| A frontend import or type is missing after pulling | dependencies are behind the lockfile | `make setup` |
+| `command not found: docker-compose` | expected | use `docker compose`, v2, with a space |
 
-## Full-stack smoke test
-
-The smoke test starts the local PostgreSQL and Adminer services, applies
-migrations, starts the API and frontend, and checks the API and frontend HTTP
-surfaces:
-
-```bash
-cp .env.example .env        # first run only
-cd frontend && bun install  # first run only
-cd ..
-./scripts/smoke-test.sh
-```
-
-The script keeps backend, frontend, migration, and Compose output in a
-temporary directory under `TMPDIR` and prints the directory on success. On
-failure it prints the last lines of each log and the database service logs.
-After the automated checks pass, open
-[http://localhost:5173/health](http://localhost:5173/health) and confirm that
-the page says **All systems operational**, shows **Connected**, and displays
-the API version. The API response is also available at
-[http://localhost:8080/api/health](http://localhost:8080/api/health), and
-Adminer is at [http://localhost:8081](http://localhost:8081) with `postgres` as
-the server name.
-
-For diagnosis, inspect the printed log directory first. API startup or health
-failures are in `backend.log` and `migrations.log`; frontend startup or browser
-failures are in `frontend.log`; PostgreSQL readiness and container failures are
-in `postgres-ready.log` and `compose-up.log`. Common causes are Docker not
-running, a port already in use, a stale database volume, or `DATABASE_URL` not
-matching the Compose credentials. Stop local containers after the check with:
-
-```bash
-docker compose down
-```
+A local Compose volume survives `make db-down` and `make db-reset CONFIRM=1`. To discard the database
+itself, `docker compose down -v` removes the volume and everything in it, after which `make setup`
+recreates the roles and schema.
 
 ## Production Deployment
 
@@ -385,6 +311,9 @@ docker compose down
 - Frontend: Render Static Site
 - Database: Supabase Postgres
 - Auth: Supabase Auth (administrators only)
+
+`AUTH_PROVIDER=local` is refused outright when `APP_ENV=production`, so the local signing keypair
+cannot become a production credential.
 
 Published class and dismissal lists are served by the main API. SPEC §22.3 suggests they *should* be
 servable independently of the administrative application; for v1 that is knowingly relaxed, with a
@@ -397,8 +326,9 @@ See [`AGENTS.md`](./AGENTS.md) for the standing rules and [`WORKFLOW.md`](./WORK
 issue lifecycle.
 
 1. Create a feature branch.
-2. Make changes, citing the `SPEC.md` section they implement in the pull request.
-3. Run the quality gates above.
+2. Make changes, citing the `SPEC.md` section they implement in the pull request. Developer tooling
+   cites an ADR instead, because `SPEC.md` has no tooling section.
+3. Run `make check`.
 4. Submit a PR referencing its issue.
 
 ## License

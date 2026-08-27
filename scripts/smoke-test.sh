@@ -145,7 +145,7 @@ grep -Eq '"status"[[:space:]]*:[[:space:]]*"healthy"' "$LOG_DIR/proxied-api-heal
 # the whole local identity chain — signing key, token subject, seeded
 # organisation, bound membership — actually lines up. It is conditional because
 # the smoke test must not mutate the developer's database by seeding.
-authenticated_check="skipped: VITE_DEV_TOKEN is empty (run 'make login')"
+authenticated_check="skipped: VITE_DEV_TOKEN is empty (run 'make token-mint')"
 if [[ -n "${VITE_DEV_TOKEN:-}" ]]; then
   echo "Checking an authenticated route..."
   curl --silent --show-error --max-time 10 \
@@ -155,10 +155,10 @@ if [[ -n "${VITE_DEV_TOKEN:-}" ]]; then
   me_response="$(cat "$LOG_DIR/api-me.json")"
   case "$me_response" in
     *'"no-organization"'*)
-      die "GET $API_BASE_URL/api/me returned no-organization; the dev token's subject is not bound. Run 'make seed'."
+      die "GET $API_BASE_URL/api/me returned no-organization; the dev token's subject is not bound. Run 'make db-seed'."
       ;;
     *'"invalid-token"'*)
-      die "GET $API_BASE_URL/api/me rejected the dev token; it is expired or signed by another key. Run 'make login --force'."
+      die "GET $API_BASE_URL/api/me rejected the dev token; it is expired or signed by another key. Run 'make token-mint FORCE=1'."
       ;;
     *'"role"'*) ;;
     *)

@@ -74,13 +74,14 @@ applicable SPEC sections in the PR, and do not edit a merged migration.
 
 | Checklist concern | Check that catches it | Still requires review |
 | --- | --- | --- |
-| RLS enabled/forced, tenant policy, scope columns, uniqueness, composite foreign keys, and registry coverage | `cd backend && make test` (integration isolation harness) | Policy intent and correct scope columns |
-| Cross-tenant behavior and closed-year behavior | `cd backend && make test` (Layer 2 and feature integration tests) | Adequacy of cases and audit assertions |
-| Raw generated sqlc imports and identity-accessor boundaries | `cd backend && make lint` (`depguard`) | Whether the data API is the right abstraction |
-| Go formatting and vet | `cd backend && make format` | Readability and error semantics |
-| sqlc/OpenAPI generated artifacts | `cd backend && make generate && git diff --exit-code` or `make generated-code-drift` | Never resolve generated conflicts by hand |
-| Migration applies, rolls back, and reapplies | `cd backend && ./scripts/migration-round-trip.sh` | Migration ordering and compatibility with existing data |
+| RLS enabled/forced, tenant policy, scope columns, uniqueness, composite foreign keys, and registry coverage | `make test-backend` (integration isolation harness) | Policy intent and correct scope columns |
+| Cross-tenant behavior and closed-year behavior | `make test-backend` (Layer 2 and feature integration tests) | Adequacy of cases and audit assertions |
+| Raw generated sqlc imports and identity-accessor boundaries | `make lint-backend` (`depguard`) | Whether the data API is the right abstraction |
+| Go formatting and vet | `make format` | Readability and error semantics |
+| sqlc/OpenAPI generated artifacts | `make generate && git diff --exit-code` | Never resolve generated conflicts by hand |
+| Migration applies, rolls back, and reapplies | `make test-migrations` | Migration ordering and compatibility with existing data |
 | API operation enumeration and declared capabilities | Backend tests plus generated-code drift | Capability choice and not-found semantics |
 | Repository whitespace | `git diff --check` | Lowercase SQL, timestamp choice, SPEC/ADR citations, and audit completeness |
 
-Run focused package tests first, then the full project gate. Use only synthetic test data.
+Run focused package tests first, then the full project gate, `make check`. Every command above runs
+from the repository root. Use only synthetic test data.
