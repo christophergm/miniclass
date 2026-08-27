@@ -1,6 +1,6 @@
 import { createContext, type ReactNode } from 'react'
 
-import type { AuthClient, AuthError, Session } from '@/lib/auth'
+import type { AuthClient, AuthError, Session, SessionEndedReason } from '@/lib/auth'
 
 export type AuthActionResult = {
   session: Session | null
@@ -11,6 +11,7 @@ export type AuthContextValue = {
   authError: AuthError | null
   isLoading: boolean
   session: Session | null
+  sessionEndedReason: SessionEndedReason | null
   signIn: (email: string, password: string) => Promise<AuthActionResult>
   signUp: (email: string, password: string) => Promise<AuthActionResult>
   resetPassword: (email: string) => Promise<void>

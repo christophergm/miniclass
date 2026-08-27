@@ -1,7 +1,7 @@
 import createClient, { type Client, type Middleware } from 'openapi-fetch'
 
 import type { components, paths } from './api.generated'
-import { getAccessToken as sessionAccessToken } from './auth'
+import { getAccessToken as sessionAccessToken, reportSessionEnded } from './auth'
 
 // This module is the only place in the frontend where a URL, a header and a
 // body meet. Everything else declares calls as typed wrappers over the client
@@ -105,6 +105,9 @@ type ApiResult<D> = {
 function problemError(response: Response, problem: unknown): ApiError {
   const details = (problem ?? undefined) as ProblemDetails | undefined
   const message = details?.detail ?? details?.title ?? `The API request failed with status ${response.status}`
+  if (response.status === 401 && details?.type === 'invalid-token') {
+    reportSessionEnded({ kind: 'api-invalid-token' })
+  }
   return new ApiError('http', message, response.status, details?.type, details?.errors ?? [])
 }
 

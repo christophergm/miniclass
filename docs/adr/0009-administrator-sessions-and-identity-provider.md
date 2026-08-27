@@ -54,6 +54,14 @@ to Go; it does not talk to Supabase directly". The corrected statement is: *the 
 Supabase for authentication only; every data path goes through Go.* ADR 0001's actual rationale — one
 tenancy guard, one authorization implementation, one audit log — is untouched.
 
+**3a. An API rejection ends the browser session.** The frontend API boundary treats only a `401`
+response whose RFC 9457 type is `invalid-token` as a terminal session signal. It clears the auth
+shell session, asks Supabase to sign out so a rejected persisted session is not reused after reload,
+and sends the person to the sign-in surface with an explanation. Other `401` problems, including a
+missing bearer, remain ordinary API errors; a request-level response is not enough evidence that a
+renewable Supabase session has ended. The local fake client applies the same session-ended path at
+the JWT `exp` boundary and tells the developer to run `make login` and restart Vite.
+
 **4. Administrators are provisioned by invitation, never just-in-time.** A verified subject with no
 application record gets nothing; otherwise anyone able to sign up to the project becomes a user.
 
