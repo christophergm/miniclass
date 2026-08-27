@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 
-import { apiClient } from '../api'
+import { resourceApi } from '../apiResources'
 
 export function useMe() {
-  return useQuery({ queryKey: ['me'], queryFn: () => apiClient.getMe(), retry: false })
+  return useQuery({ queryKey: ['me'], queryFn: () => resourceApi.getMe(), retry: false })
 }

@@ -2,7 +2,8 @@ import { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { ApiError, type AuditLogEntry } from '@/lib/api'
+import { ApiError } from '@/lib/api'
+import type { AuditLogEntry } from '@/lib/apiResources'
 import { useAuditLog } from '@/lib/hooks/useAuditLog'
 import { useMe } from '@/lib/hooks/useMe'
 

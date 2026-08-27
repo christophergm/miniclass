@@ -1,28 +1,21 @@
-import createClient from 'openapi-fetch'
+import createClient, { type Client, type Middleware } from 'openapi-fetch'
 
-import type { paths } from './api.generated'
-import { getAccessToken } from './auth'
+import type { components, paths } from './api.generated'
+import { getAccessToken as sessionAccessToken } from './auth'
 
-export type HealthResponse = paths['/api/health']['get']['responses'][200]['content']['application/json']
-export type MeResponse = paths['/api/me']['get']['responses'][200]['content']['application/json']
-export type SchoolYear = {
-  id: string
-  organization_id: string
-  label: string
-  state: 'setup' | 'active' | 'closed'
-  created_at: string
-  updated_at: string
-}
-export type AuditLogResponse = paths['/api/audit-log']['get']['responses'][200]['content']['application/json']
-export type AuditLogEntry = NonNullable<AuditLogResponse['entries']>[number]
+// This module is the only place in the frontend where a URL, a header and a
+// body meet. Everything else declares calls as typed wrappers over the client
+// below, so the contract in openapi.json is the only description of an endpoint
+// that exists (ADR 0004). There is deliberately no escape hatch that takes a
+// path string: the previous `rawRequest`/`requestJson` pair was the pressure
+// that grew a second, unauthenticated roster client.
 
 export type ApiErrorKind = 'http' | 'network'
 
-export type ApiFieldError = {
-  location?: string
-  message?: string
-  value?: unknown
-}
+/** One RFC 9457 field-level error, as generated from the Go problem registry. */
+export type ApiFieldError = components['schemas']['ErrorDetail']
+
+type ProblemDetails = components['schemas']['ErrorModel']
 
 export class ApiError extends Error {
   readonly kind: ApiErrorKind
@@ -40,6 +33,21 @@ export class ApiError extends Error {
   }
 }
 
+// Forms bind errors by input name, while RFC 9457 reports a dotted location
+// such as "body.legal_given_name". Keeping the raw list on ApiError and
+// deriving the map here means the form convenience survives without a second
+// error type carrying a lossy, pre-flattened copy of it.
+export function fieldErrorMap(error: unknown): Record<string, string> {
+  if (!(error instanceof ApiError)) return {}
+  const entries = error.fieldErrors
+    .filter((detail): detail is { location: string; message: string } => Boolean(detail.location && detail.message))
+    .map((detail) => {
+      const segments = detail.location.split('.')
+      return [segments[segments.length - 1] ?? detail.location, detail.message] as const
+    })
+  return Object.fromEntries(entries)
+}
+
 export type ApiClientOptions = {
   baseUrl?: string
   fetch?: typeof globalThis.fetch
@@ -48,212 +56,85 @@ export type ApiClientOptions = {
 
 const configuredBaseUrl = import.meta.env.VITE_API_URL ?? ''
 
-export class ApiClient {
-  private readonly client: ReturnType<typeof createClient<paths>>
-  private readonly baseUrl: string
-  private readonly fetcher: typeof globalThis.fetch
-  private readonly getAccessToken: () => Promise<string | null>
+// VITE_API_URL is normally unset, meaning "same origin as the app". The client
+// builds a Request, and a Request needs an absolute URL, so the origin is made
+// explicit here. Same-origin behaviour in the browser is unchanged.
+function absoluteBaseUrl(baseUrl: string): string {
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(baseUrl)) return baseUrl
+  const origin = globalThis.location?.origin
+  return origin ? `${origin}${baseUrl}` : baseUrl
+}
 
-  constructor(options: ApiClientOptions = {}) {
-    this.baseUrl = options.baseUrl ?? configuredBaseUrl
-    this.fetcher = options.fetch ?? ((input, init) => globalThis.fetch(input, init))
-    this.getAccessToken = options.getAccessToken ?? getAccessToken
-    this.client = createClient<paths>({
-      baseUrl: this.baseUrl,
-      fetch: this.authenticatedFetch,
-    })
-  }
+export function createApiClient(options: ApiClientOptions = {}): Client<paths> {
+  const getToken = options.getAccessToken ?? sessionAccessToken
 
-  async getHealth(): Promise<HealthResponse> {
-    let result: Awaited<ReturnType<typeof this.client.GET>>
-    try {
-      result = await this.client.GET('/api/health')
-    } catch {
-      throw new ApiError('network', 'Unable to reach the API')
-    }
+  // Resolved per call rather than captured at construction: openapi-fetch
+  // destructures `globalThis.fetch` when the client is created, which would
+  // pin the real fetch before a test can replace it.
+  const fetcher = (request: Request) => (options.fetch ?? globalThis.fetch)(request)
 
-    if (result.data !== undefined) {
-      return result.data
-    }
-
-    throw this.toApiError(result)
-  }
-
-  async getAuditLog(options: { objectType?: string; cursor?: string; limit?: number } = {}): Promise<AuditLogResponse> {
-    let result: Awaited<ReturnType<typeof this.client.GET>>
-    try {
-      result = await this.client.GET('/api/audit-log', {
-        params: { query: { object_type: options.objectType || undefined, cursor: options.cursor || undefined, limit: options.limit } },
-      })
-    } catch {
-      throw new ApiError('network', 'Unable to reach the API')
-    }
-
-    if (result.data !== undefined) return result.data as AuditLogResponse
-    throw this.toApiError(result)
-  }
-
-  private toApiError(result: { error?: { detail?: string; title?: string }; response: Response }): ApiError {
-    const message = result.error?.detail ?? result.error?.title ?? `The API request failed with status ${result.response.status}`
-    return new ApiError('http', message, result.response.status)
-  }
-
-  async getMe(): Promise<MeResponse> {
-    const result = await this.request(() => this.client.GET('/api/me'))
-    if (result.data !== undefined) {
-      return result.data
-    }
-
-    throw this.apiError(result.response, result.error)
-  }
-
-  async claimInvitation(token: string): Promise<MeResponse> {
-    const result = await this.request(() => this.client.POST('/api/auth/claim', { body: { token } }))
-    if (result.data !== undefined) {
-      return result.data
-    }
-
-    throw this.apiError(result.response, result.error)
-  }
-
-  async getSchoolYears(): Promise<SchoolYear[]> {
-    const response = await this.rawRequest('/api/school-years')
-    const payload: unknown = await this.readJson(response)
-    if (!Array.isArray(payload)) {
-      throw new ApiError('http', 'The school-year response was invalid.', response.status)
-    }
-
-    return payload.map(parseSchoolYear)
-  }
-
-  async getSchoolYear(id: string): Promise<SchoolYear> {
-    const response = await this.rawRequest(`/api/school-years/${encodeURIComponent(id)}`)
-    const payload: unknown = await this.readJson(response)
-    if (!isSchoolYear(payload)) {
-      throw new ApiError('http', 'The school-year response was invalid.', response.status)
-    }
-
-    return payload
-  }
-
-  private async request<T>(request: () => Promise<T>): Promise<T> {
-    try {
-      return await request()
-    } catch {
-      throw new ApiError('network', 'Unable to reach the API')
-    }
-  }
-
-  private authenticatedFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    const inputHeaders = typeof input === 'object' && input !== null && 'headers' in input
-      ? (input as Request).headers
-      : undefined
-    const headers = new Headers(init?.headers ?? inputHeaders)
-    const token = await this.getAccessToken()
-    if (token) {
-      headers.set('Authorization', `Bearer ${token}`)
-    }
-
-    return this.fetcher(input, { ...init, headers })
-  }
-
-  private async rawRequest(path: string): Promise<Response> {
-    let response: Response
-    try {
-      response = await this.authenticatedFetch(`${this.baseUrl}${path}`)
-    } catch {
-      throw new ApiError('network', 'Unable to reach the API')
-    }
-
-    if (!response.ok) {
-      throw this.apiError(response)
-    }
-    return response
-  }
-
-  private async readJson(response: Response): Promise<unknown> {
-    try {
-      return await response.json()
-    } catch {
-      throw new ApiError('http', 'The API returned an invalid response.', response.status)
-    }
-  }
-
-  private apiError(response: Response, error?: { detail?: string; title?: string; type?: string } | null): ApiError {
-    const message = error?.detail ?? error?.title ?? `The API request failed with status ${response.status}`
-    return new ApiError('http', message, response.status, error?.type)
-  }
-
-  async requestJson<T>(path: string, init: RequestInit = {}): Promise<T> {
-    let response: Response
-    try {
-      const headers = new Headers(init.headers)
-      if (init.body !== undefined && !headers.has('Content-Type')) {
-        headers.set('Content-Type', 'application/json')
+  // ADR 0002 requires the bearer token on every authenticated call. Attaching
+  // it as middleware means no caller can forget it and no caller-supplied
+  // header set can replace it.
+  const authorization: Middleware = {
+    async onRequest({ request }) {
+      const token = await getToken()
+      if (token) {
+        request.headers.set('Authorization', `Bearer ${token}`)
       }
-      response = await this.fetcher(`${this.baseUrl}${path}`, { ...init, headers })
-    } catch {
-      throw new ApiError('network', 'Unable to reach the API')
-    }
+      return request
+    },
+  }
 
-    let payload: unknown
-    try {
-      payload = response.status === 204 ? undefined : await response.json()
-    } catch {
-      if (!response.ok) {
-        throw new ApiError('http', `The API request failed with status ${response.status}`, response.status)
-      }
-      throw new ApiError('http', 'The API returned an invalid response.', response.status)
-    }
+  const client = createClient<paths>({
+    baseUrl: absoluteBaseUrl(options.baseUrl ?? configuredBaseUrl),
+    fetch: fetcher,
+  })
+  client.use(authorization)
+  return client
+}
 
-    if (!response.ok) {
-      const problem = isProblem(payload) ? payload : undefined
-      throw new ApiError(
-        'http',
-        problem?.detail ?? problem?.title ?? `The API request failed with status ${response.status}`,
-        response.status,
-        problem?.type,
-        problem?.errors ?? [],
-      )
-    }
+export const api = createApiClient()
 
-    return payload as T
+type ApiResult<D> = {
+  data?: D
+  error?: unknown
+  response: Response
+}
+
+function problemError(response: Response, problem: unknown): ApiError {
+  const details = (problem ?? undefined) as ProblemDetails | undefined
+  const message = details?.detail ?? details?.title ?? `The API request failed with status ${response.status}`
+  return new ApiError('http', message, response.status, details?.type, details?.errors ?? [])
+}
+
+async function settle<D>(call: Promise<ApiResult<D>>): Promise<ApiResult<D>> {
+  try {
+    return await call
+  } catch {
+    throw new ApiError('network', 'Unable to reach the API')
   }
 }
 
-export const apiClient = new ApiClient()
-
-
-function parseSchoolYear(value: unknown): SchoolYear {
-  if (!isSchoolYear(value)) {
-    throw new ApiError('http', 'The school-year response was invalid.')
-  }
-  return value
+/** Resolves a single-object response, or throws ApiError. */
+export async function unwrap<D>(call: Promise<ApiResult<D>>): Promise<D> {
+  const result = await settle(call)
+  if (result.data !== undefined) return result.data
+  throw problemError(result.response, result.error)
 }
 
-function isSchoolYear(value: unknown): value is SchoolYear {
-  if (!value || typeof value !== 'object') {
-    return false
-  }
-
-  const candidate = value as Record<string, unknown>
-  return (
-    typeof candidate.id === 'string' &&
-    typeof candidate.organization_id === 'string' &&
-    typeof candidate.label === 'string' &&
-    (candidate.state === 'setup' || candidate.state === 'active' || candidate.state === 'closed') &&
-    typeof candidate.created_at === 'string' &&
-    typeof candidate.updated_at === 'string'
-  )
+// Huma serialises an empty Go slice as JSON null, so every list endpoint is
+// typed `T[] | null`. Normalising here keeps that one contract fact out of
+// every caller.
+export async function unwrapList<D>(call: Promise<ApiResult<D[] | null>>): Promise<D[]> {
+  const result = await settle(call)
+  if (result.data !== undefined) return result.data ?? []
+  throw problemError(result.response, result.error)
 }
 
-type ProblemPayload = {
-  type?: string
-  title?: string
-  detail?: string
-  errors?: ApiFieldError[] | null
-}
-
-function isProblem(value: unknown): value is ProblemPayload {
-  return Boolean(value && typeof value === 'object')
+/** Resolves a 204 response, or throws ApiError. */
+export async function unwrapNoContent(call: Promise<ApiResult<unknown>>): Promise<void> {
+  const result = await settle(call)
+  if (result.response.ok) return
+  throw problemError(result.response, result.error)
 }

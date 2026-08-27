@@ -4,10 +4,24 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { fieldErrorMap } from '@/lib/api'
+import { activeGradeLevels, activeHomerooms, resourceApi, type GradeLevel, type Homeroom, type VocabularyResponse } from '@/lib/apiResources'
 
-import { peopleApi, PeopleApiError } from './api'
 import { GuardianRelationships } from './GuardianRelationships'
-import type { Adult, AdultInput, FieldErrors, ParticipationIntent, Person, PersonKind, Student, StudentInput } from './types'
+import {
+  adultApi,
+  householdsByPerson,
+  listHouseholdMembership,
+  studentApi,
+  type Adult,
+  type AdultInput,
+  type Household,
+  type ParticipationIntent,
+  type PersonKind,
+  type PersonSummary,
+  type Student,
+  type StudentInput,
+} from './roster'
 
 type PageProps = { kind: PersonKind }
 
@@ -31,11 +45,12 @@ export function AdultListPage() {
 export function PeopleListPage({ kind }: PageProps) {
   const { schoolYearId } = useParams<{ schoolYearId: string }>()
   const copy = pageCopy[kind]
-  const [people, setPeople] = useState<Person[]>([])
+  const [people, setPeople] = useState<PersonSummary[]>([])
+  const [households, setHouseholds] = useState<Map<string, Household[]>>(new Map())
+  const [vocabulary, setVocabulary] = useState<VocabularyResponse | null>(null)
   const [query, setQuery] = useState('')
-  const [grade, setGrade] = useState('')
-  const [homeroom, setHomeroom] = useState('')
-  const [includeDeleted, setIncludeDeleted] = useState(false)
+  const [gradeLevelId, setGradeLevelId] = useState('')
+  const [homeroomId, setHomeroomId] = useState('')
   const [isLoading, setIsLoading] = useState(Boolean(schoolYearId))
   const [error, setError] = useState<unknown>(null)
 
@@ -47,7 +62,7 @@ export function PeopleListPage({ kind }: PageProps) {
     let active = true
     setIsLoading(true)
     setError(null)
-    void peopleApi.list(kind, schoolYearId, includeDeleted)
+    void (kind === 'student' ? studentApi.list(schoolYearId) : adultApi.list(schoolYearId))
       .then((result) => {
         if (active) setPeople(result)
       })
@@ -58,12 +73,32 @@ export function PeopleListPage({ kind }: PageProps) {
         if (active) setIsLoading(false)
       })
     return () => { active = false }
-  }, [includeDeleted, kind, schoolYearId])
+  }, [kind, schoolYearId])
 
-  const students = kind === 'student' ? people as Student[] : []
-  const grades = [...new Set(students.map((student) => student.grade))].sort(compareValues)
-  const homerooms = [...new Set(students.map((student) => student.homeroom))].sort(compareValues)
-  const filteredPeople = useMemo(() => filterAndSortPeople(people, kind, query, grade, homeroom), [grade, homeroom, kind, people, query])
+  useEffect(() => {
+    if (!schoolYearId) return
+    let active = true
+    void listHouseholdMembership(schoolYearId)
+      .then((memberships) => { if (active) setHouseholds(householdsByPerson(memberships, kind)) })
+      .catch(() => { /* Membership is supporting context; a failure must not hide the roster. */ })
+    return () => { active = false }
+  }, [kind, schoolYearId])
+
+  useEffect(() => {
+    if (kind !== 'student') return
+    let active = true
+    void resourceApi.getVocabulary()
+      .then((result) => { if (active) setVocabulary(result) })
+      .catch(() => { /* Falls back to rendering identifiers rather than labels. */ })
+    return () => { active = false }
+  }, [kind])
+
+  const grades = vocabulary ? activeGradeLevels(vocabulary) : []
+  const homerooms = vocabulary ? activeHomerooms(vocabulary) : []
+  const filteredPeople = useMemo(
+    () => filterAndSortPeople(people, kind, query, gradeLevelId, homeroomId),
+    [gradeLevelId, homeroomId, kind, people, query],
+  )
 
   if (!schoolYearId) {
     return <PageFrame><MissingSchoolYear kind={kind} /></PageFrame>
@@ -75,13 +110,13 @@ export function PeopleListPage({ kind }: PageProps) {
         <div>
           <p className="text-sm font-medium text-primary">Roster</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">{copy.plural}</h1>
-          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">Manage the people in this school year. Deleted records remain hidden unless you choose to view them.</p>
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">Manage the people in this school year.</p>
         </div>
         <Button asChild><Link to={`/y/${schoolYearId}/${copy.path}/new`}>Add {copy.singular}</Link></Button>
       </div>
 
       <section aria-label={`${copy.plural} filters`} className="mt-8 rounded-lg border bg-card p-4">
-        <div className="grid gap-4 md:grid-cols-[minmax(0,2fr)_repeat(2,minmax(0,1fr))_auto]">
+        <div className="grid gap-4 md:grid-cols-[minmax(0,2fr)_repeat(2,minmax(0,1fr))]">
           <label className="text-sm font-medium" htmlFor={`${kind}-search`}>
             Search by name
             <Input id={`${kind}-search`} className="mt-2" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${copy.plural.toLowerCase()}`} />
@@ -89,23 +124,19 @@ export function PeopleListPage({ kind }: PageProps) {
           {kind === 'student' && <>
             <label className="text-sm font-medium" htmlFor="student-grade">
               Grade
-              <select id="student-grade" className="mt-2 flex h-9 w-full rounded-md border bg-transparent px-3 text-sm" value={grade} onChange={(event) => setGrade(event.target.value)}>
+              <select id="student-grade" className="mt-2 flex h-9 w-full rounded-md border bg-transparent px-3 text-sm" value={gradeLevelId} onChange={(event) => setGradeLevelId(event.target.value)}>
                 <option value="">All grades</option>
-                {grades.map((value) => <option key={value} value={value}>{value}</option>)}
+                {grades.map((grade) => <option key={grade.id} value={grade.id}>{grade.label}</option>)}
               </select>
             </label>
             <label className="text-sm font-medium" htmlFor="student-homeroom">
-              Homeroom
-              <select id="student-homeroom" className="mt-2 flex h-9 w-full rounded-md border bg-transparent px-3 text-sm" value={homeroom} onChange={(event) => setHomeroom(event.target.value)}>
-                <option value="">All homerooms</option>
-                {homerooms.map((value) => <option key={value} value={value}>{value}</option>)}
+              {vocabulary?.homeroom_label ?? 'Homeroom'}
+              <select id="student-homeroom" className="mt-2 flex h-9 w-full rounded-md border bg-transparent px-3 text-sm" value={homeroomId} onChange={(event) => setHomeroomId(event.target.value)}>
+                <option value="">All {(vocabulary?.homeroom_label ?? 'homeroom').toLowerCase()}s</option>
+                {homerooms.map((homeroom) => <option key={homeroom.id} value={homeroom.id}>{homeroom.name}</option>)}
               </select>
             </label>
           </>}
-          <label className="flex items-end gap-2 pb-2 text-sm font-medium">
-            <input type="checkbox" checked={includeDeleted} onChange={(event) => setIncludeDeleted(event.target.checked)} />
-            Show deleted
-          </label>
         </div>
       </section>
 
@@ -113,14 +144,23 @@ export function PeopleListPage({ kind }: PageProps) {
       {error !== null && <p className="mt-8 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive" role="alert">{errorMessage(error, `Unable to load ${copy.plural.toLowerCase()}.`)}</p>}
       {!isLoading && !error && filteredPeople.length === 0 && <p className="mt-8 rounded-lg border bg-card p-6 text-sm text-muted-foreground">No {copy.plural.toLowerCase()} match these filters.</p>}
       {!isLoading && !error && filteredPeople.length > 0 && (
-        <PeopleTable kind={kind} schoolYearId={schoolYearId} people={filteredPeople} />
+        <PeopleTable kind={kind} schoolYearId={schoolYearId} people={filteredPeople} households={households} grades={grades} homerooms={homerooms} />
       )}
     </PageFrame>
   )
 }
 
-function PeopleTable({ kind, schoolYearId, people }: { kind: PersonKind; schoolYearId: string; people: Person[] }) {
+function PeopleTable({ kind, schoolYearId, people, households, grades, homerooms }: {
+  kind: PersonKind
+  schoolYearId: string
+  people: PersonSummary[]
+  households: Map<string, Household[]>
+  grades: GradeLevel[]
+  homerooms: Homeroom[]
+}) {
   const copy = pageCopy[kind]
+  const gradeLabels = new Map(grades.map((grade) => [grade.id, grade.label]))
+  const homeroomLabels = new Map(homerooms.map((homeroom) => [homeroom.id, homeroom.name]))
   return (
     <Table className="mt-8" aria-label={copy.plural}>
       <TableHeader>
@@ -132,10 +172,19 @@ function PeopleTable({ kind, schoolYearId, people }: { kind: PersonKind; schoolY
       </TableHeader>
       <TableBody>
         {people.map((person) => (
-          <TableRow key={person.id} className={person.deleted_at ? 'opacity-60' : undefined}>
-            <TableCell><Link className="font-medium text-primary hover:underline" to={`/y/${schoolYearId}/${copy.path}/${person.id}`}>{person.display_name}</Link>{person.deleted_at && <span className="ml-2 text-xs text-muted-foreground">Deleted</span>}</TableCell>
-            {kind === 'student' ? <><TableCell>{(person as Student).grade}</TableCell><TableCell>{(person as Student).homeroom}</TableCell></> : <><TableCell>{(person as Adult).email ?? '—'}</TableCell><TableCell className="capitalize">{(person as Adult).participation_intent}</TableCell></>}
-            <TableCell><HouseholdLinks person={person} schoolYearId={schoolYearId} /></TableCell><TableCell>{person.external_identifier ?? '—'}</TableCell>
+          <TableRow key={person.id}>
+            <TableCell><Link className="font-medium text-primary hover:underline" to={`/y/${schoolYearId}/${copy.path}/${person.id}`}>{person.display_name}</Link></TableCell>
+            {kind === 'student'
+              ? <>
+                <TableCell>{gradeLabels.get((person as Student).grade_level_id) ?? (person as Student).grade_level_id}</TableCell>
+                <TableCell>{homeroomLabels.get((person as Student).homeroom_id) ?? (person as Student).homeroom_id}</TableCell>
+              </>
+              : <>
+                <TableCell>{(person as Adult).email ?? '—'}</TableCell>
+                <TableCell className="capitalize">{(person as Adult).participation_intent}</TableCell>
+              </>}
+            <TableCell><HouseholdLinks households={households.get(person.id) ?? []} schoolYearId={schoolYearId} /></TableCell>
+            <TableCell>{person.external_identifier ?? '—'}</TableCell>
           </TableRow>
         ))}
       </TableBody>
@@ -156,9 +205,11 @@ export function PersonDetailPage({ kind }: PageProps) {
   const navigate = useNavigate()
   const copy = pageCopy[kind]
   const isNew = !personId || personId === 'new'
-  const [person, setPerson] = useState<Person | null>(null)
+  const [person, setPerson] = useState<PersonSummary | null>(null)
+  const [households, setHouseholds] = useState<Household[]>([])
+  const [vocabulary, setVocabulary] = useState<VocabularyResponse | null>(null)
   const [values, setValues] = useState<PersonInputValues>(() => emptyValues(kind))
-  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [error, setError] = useState<unknown>(null)
   const [isLoading, setIsLoading] = useState(!isNew && Boolean(schoolYearId))
   const [isSaving, setIsSaving] = useState(false)
@@ -171,7 +222,7 @@ export function PersonDetailPage({ kind }: PageProps) {
     }
     let active = true
     setIsLoading(true)
-    void peopleApi.get(kind, schoolYearId, personId)
+    void (kind === 'student' ? studentApi.get(schoolYearId, personId) : adultApi.get(schoolYearId, personId))
       .then((result) => {
         if (!active) return
         setPerson(result)
@@ -182,10 +233,28 @@ export function PersonDetailPage({ kind }: PageProps) {
     return () => { active = false }
   }, [isNew, kind, personId, schoolYearId])
 
+  useEffect(() => {
+    if (isNew || !schoolYearId || !personId) return
+    let active = true
+    void listHouseholdMembership(schoolYearId)
+      .then((memberships) => { if (active) setHouseholds(householdsByPerson(memberships, kind).get(personId) ?? []) })
+      .catch(() => { /* Membership is supporting context; a failure must not block editing. */ })
+    return () => { active = false }
+  }, [isNew, kind, personId, schoolYearId])
+
+  useEffect(() => {
+    if (kind !== 'student') return
+    let active = true
+    void resourceApi.getVocabulary()
+      .then((result) => { if (active) setVocabulary(result) })
+      .catch((reason: unknown) => { if (active) setError(reason) })
+    return () => { active = false }
+  }, [kind])
+
   if (!schoolYearId) return <PageFrame><MissingSchoolYear kind={kind} /></PageFrame>
   const yearId = schoolYearId
   if (isLoading) return <PageFrame><p className="text-sm text-muted-foreground" role="status">Loading {copy.singular}…</p></PageFrame>
-  if (error && !isNew) return <PageFrame><p className="rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive" role="alert">{errorMessage(error, `Unable to load ${copy.singular}.`)}</p></PageFrame>
+  if (error && !isNew && !person) return <PageFrame><p className="rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive" role="alert">{errorMessage(error, `Unable to load ${copy.singular}.`)}</p></PageFrame>
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -193,12 +262,10 @@ export function PersonDetailPage({ kind }: PageProps) {
     setError(null)
     setFieldErrors({})
     try {
-      const saved = isNew
-        ? await peopleApi.create(kind, yearId, values as StudentInput | AdultInput)
-        : await peopleApi.update(kind, yearId, personId!, values as StudentInput | AdultInput)
+      const saved = await savePerson(kind, yearId, isNew ? undefined : personId, values)
       navigate(`/y/${yearId}/${copy.path}/${saved.id}`, { replace: true })
     } catch (reason: unknown) {
-      if (reason instanceof PeopleApiError) setFieldErrors(reason.fieldErrors)
+      setFieldErrors(fieldErrorMap(reason))
       setError(reason)
     } finally {
       setIsSaving(false)
@@ -211,13 +278,16 @@ export function PersonDetailPage({ kind }: PageProps) {
     setIsDeleting(true)
     setError(null)
     try {
-      await peopleApi.remove(kind, yearId, personId)
+      await (kind === 'student' ? studentApi.remove(yearId, personId) : adultApi.remove(yearId, personId))
       navigate(`/y/${yearId}/${copy.path}`, { replace: true })
     } catch (reason: unknown) {
       setError(reason)
       setIsDeleting(false)
     }
   }
+
+  const grades = vocabulary ? activeGradeLevels(vocabulary) : []
+  const homerooms = vocabulary ? activeHomerooms(vocabulary) : []
 
   return (
     <PageFrame>
@@ -238,13 +308,15 @@ export function PersonDetailPage({ kind }: PageProps) {
           <Field label="Preferred given name" name="preferred_given_name" value={values.preferred_given_name} error={fieldErrors.preferred_given_name} onChange={(value) => setValues({ ...values, preferred_given_name: value })} hint="The API's display name is used in lists and headings." />
           <Field label="External identifier" name="external_identifier" value={values.external_identifier} error={fieldErrors.external_identifier} onChange={(value) => setValues({ ...values, external_identifier: value })} />
           {kind === 'student' ? <>
-            <Field label="Grade" name="grade" value={(values as StudentInput).grade} error={fieldErrors.grade} onChange={(value) => setValues({ ...values, grade: value } as StudentInputValues)} />
-            <Field label="Homeroom" name="homeroom" value={(values as StudentInput).homeroom} error={fieldErrors.homeroom} onChange={(value) => setValues({ ...values, homeroom: value } as StudentInputValues)} />
+            <Select label="Grade" name="grade_level_id" value={(values as StudentInputValues).grade_level_id} error={fieldErrors.grade_level_id} onChange={(value) => setValues({ ...values, grade_level_id: value } as StudentInputValues)}
+              options={grades.map((grade) => ({ value: grade.id, label: grade.label }))} placeholder="Choose a grade" />
+            <Select label={vocabulary?.homeroom_label ?? 'Homeroom'} name="homeroom_id" value={(values as StudentInputValues).homeroom_id} error={fieldErrors.homeroom_id} onChange={(value) => setValues({ ...values, homeroom_id: value } as StudentInputValues)}
+              options={homerooms.map((homeroom) => ({ value: homeroom.id, label: homeroom.name }))} placeholder={`Choose a ${(vocabulary?.homeroom_label ?? 'homeroom').toLowerCase()}`} />
           </> : <>
-            <Field label="Email" name="email" type="email" value={(values as AdultInput).email} error={fieldErrors.email} onChange={(value) => setValues({ ...values, email: value } as AdultInputValues)} />
-            <Field label="Phone" name="phone" value={(values as AdultInput).phone} error={fieldErrors.phone} onChange={(value) => setValues({ ...values, phone: value } as AdultInputValues)} />
+            <Field label="Email" name="email" type="email" value={(values as AdultInputValues).email} error={fieldErrors.email} onChange={(value) => setValues({ ...values, email: value } as AdultInputValues)} />
+            <Field label="Phone" name="phone" value={(values as AdultInputValues).phone} error={fieldErrors.phone} onChange={(value) => setValues({ ...values, phone: value } as AdultInputValues)} />
             <label className="text-sm font-medium" htmlFor="participation_intent">Participation intent<span className="mt-2 block text-xs font-normal text-muted-foreground">Used for adult planning, not a person role.</span>
-              <select id="participation_intent" className="mt-2 flex h-9 w-full rounded-md border bg-transparent px-3 text-sm" value={(values as AdultInput).participation_intent} onChange={(event) => setValues({ ...values, participation_intent: event.target.value as ParticipationIntent } as AdultInputValues)}>
+              <select id="participation_intent" className="mt-2 flex h-9 w-full rounded-md border bg-transparent px-3 text-sm" value={(values as AdultInputValues).participation_intent} onChange={(event) => setValues({ ...values, participation_intent: event.target.value as ParticipationIntent } as AdultInputValues)}>
                 <option value="lead">Lead</option><option value="help">Help</option><option value="unavailable">Unavailable</option>
               </select>
               {fieldErrors.participation_intent && <FieldError message={fieldErrors.participation_intent} />}
@@ -254,7 +326,7 @@ export function PersonDetailPage({ kind }: PageProps) {
         <div className="flex gap-3"><Button type="submit" disabled={isSaving}>{isSaving ? 'Saving…' : 'Save'}</Button><Button asChild type="button" variant="outline"><Link to={`/y/${schoolYearId}/${copy.path}`}>Cancel</Link></Button></div>
       </form>
       {!isNew && person && <>
-        <HouseholdMembershipSection person={person} schoolYearId={yearId} />
+        <HouseholdMembershipSection households={households} schoolYearId={yearId} />
         <GuardianRelationships kind={kind} schoolYearId={yearId} personId={person.id} />
       </>}
     </PageFrame>
@@ -262,29 +334,84 @@ export function PersonDetailPage({ kind }: PageProps) {
 }
 
 type PersonInputValues = StudentInputValues | AdultInputValues
-type StudentInputValues = StudentInput & { kind?: never }
-type AdultInputValues = AdultInput & { kind?: never }
+type StudentInputValues = {
+  legal_given_name: string
+  legal_family_name: string
+  preferred_given_name: string
+  external_identifier: string
+  grade_level_id: string
+  homeroom_id: string
+}
+type AdultInputValues = {
+  legal_given_name: string
+  legal_family_name: string
+  preferred_given_name: string
+  external_identifier: string
+  email: string
+  phone: string
+  participation_intent: ParticipationIntent
+}
 
 function emptyValues(kind: PersonKind): PersonInputValues {
   return kind === 'student'
-    ? { legal_given_name: '', legal_family_name: '', preferred_given_name: '', external_identifier: '', grade: '', homeroom: '' }
+    ? { legal_given_name: '', legal_family_name: '', preferred_given_name: '', external_identifier: '', grade_level_id: '', homeroom_id: '' }
     : { legal_given_name: '', legal_family_name: '', preferred_given_name: '', external_identifier: '', email: '', phone: '', participation_intent: 'unavailable' }
 }
 
-function valuesFromPerson(kind: PersonKind, person: Person): PersonInputValues {
-  const common = { legal_given_name: person.legal_given_name, legal_family_name: person.legal_family_name, preferred_given_name: person.preferred_given_name ?? '', external_identifier: person.external_identifier ?? '' }
+function valuesFromPerson(kind: PersonKind, person: PersonSummary): PersonInputValues {
+  const common = {
+    legal_given_name: person.legal_given_name,
+    legal_family_name: person.legal_family_name,
+    preferred_given_name: person.preferred_given_name ?? '',
+    external_identifier: person.external_identifier ?? '',
+  }
   return kind === 'student'
-    ? { ...common, grade: (person as Student).grade, homeroom: (person as Student).homeroom }
+    ? { ...common, grade_level_id: (person as Student).grade_level_id, homeroom_id: (person as Student).homeroom_id }
     : { ...common, email: (person as Adult).email ?? '', phone: (person as Adult).phone ?? '', participation_intent: (person as Adult).participation_intent }
 }
 
-function filterAndSortPeople(people: Person[], kind: PersonKind, query: string, grade: string, homeroom: string) {
+// SPEC §5.2 warns rather than blocks, so the form submits whatever the organiser
+// typed and lets the server's RFC 9457 field errors come back. Empty optional
+// strings are dropped rather than sent, because the contract types them as
+// absent-or-set, not as "".
+function savePerson(kind: PersonKind, schoolYearId: string, personId: string | undefined, values: PersonInputValues) {
+  if (kind === 'student') {
+    const student = values as StudentInputValues
+    const body: StudentInput = {
+      legal_given_name: student.legal_given_name,
+      legal_family_name: student.legal_family_name,
+      grade_level_id: student.grade_level_id,
+      homeroom_id: student.homeroom_id,
+      ...optional('preferred_given_name', student.preferred_given_name),
+      ...optional('external_identifier', student.external_identifier),
+    }
+    return personId ? studentApi.update(schoolYearId, personId, body) : studentApi.create(schoolYearId, body)
+  }
+
+  const adult = values as AdultInputValues
+  const body: AdultInput = {
+    legal_given_name: adult.legal_given_name,
+    legal_family_name: adult.legal_family_name,
+    participation_intent: adult.participation_intent,
+    ...optional('preferred_given_name', adult.preferred_given_name),
+    ...optional('external_identifier', adult.external_identifier),
+    ...optional('email', adult.email),
+    ...optional('phone', adult.phone),
+  }
+  return personId ? adultApi.update(schoolYearId, personId, body) : adultApi.create(schoolYearId, body)
+}
+
+function optional<K extends string>(key: K, value: string): Record<K, string> | Record<string, never> {
+  return value.trim() === '' ? {} : ({ [key]: value } as Record<K, string>)
+}
+
+function filterAndSortPeople(people: PersonSummary[], kind: PersonKind, query: string, gradeLevelId: string, homeroomId: string) {
   const normalized = query.trim().toLocaleLowerCase()
   return people
     .filter((person) => {
       const student = person as Student
       const matchesSearch = !normalized || person.display_name.toLocaleLowerCase().includes(normalized) || person.legal_given_name.toLocaleLowerCase().includes(normalized) || person.legal_family_name.toLocaleLowerCase().includes(normalized)
-      return matchesSearch && (kind !== 'student' || (!grade || student.grade === grade) && (!homeroom || student.homeroom === homeroom))
+      return matchesSearch && (kind !== 'student' || (!gradeLevelId || student.grade_level_id === gradeLevelId) && (!homeroomId || student.homeroom_id === homeroomId))
     })
     .sort((left, right) => compareValues(left.legal_family_name, right.legal_family_name) || compareValues(left.legal_given_name, right.legal_given_name) || compareValues(left.id, right.id))
 }
@@ -297,18 +424,20 @@ function Field({ label, name, value, error, hint, type = 'text', onChange }: { l
   return <label className="text-sm font-medium" htmlFor={name}>{label}<Input id={name} name={name} type={type} className="mt-2" value={value} onChange={(event) => onChange(event.target.value)} aria-invalid={Boolean(error)} aria-describedby={error ? `${name}-error` : hint ? `${name}-hint` : undefined} />{hint && !error && <span id={`${name}-hint`} className="mt-1 block text-xs font-normal text-muted-foreground">{hint}</span>}{error && <FieldError id={`${name}-error`} message={error} />}</label>
 }
 
+function Select({ label, name, value, error, options, placeholder, onChange }: { label: string; name: string; value: string; error?: string; options: { value: string; label: string }[]; placeholder: string; onChange: (value: string) => void }) {
+  return <label className="text-sm font-medium" htmlFor={name}>{label}<select id={name} name={name} className="mt-2 flex h-9 w-full rounded-md border bg-transparent px-3 text-sm" value={value} onChange={(event) => onChange(event.target.value)} aria-invalid={Boolean(error)} aria-describedby={error ? `${name}-error` : undefined}><option value="">{placeholder}</option>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select>{error && <FieldError id={`${name}-error`} message={error} />}</label>
+}
+
 function FieldError({ id, message }: { id?: string; message: string }) {
   return <span id={id} className="mt-1 block text-xs font-normal text-destructive" role="alert">{message}</span>
 }
 
-
-function HouseholdLinks({ person, schoolYearId }: { person: Person; schoolYearId: string }) {
-  if (!person.households || person.households.length === 0) return <span className="text-amber-700" role="status">No household assigned</span>
-  return <span className="flex flex-wrap gap-x-2 gap-y-1">{person.households.map((household) => <Link key={household.id} className="text-primary hover:underline" to={`/y/${schoolYearId}/households/${household.id}`}>{household.display_name}</Link>)}</span>
+function HouseholdLinks({ households, schoolYearId }: { households: Household[]; schoolYearId: string }) {
+  if (households.length === 0) return <span className="text-amber-700" role="status">No household assigned</span>
+  return <span className="flex flex-wrap gap-x-2 gap-y-1">{households.map((household) => <Link key={household.id} className="text-primary hover:underline" to={`/y/${schoolYearId}/households/${household.id}`}>{household.display_name}</Link>)}</span>
 }
 
-function HouseholdMembershipSection({ person, schoolYearId }: { person: Person; schoolYearId: string }) {
-  const households = person.households ?? []
+function HouseholdMembershipSection({ households, schoolYearId }: { households: Household[]; schoolYearId: string }) {
   return <section className="mt-10 rounded-lg border bg-card p-6" aria-labelledby="person-households-heading"><h2 id="person-households-heading" className="text-xl font-semibold">Household membership</h2><p className="mt-2 text-sm text-muted-foreground">Membership is independent from guardian relationships. Editing a guardian relationship will not add this person to a household.</p>{households.length === 0 ? <p className="mt-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">This person has no household yet. This is a warning only; you can still save the roster record.</p> : <ul className="mt-4 flex flex-wrap gap-2">{households.map((household) => <li key={household.id}><Link className="inline-flex rounded-md border px-3 py-2 text-sm text-primary hover:bg-accent" to={`/y/${schoolYearId}/households/${household.id}`}>{household.display_name}</Link></li>)}</ul>}</section>
 }
 

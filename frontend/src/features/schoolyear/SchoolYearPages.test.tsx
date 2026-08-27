@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { SchoolYear } from '@/lib/apiResources'
+import type { MeResponse, SchoolYear } from '@/lib/apiResources'
 
 import { SchoolYearPage } from './SchoolYearPages'
 import { useSchoolYear, useUpdateSchoolYear } from './useSchoolYears'
@@ -15,10 +15,12 @@ vi.mock('./useSchoolYears', () => ({
 
 vi.mock('@/lib/apiResources', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/apiResources')>()
-  return { ...actual, resourceApi: { ...actual.resourceApi, getAccount: vi.fn() } }
+  return { ...actual, resourceApi: { ...actual.resourceApi, getMe: vi.fn() } }
 })
 
 import { resourceApi } from '@/lib/apiResources'
+
+const account = (role: string): MeResponse => ({ role, principal: { id: 'user-test', email: 'admin@example.test' }, organization: { id: 'org-test', name: 'Synthetic Academy' } })
 
 const closedYear: SchoolYear = {
   id: 'year-test',
@@ -37,7 +39,7 @@ function renderPage() {
 beforeEach(() => {
   vi.mocked(useSchoolYear).mockReturnValue({ data: closedYear, isLoading: false, isError: false, error: null } as ReturnType<typeof useSchoolYear>)
   vi.mocked(useUpdateSchoolYear).mockReturnValue({ mutate: vi.fn(), isPending: false, isError: false, error: null } as unknown as ReturnType<typeof useUpdateSchoolYear>)
-  vi.mocked(resourceApi.getAccount).mockResolvedValue({ role: 'Owner' })
+  vi.mocked(resourceApi.getMe).mockResolvedValue(account('Owner'))
 })
 
 describe('SchoolYearPage', () => {
@@ -55,7 +57,7 @@ describe('SchoolYearPage', () => {
   })
 
   it('does not show the owner-only reopen control to an administrator', async () => {
-    vi.mocked(resourceApi.getAccount).mockResolvedValue({ role: 'Administrator' })
+    vi.mocked(resourceApi.getMe).mockResolvedValue(account('Administrator'))
     renderPage()
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Reopen year' })).not.toBeInTheDocument())
   })

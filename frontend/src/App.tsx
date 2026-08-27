@@ -60,9 +60,12 @@ function AppRoutes() {
             <Route path="adults/:personId" element={<AdultDetailPage />} />
 
             {/* Households scoped to a school year */}
+            {/* The param name is read by HouseholdDetailPage's useParams; a
+                mismatch here makes every household detail URL render the
+                empty "Add household" form instead. */}
             <Route path="households" element={<HouseholdListPage />} />
             <Route path="households/new" element={<HouseholdDetailPage />} />
-            <Route path="households/:personId" element={<HouseholdDetailPage />} />
+            <Route path="households/:householdId" element={<HouseholdDetailPage />} />
 
             {/* Fallback inside a school year goes to the workspace */}
             <Route path="*" element={<SchoolYearWorkspace />} />

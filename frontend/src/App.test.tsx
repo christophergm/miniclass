@@ -6,6 +6,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AppWithAuth } from './App'
 import type { AuthClient, Session } from './lib/auth'
 
+// The client hands a Request to fetch, so the URL comes off the Request rather
+// than from stringifying the first argument.
+function requestUrl(input: RequestInfo | URL) {
+  return input instanceof Request ? input.url : String(input)
+}
+
+function jsonResponse(body: unknown) {
+  return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } })
+}
+
 function renderApp(path: string, authClient: AuthClient | null) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
@@ -70,7 +80,7 @@ describe('App routing', () => {
 
   it('lands an authenticated user on the school-year list without a dashboard', async () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input)
+      const url = requestUrl(input)
       if (url.endsWith('/api/me')) {
         return new Response(JSON.stringify({
           principal: { id: 'user-test', email: 'admin@example.com' },
@@ -90,7 +100,7 @@ describe('App routing', () => {
 
   it('renders a clean not-found page for a foreign school-year URL', async () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input)
+      const url = requestUrl(input)
       if (url.includes('/api/school-years/foreign-year')) {
         return new Response(JSON.stringify({ type: 'resource-not-found', detail: 'school year not found' }), { status: 404, headers: { 'Content-Type': 'application/problem+json' } })
       }
@@ -112,6 +122,34 @@ describe('App routing', () => {
 
     expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeInTheDocument()
     expect(screen.queryByText(/school year/i)).not.toBeInTheDocument()
+  })
+
+  // The route parameter has to be named what the page's useParams reads. It was
+  // declared as `:personId` while HouseholdDetailPage read `householdId`, so
+  // every household detail URL rendered the empty "Add household" form. The
+  // household tests render the component under their own route table, so only a
+  // test that goes through App's routes can catch this.
+  it('opens an existing household from its detail URL rather than the new-household form', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = requestUrl(input)
+      if (url.includes('/api/school-years/year-1/households/household-1')) {
+        return url.endsWith('/household-1')
+          ? jsonResponse({ id: 'household-1', organization_id: 'org-test', school_year_id: 'year-1', display_name: 'Stone family', created_at: '2026-08-01T00:00:00Z', updated_at: '2026-08-01T00:00:00Z' })
+          : jsonResponse([])
+      }
+      if (url.endsWith('/api/school-years/year-1')) {
+        return jsonResponse({ id: 'year-1', organization_id: 'org-test', label: '2026–27', state: 'active', created_at: '2026-08-01T00:00:00Z', updated_at: '2026-08-01T00:00:00Z' })
+      }
+      if (url.endsWith('/api/me')) {
+        return jsonResponse({ principal: { id: 'user-test', email: 'admin@example.com' }, organization: { id: 'org-test', name: 'Test organisation' }, role: 'Owner' })
+      }
+      return jsonResponse([])
+    }))
+
+    renderApp('/y/year-1/households/household-1', authenticatedClient())
+
+    expect(await screen.findByRole('heading', { name: 'Stone family' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Add household' })).not.toBeInTheDocument()
   })
 })
 

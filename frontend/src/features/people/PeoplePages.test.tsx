@@ -1,23 +1,57 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { PeopleApiError, peopleApi } from './api'
-import { guardianApi } from './guardianApi'
+import { ApiError } from '@/lib/api'
+import { resourceApi, type VocabularyResponse } from '@/lib/apiResources'
+
 import { AdultListPage, StudentDetailPage, StudentListPage } from './PeoplePages'
-import type { Adult } from './types'
+import { adultApi, guardianApi, householdApi, studentApi, type Adult, type Household, type Student } from './roster'
 
-const students = [
-  {
-    id: 'student-2', school_year_id: 'year-1', legal_given_name: 'Ada', legal_family_name: 'Zephyr', preferred_given_name: 'Addie', display_name: 'Addie Zephyr', grade: '2', homeroom: 'C',
-  },
-  {
-    id: 'student-1', school_year_id: 'year-1', legal_given_name: 'Bea', legal_family_name: 'Apple', preferred_given_name: null, display_name: 'Bea Apple', grade: '1', homeroom: 'A',
-  },
-  {
-    id: 'student-3', school_year_id: 'year-1', legal_given_name: 'Ari', legal_family_name: 'Apple', preferred_given_name: 'Aria', display_name: 'Aria Apple', grade: '2', homeroom: 'B',
-  },
+// Fixtures are typed against the generated contract, so a backend field rename
+// fails this file at compile time rather than passing against a shape the API
+// never returns (ADR 0004).
+
+const timestamps = { created_at: '2026-08-01T00:00:00Z', updated_at: '2026-08-01T00:00:00Z' }
+const ids = { organization_id: 'org-1', school_year_id: 'year-1' }
+
+const students: Student[] = [
+  { ...ids, ...timestamps, id: 'student-2', legal_given_name: 'Ada', legal_family_name: 'Zephyr', preferred_given_name: 'Addie', display_name: 'Addie Zephyr', grade_level_id: 'grade-2', homeroom_id: 'homeroom-c' },
+  { ...ids, ...timestamps, id: 'student-1', legal_given_name: 'Bea', legal_family_name: 'Apple', display_name: 'Bea Apple', grade_level_id: 'grade-1', homeroom_id: 'homeroom-a' },
+  { ...ids, ...timestamps, id: 'student-3', legal_given_name: 'Ari', legal_family_name: 'Apple', preferred_given_name: 'Aria', display_name: 'Aria Apple', grade_level_id: 'grade-2', homeroom_id: 'homeroom-b' },
 ]
+
+const vocabulary: VocabularyResponse = {
+  organization_id: 'org-1',
+  homeroom_label: 'Homeroom',
+  grade_levels: [
+    { ...timestamps, id: 'grade-1', organization_id: 'org-1', code: '1', label: 'First grade', ordinal: 1 },
+    { ...timestamps, id: 'grade-2', organization_id: 'org-1', code: '2', label: 'Second grade', ordinal: 2 },
+  ],
+  homerooms: [
+    { ...timestamps, id: 'homeroom-a', organization_id: 'org-1', name: 'Room A' },
+    { ...timestamps, id: 'homeroom-b', organization_id: 'org-1', name: 'Room B' },
+    { ...timestamps, id: 'homeroom-c', organization_id: 'org-1', name: 'Room C' },
+  ],
+}
+
+const households: Household[] = [
+  { ...ids, ...timestamps, id: 'household-1', display_name: 'Primary home' },
+  { ...ids, ...timestamps, id: 'household-2', display_name: 'Second home' },
+]
+
+/** Membership is only reachable per household, so both sub-resources are stubbed. */
+function stubMembership(studentIdsByHousehold: Record<string, string[]> = {}) {
+  vi.spyOn(householdApi, 'list').mockResolvedValue(households)
+  vi.spyOn(householdApi, 'listStudents').mockImplementation(async (_year, householdId) =>
+    (studentIdsByHousehold[householdId] ?? []).map((student_id) => ({ id: `${householdId}-${student_id}`, household_id: householdId, student_id })))
+  vi.spyOn(householdApi, 'listAdults').mockResolvedValue([])
+}
+
+beforeEach(() => {
+  vi.spyOn(resourceApi, 'getVocabulary').mockResolvedValue(vocabulary)
+  stubMembership()
+})
 
 afterEach(() => { vi.restoreAllMocks() })
 
@@ -34,26 +68,21 @@ function renderStudents(path = '/y/year-1/students') {
 
 describe('people roster pages', () => {
   it('shows every household for a student in the student list', async () => {
-    vi.spyOn(peopleApi, 'list').mockResolvedValue([{ ...students[0], households: [
-      { id: 'household-1', school_year_id: 'year-1', display_name: 'Primary home' },
-      { id: 'household-2', school_year_id: 'year-1', display_name: 'Second home' },
-    ] }])
+    vi.spyOn(studentApi, 'list').mockResolvedValue([students[0]])
+    stubMembership({ 'household-1': ['student-2'], 'household-2': ['student-2'] })
 
     renderStudents()
 
     const table = await screen.findByRole('table', { name: 'Students' })
-    expect(within(table).getByRole('link', { name: 'Primary home' })).toBeInTheDocument()
+    expect(await within(table).findByRole('link', { name: 'Primary home' })).toBeInTheDocument()
     expect(within(table).getByRole('link', { name: 'Second home' })).toBeInTheDocument()
   })
 
   it('shows both household links on student detail and warns without blocking a student with none', async () => {
-    const student = { ...students[0], households: [
-      { id: 'household-1', school_year_id: 'year-1', display_name: 'Primary home' },
-      { id: 'household-2', school_year_id: 'year-1', display_name: 'Second home' },
-    ] }
-    vi.spyOn(peopleApi, 'get').mockResolvedValue(student)
-    vi.spyOn(peopleApi, 'list').mockResolvedValue([])
+    vi.spyOn(studentApi, 'get').mockResolvedValue(students[0])
+    vi.spyOn(adultApi, 'list').mockResolvedValue([])
     vi.spyOn(guardianApi, 'listForStudent').mockResolvedValue([])
+    stubMembership({ 'household-1': ['student-2'], 'household-2': ['student-2'] })
 
     const detail = renderStudents('/y/year-1/students/student-2')
 
@@ -62,48 +91,62 @@ describe('people roster pages', () => {
 
     detail.unmount()
     vi.restoreAllMocks()
-    vi.spyOn(peopleApi, 'get').mockResolvedValue({ ...students[0], households: [] })
-    vi.spyOn(peopleApi, 'list').mockResolvedValue([])
+    vi.spyOn(resourceApi, 'getVocabulary').mockResolvedValue(vocabulary)
+    vi.spyOn(studentApi, 'get').mockResolvedValue(students[0])
+    vi.spyOn(adultApi, 'list').mockResolvedValue([])
     vi.spyOn(guardianApi, 'listForStudent').mockResolvedValue([])
+    stubMembership()
+
     renderStudents('/y/year-1/students/student-2')
     expect(await screen.findByText('This person has no household yet. This is a warning only; you can still save the roster record.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled()
   })
 
   it('uses the API display name and sorts by legal family then given name', async () => {
-    vi.spyOn(peopleApi, 'list').mockResolvedValue(students)
+    vi.spyOn(studentApi, 'list').mockResolvedValue(students)
 
     renderStudents()
 
     const table = await screen.findByRole('table', { name: 'Students' })
     const rows = within(table).getAllByRole('row')
-    expect(within(rows[1]).getByRole('link')).toHaveTextContent('Aria Apple')
-    expect(within(rows[2]).getByRole('link')).toHaveTextContent('Bea Apple')
-    expect(within(rows[3]).getByRole('link')).toHaveTextContent('Addie Zephyr')
+    expect(within(rows[1]).getAllByRole('link')[0]).toHaveTextContent('Aria Apple')
+    expect(within(rows[2]).getAllByRole('link')[0]).toHaveTextContent('Bea Apple')
+    expect(within(rows[3]).getAllByRole('link')[0]).toHaveTextContent('Addie Zephyr')
     expect(screen.queryByText('Ada Zephyr')).not.toBeInTheDocument()
   })
 
+  it('renders the grade and homeroom labels for the identifiers the roster returns', async () => {
+    vi.spyOn(studentApi, 'list').mockResolvedValue([students[0]])
+
+    renderStudents()
+
+    const table = await screen.findByRole('table', { name: 'Students' })
+    expect(await within(table).findByText('Second grade')).toBeInTheDocument()
+    expect(within(table).getByText('Room C')).toBeInTheDocument()
+    expect(within(table).queryByText('grade-2')).not.toBeInTheDocument()
+  })
+
   it('filters students by search, grade, and homeroom', async () => {
-    vi.spyOn(peopleApi, 'list').mockResolvedValue(students)
+    vi.spyOn(studentApi, 'list').mockResolvedValue(students)
 
     renderStudents()
     await screen.findByRole('table', { name: 'Students' })
+    await waitFor(() => expect(screen.getByLabelText('Grade')).toContainHTML('Second grade'))
 
     fireEvent.change(screen.getByLabelText('Search by name'), { target: { value: 'aria' } })
     expect(screen.getByRole('link', { name: 'Aria Apple' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Bea Apple' })).not.toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText('Search by name'), { target: { value: '' } })
-    fireEvent.change(screen.getByLabelText('Grade'), { target: { value: '2' } })
-    fireEvent.change(screen.getByLabelText('Homeroom'), { target: { value: 'C' } })
+    fireEvent.change(screen.getByLabelText('Grade'), { target: { value: 'grade-2' } })
+    fireEvent.change(screen.getByLabelText('Homeroom'), { target: { value: 'homeroom-c' } })
     expect(screen.getByRole('link', { name: 'Addie Zephyr' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Aria Apple' })).not.toBeInTheDocument()
   })
 
   it('shows adult participation intent in the adult list', async () => {
-    vi.spyOn(peopleApi, 'list').mockResolvedValue([{
-      id: 'adult-1', school_year_id: 'year-1', legal_given_name: 'Morgan', legal_family_name: 'Lee', preferred_given_name: 'Mo', display_name: 'Mo Lee', email: 'mo@example.test', phone: null, participation_intent: 'help',
-    } as Adult])
+    const adult: Adult = { ...ids, ...timestamps, id: 'adult-1', legal_given_name: 'Morgan', legal_family_name: 'Lee', preferred_given_name: 'Mo', display_name: 'Mo Lee', email: 'mo@example.test', participation_intent: 'help' }
+    vi.spyOn(adultApi, 'list').mockResolvedValue([adult])
 
     render(
       <MemoryRouter initialEntries={['/y/year-1/adults']}>
@@ -116,8 +159,30 @@ describe('people roster pages', () => {
     expect(within(table).getByText('help')).toBeInTheDocument()
   })
 
+  it('sends the grade and homeroom identifiers the contract requires, not their labels', async () => {
+    const create = vi.spyOn(studentApi, 'create').mockResolvedValue(students[0])
+
+    renderStudents('/y/year-1/students/new')
+    await waitFor(() => expect(screen.getByLabelText('Grade')).toContainHTML('Second grade'))
+
+    fireEvent.change(screen.getByLabelText('Legal given name'), { target: { value: 'Ada' } })
+    fireEvent.change(screen.getByLabelText('Legal family name'), { target: { value: 'Zephyr' } })
+    fireEvent.change(screen.getByLabelText('Grade'), { target: { value: 'grade-2' } })
+    fireEvent.change(screen.getByLabelText('Homeroom'), { target: { value: 'homeroom-c' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(create).toHaveBeenCalledWith('year-1', {
+      legal_given_name: 'Ada',
+      legal_family_name: 'Zephyr',
+      grade_level_id: 'grade-2',
+      homeroom_id: 'homeroom-c',
+    }))
+  })
+
   it('renders server field errors inline without client-side validation', async () => {
-    vi.spyOn(peopleApi, 'create').mockRejectedValue(new PeopleApiError('Please correct the highlighted fields.', 400, { legal_given_name: 'Legal given name is required.' }))
+    vi.spyOn(studentApi, 'create').mockRejectedValue(new ApiError('http', 'Please correct the highlighted fields.', 422, 'validation-error', [
+      { location: 'body.legal_given_name', message: 'Legal given name is required.' },
+    ]))
 
     renderStudents('/y/year-1/students/new')
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))

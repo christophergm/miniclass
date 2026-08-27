@@ -1,122 +1,74 @@
-import { apiClient } from './api'
+import { api, unwrap, unwrapList, unwrapNoContent } from './api'
+import type { components } from './api.generated'
 
-export type SchoolYearState = 'setup' | 'active' | 'closed'
+// Typed wrappers over the one client in ./api. Every type here is derived from
+// the generated contract rather than restated, so a backend field rename fails
+// `tsc` instead of a page (ADR 0004).
 
-export type SchoolYear = {
-  id: string
-  organization_id: string
-  label: string
-  state: SchoolYearState
-  created_at: string
-  updated_at: string
-}
+type Schemas = components['schemas']
 
-export type GradeLevel = {
-  id: string
-  organization_id: string
-  code: string
-  label: string
-  ordinal: number
-  retired_at?: string
-  created_at: string
-  updated_at: string
-}
-
-export type Homeroom = {
-  id: string
-  organization_id: string
-  name: string
-  retired_at?: string
-  created_at: string
-  updated_at: string
-}
-
-export type VocabularyResponse = {
-  organization_id: string
-  homeroom_label: string
-  grade_levels: GradeLevel[]
-  homerooms: Homeroom[]
-}
-
-export type Administrator = {
-  id: string
-  email: string
-  role: string
-  pending_invitation: boolean
-  invitation_expires_at?: string
-}
-
-export type AdministratorInvitation = {
-  member: Administrator
-  claim_url: string
-  expires_at: string
-  generation: number
-}
-
-export type Account = {
-  role: string
-  principal?: { id: string; email: string }
-  organization?: { id: string; name: string }
-}
-
-function body<T>(value: T): RequestInit {
-  return { body: JSON.stringify(value), method: 'POST' }
-}
+export type HealthResponse = Schemas['HealthResponse']
+export type MeResponse = Schemas['MeResponse']
+export type SchoolYear = Schemas['SchoolYearResponse']
+export type SchoolYearState = SchoolYear['state']
+export type GradeLevel = Schemas['GradeLevelOutput']
+export type Homeroom = Schemas['HomeroomOutput']
+export type VocabularyResponse = Schemas['VocabularyResponse']
+export type Administrator = Schemas['AdministratorResponse']
+export type AdministratorInvitation = Schemas['InvitationResponse']
+export type AuditLogResponse = Schemas['AuditLogOutputBody']
+export type AuditLogEntry = Schemas['AuditLogEntry']
 
 export const resourceApi = {
-  listSchoolYears: () => apiClient.requestJson<SchoolYear[]>('/api/school-years'),
-  createSchoolYear: (label: string) => apiClient.requestJson<SchoolYear>('/api/school-years', body({ label })),
-  updateSchoolYear: (id: string, update: { label?: string; state?: SchoolYearState; reason?: string }) =>
-    apiClient.requestJson<SchoolYear>(`/api/school-years/${encodeURIComponent(id)}`, {
-      body: JSON.stringify(update),
-      method: 'PATCH',
-    }),
-  getSchoolYear: (id: string) => apiClient.requestJson<SchoolYear>(`/api/school-years/${encodeURIComponent(id)}`),
+  getHealth: () => unwrap(api.GET('/api/health')),
+
+  getMe: () => unwrap(api.GET('/api/me')),
+  claimInvitation: (token: string) => unwrap(api.POST('/api/auth/claim', { body: { token } })),
+
+  getAuditLog: (options: { objectType?: string; cursor?: string; limit?: number } = {}) =>
+    unwrap(api.GET('/api/audit-log', {
+      params: { query: { object_type: options.objectType || undefined, cursor: options.cursor || undefined, limit: options.limit } },
+    })),
+
+  listSchoolYears: () => unwrapList(api.GET('/api/school-years')),
+  getSchoolYear: (schoolYearID: string) =>
+    unwrap(api.GET('/api/school-years/{schoolYearID}', { params: { path: { schoolYearID } } })),
+  createSchoolYear: (label: string) => unwrap(api.POST('/api/school-years', { body: { label } })),
+  updateSchoolYear: (schoolYearID: string, update: Schemas['UpdateSchoolYearInputBody']) =>
+    unwrap(api.PATCH('/api/school-years/{schoolYearID}', { params: { path: { schoolYearID } }, body: update })),
 
   getVocabulary: (includeRetired = true) =>
-    apiClient.requestJson<VocabularyResponse>(`/api/vocabularies?include_retired=${includeRetired}`),
-  createGradeLevel: (value: { code: string; label: string }) =>
-    apiClient.requestJson<GradeLevel>('/api/grade-levels', body(value)),
-  updateGradeLevel: (id: string, value: { code?: string; label?: string; retired?: boolean }) =>
-    apiClient.requestJson<GradeLevel>(`/api/grade-levels/${encodeURIComponent(id)}`, {
-      body: JSON.stringify(value),
-      method: 'PATCH',
-    }),
-  reorderGradeLevels: (ids: string[]) =>
-    apiClient.requestJson<GradeLevel[]>('/api/grade-levels/reorder', body({ ids })),
-  createHomeroom: (name: string) => apiClient.requestJson<Homeroom>('/api/homerooms', body({ name })),
-  updateHomeroom: (id: string, value: { name?: string; retired?: boolean }) =>
-    apiClient.requestJson<Homeroom>(`/api/homerooms/${encodeURIComponent(id)}`, {
-      body: JSON.stringify(value),
-      method: 'PATCH',
-    }),
+    unwrap(api.GET('/api/vocabularies', { params: { query: { include_retired: includeRetired } } })),
   updateHomeroomLabel: (homeroom_label: string) =>
-    apiClient.requestJson<{ organization_id: string; homeroom_label: string }>('/api/vocabularies/settings', {
-      body: JSON.stringify({ homeroom_label }),
-      method: 'PATCH',
-    }),
+    unwrap(api.PATCH('/api/vocabularies/settings', { body: { homeroom_label } })),
 
-  getAccount: () => apiClient.requestJson<Account>('/api/me'),
-  listAdministrators: () => apiClient.requestJson<{ members: Administrator[] }>('/api/administrators'),
-  inviteAdministrator: (value: { email: string; role?: string }) =>
-    apiClient.requestJson<AdministratorInvitation>('/api/administrators', body(value)),
-  resendInvitation: (id: string) =>
-    apiClient.requestJson<AdministratorInvitation>(`/api/administrators/${encodeURIComponent(id)}/invitation/resend`, { method: 'POST' }),
-  revokeInvitation: (id: string) =>
-    apiClient.requestJson<void>(`/api/administrators/${encodeURIComponent(id)}/invitation/revoke`, { method: 'POST' }),
-  changeAdministratorRole: (id: string, role: string) =>
-    apiClient.requestJson<Administrator>(`/api/administrators/${encodeURIComponent(id)}`, {
-      body: JSON.stringify({ role }),
-      method: 'PATCH',
-    }),
-  removeAdministrator: (id: string) =>
-    apiClient.requestJson<void>(`/api/administrators/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  createGradeLevel: (value: Schemas['CreateGradeLevelInputBody']) =>
+    unwrap(api.POST('/api/grade-levels', { body: value })),
+  updateGradeLevel: (gradeLevelID: string, value: Schemas['UpdateGradeLevelInputBody']) =>
+    unwrap(api.PATCH('/api/grade-levels/{gradeLevelID}', { params: { path: { gradeLevelID } }, body: value })),
+  reorderGradeLevels: (ids: string[]) => unwrapList(api.POST('/api/grade-levels/reorder', { body: { ids } })),
+
+  createHomeroom: (name: string) => unwrap(api.POST('/api/homerooms', { body: { name } })),
+  updateHomeroom: (homeroomID: string, value: Schemas['UpdateHomeroomInputBody']) =>
+    unwrap(api.PATCH('/api/homerooms/{homeroomID}', { params: { path: { homeroomID } }, body: value })),
+
+  listAdministrators: () => unwrap(api.GET('/api/administrators')),
+  inviteAdministrator: (value: Schemas['InviteAdministratorInputBody']) =>
+    unwrap(api.POST('/api/administrators', { body: value })),
+  resendInvitation: (memberID: string) =>
+    unwrap(api.POST('/api/administrators/{memberID}/invitation/resend', { params: { path: { memberID } } })),
+  revokeInvitation: (memberID: string) =>
+    unwrapNoContent(api.POST('/api/administrators/{memberID}/invitation/revoke', { params: { path: { memberID } } })),
+  changeAdministratorRole: (memberID: string, role: string) =>
+    unwrap(api.PATCH('/api/administrators/{memberID}', { params: { path: { memberID } }, body: { role } })),
+  removeAdministrator: (memberID: string) =>
+    unwrapNoContent(api.DELETE('/api/administrators/{memberID}', { params: { path: { memberID } } })),
 }
 
 export function activeGradeLevels(vocabulary: VocabularyResponse): GradeLevel[] {
-  return vocabulary.grade_levels.filter((grade) => !grade.retired_at).sort((a, b) => a.ordinal - b.ordinal)
+  return (vocabulary.grade_levels ?? []).filter((grade) => !grade.retired_at).sort((a, b) => a.ordinal - b.ordinal)
 }
 
 export function activeHomerooms(vocabulary: VocabularyResponse): Homeroom[] {
-  return vocabulary.homerooms.filter((homeroom) => !homeroom.retired_at)
+  return (vocabulary.homerooms ?? []).filter((homeroom) => !homeroom.retired_at)
 }

@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
-import type { VocabularyResponse } from '@/lib/apiResources'
+import type { MeResponse, VocabularyResponse } from '@/lib/apiResources'
 
 import { SettingsPage } from './SettingsPage'
 import { useAdministrators, useVocabulary } from './useSettings'
@@ -16,10 +16,12 @@ vi.mock('./useSettings', () => ({
 
 vi.mock('@/lib/apiResources', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/apiResources')>()
-  return { ...actual, resourceApi: { ...actual.resourceApi, getAccount: vi.fn() } }
+  return { ...actual, resourceApi: { ...actual.resourceApi, getMe: vi.fn() } }
 })
 
 import { resourceApi } from '@/lib/apiResources'
+
+const account = (role: string): MeResponse => ({ role, principal: { id: 'user-test', email: 'admin@example.test' }, organization: { id: 'org-test', name: 'Synthetic Academy' } })
 
 const vocabulary: VocabularyResponse = { organization_id: 'org-test', homeroom_label: 'homeroom', grade_levels: [], homerooms: [] }
 
@@ -30,7 +32,7 @@ function renderSettings() {
 
 describe('SettingsPage', () => {
   it('shows administrator management only for an Owner', async () => {
-    vi.mocked(resourceApi.getAccount).mockResolvedValue({ role: 'Owner' })
+    vi.mocked(resourceApi.getMe).mockResolvedValue(account('Owner'))
     vi.mocked(useVocabulary).mockReturnValue({ data: vocabulary, isLoading: false, isError: false, error: null } as ReturnType<typeof useVocabulary>)
     vi.mocked(useAdministrators).mockReturnValue({ data: { members: [] }, isLoading: false, isError: false, error: null } as unknown as ReturnType<typeof useAdministrators>)
 
@@ -40,7 +42,7 @@ describe('SettingsPage', () => {
   })
 
   it('hides administrator management for an Administrator', async () => {
-    vi.mocked(resourceApi.getAccount).mockResolvedValue({ role: 'Administrator' })
+    vi.mocked(resourceApi.getMe).mockResolvedValue(account('Administrator'))
     vi.mocked(useVocabulary).mockReturnValue({ data: vocabulary, isLoading: false, isError: false, error: null } as ReturnType<typeof useVocabulary>)
     vi.mocked(useAdministrators).mockReturnValue({ data: { members: [] }, isLoading: false, isError: false, error: null } as unknown as ReturnType<typeof useAdministrators>)
 

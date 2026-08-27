@@ -1,13 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
 
-import { apiClient } from '../api'
+import { resourceApi } from '../apiResources'
 
 export const HEALTH_REFRESH_INTERVAL = 30_000
 
 export function useHealth() {
   return useQuery({
     queryKey: ['health'],
-    queryFn: () => apiClient.getHealth(),
+    queryFn: () => resourceApi.getHealth(),
     refetchInterval: HEALTH_REFRESH_INTERVAL,
     retry: false,
   })

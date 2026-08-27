@@ -2,20 +2,20 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { HealthResponse } from '../../lib/api'
+import type { HealthResponse } from '../../lib/apiResources'
 
 // Keep the health screen tests independent from the running API.
-vi.mock('../../lib/api', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../lib/api')>()
+vi.mock('../../lib/apiResources', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../lib/apiResources')>()
   return {
     ...actual,
-    apiClient: {
+    resourceApi: {
       getHealth: vi.fn(),
     },
   }
 })
 
-import { apiClient } from '../../lib/api'
+import { resourceApi } from '../../lib/apiResources'
 import { HealthCheck } from './HealthCheck'
 
 function renderHealthCheck() {
@@ -40,12 +40,12 @@ const healthyResponse: HealthResponse = {
 }
 
 afterEach(() => {
-  vi.mocked(apiClient.getHealth).mockReset()
+  vi.mocked(resourceApi.getHealth).mockReset()
 })
 
 describe('HealthCheck', () => {
   it('shows a loading state while the health request is pending', () => {
-    vi.mocked(apiClient.getHealth).mockReturnValue(new Promise<HealthResponse>(() => undefined))
+    vi.mocked(resourceApi.getHealth).mockReturnValue(new Promise<HealthResponse>(() => undefined))
 
     renderHealthCheck()
 
@@ -53,7 +53,7 @@ describe('HealthCheck', () => {
   })
 
   it('shows the backend status and the shadcn details table when healthy', async () => {
-    vi.mocked(apiClient.getHealth).mockResolvedValue(healthyResponse)
+    vi.mocked(resourceApi.getHealth).mockResolvedValue(healthyResponse)
 
     renderHealthCheck()
 
@@ -67,7 +67,7 @@ describe('HealthCheck', () => {
 
   it('shows a recoverable error state when the backend fails', async () => {
     const { ApiError } = await import('../../lib/api')
-    vi.mocked(apiClient.getHealth).mockRejectedValue(new ApiError('http', 'Service unavailable', 503))
+    vi.mocked(resourceApi.getHealth).mockRejectedValue(new ApiError('http', 'Service unavailable', 503))
 
     renderHealthCheck()
 
@@ -77,13 +77,13 @@ describe('HealthCheck', () => {
   })
 
   it('refreshes the query when requested', async () => {
-    vi.mocked(apiClient.getHealth).mockResolvedValue(healthyResponse)
+    vi.mocked(resourceApi.getHealth).mockResolvedValue(healthyResponse)
 
     renderHealthCheck()
     await screen.findByText('All systems operational')
 
     screen.getByRole('button', { name: 'Refresh now' }).click()
 
-    await waitFor(() => expect(apiClient.getHealth).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(resourceApi.getHealth).toHaveBeenCalledTimes(2))
   })
 })

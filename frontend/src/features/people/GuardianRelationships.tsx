@@ -3,15 +3,13 @@ import { Link } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 
-import { peopleApi } from './api'
-import { guardianApi } from './guardianApi'
-import type { GuardianRelationship, GuardianRelationshipType, Person, PersonKind } from './types'
+import { displayNamesById, guardianApi, listPeople, type GuardianRelationship, type GuardianRelationshipType, type PersonKind, type PersonSummary } from './roster'
 
 const relationshipOptions: GuardianRelationshipType[] = ['parent', 'guardian', 'grandparent', 'other']
 
 export function GuardianRelationships({ kind, schoolYearId, personId }: { kind: PersonKind; schoolYearId: string; personId: string }) {
   const [relationships, setRelationships] = useState<GuardianRelationship[]>([])
-  const [candidates, setCandidates] = useState<Person[]>([])
+  const [candidates, setCandidates] = useState<PersonSummary[]>([])
   const [selectedPersonId, setSelectedPersonId] = useState('')
   const [relationshipType, setRelationshipType] = useState<GuardianRelationshipType>('parent')
   const [isLoading, setIsLoading] = useState(true)
@@ -26,7 +24,7 @@ export function GuardianRelationships({ kind, schoolYearId, personId }: { kind: 
     try {
       const result = kind === 'student' ? await guardianApi.listForStudent(schoolYearId, personId) : await guardianApi.listForAdult(schoolYearId, personId)
       setRelationships(result)
-      const people = await peopleApi.list(kind === 'student' ? 'adult' : 'student', schoolYearId)
+      const people = await listPeople(kind === 'student' ? 'adult' : 'student', schoolYearId)
       setCandidates(people)
     } catch (reason: unknown) {
       setError(reason)
@@ -38,7 +36,7 @@ export function GuardianRelationships({ kind, schoolYearId, personId }: { kind: 
   useEffect(() => { void load() }, [load])
 
   const otherPersonId = (relationship: GuardianRelationship) => kind === 'student' ? relationship.adult_id : relationship.student_id
-  const displayNames = new Map(candidates.map((candidate) => [candidate.id, candidate.display_name]))
+  const displayNames = displayNamesById(candidates)
 
   async function updateRelationship(relationshipId: string, type: GuardianRelationshipType) {
     setIsSaving(true)
@@ -68,7 +66,11 @@ export function GuardianRelationships({ kind, schoolYearId, personId }: { kind: 
     setIsSaving(true)
     setError(null)
     try {
-      await guardianApi.create(schoolYearId, kind === 'student' ? selectedPersonId : personId, kind === 'student' ? personId : selectedPersonId, relationshipType)
+      await guardianApi.create(schoolYearId, {
+        adult_id: kind === 'student' ? selectedPersonId : personId,
+        student_id: kind === 'student' ? personId : selectedPersonId,
+        relationship_type: relationshipType,
+      })
       setSelectedPersonId('')
       await load()
     } catch (reason: unknown) {

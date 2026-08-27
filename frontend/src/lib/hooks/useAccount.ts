@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 
-import { apiClient } from '@/lib/api'
+import { resourceApi } from '@/lib/apiResources'
 
 import { useAuth } from './useAuth'
 
@@ -9,7 +9,7 @@ export function useAccount() {
 
   return useQuery({
     queryKey: ['account', session?.user?.id],
-    queryFn: () => apiClient.getMe(),
+    queryFn: () => resourceApi.getMe(),
     enabled: Boolean(session),
     staleTime: 5 * 60 * 1000,
     retry: false,

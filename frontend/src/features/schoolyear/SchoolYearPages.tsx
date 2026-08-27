@@ -134,7 +134,7 @@ function SchoolYearEditor({ year, isOwner }: { year: SchoolYear; isOwner: boolea
 }
 
 function useAccountRole() {
-  const result = useQuery({ queryKey: ['account'], queryFn: resourceApi.getAccount })
+  const result = useQuery({ queryKey: ['account'], queryFn: resourceApi.getMe })
   return { role: normalizeRole(result.data?.role) }
 }
 
