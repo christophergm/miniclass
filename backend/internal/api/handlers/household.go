@@ -23,6 +23,7 @@ type HouseholdService interface {
 	GetHousehold(context.Context, string, ids.XID, ids.XID) (data.Household, error)
 	UpdateHousehold(context.Context, string, ids.XID, ids.XID, audit.Actor, people.HouseholdUpdateInput) (data.Household, error)
 	DeleteHousehold(context.Context, string, ids.XID, ids.XID, audit.Actor) error
+	ListHouseholdMembership(context.Context, string, ids.XID) (people.HouseholdMembership, error)
 	ListHouseholdStudents(context.Context, string, ids.XID, ids.XID) ([]data.HouseholdStudent, error)
 	AddStudentToHousehold(context.Context, string, ids.XID, ids.XID, ids.XID, audit.Actor) (data.HouseholdStudent, error)
 	RemoveStudentFromHousehold(context.Context, string, ids.XID, ids.XID, ids.XID, audit.Actor) error
@@ -58,6 +59,15 @@ type HouseholdAdultResponse struct {
 	AdultID     string `json:"adult_id"`
 }
 
+// HouseholdMembershipResponse carries a whole school year's membership so that
+// "which households does this person belong to" costs one request rather than
+// one per household. Only opaque identifiers cross the boundary; a display name
+// is joined from the household listing by identifier (SPEC §8.7).
+type HouseholdMembershipResponse struct {
+	Students []HouseholdStudentResponse `json:"students" doc:"Every student membership in the school year."`
+	Adults   []HouseholdAdultResponse   `json:"adults" doc:"Every adult membership in the school year."`
+}
+
 type HouseholdYearPathInput struct {
 	SchoolYearID string `path:"schoolYearID" minLength:"1" doc:"Opaque school-year identifier."`
 }
@@ -73,6 +83,7 @@ type HouseholdMemberPathInput struct {
 type HouseholdListOutput struct{ Body []HouseholdResponse }
 type HouseholdOutput struct{ Body HouseholdResponse }
 type HouseholdDeleteOutput struct{}
+type HouseholdMembershipOutput struct{ Body HouseholdMembershipResponse }
 type HouseholdStudentListOutput struct{ Body []HouseholdStudentResponse }
 type HouseholdStudentOutput struct{ Body HouseholdStudentResponse }
 type HouseholdAdultListOutput struct{ Body []HouseholdAdultResponse }
@@ -84,6 +95,7 @@ type CreateHouseholdInput struct {
 	}
 }
 type ListHouseholdsInput struct{ HouseholdYearPathInput }
+type ListHouseholdMembershipInput struct{ HouseholdYearPathInput }
 type GetHouseholdInput struct{ HouseholdPathInput }
 type UpdateHouseholdInput struct {
 	HouseholdPathInput
@@ -195,6 +207,31 @@ func (h *HouseholdHandler) Delete(ctx context.Context, input *DeleteHouseholdInp
 		return nil, householdProblem(err)
 	}
 	return &HouseholdDeleteOutput{}, nil
+}
+
+func (h *HouseholdHandler) ListMembership(ctx context.Context, input *ListHouseholdMembershipInput) (*HouseholdMembershipOutput, error) {
+	account, err := householdAccount(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if h == nil || h.service == nil || input == nil {
+		return nil, householdNotFound()
+	}
+	membership, err := h.service.ListHouseholdMembership(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID))
+	if err != nil {
+		return nil, householdProblem(err)
+	}
+	body := HouseholdMembershipResponse{
+		Students: make([]HouseholdStudentResponse, 0, len(membership.Students)),
+		Adults:   make([]HouseholdAdultResponse, 0, len(membership.Adults)),
+	}
+	for _, row := range membership.Students {
+		body.Students = append(body.Students, householdStudentResponse(row))
+	}
+	for _, row := range membership.Adults {
+		body.Adults = append(body.Adults, householdAdultResponse(row))
+	}
+	return &HouseholdMembershipOutput{Body: body}, nil
 }
 
 func (h *HouseholdHandler) ListStudents(ctx context.Context, input *ListHouseholdStudentsInput) (*HouseholdStudentListOutput, error) {

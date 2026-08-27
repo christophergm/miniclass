@@ -74,7 +74,13 @@ export const householdApi = {
   remove: (schoolYearID: string, householdID: string) =>
     unwrapNoContent(api.DELETE('/api/school-years/{schoolYearID}/households/{householdID}', { params: { path: { schoolYearID, householdID } } })),
 
-  // Membership is a sub-resource per member type. It returns membership rows
+  // The year's whole membership in one request. The per-household sub-resources
+  // below still serve the household detail page, which is looking at exactly one
+  // household; they are not a way to answer the question for a roster.
+  listMembership: (schoolYearID: string) =>
+    unwrap(api.GET('/api/school-years/{schoolYearID}/household-memberships', { params: { path: { schoolYearID } } })),
+
+  // Membership is also a sub-resource per member type. It returns membership rows
   // carrying identifiers only, so display names are joined from the roster
   // listing by identifier (SPEC §8.7) rather than read off the link row.
   listStudents: (schoolYearID: string, householdID: string) =>
@@ -120,24 +126,34 @@ export type HouseholdMembership = {
   adultIds: string[]
 }
 
-// A roster response carries no household membership, and the contract exposes
-// membership only as a per-household sub-resource. Answering "which households
-// is this person in" therefore costs one request per household in the year.
-// That is the honest cost of the current contract, not a preference; adding
-// membership to the roster responses is tracked separately.
+// A roster response still carries no household membership, so "which households
+// is this person in" is answered by indexing the year's membership rows here.
+// Two requests, whatever the size of the year: the household listing for the
+// display names and the membership listing for the links between them. It was
+// one request per household, which at the reference program's ~90 households
+// (SPEC §3.2) was tens of serial round trips behind the browser's connection cap.
 export async function listHouseholdMembership(schoolYearID: string): Promise<HouseholdMembership[]> {
-  const households = await householdApi.list(schoolYearID)
-  return Promise.all(households.map(async (household) => {
-    const [students, adults] = await Promise.all([
-      householdApi.listStudents(schoolYearID, household.id),
-      householdApi.listAdults(schoolYearID, household.id),
-    ])
-    return {
-      household,
-      studentIds: students.map((membership) => membership.student_id),
-      adultIds: adults.map((membership) => membership.adult_id),
-    }
+  const [households, membership] = await Promise.all([
+    householdApi.list(schoolYearID),
+    householdApi.listMembership(schoolYearID),
+  ])
+  const studentIds = groupMemberIds(membership.students, (row) => row.student_id)
+  const adultIds = groupMemberIds(membership.adults, (row) => row.adult_id)
+  return households.map((household) => ({
+    household,
+    studentIds: studentIds.get(household.id) ?? [],
+    adultIds: adultIds.get(household.id) ?? [],
   }))
+}
+
+// Every join is on the opaque identifier the membership row carries, never on a
+// display name (SPEC §8.7).
+function groupMemberIds<T extends { household_id: string }>(rows: T[] | null | undefined, memberId: (row: T) => string): Map<string, string[]> {
+  const index = new Map<string, string[]>()
+  for (const row of rows ?? []) {
+    index.set(row.household_id, [...(index.get(row.household_id) ?? []), memberId(row)])
+  }
+  return index
 }
 
 export function householdsByPerson(memberships: HouseholdMembership[], kind: PersonKind): Map<string, Household[]> {
