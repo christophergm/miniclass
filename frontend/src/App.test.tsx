@@ -112,6 +112,30 @@ describe('App routing', () => {
     await waitFor(() => expect(screen.getByRole('link', { name: 'Back to school years' })).toHaveAttribute('href', '/years'))
   })
 
+  // The in-year catch-all used to render SchoolYearWorkspace, so /y/year-1/typo
+  // answered with the year's lifecycle controls. Reaching Close year or the
+  // owner-only reopen from an address that matches no page is not a fallback.
+  it('reports an unknown address inside a school year without offering its lifecycle controls', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = requestUrl(input)
+      if (url.endsWith('/api/school-years/year-1')) {
+        return jsonResponse({ id: 'year-1', organization_id: 'org-test', label: '2026–27', state: 'active', created_at: '2026-08-01T00:00:00Z', updated_at: '2026-08-01T00:00:00Z' })
+      }
+      if (url.endsWith('/api/me')) {
+        return jsonResponse({ principal: { id: 'user-test', email: 'admin@example.com' }, organization: { id: 'org-test', name: 'Test organisation' }, role: 'Owner' })
+      }
+      return jsonResponse([])
+    }))
+
+    renderApp('/y/year-1/nonexistent', authenticatedClient())
+
+    expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Year details' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Close year' })).not.toBeInTheDocument()
+    // The year itself resolved, so it is not reported as missing.
+    expect(screen.queryByRole('heading', { name: 'School year not found' })).not.toBeInTheDocument()
+  })
+
   it('reports an unknown address without blaming a school year', async () => {
     renderApp('/nonexistent', authenticatedClient())
 
