@@ -18,8 +18,10 @@ import (
 
 const defaultClaimBaseURL = "http://localhost:5173/claim"
 
+// main bootstraps application data through miniclass_app. Schema changes are
+// the separate responsibility of cmd/migrate and DATABASE_URL.
 func main() {
-	if err := run(context.Background(), os.Args[1:], os.Getenv("DATABASE_URL"), os.Stdout); err != nil {
+	if err := run(context.Background(), os.Args[1:], os.Getenv("APP_DATABASE_URL"), os.Stdout); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -27,7 +29,7 @@ func main() {
 
 func run(ctx context.Context, args []string, databaseURL string, output io.Writer) error {
 	if strings.TrimSpace(databaseURL) == "" {
-		return errors.New("bootstrap failed: DATABASE_URL is required")
+		return errors.New("bootstrap failed: APP_DATABASE_URL is required")
 	}
 	if output == nil {
 		return errors.New("bootstrap failed: output is nil")
@@ -52,12 +54,12 @@ func run(ctx context.Context, args []string, databaseURL string, output io.Write
 
 	// Validate the application configuration shape without creating an API
 	// server or acquiring any special database role.
-	cfg := config.Config{DatabaseURL: databaseURL, Port: "8080"}
+	cfg := config.Config{AppDatabaseURL: databaseURL, Port: "8080"}
 	if err := cfg.Validate(); err != nil {
 		return fmt.Errorf("bootstrap failed: %w", err)
 	}
 
-	database, err := data.NewFromURL(ctx, databaseURL)
+	database, err := data.NewApplicationFromURL(ctx, databaseURL)
 	if err != nil {
 		return fmt.Errorf("bootstrap failed: %w", err)
 	}

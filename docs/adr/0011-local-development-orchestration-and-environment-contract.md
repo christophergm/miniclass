@@ -77,8 +77,11 @@ makes `.env.example` and `.env` comparable, which is what lets `scripts/setup.sh
 exist in the example and are missing from a developer's older `.env` — the failure mode where a new
 variable reads as empty rather than as an error.
 
-`.env.example` is the single source of local defaults, including `DATABASE_URL` on
-`miniclass_migrator`. No script may restate a default that belongs in the example.
+`.env.example` is the single source of local defaults. `DATABASE_URL` is the
+`miniclass_migrator` connection used by `cmd/migrate` and database reset/round-trip
+operations. `APP_DATABASE_URL` is the `miniclass_app` connection used by `cmd/api`,
+`cmd/seed`, and `cmd/bootstrap`; those commands verify the role at startup. No
+script may restate a default that belongs in the example.
 
 ### Invariant: no `.env` value may contain whitespace or `#`
 
@@ -294,6 +297,9 @@ copy, keys are files and the two processes run in two terminals, nothing is left
   rather than `sh: EC: command not found` on one that was not.
 - A local `DATABASE_URL` now runs as `miniclass_migrator`, so row-level security is actually in force
   locally and an isolation defect can surface in development instead of first in CI.
+- The API, seed, and bootstrap commands use `APP_DATABASE_URL` and refuse a connection that is not
+  `miniclass_app` or that has bypass-RLS/schema-create privilege. Migrations and database reset stay
+  on `DATABASE_URL`, so schema ownership and application access are exercised separately.
 - Adding a variable means editing `.env.example`, and every developer's existing `.env` is then
   reported as missing it rather than silently reading it as empty.
 - **Any value that needs a space must become a file.** That is a real constraint on future

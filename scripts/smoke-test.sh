@@ -69,12 +69,13 @@ POSTGRES_PORT="${POSTGRES_PORT:-5432}"
 PORT="${PORT:-8080}"
 VITE_PORT="${VITE_PORT:-5173}"
 DATABASE_URL="${DATABASE_URL:-postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable}"
+[[ -n "${APP_DATABASE_URL:-}" ]] || die "APP_DATABASE_URL is required; see .env.example"
 API_BASE_URL="${API_BASE_URL:-http://localhost:${PORT}}"
 API_BASE_URL="${API_BASE_URL%/}"
 API_BASE_URL="${API_BASE_URL%/api}"
 FRONTEND_URL="http://localhost:${VITE_PORT}"
 
-export DATABASE_URL PORT API_BASE_URL
+export DATABASE_URL APP_DATABASE_URL PORT API_BASE_URL
 # The browser reaches the API through the Vite dev proxy, so the client's base
 # URL stays empty and only the node-side proxy target names the backend origin.
 # frontend/package.json's dev script re-sources .env, so these two agree with it

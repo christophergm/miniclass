@@ -25,6 +25,32 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestApplicationDatabaseRequiresAppRole(t *testing.T) {
+	migratorURL := strings.TrimSpace(os.Getenv("TEST_DATABASE_URL"))
+	appURL := strings.TrimSpace(os.Getenv("TEST_APP_DATABASE_URL"))
+	if migratorURL == "" || appURL == "" {
+		t.Skip("TEST_DATABASE_URL and TEST_APP_DATABASE_URL are required for the PostgreSQL integration test")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	t.Cleanup(cancel)
+
+	applicationDatabase, err := data.NewApplicationFromURL(ctx, appURL)
+	require.NoError(t, err)
+	if err != nil {
+		return
+	}
+	t.Cleanup(applicationDatabase.Close)
+
+	var currentUser string
+	require.NoError(t, applicationDatabase.Pool().QueryRow(ctx, "select current_user").Scan(&currentUser))
+	require.Equal(t, "miniclass_app", currentUser)
+
+	_, err = data.NewApplicationFromURL(ctx, migratorURL)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "API must connect as miniclass_app")
+}
+
 func TestHealthIntegration(t *testing.T) {
 	testDatabaseURL := strings.TrimSpace(os.Getenv("TEST_DATABASE_URL"))
 	if testDatabaseURL == "" {

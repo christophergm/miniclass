@@ -17,8 +17,10 @@ import (
 
 const defaultClaimBaseURL = "http://localhost:5173/claim"
 
+// main loads application data through miniclass_app so seeding exercises the
+// same grants and row-level security as the API.
 func main() {
-	if err := run(context.Background(), os.Args[1:], os.Getenv("DATABASE_URL"), os.Stdout); err != nil {
+	if err := run(context.Background(), os.Args[1:], os.Getenv("APP_DATABASE_URL"), os.Stdout); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -26,7 +28,7 @@ func main() {
 
 func run(ctx context.Context, args []string, databaseURL string, output io.Writer) error {
 	if strings.TrimSpace(databaseURL) == "" {
-		return errors.New("seed failed: DATABASE_URL is required")
+		return errors.New("seed failed: APP_DATABASE_URL is required")
 	}
 	if output == nil {
 		return errors.New("seed failed: output is nil")
@@ -43,7 +45,7 @@ func run(ctx context.Context, args []string, databaseURL string, output io.Write
 	if err := flags.Parse(args); err != nil {
 		return fmt.Errorf("seed failed: %w", err)
 	}
-	database, err := data.NewFromURL(ctx, databaseURL)
+	database, err := data.NewApplicationFromURL(ctx, databaseURL)
 	if err != nil {
 		return fmt.Errorf("seed failed: connect database: %w", err)
 	}
