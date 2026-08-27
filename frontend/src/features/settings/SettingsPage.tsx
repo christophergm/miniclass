@@ -1,11 +1,11 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
-import { useQuery } from '@tanstack/react-query'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ApiError } from '@/lib/api'
 import { resourceApi, type Administrator, type GradeLevel, type Homeroom } from '@/lib/apiResources'
+import { useIsOwner } from '@/lib/hooks/useAccount'
 import { useAdministratorMutation, useAdministrators, useVocabulary, useVocabularyMutation } from './useSettings'
 
 function FieldError({ error, field }: { error: unknown; field: string }) {
@@ -23,10 +23,9 @@ function Section({ title, description, children }: { title: string; description:
 }
 
 export function SettingsPage() {
-  const account = useQuery({ queryKey: ['account'], queryFn: resourceApi.getMe })
+  const isOwner = useIsOwner()
   const vocabulary = useVocabulary()
-  const administrators = useAdministrators(account.data?.role?.toLowerCase() === 'owner')
-  const isOwner = account.data?.role?.toLowerCase() === 'owner'
+  const administrators = useAdministrators(isOwner)
 
   return (
     <main className="mx-auto w-full max-w-6xl px-6 py-10">
