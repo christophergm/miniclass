@@ -1,11 +1,11 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { Link, Outlet, useOutletContext, useParams } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ApiError } from '@/lib/api'
-import { resourceApi, type SchoolYear, type SchoolYearState } from '@/lib/apiResources'
+import type { SchoolYear, SchoolYearState } from '@/lib/apiResources'
+import { useIsOwner } from '@/lib/hooks/useAccount'
 
 import { useCreateSchoolYear, useSchoolYear, useSchoolYears, useUpdateSchoolYear } from './useSchoolYears'
 
@@ -40,13 +40,6 @@ function formatDate(value: string) {
   return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(date)
 }
 
-// The role decides whether the owner-only reopen control is offered (SPEC
-// §11.1). The server decides whether it succeeds; this only avoids showing an
-// action that would be refused.
-function useIsOwner() {
-  const account = useQuery({ queryKey: ['account'], queryFn: resourceApi.getMe })
-  return account.data?.role?.toLowerCase() === 'owner'
-}
 
 export function SchoolYearListPage() {
   const { data: years, error, isError, isLoading } = useSchoolYears()
@@ -126,6 +119,9 @@ export function SchoolYearGuard() {
 
 export function SchoolYearWorkspace() {
   const year = useOutletContext<SchoolYear>()
+  // The role decides whether the owner-only reopen control is offered (SPEC
+  // §11.1). The server decides whether it succeeds; this only avoids showing an
+  // action that would be refused.
   const isOwner = useIsOwner()
   const update = useUpdateSchoolYear(year.id)
   const [label, setLabel] = useState(year.label)

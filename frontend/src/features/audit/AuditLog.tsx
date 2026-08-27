@@ -4,8 +4,8 @@ import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ApiError } from '@/lib/api'
 import type { AuditLogEntry } from '@/lib/apiResources'
+import { useAccount, useAccountRole } from '@/lib/hooks/useAccount'
 import { useAuditLog } from '@/lib/hooks/useAuditLog'
-import { useMe } from '@/lib/hooks/useMe'
 
 function formatTimestamp(value: string) {
   const date = new Date(value)
@@ -30,11 +30,12 @@ export function AuditLog() {
   const [objectType, setObjectType] = useState('')
   const [appliedObjectType, setAppliedObjectType] = useState('')
   const [cursor, setCursor] = useState<string>()
-  const me = useMe()
-  const allowed = me.data?.role === 'owner' || me.data?.role === 'administrator'
+  const account = useAccount()
+  const role = useAccountRole()
+  const allowed = role === 'owner' || role === 'administrator'
   const audit = useAuditLog(appliedObjectType, cursor, allowed)
 
-  if (!me.isSuccess || !allowed) return null
+  if (!account.isSuccess || !allowed) return null
 
   if (audit.isLoading) {
     return <main className="mx-auto flex min-h-screen w-full max-w-5xl items-center justify-center px-6 py-12" role="status">Loading audit log…</main>
