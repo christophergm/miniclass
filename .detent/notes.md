@@ -1,5 +1,17 @@
 # Detent handoff notes
 
+## Issue #94 local fake-auth password reset
+
+- Added local-dev reset blocking in `frontend/src/features/auth/ResetPasswordPage.tsx`; it reuses
+  `LocalDevAuthBanner` with a no-email-path message and `make login` guidance. The real Supabase path
+  remains the existing reset form and success behavior.
+- Added parameterized coverage in `ResetPasswordPage.test.tsx` for valid/missing local tokens and a
+  real-Supabase submission.
+- `git diff --check` passes. Frontend test/build gates cannot start locally because the checkout lacks
+  the installed `openapi-typescript` dependency; frontend lint also hits Bun tempdir PermissionDenied.
+- Open items: commit/push, open PR with `Fixes #94` and ADR 0011 citation, inspect CI/reviews, and
+  update the Workpad after the required checks pass. Skill draft: no — routine auth-surface reuse.
+
 ## Issue #92 developer tooling CI check
 
 - Added the tenth `Developer tooling` CI check, with `.env.example` sourcing validation, Compose/PostgreSQL role provisioning, `make setup`, unclaimed `make db-seed`, and `make smoke`; no path filters are used. Added it to `detent.yaml` and root `make check`, and updated `WORKFLOW.md`, README, and QUICKSTART documentation.
