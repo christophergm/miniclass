@@ -252,7 +252,7 @@ func CheckOwnerSubjectAvailable(ctx context.Context, database *data.DB, provider
 	case errors.Is(err, auth.ErrNoOrganization):
 		return nil
 	case err == nil, errors.Is(err, auth.ErrMultipleOrganizations):
-		return fmt.Errorf("seed: provider subject %q already has an organization membership; the seed only ever creates a new organization, so start from an empty database: make reset CONFIRM=1", providerSubject)
+		return fmt.Errorf("seed: provider subject %q already has an organization membership; the seed only ever creates a new organization, so it needs an empty database: run 'make db-reset CONFIRM=1', which drops, migrates and seeds in one step", providerSubject)
 	default:
 		return fmt.Errorf("seed: resolve owner subject: %w", err)
 	}

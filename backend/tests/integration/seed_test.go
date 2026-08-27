@@ -176,7 +176,7 @@ func TestSeedBindsOwnerSubjectAndRefusesToRebindIt(t *testing.T) {
 
 	second, err := seed.Load(ctx, harness.Database, options)
 	require.Error(t, err)
-	require.ErrorContains(t, err, "make reset CONFIRM=1")
+	require.ErrorContains(t, err, "make db-reset CONFIRM=1")
 	require.Empty(t, second.OrganizationID)
 	require.Nil(t, second.BoundOwner)
 	require.Equal(t, organizations, countOrganizationsNamed(t, harness, options.OrganizationName),
