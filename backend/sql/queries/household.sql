@@ -114,7 +114,10 @@ returning id, organization_id, school_year_id, adult_id, student_id, relationshi
 -- name: ListGuardianRelationships :many
 select id, organization_id, school_year_id, adult_id, student_id, relationship_type, created_at, updated_at
 from guardian_relationships
-where organization_id = $1 and school_year_id = $2
+where organization_id = sqlc.arg('organization_id')::public.xid20
+  and school_year_id = sqlc.arg('school_year_id')::public.xid20
+  and (sqlc.narg('adult_id')::public.xid20 is null or adult_id = sqlc.narg('adult_id')::public.xid20)
+  and (sqlc.narg('student_id')::public.xid20 is null or student_id = sqlc.narg('student_id')::public.xid20)
 order by adult_id, student_id, id;
 
 -- name: GetGuardianRelationshipByID :one

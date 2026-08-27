@@ -67,13 +67,14 @@ export type HouseholdInput = {
 
 export type GuardianRelationshipType = 'parent' | 'guardian' | 'grandparent' | 'other'
 
+// The API returns identifiers only. Display names come from the roster record
+// the identifier points at, never from the link row.
 export type GuardianRelationship = {
-  id?: string
+  id: string
+  school_year_id: string
   adult_id: string
   student_id: string
   relationship_type: GuardianRelationshipType
-  adult?: Adult
-  student?: Student
 }
 
 export type PeopleApi = {

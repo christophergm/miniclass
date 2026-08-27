@@ -319,8 +319,19 @@ func (tx *Tx) CreateGuardianRelationship(ctx context.Context, schoolYearID, adul
 	return guardianRelationship(row)
 }
 
-func (tx *Tx) ListGuardianRelationships(ctx context.Context, schoolYearID ids.XID) ([]GuardianRelationship, error) {
-	rows, err := tx.queries.ListGuardianRelationships(ctx, db.ListGuardianRelationshipsParams{OrganizationID: tx.organizationID, SchoolYearID: schoolYearID})
+// GuardianRelationshipFilter narrows a listing to one side of the link. A zero
+// identifier leaves that side unconstrained, so the zero filter lists the whole
+// school year.
+type GuardianRelationshipFilter struct {
+	AdultID   ids.XID
+	StudentID ids.XID
+}
+
+func (tx *Tx) ListGuardianRelationships(ctx context.Context, schoolYearID ids.XID, filter GuardianRelationshipFilter) ([]GuardianRelationship, error) {
+	rows, err := tx.queries.ListGuardianRelationships(ctx, db.ListGuardianRelationshipsParams{
+		OrganizationID: tx.organizationID, SchoolYearID: schoolYearID,
+		AdultID: nullableHouseholdXID(filter.AdultID), StudentID: nullableHouseholdXID(filter.StudentID),
+	})
 	if err != nil {
 		return nil, fmt.Errorf("list guardian relationships: %w", err)
 	}
@@ -463,6 +474,16 @@ func nullableHouseholdTime(value pgtype.Timestamptz) *time.Time {
 		return nil
 	}
 	result := value.Time
+	return &result
+}
+
+// nullableHouseholdXID turns an unset identifier into a SQL null, so an optional
+// filter predicate is skipped rather than matched against the empty string.
+func nullableHouseholdXID(value ids.XID) *ids.XID {
+	if value == "" {
+		return nil
+	}
+	result := value
 	return &result
 }
 

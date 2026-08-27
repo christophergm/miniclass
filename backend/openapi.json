@@ -3797,6 +3797,26 @@
               "minLength": 1,
               "type": "string"
             }
+          },
+          {
+            "description": "Only return relationships for this adult.",
+            "explode": false,
+            "in": "query",
+            "name": "adult_id",
+            "schema": {
+              "description": "Only return relationships for this adult.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only return relationships for this student.",
+            "explode": false,
+            "in": "query",
+            "name": "student_id",
+            "schema": {
+              "description": "Only return relationships for this student.",
+              "type": "string"
+            }
           }
         ],
         "responses": {

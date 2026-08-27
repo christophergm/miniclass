@@ -519,17 +519,27 @@ func (q *Queries) ListAllHouseholdStudentsForRegistry(ctx context.Context, organ
 const listGuardianRelationships = `-- name: ListGuardianRelationships :many
 select id, organization_id, school_year_id, adult_id, student_id, relationship_type, created_at, updated_at
 from guardian_relationships
-where organization_id = $1 and school_year_id = $2
+where organization_id = $1::public.xid20
+  and school_year_id = $2::public.xid20
+  and ($3::public.xid20 is null or adult_id = $3::public.xid20)
+  and ($4::public.xid20 is null or student_id = $4::public.xid20)
 order by adult_id, student_id, id
 `
 
 type ListGuardianRelationshipsParams struct {
-	OrganizationID ids.XID `json:"organization_id"`
-	SchoolYearID   ids.XID `json:"school_year_id"`
+	OrganizationID ids.XID  `json:"organization_id"`
+	SchoolYearID   ids.XID  `json:"school_year_id"`
+	AdultID        *ids.XID `json:"adult_id"`
+	StudentID      *ids.XID `json:"student_id"`
 }
 
 func (q *Queries) ListGuardianRelationships(ctx context.Context, arg ListGuardianRelationshipsParams) ([]GuardianRelationship, error) {
-	rows, err := q.db.Query(ctx, listGuardianRelationships, arg.OrganizationID, arg.SchoolYearID)
+	rows, err := q.db.Query(ctx, listGuardianRelationships,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+		arg.AdultID,
+		arg.StudentID,
+	)
 	if err != nil {
 		return nil, err
 	}
