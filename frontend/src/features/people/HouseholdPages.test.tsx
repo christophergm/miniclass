@@ -1,6 +1,9 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { StrictMode } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+
+import { renderWithQueryClient } from '@/test/queryClient'
 
 import { HouseholdDetailPage, HouseholdListPage } from './HouseholdPages'
 import { adultApi, householdApi, studentApi, type Household, type Student } from './roster'
@@ -34,7 +37,7 @@ describe('household pages', () => {
     const listStudents = vi.spyOn(householdApi, 'listStudents')
     const listAdults = vi.spyOn(householdApi, 'listAdults')
 
-    render(<MemoryRouter initialEntries={['/y/year-1/households']}><Routes><Route path="/y/:schoolYearId/households" element={<HouseholdListPage />} /></Routes></MemoryRouter>)
+    renderWithQueryClient(<MemoryRouter initialEntries={['/y/year-1/households']}><Routes><Route path="/y/:schoolYearId/households" element={<HouseholdListPage />} /></Routes></MemoryRouter>)
 
     const table = await screen.findByRole('table', { name: 'Households' })
     expect(within(table).getByRole('link', { name: 'Stone family' })).toBeInTheDocument()
@@ -58,7 +61,7 @@ describe('household pages', () => {
     const addStudent = vi.spyOn(householdApi, 'addStudent').mockResolvedValue({ id: 'membership-2', household_id: 'household-1', student_id: 'student-2' })
     const removeStudent = vi.spyOn(householdApi, 'removeStudent').mockResolvedValue()
 
-    render(<MemoryRouter initialEntries={['/y/year-1/households/household-1']}><Routes><Route path="/y/:schoolYearId/households/:householdId" element={<HouseholdDetailPage />} /></Routes></MemoryRouter>)
+    renderWithQueryClient(<MemoryRouter initialEntries={['/y/year-1/households/household-1']}><Routes><Route path="/y/:schoolYearId/households/:householdId" element={<HouseholdDetailPage />} /></Routes></MemoryRouter>)
 
     expect(await screen.findByRole('link', { name: 'Riley Stone' })).toBeInTheDocument()
     expect(screen.getByText(/Membership controls who is grouped with this household/)).toBeInTheDocument()
@@ -78,7 +81,7 @@ describe('household pages', () => {
     vi.spyOn(studentApi, 'list').mockResolvedValue([student, otherStudent])
     vi.spyOn(adultApi, 'list').mockResolvedValue([])
 
-    render(<MemoryRouter initialEntries={['/y/year-1/households/household-1']}><Routes><Route path="/y/:schoolYearId/households/:householdId" element={<HouseholdDetailPage />} /></Routes></MemoryRouter>)
+    renderWithQueryClient(<MemoryRouter initialEntries={['/y/year-1/households/household-1']}><Routes><Route path="/y/:schoolYearId/households/:householdId" element={<HouseholdDetailPage />} /></Routes></MemoryRouter>)
 
     const picker = await screen.findByLabelText('Person')
     await waitFor(() => expect(picker).toContainHTML('Jordan Reed'))
@@ -92,12 +95,34 @@ describe('household pages', () => {
     vi.spyOn(studentApi, 'list').mockResolvedValue([student])
     vi.spyOn(adultApi, 'list').mockResolvedValue([])
 
-    const first = render(<MemoryRouter initialEntries={['/y/year-1/households/household-1']}><Routes><Route path="/y/:schoolYearId/households/:householdId" element={<HouseholdDetailPage />} /></Routes></MemoryRouter>)
+    const first = renderWithQueryClient(<MemoryRouter initialEntries={['/y/year-1/households/household-1']}><Routes><Route path="/y/:schoolYearId/households/:householdId" element={<HouseholdDetailPage />} /></Routes></MemoryRouter>)
     expect(await screen.findByRole('link', { name: 'Riley Stone' })).toBeInTheDocument()
     first.unmount()
 
-    render(<MemoryRouter initialEntries={['/y/year-1/households/household-2']}><Routes><Route path="/y/:schoolYearId/households/:householdId" element={<HouseholdDetailPage />} /></Routes></MemoryRouter>)
+    renderWithQueryClient(<MemoryRouter initialEntries={['/y/year-1/households/household-2']}><Routes><Route path="/y/:schoolYearId/households/:householdId" element={<HouseholdDetailPage />} /></Routes></MemoryRouter>)
     expect(await screen.findByRole('heading', { name: 'Stone second home' })).toBeInTheDocument()
     expect(await screen.findByRole('link', { name: 'Riley Stone' })).toBeInTheDocument()
+  })
+
+  // StrictMode double-invokes effects in development, which is how the app
+  // renders. React Query dedupes the second mount onto the in-flight request;
+  // the useEffect fetches this page used to run before it guarded the stale
+  // state update but not the request, so every read went out twice.
+  it('issues one request per read under StrictMode', async () => {
+    const get = vi.spyOn(householdApi, 'get').mockResolvedValue(householdOne)
+    const listStudents = vi.spyOn(householdApi, 'listStudents').mockResolvedValue([membership('household-1', 'student-1')])
+    const listAdults = vi.spyOn(householdApi, 'listAdults').mockResolvedValue([])
+    const listStudentRoster = vi.spyOn(studentApi, 'list').mockResolvedValue([student, otherStudent])
+    const listAdultRoster = vi.spyOn(adultApi, 'list').mockResolvedValue([])
+
+    renderWithQueryClient(<StrictMode><MemoryRouter initialEntries={['/y/year-1/households/household-1']}><Routes><Route path="/y/:schoolYearId/households/:householdId" element={<HouseholdDetailPage />} /></Routes></MemoryRouter></StrictMode>)
+
+    expect(await screen.findByRole('link', { name: 'Riley Stone' })).toBeInTheDocument()
+    await waitFor(() => expect(listAdultRoster).toHaveBeenCalled())
+    expect(get).toHaveBeenCalledTimes(1)
+    expect(listStudents).toHaveBeenCalledTimes(1)
+    expect(listAdults).toHaveBeenCalledTimes(1)
+    expect(listStudentRoster).toHaveBeenCalledTimes(1)
+    expect(listAdultRoster).toHaveBeenCalledTimes(1)
   })
 })

@@ -1,9 +1,11 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { StrictMode } from 'react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ApiError } from '@/lib/api'
 import { resourceApi, type VocabularyResponse } from '@/lib/apiResources'
+import { renderWithQueryClient } from '@/test/queryClient'
 
 import { AdultDetailPage, AdultListPage, StudentDetailPage, StudentListPage } from './PeoplePages'
 import { adultApi, guardianApi, householdApi, studentApi, type Adult, type Household, type Student } from './roster'
@@ -71,7 +73,7 @@ beforeEach(() => {
 afterEach(() => { vi.restoreAllMocks() })
 
 function renderStudents(path = '/y/year-1/students') {
-  return render(
+  return renderWithQueryClient(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
         <Route path="/y/:schoolYearId/students" element={<StudentListPage />} />
@@ -161,12 +163,14 @@ describe('people roster pages', () => {
 
   // SPEC §3.2 records ~90 households in the reference program. The Households
   // column used to cost one request per household on each of these surfaces.
+  // The vocabulary count differs by surface because only the student roster
+  // renders grade and homeroom labels.
   it.each([
-    ['student list', '/y/year-1/students'],
-    ['adult list', '/y/year-1/adults'],
-    ['student detail', '/y/year-1/students/student-2'],
-    ['adult detail', '/y/year-1/adults/adult-1'],
-  ])('reads household membership in a bounded number of requests on the %s', async (_surface, path) => {
+    ['student list', '/y/year-1/students', 1],
+    ['adult list', '/y/year-1/adults', 0],
+    ['student detail', '/y/year-1/students/student-2', 1],
+    ['adult detail', '/y/year-1/adults/adult-1', 0],
+  ])('reads household membership in a bounded number of requests on the %s', async (_surface, path, vocabularyCalls) => {
     const manyHouseholds: Household[] = Array.from({ length: 90 }, (_value, index) => ({
       ...ids, ...timestamps, id: `household-${index}`, display_name: `Household ${index}`,
     }))
@@ -178,15 +182,20 @@ describe('people roster pages', () => {
     vi.spyOn(guardianApi, 'listForStudent').mockResolvedValue([])
     vi.spyOn(guardianApi, 'listForAdult').mockResolvedValue([])
 
-    render(
-      <MemoryRouter initialEntries={[path]}>
-        <Routes>
-          <Route path="/y/:schoolYearId/students" element={<StudentListPage />} />
-          <Route path="/y/:schoolYearId/students/:personId" element={<StudentDetailPage />} />
-          <Route path="/y/:schoolYearId/adults" element={<AdultListPage />} />
-          <Route path="/y/:schoolYearId/adults/:personId" element={<AdultDetailPage />} />
-        </Routes>
-      </MemoryRouter>,
+    // StrictMode is on in main.tsx and deliberately double-invokes effects in
+    // development. React Query dedupes the second mount; the useEffect fetches
+    // these pages used to run did not, so every read went out twice.
+    renderWithQueryClient(
+      <StrictMode>
+        <MemoryRouter initialEntries={[path]}>
+          <Routes>
+            <Route path="/y/:schoolYearId/students" element={<StudentListPage />} />
+            <Route path="/y/:schoolYearId/students/:personId" element={<StudentDetailPage />} />
+            <Route path="/y/:schoolYearId/adults" element={<AdultListPage />} />
+            <Route path="/y/:schoolYearId/adults/:personId" element={<AdultDetailPage />} />
+          </Routes>
+        </MemoryRouter>
+      </StrictMode>,
     )
 
     expect(await screen.findByRole('link', { name: 'Household 7' })).toBeInTheDocument()
@@ -194,12 +203,13 @@ describe('people roster pages', () => {
     expect(householdApi.list).toHaveBeenCalledTimes(1)
     expect(householdApi.listStudents).not.toHaveBeenCalled()
     expect(householdApi.listAdults).not.toHaveBeenCalled()
+    expect(resourceApi.getVocabulary).toHaveBeenCalledTimes(vocabularyCalls)
   })
 
   it('shows adult participation intent in the adult list', async () => {
     vi.spyOn(adultApi, 'list').mockResolvedValue([adult])
 
-    render(
+    renderWithQueryClient(
       <MemoryRouter initialEntries={['/y/year-1/adults']}>
         <Routes><Route path="/y/:schoolYearId/adults" element={<AdultListPage />} /></Routes>
       </MemoryRouter>,

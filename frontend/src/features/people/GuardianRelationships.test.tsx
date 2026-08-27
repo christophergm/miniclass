@@ -1,6 +1,9 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { StrictMode } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+
+import { renderWithQueryClient } from '@/test/queryClient'
 
 import { GuardianRelationships } from './GuardianRelationships'
 import { adultApi, guardianApi, studentApi, type Adult, type GuardianRelationship, type Student } from './roster'
@@ -23,7 +26,7 @@ describe('guardian relationships', () => {
     vi.spyOn(adultApi, 'list').mockResolvedValue([morgan])
     const update = vi.spyOn(guardianApi, 'update').mockResolvedValue(relationship({ relationship_type: 'guardian' }))
 
-    render(<MemoryRouter><GuardianRelationships kind="student" schoolYearId="year-1" personId="student-1" /></MemoryRouter>)
+    renderWithQueryClient(<MemoryRouter><GuardianRelationships kind="student" schoolYearId="year-1" personId="student-1" /></MemoryRouter>)
 
     expect(await screen.findByRole('link', { name: 'Morgan Lee' })).toBeInTheDocument()
     expect(screen.getByText(/They are separate from household membership/)).toBeInTheDocument()
@@ -36,7 +39,7 @@ describe('guardian relationships', () => {
     vi.spyOn(guardianApi, 'listForAdult').mockResolvedValue([relationship({ relationship_type: 'grandparent' })])
     vi.spyOn(studentApi, 'list').mockResolvedValue([riley])
 
-    render(<MemoryRouter><GuardianRelationships kind="adult" schoolYearId="year-1" personId="adult-1" /></MemoryRouter>)
+    renderWithQueryClient(<MemoryRouter><GuardianRelationships kind="adult" schoolYearId="year-1" personId="adult-1" /></MemoryRouter>)
 
     expect(await screen.findByRole('link', { name: 'Riley Stone' })).toBeInTheDocument()
     expect(screen.getByLabelText('Relationship for Riley Stone')).toHaveValue('grandparent')
@@ -46,7 +49,7 @@ describe('guardian relationships', () => {
     const listForAdult = vi.spyOn(guardianApi, 'listForAdult').mockResolvedValue([])
     vi.spyOn(studentApi, 'list').mockResolvedValue([riley])
 
-    render(<MemoryRouter><GuardianRelationships kind="adult" schoolYearId="year-1" personId="adult-1" /></MemoryRouter>)
+    renderWithQueryClient(<MemoryRouter><GuardianRelationships kind="adult" schoolYearId="year-1" personId="adult-1" /></MemoryRouter>)
 
     expect(await screen.findByText('No guardian relationships recorded.')).toBeInTheDocument()
     expect(listForAdult).toHaveBeenCalledWith('year-1', 'adult-1')
@@ -58,7 +61,7 @@ describe('guardian relationships', () => {
     const create = vi.spyOn(guardianApi, 'create').mockResolvedValue(relationship({ id: 'relationship-2', student_id: 'student-2', relationship_type: 'other' }))
     const remove = vi.spyOn(guardianApi, 'remove').mockResolvedValue()
 
-    render(<MemoryRouter><GuardianRelationships kind="adult" schoolYearId="year-1" personId="adult-1" /></MemoryRouter>)
+    renderWithQueryClient(<MemoryRouter><GuardianRelationships kind="adult" schoolYearId="year-1" personId="adult-1" /></MemoryRouter>)
 
     // Already-linked students are not offered again.
     const chooser = await screen.findByLabelText('Student')
@@ -72,5 +75,19 @@ describe('guardian relationships', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
     await waitFor(() => expect(remove).toHaveBeenCalledWith('year-1', 'relationship-1'))
+  })
+
+  // StrictMode double-invokes effects in development, which the replaced
+  // useEffect fetch answered with a second request to the network. React Query
+  // dedupes the second mount onto the request already in flight.
+  it('reads each list once per mount, including under StrictMode', async () => {
+    const listForStudent = vi.spyOn(guardianApi, 'listForStudent').mockResolvedValue([relationship()])
+    const list = vi.spyOn(adultApi, 'list').mockResolvedValue([morgan])
+
+    renderWithQueryClient(<StrictMode><MemoryRouter><GuardianRelationships kind="student" schoolYearId="year-1" personId="student-1" /></MemoryRouter></StrictMode>)
+
+    expect(await screen.findByRole('link', { name: 'Morgan Lee' })).toBeInTheDocument()
+    expect(listForStudent).toHaveBeenCalledTimes(1)
+    expect(list).toHaveBeenCalledTimes(1)
   })
 })
