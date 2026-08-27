@@ -11,7 +11,7 @@ preference collection, constraint-based placement, and published class and dismi
 | [`PLAN.md`](./PLAN.md) | **When it gets built, and in what order.** Phases, milestones, exit criteria. |
 | [`docs/adr/`](./docs/adr/) | **Why it is built this way.** Architecture decisions, including the rejected alternatives. |
 | [`QUICKSTART.md`](./QUICKSTART.md) | The shortest path from a fresh clone to a logged-in local stack. |
-| [`WORKFLOW.md`](./WORKFLOW.md) | How agents pick up, validate and hand off work, and the nine quality gates. |
+| [`WORKFLOW.md`](./WORKFLOW.md) | How agents pick up, validate and hand off work, and the ten quality gates. |
 | [`AGENTS.md`](./AGENTS.md) | Repository rules that apply to every change. |
 | This file | How to run, drive and troubleshoot it locally. |
 
@@ -148,7 +148,10 @@ make smoke
 ```
 
 `make smoke` starts its own throwaway API and Vite processes, so stop yours first or it will report
-the ports as busy. It keeps logs in a temporary directory under `TMPDIR` and prints the path.
+the ports as busy. It follows an invitation claim URL through the frontend proxy and verifies the
+claimed account can list the seeded school year. On an empty migrated database it creates the
+unclaimed seed invitation itself; after `make db-seed` it invites a synthetic administrator instead.
+It keeps logs in a temporary directory under `TMPDIR` and prints the path.
 
 ## Development Commands
 
@@ -162,7 +165,7 @@ the ports as busy. It keeps logs in a temporary directory under `TMPDIR` and pri
 | `make setup` | Prepare a checkout: `.env`, signing keys, `bun install`, PostgreSQL, migrations |
 | `make tools-install` | Install the pinned Go tools (air, sqlc, goose, golangci-lint) |
 | `make generate` | Regenerate the committed backend artifacts (`internal/db/gen`, `openapi.json`) |
-| `make smoke` | Run the full-stack smoke test in throwaway processes |
+| `make smoke` | Run the full-stack smoke test in throwaway processes, including invitation claiming |
 
 **Database**
 
@@ -219,10 +222,11 @@ whether the token resolves to a principal.
 | `make lint-frontend` | Run ESLint |
 | `make format` | Check Go formatting and run the vet analyzer |
 | `make build-frontend` | Type-check and build the production frontend bundle |
-| `make check` | Run all nine CI gates in CI order, failing fast |
+| `make smoke` | Run the Developer tooling full-stack claim and login check |
+| `make check` | Run all ten CI gates in CI order, failing fast |
 
 `make format`, `make lint` and `make test` are the fast loop during work. `make check` is what to run
-before pushing: it reproduces the nine checks CI publishes, in CI order, and each failure names the
+before pushing: it reproduces the ten checks CI publishes, in CI order, and each failure names the
 CI check it maps to, for example:
 
 ```

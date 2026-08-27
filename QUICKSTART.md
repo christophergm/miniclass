@@ -43,13 +43,14 @@ make dev-frontend   # app on http://localhost:5173
 Open <http://localhost:5173>. You are signed in as `owner@example.test` in **Synthetic Academy**,
 with the Owner role and a roster of 139 synthetic students.
 
-Verify the whole stack, including the authenticated route, with:
+Verify the whole stack, including the invitation claim and authenticated routes, with:
 
 ```sh
 make smoke
 ```
 
-It starts its own API and Vite processes, so stop yours first.
+It starts its own API and Vite processes, so stop yours first. The check invites a synthetic
+administrator when the Owner created by `make db-seed` is already bound.
 
 ## What each command actually does
 

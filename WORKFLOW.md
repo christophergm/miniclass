@@ -12,7 +12,7 @@ declarations from that block; narrative sentences are never read as blockers.
 
 These are the project's required stage categories, each with the local command and
 the CI check name that satisfy it. Every local command runs from the repository
-root. `make check` runs all nine in this order, fails fast, and names the CI check
+root. `make check` runs all ten in this order, fails fast, and names the CI check
 each failure maps to; the rows below are for reproducing one gate on its own.
 Whichever change adds a check updates this table in the same pull request.
 
@@ -25,6 +25,7 @@ Whichever change adds a check updates this table in the same pull request.
 - Frontend build: local command `make build-frontend`; CI check `Frontend build`
 - Frontend lint: local command `make lint-frontend`; CI check `Frontend lint`
 - Repository formatting: local command `git diff --check`; CI check `Repository formatting`
+- Developer tooling: local command `make smoke`; CI check `Developer tooling`
 
 The local commands delegate to `backend/Makefile` and `frontend/package.json`,
 whose script names are unchanged, so the four CI jobs that run with
