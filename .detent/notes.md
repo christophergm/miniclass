@@ -1,5 +1,13 @@
 # Detent handoff notes
 
+## Issue #92 developer tooling CI check
+
+- Added the tenth `Developer tooling` CI check, with `.env.example` sourcing validation, Compose/PostgreSQL role provisioning, `make setup`, unclaimed `make db-seed`, and `make smoke`; no path filters are used. Added it to `detent.yaml` and root `make check`, and updated `WORKFLOW.md`, README, and QUICKSTART documentation.
+- Extended `scripts/smoke-test.sh` to mint a temporary local JWT, follow the generated `/claim?token=...` URL through Vite, assert the frontend route/query contract, complete `POST /api/auth/claim` through the Vite proxy, and verify `/api/me` plus `/api/school-years`. It restores `.env` on exit and handles the normal already-bound Owner quickstart by inviting a synthetic administrator.
+- Focused validation passed: shell syntax, YAML parse, `.env.example` sourcing, Vite route-source runtime assertion, backend race tests (integration skipped without test DB URLs), backend lint/format, OpenAPI determinism, frontend tests (69), build, lint, and `git diff --check`.
+- Local full `make check` stopped at the pre-existing parent-checkout `miniclass-postgres` fixed-name conflict; migration round-trip lacks `MIGRATION_ROUNDTRIP_*`; local generation has sqlc v1.31.1 while the repository pins v1.27.0. CI must verify the isolated Developer tooling job and all ten checks.
+- PR/push and final current-head CI/review inspection remain open.
+
 
 ## Issue #64 merge fallback
 
