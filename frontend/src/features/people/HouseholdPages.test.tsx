@@ -23,10 +23,16 @@ function membership(householdId: string, studentId: string) {
 afterEach(() => { vi.restoreAllMocks() })
 
 describe('household pages', () => {
+  // The counts below and the Households column on the roster surfaces read the
+  // same year-scoped membership listing, so they cannot disagree.
   it('lists households with member counts and keeps students grouped separately from adults', async () => {
     vi.spyOn(householdApi, 'list').mockResolvedValue([householdOne, householdTwo])
-    vi.spyOn(householdApi, 'listStudents').mockImplementation(async (_year, householdId) => [membership(householdId, 'student-1')])
-    vi.spyOn(householdApi, 'listAdults').mockResolvedValue([])
+    vi.spyOn(householdApi, 'listMembership').mockResolvedValue({
+      students: [membership('household-1', 'student-1'), membership('household-2', 'student-1')],
+      adults: [],
+    })
+    const listStudents = vi.spyOn(householdApi, 'listStudents')
+    const listAdults = vi.spyOn(householdApi, 'listAdults')
 
     render(<MemoryRouter initialEntries={['/y/year-1/households']}><Routes><Route path="/y/:schoolYearId/households" element={<HouseholdListPage />} /></Routes></MemoryRouter>)
 
@@ -39,6 +45,8 @@ describe('household pages', () => {
     const stoneRow = within(table).getByRole('link', { name: 'Stone family' }).closest('tr')!
     expect(within(stoneRow).getAllByRole('cell')[1]).toHaveTextContent('1')
     expect(within(stoneRow).getAllByRole('cell')[2]).toHaveTextContent('0')
+    expect(listStudents).not.toHaveBeenCalled()
+    expect(listAdults).not.toHaveBeenCalled()
   })
 
   it('renders a student in a household detail and manages membership independently', async () => {

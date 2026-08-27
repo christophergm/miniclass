@@ -181,6 +181,35 @@ func (tx *Tx) ListHouseholdStudents(ctx context.Context, schoolYearID, household
 	return result, nil
 }
 
+// ListHouseholdStudentsForSchoolYear answers "which households does each student
+// belong to" for a whole school year in one query, so the callers that render a
+// roster do not fan out one request per household.
+func (tx *Tx) ListHouseholdStudentsForSchoolYear(ctx context.Context, schoolYearID ids.XID) ([]HouseholdStudent, error) {
+	rows, err := tx.queries.ListHouseholdStudentsForSchoolYear(ctx, db.ListHouseholdStudentsForSchoolYearParams{OrganizationID: tx.organizationID, SchoolYearID: schoolYearID})
+	if err != nil {
+		return nil, fmt.Errorf("list household students for school year: %w", err)
+	}
+	result := make([]HouseholdStudent, 0, len(rows))
+	for _, row := range rows {
+		value, err := householdStudent(row)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, value)
+	}
+	return result, nil
+}
+
+func (tx *Tx) GetHouseholdStudent(ctx context.Context, schoolYearID, householdID, studentID ids.XID) (HouseholdStudent, error) {
+	row, err := tx.queries.GetHouseholdStudent(ctx, db.GetHouseholdStudentParams{
+		OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, HouseholdID: householdID, StudentID: studentID,
+	})
+	if err != nil {
+		return HouseholdStudent{}, fmt.Errorf("get household student membership: %w", err)
+	}
+	return householdStudent(row)
+}
+
 func (tx *Tx) DeleteHouseholdStudent(ctx context.Context, schoolYearID, householdID, studentID ids.XID) (bool, error) {
 	rows, err := tx.queries.DeleteHouseholdStudent(ctx, db.DeleteHouseholdStudentParams{
 		OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, HouseholdID: householdID, StudentID: studentID,
@@ -254,6 +283,32 @@ func (tx *Tx) ListHouseholdAdults(ctx context.Context, schoolYearID, householdID
 		result = append(result, value)
 	}
 	return result, nil
+}
+
+func (tx *Tx) ListHouseholdAdultsForSchoolYear(ctx context.Context, schoolYearID ids.XID) ([]HouseholdAdult, error) {
+	rows, err := tx.queries.ListHouseholdAdultsForSchoolYear(ctx, db.ListHouseholdAdultsForSchoolYearParams{OrganizationID: tx.organizationID, SchoolYearID: schoolYearID})
+	if err != nil {
+		return nil, fmt.Errorf("list household adults for school year: %w", err)
+	}
+	result := make([]HouseholdAdult, 0, len(rows))
+	for _, row := range rows {
+		value, err := householdAdult(row)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, value)
+	}
+	return result, nil
+}
+
+func (tx *Tx) GetHouseholdAdult(ctx context.Context, schoolYearID, householdID, adultID ids.XID) (HouseholdAdult, error) {
+	row, err := tx.queries.GetHouseholdAdult(ctx, db.GetHouseholdAdultParams{
+		OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, HouseholdID: householdID, AdultID: adultID,
+	})
+	if err != nil {
+		return HouseholdAdult{}, fmt.Errorf("get household adult membership: %w", err)
+	}
+	return householdAdult(row)
 }
 
 func (tx *Tx) DeleteHouseholdAdult(ctx context.Context, schoolYearID, householdID, adultID ids.XID) (bool, error) {

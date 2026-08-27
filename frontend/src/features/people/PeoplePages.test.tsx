@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '@/lib/api'
 import { resourceApi, type VocabularyResponse } from '@/lib/apiResources'
 
-import { AdultListPage, StudentDetailPage, StudentListPage } from './PeoplePages'
+import { AdultDetailPage, AdultListPage, StudentDetailPage, StudentListPage } from './PeoplePages'
 import { adultApi, guardianApi, householdApi, studentApi, type Adult, type Household, type Student } from './roster'
 
 // Fixtures are typed against the generated contract, so a backend field rename
@@ -35,17 +35,32 @@ const vocabulary: VocabularyResponse = {
   ],
 }
 
+const adult: Adult = { ...ids, ...timestamps, id: 'adult-1', legal_given_name: 'Morgan', legal_family_name: 'Lee', preferred_given_name: 'Mo', display_name: 'Mo Lee', email: 'mo@example.test', participation_intent: 'help' }
+
 const households: Household[] = [
   { ...ids, ...timestamps, id: 'household-1', display_name: 'Primary home' },
   { ...ids, ...timestamps, id: 'household-2', display_name: 'Second home' },
 ]
 
-/** Membership is only reachable per household, so both sub-resources are stubbed. */
-function stubMembership(studentIdsByHousehold: Record<string, string[]> = {}) {
-  vi.spyOn(householdApi, 'list').mockResolvedValue(households)
-  vi.spyOn(householdApi, 'listStudents').mockImplementation(async (_year, householdId) =>
-    (studentIdsByHousehold[householdId] ?? []).map((student_id) => ({ id: `${householdId}-${student_id}`, household_id: householdId, student_id })))
-  vi.spyOn(householdApi, 'listAdults').mockResolvedValue([])
+/**
+ * Membership arrives as the year's rows in one call. The per-household
+ * sub-resources are stubbed to reject so that a reintroduced fan-out fails here
+ * rather than passing quietly.
+ */
+function stubMembership(
+  studentIdsByHousehold: Record<string, string[]> = {},
+  adultIdsByHousehold: Record<string, string[]> = {},
+  householdList: Household[] = households,
+) {
+  vi.spyOn(householdApi, 'list').mockResolvedValue(householdList)
+  vi.spyOn(householdApi, 'listMembership').mockResolvedValue({
+    students: Object.entries(studentIdsByHousehold).flatMap(([household_id, studentIds]) =>
+      studentIds.map((student_id) => ({ id: `${household_id}-${student_id}`, household_id, student_id }))),
+    adults: Object.entries(adultIdsByHousehold).flatMap(([household_id, adultIds]) =>
+      adultIds.map((adult_id) => ({ id: `${household_id}-${adult_id}`, household_id, adult_id }))),
+  })
+  vi.spyOn(householdApi, 'listStudents').mockRejectedValue(new Error('a roster surface must not read membership one household at a time'))
+  vi.spyOn(householdApi, 'listAdults').mockRejectedValue(new Error('a roster surface must not read membership one household at a time'))
 }
 
 beforeEach(() => {
@@ -144,8 +159,44 @@ describe('people roster pages', () => {
     expect(screen.queryByRole('link', { name: 'Aria Apple' })).not.toBeInTheDocument()
   })
 
+  // SPEC §3.2 records ~90 households in the reference program. The Households
+  // column used to cost one request per household on each of these surfaces.
+  it.each([
+    ['student list', '/y/year-1/students'],
+    ['adult list', '/y/year-1/adults'],
+    ['student detail', '/y/year-1/students/student-2'],
+    ['adult detail', '/y/year-1/adults/adult-1'],
+  ])('reads household membership in a bounded number of requests on the %s', async (_surface, path) => {
+    const manyHouseholds: Household[] = Array.from({ length: 90 }, (_value, index) => ({
+      ...ids, ...timestamps, id: `household-${index}`, display_name: `Household ${index}`,
+    }))
+    stubMembership({ 'household-7': ['student-2'] }, { 'household-7': ['adult-1'] }, manyHouseholds)
+    vi.spyOn(studentApi, 'list').mockResolvedValue([students[0]])
+    vi.spyOn(studentApi, 'get').mockResolvedValue(students[0])
+    vi.spyOn(adultApi, 'list').mockResolvedValue([adult])
+    vi.spyOn(adultApi, 'get').mockResolvedValue(adult)
+    vi.spyOn(guardianApi, 'listForStudent').mockResolvedValue([])
+    vi.spyOn(guardianApi, 'listForAdult').mockResolvedValue([])
+
+    render(
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route path="/y/:schoolYearId/students" element={<StudentListPage />} />
+          <Route path="/y/:schoolYearId/students/:personId" element={<StudentDetailPage />} />
+          <Route path="/y/:schoolYearId/adults" element={<AdultListPage />} />
+          <Route path="/y/:schoolYearId/adults/:personId" element={<AdultDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByRole('link', { name: 'Household 7' })).toBeInTheDocument()
+    expect(householdApi.listMembership).toHaveBeenCalledTimes(1)
+    expect(householdApi.list).toHaveBeenCalledTimes(1)
+    expect(householdApi.listStudents).not.toHaveBeenCalled()
+    expect(householdApi.listAdults).not.toHaveBeenCalled()
+  })
+
   it('shows adult participation intent in the adult list', async () => {
-    const adult: Adult = { ...ids, ...timestamps, id: 'adult-1', legal_given_name: 'Morgan', legal_family_name: 'Lee', preferred_given_name: 'Mo', display_name: 'Mo Lee', email: 'mo@example.test', participation_intent: 'help' }
     vi.spyOn(adultApi, 'list').mockResolvedValue([adult])
 
     render(

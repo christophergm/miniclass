@@ -41,11 +41,57 @@ insert into household_students (organization_id, school_year_id, household_id, s
 values ($1, $2, $3, $4)
 returning id, organization_id, school_year_id, household_id, student_id, created_at, updated_at;
 
+-- A soft-deleted student is excluded from views (SPEC §21.3) while the
+-- membership row itself is retained, so the exclusion is a read-time predicate
+-- and not a delete.
 -- name: ListHouseholdStudents :many
 select id, organization_id, school_year_id, household_id, student_id, created_at, updated_at
 from household_students
-where organization_id = $1 and school_year_id = $2 and household_id = $3
+where household_students.organization_id = $1
+  and household_students.school_year_id = $2
+  and household_students.household_id = $3
+  and exists (
+    select 1
+    from students
+    where students.id = household_students.student_id
+      and students.organization_id = household_students.organization_id
+      and students.school_year_id = household_students.school_year_id
+      and students.deleted_at is null
+  )
 order by student_id, id;
+
+-- Every household membership in one school year, for the surfaces that ask
+-- "which households does this person belong to" about a whole roster. Soft-
+-- deleted households and soft-deleted students are both excluded (SPEC §21.3).
+-- name: ListHouseholdStudentsForSchoolYear :many
+select id, organization_id, school_year_id, household_id, student_id, created_at, updated_at
+from household_students
+where household_students.organization_id = $1
+  and household_students.school_year_id = $2
+  and exists (
+    select 1
+    from households
+    where households.id = household_students.household_id
+      and households.organization_id = household_students.organization_id
+      and households.school_year_id = household_students.school_year_id
+      and households.deleted_at is null
+  )
+  and exists (
+    select 1
+    from students
+    where students.id = household_students.student_id
+      and students.organization_id = household_students.organization_id
+      and students.school_year_id = household_students.school_year_id
+      and students.deleted_at is null
+  )
+order by household_id, student_id, id;
+
+-- Unfiltered by design: removing a membership must stay possible after the
+-- student is soft-deleted, and the audit entry needs the membership identifier.
+-- name: GetHouseholdStudent :one
+select id, organization_id, school_year_id, household_id, student_id, created_at, updated_at
+from household_students
+where organization_id = $1 and school_year_id = $2 and household_id = $3 and student_id = $4;
 
 -- name: DeleteHouseholdStudent :execrows
 delete from household_students
@@ -79,8 +125,46 @@ returning id, organization_id, school_year_id, household_id, adult_id, created_a
 -- name: ListHouseholdAdults :many
 select id, organization_id, school_year_id, household_id, adult_id, created_at, updated_at
 from household_adults
-where organization_id = $1 and school_year_id = $2 and household_id = $3
+where household_adults.organization_id = $1
+  and household_adults.school_year_id = $2
+  and household_adults.household_id = $3
+  and exists (
+    select 1
+    from adults
+    where adults.id = household_adults.adult_id
+      and adults.organization_id = household_adults.organization_id
+      and adults.school_year_id = household_adults.school_year_id
+      and adults.deleted_at is null
+  )
 order by adult_id, id;
+
+-- name: ListHouseholdAdultsForSchoolYear :many
+select id, organization_id, school_year_id, household_id, adult_id, created_at, updated_at
+from household_adults
+where household_adults.organization_id = $1
+  and household_adults.school_year_id = $2
+  and exists (
+    select 1
+    from households
+    where households.id = household_adults.household_id
+      and households.organization_id = household_adults.organization_id
+      and households.school_year_id = household_adults.school_year_id
+      and households.deleted_at is null
+  )
+  and exists (
+    select 1
+    from adults
+    where adults.id = household_adults.adult_id
+      and adults.organization_id = household_adults.organization_id
+      and adults.school_year_id = household_adults.school_year_id
+      and adults.deleted_at is null
+  )
+order by household_id, adult_id, id;
+
+-- name: GetHouseholdAdult :one
+select id, organization_id, school_year_id, household_id, adult_id, created_at, updated_at
+from household_adults
+where organization_id = $1 and school_year_id = $2 and household_id = $3 and adult_id = $4;
 
 -- name: DeleteHouseholdAdult :execrows
 delete from household_adults

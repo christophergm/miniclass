@@ -348,6 +348,39 @@ func (q *Queries) GetGuardianRelationshipByID(ctx context.Context, arg GetGuardi
 	return i, err
 }
 
+const getHouseholdAdult = `-- name: GetHouseholdAdult :one
+select id, organization_id, school_year_id, household_id, adult_id, created_at, updated_at
+from household_adults
+where organization_id = $1 and school_year_id = $2 and household_id = $3 and adult_id = $4
+`
+
+type GetHouseholdAdultParams struct {
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+	HouseholdID    ids.XID `json:"household_id"`
+	AdultID        ids.XID `json:"adult_id"`
+}
+
+func (q *Queries) GetHouseholdAdult(ctx context.Context, arg GetHouseholdAdultParams) (HouseholdAdult, error) {
+	row := q.db.QueryRow(ctx, getHouseholdAdult,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+		arg.HouseholdID,
+		arg.AdultID,
+	)
+	var i HouseholdAdult
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.SchoolYearID,
+		&i.HouseholdID,
+		&i.AdultID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getHouseholdByID = `-- name: GetHouseholdByID :one
 select id, organization_id, school_year_id, display_name, deleted_at, created_at, updated_at
 from households
@@ -369,6 +402,41 @@ func (q *Queries) GetHouseholdByID(ctx context.Context, arg GetHouseholdByIDPara
 		&i.SchoolYearID,
 		&i.DisplayName,
 		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getHouseholdStudent = `-- name: GetHouseholdStudent :one
+select id, organization_id, school_year_id, household_id, student_id, created_at, updated_at
+from household_students
+where organization_id = $1 and school_year_id = $2 and household_id = $3 and student_id = $4
+`
+
+type GetHouseholdStudentParams struct {
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+	HouseholdID    ids.XID `json:"household_id"`
+	StudentID      ids.XID `json:"student_id"`
+}
+
+// Unfiltered by design: removing a membership must stay possible after the
+// student is soft-deleted, and the audit entry needs the membership identifier.
+func (q *Queries) GetHouseholdStudent(ctx context.Context, arg GetHouseholdStudentParams) (HouseholdStudent, error) {
+	row := q.db.QueryRow(ctx, getHouseholdStudent,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+		arg.HouseholdID,
+		arg.StudentID,
+	)
+	var i HouseholdStudent
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.SchoolYearID,
+		&i.HouseholdID,
+		&i.StudentID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -570,7 +638,17 @@ func (q *Queries) ListGuardianRelationships(ctx context.Context, arg ListGuardia
 const listHouseholdAdults = `-- name: ListHouseholdAdults :many
 select id, organization_id, school_year_id, household_id, adult_id, created_at, updated_at
 from household_adults
-where organization_id = $1 and school_year_id = $2 and household_id = $3
+where household_adults.organization_id = $1
+  and household_adults.school_year_id = $2
+  and household_adults.household_id = $3
+  and exists (
+    select 1
+    from adults
+    where adults.id = household_adults.adult_id
+      and adults.organization_id = household_adults.organization_id
+      and adults.school_year_id = household_adults.school_year_id
+      and adults.deleted_at is null
+  )
 order by adult_id, id
 `
 
@@ -608,10 +686,77 @@ func (q *Queries) ListHouseholdAdults(ctx context.Context, arg ListHouseholdAdul
 	return items, nil
 }
 
+const listHouseholdAdultsForSchoolYear = `-- name: ListHouseholdAdultsForSchoolYear :many
+select id, organization_id, school_year_id, household_id, adult_id, created_at, updated_at
+from household_adults
+where household_adults.organization_id = $1
+  and household_adults.school_year_id = $2
+  and exists (
+    select 1
+    from households
+    where households.id = household_adults.household_id
+      and households.organization_id = household_adults.organization_id
+      and households.school_year_id = household_adults.school_year_id
+      and households.deleted_at is null
+  )
+  and exists (
+    select 1
+    from adults
+    where adults.id = household_adults.adult_id
+      and adults.organization_id = household_adults.organization_id
+      and adults.school_year_id = household_adults.school_year_id
+      and adults.deleted_at is null
+  )
+order by household_id, adult_id, id
+`
+
+type ListHouseholdAdultsForSchoolYearParams struct {
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+}
+
+func (q *Queries) ListHouseholdAdultsForSchoolYear(ctx context.Context, arg ListHouseholdAdultsForSchoolYearParams) ([]HouseholdAdult, error) {
+	rows, err := q.db.Query(ctx, listHouseholdAdultsForSchoolYear, arg.OrganizationID, arg.SchoolYearID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []HouseholdAdult{}
+	for rows.Next() {
+		var i HouseholdAdult
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrganizationID,
+			&i.SchoolYearID,
+			&i.HouseholdID,
+			&i.AdultID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listHouseholdStudents = `-- name: ListHouseholdStudents :many
 select id, organization_id, school_year_id, household_id, student_id, created_at, updated_at
 from household_students
-where organization_id = $1 and school_year_id = $2 and household_id = $3
+where household_students.organization_id = $1
+  and household_students.school_year_id = $2
+  and household_students.household_id = $3
+  and exists (
+    select 1
+    from students
+    where students.id = household_students.student_id
+      and students.organization_id = household_students.organization_id
+      and students.school_year_id = household_students.school_year_id
+      and students.deleted_at is null
+  )
 order by student_id, id
 `
 
@@ -621,8 +766,71 @@ type ListHouseholdStudentsParams struct {
 	HouseholdID    ids.XID `json:"household_id"`
 }
 
+// A soft-deleted student is excluded from views (SPEC §21.3) while the
+// membership row itself is retained, so the exclusion is a read-time predicate
+// and not a delete.
 func (q *Queries) ListHouseholdStudents(ctx context.Context, arg ListHouseholdStudentsParams) ([]HouseholdStudent, error) {
 	rows, err := q.db.Query(ctx, listHouseholdStudents, arg.OrganizationID, arg.SchoolYearID, arg.HouseholdID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []HouseholdStudent{}
+	for rows.Next() {
+		var i HouseholdStudent
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrganizationID,
+			&i.SchoolYearID,
+			&i.HouseholdID,
+			&i.StudentID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listHouseholdStudentsForSchoolYear = `-- name: ListHouseholdStudentsForSchoolYear :many
+select id, organization_id, school_year_id, household_id, student_id, created_at, updated_at
+from household_students
+where household_students.organization_id = $1
+  and household_students.school_year_id = $2
+  and exists (
+    select 1
+    from households
+    where households.id = household_students.household_id
+      and households.organization_id = household_students.organization_id
+      and households.school_year_id = household_students.school_year_id
+      and households.deleted_at is null
+  )
+  and exists (
+    select 1
+    from students
+    where students.id = household_students.student_id
+      and students.organization_id = household_students.organization_id
+      and students.school_year_id = household_students.school_year_id
+      and students.deleted_at is null
+  )
+order by household_id, student_id, id
+`
+
+type ListHouseholdStudentsForSchoolYearParams struct {
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+}
+
+// Every household membership in one school year, for the surfaces that ask
+// "which households does this person belong to" about a whole roster. Soft-
+// deleted households and soft-deleted students are both excluded (SPEC §21.3).
+func (q *Queries) ListHouseholdStudentsForSchoolYear(ctx context.Context, arg ListHouseholdStudentsForSchoolYearParams) ([]HouseholdStudent, error) {
+	rows, err := q.db.Query(ctx, listHouseholdStudentsForSchoolYear, arg.OrganizationID, arg.SchoolYearID)
 	if err != nil {
 		return nil, err
 	}

@@ -162,6 +162,44 @@ func (s *Service) ListHouseholdStudents(ctx context.Context, organizationID stri
 	return result, nil
 }
 
+// HouseholdMembership is a whole school year's membership rows. It is one
+// answer rather than two listings because every caller that needs one needs the
+// other: a roster surface indexes both to name a person's households, and the
+// household list derives both member counts from it.
+type HouseholdMembership struct {
+	Students []data.HouseholdStudent
+	Adults   []data.HouseholdAdult
+}
+
+// ListHouseholdMembership reads the year's membership in a bounded number of
+// queries. Reading it per household instead cost one request per household in
+// the year on every roster surface.
+func (s *Service) ListHouseholdMembership(ctx context.Context, organizationID string, schoolYearID ids.XID) (HouseholdMembership, error) {
+	if s == nil || s.database == nil {
+		return HouseholdMembership{}, errors.New("list household membership: data service is nil")
+	}
+	var result HouseholdMembership
+	err := s.database.InTenantRead(ctx, organizationID, func(ctx context.Context, tx *data.Tx) error {
+		if _, err := tx.GetSchoolYearByID(ctx, schoolYearID); err != nil {
+			return err
+		}
+		students, err := tx.ListHouseholdStudentsForSchoolYear(ctx, schoolYearID)
+		if err != nil {
+			return err
+		}
+		adults, err := tx.ListHouseholdAdultsForSchoolYear(ctx, schoolYearID)
+		if err != nil {
+			return err
+		}
+		result = HouseholdMembership{Students: students, Adults: adults}
+		return nil
+	})
+	if err != nil {
+		return HouseholdMembership{}, fmt.Errorf("list household membership: %w", err)
+	}
+	return result, nil
+}
+
 func (s *Service) AddStudentToHousehold(ctx context.Context, organizationID string, schoolYearID, householdID, studentID ids.XID, actor audit.Actor) (data.HouseholdStudent, error) {
 	if s == nil || s.database == nil {
 		return data.HouseholdStudent{}, errors.New("add household student: data service is nil")
@@ -196,19 +234,12 @@ func (s *Service) RemoveStudentFromHousehold(ctx context.Context, organizationID
 		if _, err := tx.GetHouseholdByID(ctx, schoolYearID, householdID); err != nil {
 			return fmt.Errorf("find household: %w", err)
 		}
-		memberships, err := tx.ListHouseholdStudents(ctx, schoolYearID, householdID)
+		// Looked up directly rather than scanned out of the household's listing:
+		// that listing now hides a soft-deleted student (SPEC §21.3), and a stale
+		// membership must stay removable.
+		membership, err := tx.GetHouseholdStudent(ctx, schoolYearID, householdID, studentID)
 		if err != nil {
-			return fmt.Errorf("list household student memberships: %w", err)
-		}
-		var membership data.HouseholdStudent
-		for _, candidate := range memberships {
-			if candidate.StudentID == studentID {
-				membership = candidate
-				break
-			}
-		}
-		if membership.ID == "" {
-			return fmt.Errorf("find household student membership for student %s: %w", studentID, pgx.ErrNoRows)
+			return fmt.Errorf("find household student membership for student %s: %w", studentID, err)
 		}
 		deleted, err := tx.DeleteHouseholdStudent(ctx, membership.SchoolYearID, membership.HouseholdID, membership.StudentID)
 		if err != nil {
@@ -279,19 +310,9 @@ func (s *Service) RemoveAdultFromHousehold(ctx context.Context, organizationID s
 		if _, err := tx.GetHouseholdByID(ctx, schoolYearID, householdID); err != nil {
 			return fmt.Errorf("find household: %w", err)
 		}
-		memberships, err := tx.ListHouseholdAdults(ctx, schoolYearID, householdID)
+		membership, err := tx.GetHouseholdAdult(ctx, schoolYearID, householdID, adultID)
 		if err != nil {
-			return fmt.Errorf("list household adult memberships: %w", err)
-		}
-		var membership data.HouseholdAdult
-		for _, candidate := range memberships {
-			if candidate.AdultID == adultID {
-				membership = candidate
-				break
-			}
-		}
-		if membership.ID == "" {
-			return fmt.Errorf("find household adult membership for adult %s: %w", adultID, pgx.ErrNoRows)
+			return fmt.Errorf("find household adult membership for adult %s: %w", adultID, err)
 		}
 		deleted, err := tx.DeleteHouseholdAdult(ctx, membership.SchoolYearID, membership.HouseholdID, membership.AdultID)
 		if err != nil {
