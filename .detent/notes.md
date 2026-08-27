@@ -1,5 +1,16 @@
 # Detent handoff notes
 
+## Issue #101 soft-deleted people in relationship and membership listings
+
+- Worktree rebased cleanly onto `origin/main` at `14ea2e0`; no PR existed at start and the issue has no native dependencies or `Depends on:` references.
+- Current live year-wide household membership queries already exclude deleted households and members. The missing predicates are in `ListHouseholdStudents`, `ListHouseholdAdults` (deleted household), and `ListGuardianRelationships` (deleted adult/student); registry queries must remain unfiltered.
+- Workpad comment `5438876572` tracks the change. It cites SPEC §21.3, preserves link rows, and adds integration regression coverage.
+- Restore API is tracked separately in #103. Until it lands the reversibility criterion is proved by clearing `deleted_at` in a migrator transaction that sets `app.organization_id` (RLS is forced on the person tables), which is the stricter check anyway: nothing but the person's own flag changes.
+- Both new assertions were confirmed to fail against the pre-fix generated queries before the fix was reinstated.
+- Regenerated `internal/db/gen` with the pinned sqlc v1.27.0 through the local `sqlc/sqlc:1.27.0` image; the worker's PATH sqlc is v1.31.1 and the Makefile refuses it.
+- Gates run locally: Backend tests, Backend lint, Backend format, Generated code drift, Migration round-trip, Frontend tests, Frontend build, Frontend lint, Repository formatting — all green. Developer tooling (`make smoke`) was not run: it requires ports 8080 and 5173 free, and a developer API process already owns 8080 on this machine. The change touches no tooling; CI covers that gate.
+- Open items: commit/push, open PR with `Fixes #101` and the SPEC citation, inspect CI/reviews, then update the Workpad.
+
 ## Issue #94 local fake-auth password reset
 
 - Added local-dev reset blocking in `frontend/src/features/auth/ResetPasswordPage.tsx`; it reuses
@@ -530,3 +541,17 @@
   Backend tests, Backend lint, and Generated code drift. CI migration round-trip passed despite the
   local wrapper lacking `POSTGRES_ADMIN_DATABASE_URL`. Skill draft: no — this was standard
   frontend/API integration work.
+
+## 2026-08-27T12:14:40Z - Failed run output tail
+
+- final_state: failed
+- error: stream turn: context canceled
+close codex app-server transport: signal: terminated: stderr: [2m2026-08-27T12:09:57.290204Z[0m [31mERROR[0m [2mcodex_core::tools::router[0m[2m:[0m [3merror[0m[2m=[0mexec_command failed for `/bin/zsh -lc 'rg -n "ListGuardianRelationships|ListHouseholdStudents|ListHouseholdAdults|SoftDelete(Student|Adult|Household)|deleted_at" backend/tests backend/internal | head -240'`: CreateProcess { message: "Rejected(\"Failed to create unified exec process: No such file or directory (os error 2)\")" }
+[2m2026-08-27T12:14:39.285451Z[0m [31mERROR[0m [2mcodex_models_manager::manager[0m[2m:[0m failed to refresh available models: timeout waiting for child process to exit
+worker github REST budget monitor failed: Get "https://api.github.com/rate_limit": context deadline exceeded
+
+Output tail:
+
+```text
+I’ll inspect the current issue/PR state and the existing household/guardian listing queries, reproduce the soft-delete leak, then make the smallest scoped fix and run the relevant backend plus repository gates. I’ll keep the Workpad and `.detent/notes.md` current throughout.The issue is open and has no existing PR or Workpad comment. A maintainer note confirms the household membership UI now uses the listing endpoints, and restore behavior is tracked separately in #103; this fix should remain a query-time exclusion that preserves reversible link rows. I’m checking dependency state and the current SQL/test architecture before editing.The dependency check is clear: #101 has no native blockers or `Depends on:` references. The branch is clean but behind the freshly fetched `origin/main`, so I’ll rebase it before source changes. The live household member queries already filter deleted members in two paths; the remaining leak is the guardian query plus household-listing predicates that must also exclude deleted households and preserve registry queries.The rebase onto current `origin/main` completed cleanly. The implementation target is now precise: add `exists` checks for both live person endpoints to `ListGuardianRelationships`, and require an active household in the per-household student/adult listings. The year-wide membership queries already enforce all three live-record predicates; registry queries remain intentionally unfiltered. I’m adding regression coverage that also proves retained link rows are still removable/servable through their explicit historical paths.The pinned sqlc container is available, so generated output was regenerated with the repository-required v1.27.0 rather than the worker’s v1.31.1 binary. The regression test now covers both deleted relationship endpoints, both membership kinds, direct row retention, and the deleted-household query path. Next I’m running focused backend tests; integration cases will use the repository’s two-role database harness if its test URLs are available.The focused compile exposed one test-only API mismatch: membership retention is intentionally available through `internal/data`, not the `people.Service`. I’m correcting the assertions to use the tenant-scoped read transaction, which also keeps the test aligned with the repository’s data-access boundary.The focused backend compilation/tests now pass. The integration package reports success in this checkout, but I’m verifying whether its database-backed cases actually ran or were skipped, then I’ll run the full required gates and address any environment-specific failures without weakening coverage.The first required gate is currently blocked by a pre-existing Docker resource collision: `make test-backend` cannot start its fixed-name `miniclass-postgres` container because another container already owns that name. I won’t remove or overwrite that container; I’m inspecting whether it is a compatible repository database so I can run the equivalent backend checks safely, while recording the exact gate result.
+```
