@@ -71,7 +71,7 @@ workspace:
 deliverable:
     merge_method: squash
 agent:
-    max_concurrent_agents: 2
+    max_concurrent_agents: 1
     # Optional per-role reasoning defaults. Unset roles retain backend behavior.
     # effort:
     #   merge: high
