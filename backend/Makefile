@@ -1,4 +1,4 @@
-.PHONY: help dev build test format lint generate migrate-up migrate-down migrate-create seed reset-db sqlc openapi generated-code-drift install-tools verify-depguard
+.PHONY: help dev build test format lint generate migrate-up migrate-down migrate-status migrate-create seed reset-db sqlc openapi generated-code-drift migration-round-trip install-tools verify-depguard
 
 GOLANGCI_LINT_VERSION := v1.64.8
 SQLC_VERSION := v1.27.0
@@ -33,6 +33,9 @@ migrate-up: ## Run all pending migrations
 
 migrate-down: ## Rollback last migration
 	go run ./cmd/migrate down
+
+migrate-status: ## Show which migrations are applied
+	go run ./cmd/migrate status
 
 migrate-create: ## Create a new migration (usage: make migrate-create NAME=create_users)
 	@if [ -z "$(NAME)" ]; then echo "Error: NAME is required. Usage: make migrate-create NAME=your_migration_name"; exit 1; fi
@@ -84,6 +87,13 @@ generated-code-drift: ## Verify generated OpenAPI output is deterministic and co
 	cmp "$$first" "$$second"; \
 	cmp "$$second" openapi.json
 
+migration-round-trip: ## Apply, roll back, and reapply every migration on a scratch database
+	@if [ -z "$(MIGRATION_ROUNDTRIP_DATABASE_URL)" ]; then \
+		echo "MIGRATION_ROUNDTRIP_DATABASE_URL is unset. Add the MIGRATION_ROUNDTRIP_* keys from .env.example to your .env."; \
+		exit 1; \
+	fi
+	./scripts/migration-round-trip.sh
+
 test: ## Run all backend unit and integration tests
 	@echo "Running backend tests..."
 	go test -race -v ./... -count=1
@@ -107,6 +117,12 @@ verify-depguard: ## Prove protected imports fail outside their allowlisted packa
 	./scripts/verify-depguard.sh
 
 sqlc: ## Generate sqlc code from queries
+	@command -v sqlc >/dev/null || { echo "sqlc $(SQLC_VERSION) is required; run make install-tools"; exit 1; }
+	@# The version is part of the generated output, so an unpinned sqlc rewrites
+	@# every file in internal/db/gen and the drift gate blames the change under
+	@# review. Refuse instead, the way the lint target refuses a stray
+	@# golangci-lint; CI installs exactly this version.
+	@sqlc version | grep -F "$(SQLC_VERSION)" >/dev/null || { echo "sqlc $(SQLC_VERSION) is required; run make install-tools"; sqlc version; exit 1; }
 	@if [ -d sql/queries ]; then sqlc generate; else echo "No sql/queries directory; sqlc generation skipped."; fi
 
 generate: ## Regenerate all committed backend artifacts

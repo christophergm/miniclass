@@ -116,10 +116,10 @@ API_BASE_URL="${API_BASE_URL%/api}"
 if ! port_in_use "$PORT"; then
   log ""
   log "The API is not running, so the token was not exercised. Next:"
-  log "  make -C backend dev          API on $API_BASE_URL"
-  log "  cd frontend && bun run dev   app on http://localhost:${VITE_PORT:-5173}"
+  log "  make dev-backend     API on $API_BASE_URL"
+  log "  make dev-frontend    app on http://localhost:${VITE_PORT:-5173}"
   log ""
-  log "If the API then answers 403 no-organization, run 'make seed' to bind $SUBJECT."
+  log "If the API then answers 403 no-organization, run 'make db-seed' to bind $SUBJECT."
   exit 0
 fi
 
@@ -131,13 +131,13 @@ case "$response" in
   *'"no-organization"'*)
     log ""
     warn "the token verifies, but $SUBJECT has no organization membership."
-    warn "run 'make seed' to create the synthetic organisation and bind it."
+    warn "run 'make db-seed' to create the synthetic organisation and bind it."
     exit 1
     ;;
   *'"multiple-organizations"'*)
     log ""
     warn "$SUBJECT holds more than one membership, which resolves to no tenant at all."
-    warn "run 'make -C backend reset-db RESET_DB_CONFIRM=1' to start from one organisation."
+    warn "run 'make db-reset CONFIRM=1' to start from one organisation."
     exit 1
     ;;
   *'"role"'*)

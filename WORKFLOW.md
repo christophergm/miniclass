@@ -11,20 +11,26 @@ declarations from that block; narrative sentences are never read as blockers.
 ## Project CI Quality Gates
 
 These are the project's required stage categories, each with the local command and
-the CI check name that satisfy it. This list is extended by the Phase 0 quality-gate
-work, which adds backend lint, backend format, generated-code drift and migration
-round-trip checks; whichever change adds a check updates this table in the same
-pull request.
+the CI check name that satisfy it. Every local command runs from the repository
+root. `make check` runs all nine in this order, fails fast, and names the CI check
+each failure maps to; the rows below are for reproducing one gate on its own.
+Whichever change adds a check updates this table in the same pull request.
 
-- Backend tests: local command `cd backend && make test`; CI check `Backend tests`
-- Backend lint: local command `cd backend && make lint`; CI check `Backend lint`
-- Backend format: local command `cd backend && make format`; CI check `Backend format`
-- Generated code drift: local command `cd backend && make generate && git diff --exit-code`; CI check `Generated code drift`
-- Migration round-trip: local command `cd backend && ./scripts/migration-round-trip.sh`; CI check `Migration round-trip`
-- Frontend tests: local command `cd frontend && bun install --frozen-lockfile && bun run test -- --run`; CI check `Frontend tests`
-- Frontend build: local command `cd frontend && bun install --frozen-lockfile && bun run build`; CI check `Frontend build`
-- Frontend lint: local command `cd frontend && bun install --frozen-lockfile && bun run lint`; CI check `Frontend lint`
+- Backend tests: local command `make test-backend`; CI check `Backend tests`
+- Backend lint: local command `make lint-backend`; CI check `Backend lint`
+- Backend format: local command `make format`; CI check `Backend format`
+- Generated code drift: local command `make generate && git diff --exit-code`; CI check `Generated code drift`
+- Migration round-trip: local command `make test-migrations`; CI check `Migration round-trip`
+- Frontend tests: local command `make test-frontend`; CI check `Frontend tests`
+- Frontend build: local command `make build-frontend`; CI check `Frontend build`
+- Frontend lint: local command `make lint-frontend`; CI check `Frontend lint`
 - Repository formatting: local command `git diff --check`; CI check `Repository formatting`
+
+The local commands delegate to `backend/Makefile` and `frontend/package.json`,
+whose script names are unchanged, so the four CI jobs that run with
+`working-directory: backend` remain correct. No local command installs
+dependencies: `make setup` owns `bun install`, `make tools-install` owns the
+pinned Go tools, and CI keeps `--frozen-lockfile`.
 
 Treat this list as part of the project contract. Whenever you touch CI
 configuration or perform a review, verify that every declared stage exists,
