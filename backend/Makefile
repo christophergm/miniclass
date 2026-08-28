@@ -1,7 +1,7 @@
 .PHONY: help dev build test format lint generate migrate-up migrate-down migrate-status migrate-create seed reset-db sqlc openapi generated-code-drift migration-round-trip install-tools verify-depguard
 
 GOLANGCI_LINT_VERSION := v1.64.8
-SQLC_VERSION := v1.27.0
+SQLC_VERSION := v1.31.1
 GOOSE_VERSION := v3.19.2
 
 # Load environment variables

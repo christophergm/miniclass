@@ -327,7 +327,10 @@ copy, keys are files and the two processes run in two terminals, nothing is left
 - The pinned `sqlc` v1.27.0 does not compile on a current macOS SDK — its vendored
   `pg_query_go` C code redeclares `strchrnul` — so on such a machine `make generate` and the drift
   gate refuse rather than run. That is the correct refusal for this record, and moving the pin is a
-  separate change with its own generated diff; it is filed rather than fixed here.
+  separate change with its own generated diff; it is filed rather than fixed here. That follow-up
+  has since happened: the pin is v1.31.1, whose `pg_query_go` v6 no longer redeclares `strchrnul`.
+  The whole generated diff was the version comment in nine files, which is the evidence that the
+  refusal cost nothing but a version bump.
 - Two defects were found by running the smoke test against a correct `.env` for the first time, and
   were left for their owning issue rather than fixed here. `GET /api/health` was registered with
   `CapabilityAuthenticated` and no unresolved-principal exemption, so the smoke test could not reach

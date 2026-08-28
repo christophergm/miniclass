@@ -89,7 +89,7 @@ jobs:
         with:
           go-version-file: backend/go.mod
       - name: Install sqlc
-        run: go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.27.0
+        run: go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
       - name: Regenerate backend artifacts
         working-directory: backend
         run: make generate
