@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import type { AuthError, Session } from '@supabase/supabase-js'
 
 import { onSessionEnded, supabase } from '@/lib/auth'
@@ -6,10 +7,12 @@ import { onSessionEnded, supabase } from '@/lib/auth'
 import { AuthContext, type AuthContextValue, type AuthProviderProps } from './auth-context'
 
 export function AuthProvider({ children, client = supabase }: AuthProviderProps) {
+  const queryClient = useQueryClient()
   const [session, setSession] = useState<Session | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [authError, setAuthError] = useState<AuthError | null>(null)
   const [sessionEndedReason, setSessionEndedReason] = useState<AuthContextValue['sessionEndedReason']>(null)
+  const lastSignedInUserId = useRef<string | null>(null)
 
   useEffect(() => {
     let mounted = true
@@ -22,6 +25,14 @@ export function AuthProvider({ children, client = supabase }: AuthProviderProps)
     }
 
     const { data } = client.auth.onAuthStateChange((event, nextSession) => {
+      const nextUserId = nextSession?.user.id ?? null
+      if (nextUserId && lastSignedInUserId.current && nextUserId !== lastSignedInUserId.current) {
+        queryClient.clear()
+      }
+      if (nextUserId) {
+        lastSignedInUserId.current = nextUserId
+      }
+
       if (mounted) {
         setSession(nextSession)
         if (nextSession && event !== 'SIGNED_OUT') {
@@ -45,6 +56,9 @@ export function AuthProvider({ children, client = supabase }: AuthProviderProps)
         return
       }
       setSession(sessionData.session)
+      if (sessionData.session) {
+        lastSignedInUserId.current = sessionData.session.user.id
+      }
       setAuthError(error)
       setIsLoading(false)
     })
@@ -54,7 +68,7 @@ export function AuthProvider({ children, client = supabase }: AuthProviderProps)
       data.subscription.unsubscribe()
       unsubscribeSessionEnded()
     }
-  }, [client])
+  }, [client, queryClient])
 
   const value = useMemo<AuthContextValue>(
     () => ({
