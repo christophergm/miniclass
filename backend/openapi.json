@@ -125,6 +125,10 @@
             "format": "date-time",
             "type": "string"
           },
+          "deleted_at": {
+            "format": "date-time",
+            "type": "string"
+          },
           "display_name": {
             "type": "string"
           },
@@ -237,6 +241,7 @@
               "create",
               "edit",
               "soft_delete",
+              "restore",
               "hard_delete",
               "import_commit",
               "school_year_create",
@@ -972,6 +977,10 @@
             "format": "date-time",
             "type": "string"
           },
+          "deleted_at": {
+            "format": "date-time",
+            "type": "string"
+          },
           "display_name": {
             "type": "string"
           },
@@ -1223,6 +1232,75 @@
         ],
         "type": "object"
       },
+      "RestoreAdultInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/RestoreAdultInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "reason": {
+            "description": "Why the deleted adult is being restored.",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "type": "object"
+      },
+      "RestoreHouseholdInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/RestoreHouseholdInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "reason": {
+            "description": "Why the deleted household is being restored.",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "type": "object"
+      },
+      "RestoreStudentInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/RestoreStudentInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "reason": {
+            "description": "Why the deleted student is being restored.",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "type": "object"
+      },
       "SchoolYearResponse": {
         "additionalProperties": false,
         "properties": {
@@ -1290,6 +1368,10 @@
             "type": "string"
           },
           "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "deleted_at": {
             "format": "date-time",
             "type": "string"
           },
@@ -3409,6 +3491,16 @@
               "minLength": 1,
               "type": "string"
             }
+          },
+          {
+            "description": "Include soft-deleted adults.",
+            "explode": false,
+            "in": "query",
+            "name": "include_deleted",
+            "schema": {
+              "description": "Include soft-deleted adults.",
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -3823,6 +3915,114 @@
           }
         ],
         "summary": "Edit an adult",
+        "x-required-capability": "manage_roster"
+      }
+    },
+    "/api/school-years/{schoolYearID}/adults/{adultID}/restore": {
+      "post": {
+        "operationId": "restore-adult",
+        "parameters": [
+          {
+            "description": "Opaque school-year identifier.",
+            "in": "path",
+            "name": "schoolYearID",
+            "required": true,
+            "schema": {
+              "description": "Opaque school-year identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque adult identifier.",
+            "in": "path",
+            "name": "adultID",
+            "required": true,
+            "schema": {
+              "description": "Opaque adult identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestoreAdultInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdultResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Restore a soft-deleted adult",
         "x-required-capability": "manage_roster"
       }
     },
@@ -4341,6 +4541,16 @@
               "description": "Opaque school-year identifier.",
               "minLength": 1,
               "type": "string"
+            }
+          },
+          {
+            "description": "Include soft-deleted households.",
+            "explode": false,
+            "in": "query",
+            "name": "include_deleted",
+            "schema": {
+              "description": "Include soft-deleted households.",
+              "type": "boolean"
             }
           }
         ],
@@ -5017,6 +5227,114 @@
         "x-required-capability": "manage_roster"
       }
     },
+    "/api/school-years/{schoolYearID}/households/{householdID}/restore": {
+      "post": {
+        "operationId": "restore-household",
+        "parameters": [
+          {
+            "description": "Opaque school-year identifier.",
+            "in": "path",
+            "name": "schoolYearID",
+            "required": true,
+            "schema": {
+              "description": "Opaque school-year identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque household identifier.",
+            "in": "path",
+            "name": "householdID",
+            "required": true,
+            "schema": {
+              "description": "Opaque household identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestoreHouseholdInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HouseholdResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Restore a soft-deleted household",
+        "x-required-capability": "manage_roster"
+      }
+    },
     "/api/school-years/{schoolYearID}/households/{householdID}/students": {
       "get": {
         "operationId": "list-household-students",
@@ -5288,6 +5606,16 @@
               "description": "Opaque school-year identifier.",
               "minLength": 1,
               "type": "string"
+            }
+          },
+          {
+            "description": "Include soft-deleted students.",
+            "explode": false,
+            "in": "query",
+            "name": "include_deleted",
+            "schema": {
+              "description": "Include soft-deleted students.",
+              "type": "boolean"
             }
           }
         ],
@@ -5703,6 +6031,114 @@
           }
         ],
         "summary": "Edit a student",
+        "x-required-capability": "manage_roster"
+      }
+    },
+    "/api/school-years/{schoolYearID}/students/{studentID}/restore": {
+      "post": {
+        "operationId": "restore-student",
+        "parameters": [
+          {
+            "description": "Opaque school-year identifier.",
+            "in": "path",
+            "name": "schoolYearID",
+            "required": true,
+            "schema": {
+              "description": "Opaque school-year identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque student identifier.",
+            "in": "path",
+            "name": "studentID",
+            "required": true,
+            "schema": {
+              "description": "Opaque student identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestoreStudentInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Restore a soft-deleted student",
         "x-required-capability": "manage_roster"
       }
     },

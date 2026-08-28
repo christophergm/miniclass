@@ -224,7 +224,7 @@ func TestHouseholdMembershipExcludesSoftDeletedPeopleAndHouseholds(t *testing.T)
 	membership, err = service.ListHouseholdMembership(ctx, organizationID, tenant.year.ID)
 	require.NoError(t, err)
 	require.Empty(t, studentIDsOf(membership.Students))
-	households, err := service.ListHouseholds(ctx, organizationID, tenant.year.ID)
+	households, err := service.ListHouseholds(ctx, organizationID, tenant.year.ID, false)
 	require.NoError(t, err)
 	require.Empty(t, households)
 

@@ -6,13 +6,19 @@ returning id, organization_id, school_year_id, display_name, deleted_at, created
 -- name: ListHouseholds :many
 select id, organization_id, school_year_id, display_name, deleted_at, created_at, updated_at
 from households
-where organization_id = $1 and school_year_id = $2 and deleted_at is null
+where organization_id = $1 and school_year_id = $2
+  and ($3::bool or deleted_at is null)
 order by lower(display_name), id;
 
 -- name: GetHouseholdByID :one
 select id, organization_id, school_year_id, display_name, deleted_at, created_at, updated_at
 from households
 where id = $1 and organization_id = $2 and school_year_id = $3 and deleted_at is null;
+
+-- name: GetHouseholdByIDIncludingDeleted :one
+select id, organization_id, school_year_id, display_name, deleted_at, created_at, updated_at
+from households
+where id = $1 and organization_id = $2 and school_year_id = $3;
 
 -- name: UpdateHousehold :one
 update households
@@ -24,6 +30,15 @@ returning id, organization_id, school_year_id, display_name, deleted_at, created
 update households
 set deleted_at = coalesce(deleted_at, now())
 where id = $1 and organization_id = $2 and school_year_id = $3 and deleted_at is null;
+
+-- name: RestoreHousehold :one
+update households
+set deleted_at = null
+where id = $1
+  and organization_id = $2
+  and school_year_id = $3
+  and deleted_at is not null
+returning id, organization_id, school_year_id, display_name, deleted_at, created_at, updated_at;
 
 -- name: ListAllActiveHouseholdsForRegistry :many
 select id, organization_id, school_year_id, display_name, deleted_at, created_at, updated_at

@@ -408,6 +408,33 @@ func (q *Queries) GetHouseholdByID(ctx context.Context, arg GetHouseholdByIDPara
 	return i, err
 }
 
+const getHouseholdByIDIncludingDeleted = `-- name: GetHouseholdByIDIncludingDeleted :one
+select id, organization_id, school_year_id, display_name, deleted_at, created_at, updated_at
+from households
+where id = $1 and organization_id = $2 and school_year_id = $3
+`
+
+type GetHouseholdByIDIncludingDeletedParams struct {
+	ID             ids.XID `json:"id"`
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+}
+
+func (q *Queries) GetHouseholdByIDIncludingDeleted(ctx context.Context, arg GetHouseholdByIDIncludingDeletedParams) (Household, error) {
+	row := q.db.QueryRow(ctx, getHouseholdByIDIncludingDeleted, arg.ID, arg.OrganizationID, arg.SchoolYearID)
+	var i Household
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.SchoolYearID,
+		&i.DisplayName,
+		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getHouseholdStudent = `-- name: GetHouseholdStudent :one
 select id, organization_id, school_year_id, household_id, student_id, created_at, updated_at
 from household_students
@@ -892,17 +919,19 @@ func (q *Queries) ListHouseholdStudentsForSchoolYear(ctx context.Context, arg Li
 const listHouseholds = `-- name: ListHouseholds :many
 select id, organization_id, school_year_id, display_name, deleted_at, created_at, updated_at
 from households
-where organization_id = $1 and school_year_id = $2 and deleted_at is null
+where organization_id = $1 and school_year_id = $2
+  and ($3::bool or deleted_at is null)
 order by lower(display_name), id
 `
 
 type ListHouseholdsParams struct {
 	OrganizationID ids.XID `json:"organization_id"`
 	SchoolYearID   ids.XID `json:"school_year_id"`
+	Column3        bool    `json:"column_3"`
 }
 
 func (q *Queries) ListHouseholds(ctx context.Context, arg ListHouseholdsParams) ([]Household, error) {
-	rows, err := q.db.Query(ctx, listHouseholds, arg.OrganizationID, arg.SchoolYearID)
+	rows, err := q.db.Query(ctx, listHouseholds, arg.OrganizationID, arg.SchoolYearID, arg.Column3)
 	if err != nil {
 		return nil, err
 	}
@@ -927,6 +956,37 @@ func (q *Queries) ListHouseholds(ctx context.Context, arg ListHouseholdsParams) 
 		return nil, err
 	}
 	return items, nil
+}
+
+const restoreHousehold = `-- name: RestoreHousehold :one
+update households
+set deleted_at = null
+where id = $1
+  and organization_id = $2
+  and school_year_id = $3
+  and deleted_at is not null
+returning id, organization_id, school_year_id, display_name, deleted_at, created_at, updated_at
+`
+
+type RestoreHouseholdParams struct {
+	ID             ids.XID `json:"id"`
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+}
+
+func (q *Queries) RestoreHousehold(ctx context.Context, arg RestoreHouseholdParams) (Household, error) {
+	row := q.db.QueryRow(ctx, restoreHousehold, arg.ID, arg.OrganizationID, arg.SchoolYearID)
+	var i Household
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.SchoolYearID,
+		&i.DisplayName,
+		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const softDeleteHousehold = `-- name: SoftDeleteHousehold :execrows

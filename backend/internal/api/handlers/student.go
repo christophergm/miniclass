@@ -18,10 +18,11 @@ import (
 
 type StudentService interface {
 	CreateStudent(context.Context, string, ids.XID, audit.Actor, people.StudentCreateInput) (data.Student, error)
-	ListStudents(context.Context, string, ids.XID) ([]data.Student, error)
+	ListStudents(context.Context, string, ids.XID, bool) ([]data.Student, error)
 	GetStudent(context.Context, string, ids.XID, ids.XID) (data.Student, error)
 	UpdateStudent(context.Context, string, ids.XID, ids.XID, audit.Actor, people.StudentUpdateInput) (data.Student, error)
 	DeleteStudent(context.Context, string, ids.XID, ids.XID, audit.Actor) error
+	RestoreStudent(context.Context, string, ids.XID, ids.XID, audit.Actor, string) (data.Student, error)
 }
 
 type StudentHandler struct{ service StudentService }
@@ -31,19 +32,20 @@ func NewStudentHandler(service StudentService) *StudentHandler {
 }
 
 type StudentResponse struct {
-	ID                 string    `json:"id" doc:"Opaque student identifier."`
-	OrganizationID     string    `json:"organization_id" doc:"Opaque organization identifier."`
-	SchoolYearID       string    `json:"school_year_id" doc:"Opaque school-year identifier."`
-	LegalGivenName     string    `json:"legal_given_name"`
-	LegalFamilyName    string    `json:"legal_family_name"`
-	PreferredGivenName *string   `json:"preferred_given_name,omitempty"`
-	GradeLevelID       string    `json:"grade_level_id" doc:"Opaque grade-level identifier."`
-	HomeroomID         string    `json:"homeroom_id" doc:"Opaque homeroom identifier."`
-	ExternalIdentifier *string   `json:"external_identifier,omitempty"`
-	PriorYearStudentID *string   `json:"prior_year_student_id,omitempty" doc:"Opaque prior-year student identifier."`
-	DisplayName        string    `json:"display_name"`
-	CreatedAt          time.Time `json:"created_at"`
-	UpdatedAt          time.Time `json:"updated_at"`
+	ID                 string     `json:"id" doc:"Opaque student identifier."`
+	OrganizationID     string     `json:"organization_id" doc:"Opaque organization identifier."`
+	SchoolYearID       string     `json:"school_year_id" doc:"Opaque school-year identifier."`
+	LegalGivenName     string     `json:"legal_given_name"`
+	LegalFamilyName    string     `json:"legal_family_name"`
+	PreferredGivenName *string    `json:"preferred_given_name,omitempty"`
+	GradeLevelID       string     `json:"grade_level_id" doc:"Opaque grade-level identifier."`
+	HomeroomID         string     `json:"homeroom_id" doc:"Opaque homeroom identifier."`
+	ExternalIdentifier *string    `json:"external_identifier,omitempty"`
+	PriorYearStudentID *string    `json:"prior_year_student_id,omitempty" doc:"Opaque prior-year student identifier."`
+	DisplayName        string     `json:"display_name"`
+	DeletedAt          *time.Time `json:"deleted_at,omitempty"`
+	CreatedAt          time.Time  `json:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at"`
 }
 
 type StudentPathInput struct {
@@ -72,7 +74,10 @@ type CreateStudentInput struct {
 	}
 }
 
-type ListStudentsInput struct{ StudentYearPathInput }
+type ListStudentsInput struct {
+	StudentYearPathInput
+	IncludeDeleted bool `query:"include_deleted" doc:"Include soft-deleted students."`
+}
 type GetStudentInput struct{ StudentPathInput }
 
 type UpdateStudentInput struct {
@@ -89,6 +94,12 @@ type UpdateStudentInput struct {
 }
 
 type DeleteStudentInput struct{ StudentPathInput }
+type RestoreStudentInput struct {
+	StudentPathInput
+	Body struct {
+		Reason string `json:"reason" minLength:"1" doc:"Why the deleted student is being restored."`
+	}
+}
 
 func (h *StudentHandler) List(ctx context.Context, input *ListStudentsInput) (*StudentListOutput, error) {
 	account, err := adultAccount(ctx)
@@ -98,7 +109,7 @@ func (h *StudentHandler) List(ctx context.Context, input *ListStudentsInput) (*S
 	if h == nil || h.service == nil || input == nil || strings.TrimSpace(input.SchoolYearID) == "" {
 		return nil, studentNotFound()
 	}
-	rows, err := h.service.ListStudents(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID))
+	rows, err := h.service.ListStudents(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), input.IncludeDeleted)
 	if err != nil {
 		return nil, studentProblem(err)
 	}
@@ -203,6 +214,21 @@ func (h *StudentHandler) Delete(ctx context.Context, input *DeleteStudentInput) 
 	return &StudentDeleteOutput{}, nil
 }
 
+func (h *StudentHandler) Restore(ctx context.Context, input *RestoreStudentInput) (*StudentOutput, error) {
+	account, err := adultAccount(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if h == nil || h.service == nil || input == nil || strings.TrimSpace(input.SchoolYearID) == "" || strings.TrimSpace(input.StudentID) == "" {
+		return nil, studentNotFound()
+	}
+	row, err := h.service.RestoreStudent(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), ids.XID(input.StudentID), adultActor(account), input.Body.Reason)
+	if err != nil {
+		return nil, studentProblem(err)
+	}
+	return &StudentOutput{Body: studentResponse(row)}, nil
+}
+
 func studentResponse(row data.Student) StudentResponse {
 	preferred := row.PreferredGivenName
 	legalGiven, legalFamily := row.LegalGivenName, row.LegalFamilyName
@@ -216,6 +242,7 @@ func studentResponse(row data.Student) StudentResponse {
 		LegalGivenName: row.LegalGivenName, LegalFamilyName: row.LegalFamilyName, PreferredGivenName: row.PreferredGivenName,
 		GradeLevelID: string(row.GradeLevelID), HomeroomID: string(row.HomeroomID), ExternalIdentifier: row.ExternalIdentifier,
 		PriorYearStudentID: priorYearStudentID, DisplayName: people.DisplayName(preferred, &legalGiven, &legalFamily),
+		DeletedAt: row.DeletedAt,
 		CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 	}
 }
@@ -239,6 +266,10 @@ func studentProblem(err error) error {
 		return problems.New(http.StatusBadRequest, problems.ResourceNotFound, err.Error())
 	case errors.Is(err, people.ErrStudentNoChanges):
 		return problems.New(http.StatusConflict, problems.SchoolYearTransitionInvalid, err.Error())
+	case errors.Is(err, people.ErrRestoreReasonRequired):
+		return problems.New(http.StatusBadRequest, problems.ResourceNotFound, "a reason is required to restore the student")
+	case errors.Is(err, people.ErrRestoreNotDeleted):
+		return problems.New(http.StatusConflict, problems.SchoolYearTransitionInvalid, "student is not deleted")
 	default:
 		return problems.New(http.StatusInternalServerError, problems.InternalError, "unable to change student")
 	}

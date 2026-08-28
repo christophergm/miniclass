@@ -78,8 +78,8 @@ func (tx *Tx) CreateHousehold(ctx context.Context, schoolYearID ids.XID, display
 	return household(row)
 }
 
-func (tx *Tx) ListHouseholds(ctx context.Context, schoolYearID ids.XID) ([]Household, error) {
-	rows, err := tx.queries.ListHouseholds(ctx, db.ListHouseholdsParams{OrganizationID: tx.organizationID, SchoolYearID: schoolYearID})
+func (tx *Tx) ListHouseholds(ctx context.Context, schoolYearID ids.XID, includeDeleted bool) ([]Household, error) {
+	rows, err := tx.queries.ListHouseholds(ctx, db.ListHouseholdsParams{OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, Column3: includeDeleted})
 	if err != nil {
 		return nil, fmt.Errorf("list households: %w", err)
 	}
@@ -105,6 +105,17 @@ func (tx *Tx) GetHouseholdByID(ctx context.Context, schoolYearID, id ids.XID) (H
 	return household(row)
 }
 
+func (tx *Tx) GetHouseholdByIDIncludingDeleted(ctx context.Context, schoolYearID, id ids.XID) (Household, error) {
+	if strings.TrimSpace(string(id)) == "" || strings.TrimSpace(string(schoolYearID)) == "" {
+		return Household{}, errors.New("get household: ids are required")
+	}
+	row, err := tx.queries.GetHouseholdByIDIncludingDeleted(ctx, db.GetHouseholdByIDIncludingDeletedParams{ID: id, OrganizationID: tx.organizationID, SchoolYearID: schoolYearID})
+	if err != nil {
+		return Household{}, fmt.Errorf("get household including deleted: %w", err)
+	}
+	return household(row)
+}
+
 func (tx *Tx) UpdateHousehold(ctx context.Context, schoolYearID, id ids.XID, displayName string) (Household, error) {
 	displayName = strings.TrimSpace(displayName)
 	if displayName == "" {
@@ -125,6 +136,14 @@ func (tx *Tx) SoftDeleteHousehold(ctx context.Context, schoolYearID, id ids.XID)
 		return false, wrapHouseholdMutationError("delete household", err)
 	}
 	return rows == 1, nil
+}
+
+func (tx *Tx) RestoreHousehold(ctx context.Context, schoolYearID, id ids.XID) (Household, error) {
+	row, err := tx.queries.RestoreHousehold(ctx, db.RestoreHouseholdParams{ID: id, OrganizationID: tx.organizationID, SchoolYearID: schoolYearID})
+	if err != nil {
+		return Household{}, wrapHouseholdMutationError("restore household", err)
+	}
+	return household(row)
 }
 
 func (tx *Tx) ListAllActiveHouseholdsForRegistry(ctx context.Context) ([]Household, error) {

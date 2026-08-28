@@ -21,7 +21,8 @@ function PageFrame({ children }: { children: ReactNode }) {
 
 export function HouseholdListPage() {
   const { schoolYearId } = useParams<{ schoolYearId: string }>()
-  const membershipQuery = useHouseholdMembership(schoolYearId)
+  const [includeDeleted, setIncludeDeleted] = useState(false)
+  const membershipQuery = useHouseholdMembership(schoolYearId, includeDeleted)
   const { isLoading, error } = membershipQuery
   const memberships = membershipQuery.data ?? []
 
@@ -37,24 +38,29 @@ export function HouseholdListPage() {
         </div>
         <Button asChild><Link to={`/y/${schoolYearId}/households/new`}>Add household</Link></Button>
       </div>
+      <label className="mt-8 flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={includeDeleted} onChange={(event) => setIncludeDeleted(event.target.checked)} />Show deleted</label>
       {isLoading && <p className="mt-8 text-sm text-muted-foreground" role="status">Loading households…</p>}
       {error !== null && <ErrorMessage error={error} fallback="Unable to load households." />}
       {!isLoading && !error && memberships.length === 0 && <p className="mt-8 rounded-lg border bg-card p-6 text-sm text-muted-foreground">No households yet.</p>}
-      {!isLoading && !error && memberships.length > 0 && <HouseholdTable schoolYearId={schoolYearId} memberships={memberships} />}
+      {!isLoading && !error && memberships.length > 0 && <HouseholdTable schoolYearId={schoolYearId} memberships={memberships} onRestore={(id) => {
+        const reason = window.prompt('Why restore this household?')
+        if (!reason?.trim()) return
+        void householdApi.restore(schoolYearId, id, reason).then(() => membershipQuery.refetch())
+      }} />}
     </PageFrame>
   )
 }
 
-function HouseholdTable({ schoolYearId, memberships }: { schoolYearId: string; memberships: HouseholdMembership[] }) {
+function HouseholdTable({ schoolYearId, memberships, onRestore }: { schoolYearId: string; memberships: HouseholdMembership[]; onRestore: (id: string) => void }) {
   return (
     <Table className="mt-8" aria-label="Households">
-      <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Students</TableHead><TableHead>Adults</TableHead></TableRow></TableHeader>
+      <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Students</TableHead><TableHead>Adults</TableHead><TableHead>Actions</TableHead></TableRow></TableHeader>
       <TableBody>
         {memberships.map((membership) => (
           <TableRow key={membership.household.id}>
             <TableCell><Link className="font-medium text-primary hover:underline" to={`/y/${schoolYearId}/households/${membership.household.id}`}>{membership.household.display_name}</Link></TableCell>
             <TableCell>{membership.studentIds.length}</TableCell>
-            <TableCell>{membership.adultIds.length}</TableCell>
+            <TableCell>{membership.adultIds.length}</TableCell><TableCell>{membership.household.deleted_at ? <Button type="button" size="sm" variant="outline" onClick={() => onRestore(membership.household.id)}>Restore</Button> : '—'}</TableCell>
           </TableRow>
         ))}
       </TableBody>

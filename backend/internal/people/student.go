@@ -59,8 +59,8 @@ func (s *Service) CreateStudent(ctx context.Context, organizationID string, scho
 	return result, nil
 }
 
-// ListStudents returns active students for one school year.
-func (s *Service) ListStudents(ctx context.Context, organizationID string, schoolYearID ids.XID) ([]data.Student, error) {
+// ListStudents returns students for one school year. Deleted rows are opt-in.
+func (s *Service) ListStudents(ctx context.Context, organizationID string, schoolYearID ids.XID, includeDeleted bool) ([]data.Student, error) {
 	if s == nil || s.database == nil {
 		return nil, errors.New("list students: data service is nil")
 	}
@@ -70,11 +70,42 @@ func (s *Service) ListStudents(ctx context.Context, organizationID string, schoo
 			return err
 		}
 		var err error
-		result, err = tx.ListStudents(ctx, schoolYearID)
+		result, err = tx.ListStudents(ctx, schoolYearID, includeDeleted)
 		return err
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list students: %w", err)
+	}
+	return result, nil
+}
+
+func (s *Service) RestoreStudent(ctx context.Context, organizationID string, schoolYearID, id ids.XID, actor audit.Actor, reason string) (data.Student, error) {
+	if s == nil || s.database == nil {
+		return data.Student{}, errors.New("restore student: data service is nil")
+	}
+	reason, err := restoreReason(reason)
+	if err != nil {
+		return data.Student{}, err
+	}
+	var result data.Student
+	err = s.database.InTenant(ctx, organizationID, actor, func(ctx context.Context, tx *data.Tx) error {
+		current, err := tx.GetStudentByIDIncludingDeleted(ctx, schoolYearID, id)
+		if err != nil {
+			return err
+		}
+		if current.DeletedAt == nil {
+			return ErrRestoreNotDeleted
+		}
+		restored, err := tx.RestoreStudent(ctx, schoolYearID, id)
+		if err != nil {
+			return err
+		}
+		result = restored
+		year := restored.SchoolYearID
+		return tx.Record(ctx, audit.Entry{Action: audit.ActionRestore, ObjectType: "student", ObjectID: &id, SchoolYearID: &year, Reason: reason, ChangeSummary: studentSummary(&current, &restored)})
+	})
+	if err != nil {
+		return data.Student{}, fmt.Errorf("restore student: %w", err)
 	}
 	return result, nil
 }

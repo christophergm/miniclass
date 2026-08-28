@@ -147,6 +147,43 @@ func (q *Queries) GetStudentByID(ctx context.Context, arg GetStudentByIDParams) 
 	return i, err
 }
 
+const getStudentByIDIncludingDeleted = `-- name: GetStudentByIDIncludingDeleted :one
+select id, organization_id, school_year_id, legal_given_name, legal_family_name,
+    preferred_given_name, grade_level_id, homeroom_id, external_identifier,
+    prior_year_student_id, deleted_at, created_at, updated_at
+from students
+where id = $1
+  and organization_id = $2
+  and school_year_id = $3
+`
+
+type GetStudentByIDIncludingDeletedParams struct {
+	ID             ids.XID `json:"id"`
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+}
+
+func (q *Queries) GetStudentByIDIncludingDeleted(ctx context.Context, arg GetStudentByIDIncludingDeletedParams) (Student, error) {
+	row := q.db.QueryRow(ctx, getStudentByIDIncludingDeleted, arg.ID, arg.OrganizationID, arg.SchoolYearID)
+	var i Student
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.SchoolYearID,
+		&i.LegalGivenName,
+		&i.LegalFamilyName,
+		&i.PreferredGivenName,
+		&i.GradeLevelID,
+		&i.HomeroomID,
+		&i.ExternalIdentifier,
+		&i.PriorYearStudentID,
+		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const listAllActiveStudentsForRegistry = `-- name: ListAllActiveStudentsForRegistry :many
 select id, organization_id, school_year_id, legal_given_name, legal_family_name,
     preferred_given_name, grade_level_id, homeroom_id, external_identifier,
@@ -198,17 +235,18 @@ select id, organization_id, school_year_id, legal_given_name, legal_family_name,
 from students
 where organization_id = $1
   and school_year_id = $2
-  and deleted_at is null
+  and ($3::bool or deleted_at is null)
 order by legal_family_name, coalesce(preferred_given_name, legal_given_name), legal_given_name, id
 `
 
 type ListStudentsParams struct {
 	OrganizationID ids.XID `json:"organization_id"`
 	SchoolYearID   ids.XID `json:"school_year_id"`
+	Column3        bool    `json:"column_3"`
 }
 
 func (q *Queries) ListStudents(ctx context.Context, arg ListStudentsParams) ([]Student, error) {
-	rows, err := q.db.Query(ctx, listStudents, arg.OrganizationID, arg.SchoolYearID)
+	rows, err := q.db.Query(ctx, listStudents, arg.OrganizationID, arg.SchoolYearID, arg.Column3)
 	if err != nil {
 		return nil, err
 	}
@@ -239,6 +277,45 @@ func (q *Queries) ListStudents(ctx context.Context, arg ListStudentsParams) ([]S
 		return nil, err
 	}
 	return items, nil
+}
+
+const restoreStudent = `-- name: RestoreStudent :one
+update students
+set deleted_at = null
+where id = $1
+  and organization_id = $2
+  and school_year_id = $3
+  and deleted_at is not null
+returning id, organization_id, school_year_id, legal_given_name, legal_family_name,
+    preferred_given_name, grade_level_id, homeroom_id, external_identifier,
+    prior_year_student_id, deleted_at, created_at, updated_at
+`
+
+type RestoreStudentParams struct {
+	ID             ids.XID `json:"id"`
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+}
+
+func (q *Queries) RestoreStudent(ctx context.Context, arg RestoreStudentParams) (Student, error) {
+	row := q.db.QueryRow(ctx, restoreStudent, arg.ID, arg.OrganizationID, arg.SchoolYearID)
+	var i Student
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.SchoolYearID,
+		&i.LegalGivenName,
+		&i.LegalFamilyName,
+		&i.PreferredGivenName,
+		&i.GradeLevelID,
+		&i.HomeroomID,
+		&i.ExternalIdentifier,
+		&i.PriorYearStudentID,
+		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const softDeleteStudent = `-- name: SoftDeleteStudent :execrows

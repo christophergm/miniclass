@@ -67,10 +67,9 @@ func (tx *Tx) CreateAdult(ctx context.Context, schoolYearID ids.XID, legalGivenN
 	return adult(row)
 }
 
-// ListAdults lists active adults for one year. The soft-delete predicate is
-// explicit here and in every other adult query by design.
-func (tx *Tx) ListAdults(ctx context.Context, schoolYearID ids.XID) ([]Adult, error) {
-	rows, err := tx.queries.ListAdults(ctx, db.ListAdultsParams{OrganizationID: tx.organizationID, SchoolYearID: schoolYearID})
+// ListAdults lists adults for one year. Deleted rows are opt-in.
+func (tx *Tx) ListAdults(ctx context.Context, schoolYearID ids.XID, includeDeleted bool) ([]Adult, error) {
+	rows, err := tx.queries.ListAdults(ctx, db.ListAdultsParams{OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, Column3: includeDeleted})
 	if err != nil {
 		return nil, fmt.Errorf("list adults: %w", err)
 	}
@@ -93,6 +92,17 @@ func (tx *Tx) GetAdultByID(ctx context.Context, schoolYearID, id ids.XID) (Adult
 	row, err := tx.queries.GetAdultByID(ctx, db.GetAdultByIDParams{ID: id, OrganizationID: tx.organizationID, SchoolYearID: schoolYearID})
 	if err != nil {
 		return Adult{}, fmt.Errorf("get adult: %w", err)
+	}
+	return adult(row)
+}
+
+func (tx *Tx) GetAdultByIDIncludingDeleted(ctx context.Context, schoolYearID, id ids.XID) (Adult, error) {
+	if strings.TrimSpace(string(id)) == "" || strings.TrimSpace(string(schoolYearID)) == "" {
+		return Adult{}, errors.New("get adult: ids are required")
+	}
+	row, err := tx.queries.GetAdultByIDIncludingDeleted(ctx, db.GetAdultByIDIncludingDeletedParams{ID: id, OrganizationID: tx.organizationID, SchoolYearID: schoolYearID})
+	if err != nil {
+		return Adult{}, fmt.Errorf("get adult including deleted: %w", err)
 	}
 	return adult(row)
 }
@@ -128,6 +138,14 @@ func (tx *Tx) SoftDeleteAdult(ctx context.Context, schoolYearID, id ids.XID) (bo
 		return false, wrapAdultMutationError("delete adult", err)
 	}
 	return rows == 1, nil
+}
+
+func (tx *Tx) RestoreAdult(ctx context.Context, schoolYearID, id ids.XID) (Adult, error) {
+	row, err := tx.queries.RestoreAdult(ctx, db.RestoreAdultParams{ID: id, OrganizationID: tx.organizationID, SchoolYearID: schoolYearID})
+	if err != nil {
+		return Adult{}, wrapAdultMutationError("restore adult", err)
+	}
+	return adult(row)
 }
 
 // ListAllActiveAdultsForRegistry is only used by the isolation registry. It

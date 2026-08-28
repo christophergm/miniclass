@@ -331,6 +331,13 @@ func registerOperations(api huma.API, options RouterOptions) {
 		Summary:     "Soft-delete an adult",
 		Errors:      []int{http.StatusConflict, http.StatusNotFound},
 	}, auth.CapabilityManageRoster, false, adults.Delete)
+	registerOperation(api, huma.Operation{
+		OperationID: "restore-adult",
+		Method:      http.MethodPost,
+		Path:        apiBasePath + "/school-years/{schoolYearID}/adults/{adultID}/restore",
+		Summary:     "Restore a soft-deleted adult",
+		Errors:      []int{http.StatusBadRequest, http.StatusConflict, http.StatusNotFound},
+	}, auth.CapabilityManageRoster, false, adults.Restore)
 
 	students := handlers.NewStudentHandler(options.Students)
 	registerOperation(api, huma.Operation{
@@ -368,6 +375,13 @@ func registerOperations(api huma.API, options RouterOptions) {
 		Summary:     "Soft-delete a student",
 		Errors:      []int{http.StatusConflict, http.StatusNotFound},
 	}, auth.CapabilityManageRoster, false, students.Delete)
+	registerOperation(api, huma.Operation{
+		OperationID: "restore-student",
+		Method:      http.MethodPost,
+		Path:        apiBasePath + "/school-years/{schoolYearID}/students/{studentID}/restore",
+		Summary:     "Restore a soft-deleted student",
+		Errors:      []int{http.StatusBadRequest, http.StatusConflict, http.StatusNotFound},
+	}, auth.CapabilityManageRoster, false, students.Restore)
 
 	households := handlers.NewHouseholdHandler(options.Households)
 	registerOperation(api, huma.Operation{OperationID: "list-households", Method: http.MethodGet, Path: apiBasePath + "/school-years/{schoolYearID}/households", Summary: "List households in a school year", Errors: []int{http.StatusNotFound}}, auth.CapabilityManageRoster, false, households.List)
@@ -375,6 +389,7 @@ func registerOperations(api huma.API, options RouterOptions) {
 	registerOperation(api, huma.Operation{OperationID: "get-household", Method: http.MethodGet, Path: apiBasePath + "/school-years/{schoolYearID}/households/{householdID}", Summary: "Get a household", Errors: []int{http.StatusNotFound}}, auth.CapabilityManageRoster, false, households.Get)
 	registerOperation(api, huma.Operation{OperationID: "update-household", Method: http.MethodPatch, Path: apiBasePath + "/school-years/{schoolYearID}/households/{householdID}", Summary: "Edit a household", Errors: []int{http.StatusBadRequest, http.StatusConflict, http.StatusNotFound}}, auth.CapabilityManageRoster, false, households.Update)
 	registerOperation(api, huma.Operation{OperationID: "delete-household", Method: http.MethodDelete, Path: apiBasePath + "/school-years/{schoolYearID}/households/{householdID}", Summary: "Soft-delete a household", Errors: []int{http.StatusConflict, http.StatusNotFound}}, auth.CapabilityManageRoster, false, households.Delete)
+	registerOperation(api, huma.Operation{OperationID: "restore-household", Method: http.MethodPost, Path: apiBasePath + "/school-years/{schoolYearID}/households/{householdID}/restore", Summary: "Restore a soft-deleted household", Errors: []int{http.StatusBadRequest, http.StatusConflict, http.StatusNotFound}}, auth.CapabilityManageRoster, false, households.Restore)
 	// A sibling collection rather than a sub-resource of one household: it is the
 	// bounded answer to "which households does each person belong to" for a whole
 	// year, which the per-household sub-resources below can only give one

@@ -47,7 +47,7 @@ func (f *fakeStudentService) CreateStudent(_ context.Context, organizationID str
 	}, nil
 }
 
-func (f *fakeStudentService) ListStudents(context.Context, string, ids.XID) ([]data.Student, error) {
+func (f *fakeStudentService) ListStudents(context.Context, string, ids.XID, bool) ([]data.Student, error) {
 	return []data.Student{}, nil
 }
 
@@ -61,4 +61,8 @@ func (f *fakeStudentService) UpdateStudent(context.Context, string, ids.XID, ids
 
 func (f *fakeStudentService) DeleteStudent(context.Context, string, ids.XID, ids.XID, audit.Actor) error {
 	return nil
+}
+
+func (f *fakeStudentService) RestoreStudent(context.Context, string, ids.XID, ids.XID, audit.Actor, string) (data.Student, error) {
+	return data.Student{}, nil
 }

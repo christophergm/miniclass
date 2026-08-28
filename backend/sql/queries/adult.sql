@@ -22,7 +22,7 @@ select id, organization_id, school_year_id, legal_given_name, legal_family_name,
 from adults
 where organization_id = $1
   and school_year_id = $2
-  and deleted_at is null
+  and ($3::bool or deleted_at is null)
 order by legal_family_name, coalesce(preferred_given_name, legal_given_name), legal_given_name, id;
 
 -- name: GetAdultByID :one
@@ -34,6 +34,15 @@ where id = $1
   and organization_id = $2
   and school_year_id = $3
   and deleted_at is null;
+
+-- name: GetAdultByIDIncludingDeleted :one
+select id, organization_id, school_year_id, legal_given_name, legal_family_name,
+    preferred_given_name, email, phone, external_identifier, participation_intent,
+    deleted_at, created_at, updated_at
+from adults
+where id = $1
+  and organization_id = $2
+  and school_year_id = $3;
 
 -- name: UpdateAdult :one
 update adults
@@ -59,6 +68,17 @@ where id = $1
   and organization_id = $2
   and school_year_id = $3
   and deleted_at is null;
+
+-- name: RestoreAdult :one
+update adults
+set deleted_at = null
+where id = $1
+  and organization_id = $2
+  and school_year_id = $3
+  and deleted_at is not null
+returning id, organization_id, school_year_id, legal_given_name, legal_family_name,
+    preferred_given_name, email, phone, external_identifier, participation_intent,
+    deleted_at, created_at, updated_at;
 
 -- name: ListAllActiveAdultsForRegistry :many
 select id, organization_id, school_year_id, legal_given_name, legal_family_name,

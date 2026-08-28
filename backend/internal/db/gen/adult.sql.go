@@ -147,6 +147,43 @@ func (q *Queries) GetAdultByID(ctx context.Context, arg GetAdultByIDParams) (Adu
 	return i, err
 }
 
+const getAdultByIDIncludingDeleted = `-- name: GetAdultByIDIncludingDeleted :one
+select id, organization_id, school_year_id, legal_given_name, legal_family_name,
+    preferred_given_name, email, phone, external_identifier, participation_intent,
+    deleted_at, created_at, updated_at
+from adults
+where id = $1
+  and organization_id = $2
+  and school_year_id = $3
+`
+
+type GetAdultByIDIncludingDeletedParams struct {
+	ID             ids.XID `json:"id"`
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+}
+
+func (q *Queries) GetAdultByIDIncludingDeleted(ctx context.Context, arg GetAdultByIDIncludingDeletedParams) (Adult, error) {
+	row := q.db.QueryRow(ctx, getAdultByIDIncludingDeleted, arg.ID, arg.OrganizationID, arg.SchoolYearID)
+	var i Adult
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.SchoolYearID,
+		&i.LegalGivenName,
+		&i.LegalFamilyName,
+		&i.PreferredGivenName,
+		&i.Email,
+		&i.Phone,
+		&i.ExternalIdentifier,
+		&i.ParticipationIntent,
+		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const listAdults = `-- name: ListAdults :many
 select id, organization_id, school_year_id, legal_given_name, legal_family_name,
     preferred_given_name, email, phone, external_identifier, participation_intent,
@@ -154,17 +191,18 @@ select id, organization_id, school_year_id, legal_given_name, legal_family_name,
 from adults
 where organization_id = $1
   and school_year_id = $2
-  and deleted_at is null
+  and ($3::bool or deleted_at is null)
 order by legal_family_name, coalesce(preferred_given_name, legal_given_name), legal_given_name, id
 `
 
 type ListAdultsParams struct {
 	OrganizationID ids.XID `json:"organization_id"`
 	SchoolYearID   ids.XID `json:"school_year_id"`
+	Column3        bool    `json:"column_3"`
 }
 
 func (q *Queries) ListAdults(ctx context.Context, arg ListAdultsParams) ([]Adult, error) {
-	rows, err := q.db.Query(ctx, listAdults, arg.OrganizationID, arg.SchoolYearID)
+	rows, err := q.db.Query(ctx, listAdults, arg.OrganizationID, arg.SchoolYearID, arg.Column3)
 	if err != nil {
 		return nil, err
 	}
@@ -239,6 +277,45 @@ func (q *Queries) ListAllActiveAdultsForRegistry(ctx context.Context, organizati
 		return nil, err
 	}
 	return items, nil
+}
+
+const restoreAdult = `-- name: RestoreAdult :one
+update adults
+set deleted_at = null
+where id = $1
+  and organization_id = $2
+  and school_year_id = $3
+  and deleted_at is not null
+returning id, organization_id, school_year_id, legal_given_name, legal_family_name,
+    preferred_given_name, email, phone, external_identifier, participation_intent,
+    deleted_at, created_at, updated_at
+`
+
+type RestoreAdultParams struct {
+	ID             ids.XID `json:"id"`
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+}
+
+func (q *Queries) RestoreAdult(ctx context.Context, arg RestoreAdultParams) (Adult, error) {
+	row := q.db.QueryRow(ctx, restoreAdult, arg.ID, arg.OrganizationID, arg.SchoolYearID)
+	var i Adult
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.SchoolYearID,
+		&i.LegalGivenName,
+		&i.LegalFamilyName,
+		&i.PreferredGivenName,
+		&i.Email,
+		&i.Phone,
+		&i.ExternalIdentifier,
+		&i.ParticipationIntent,
+		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const softDeleteAdult = `-- name: SoftDeleteAdult :execrows
