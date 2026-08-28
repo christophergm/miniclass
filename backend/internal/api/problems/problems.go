@@ -41,6 +41,8 @@ const (
 	AdultExternalIdentifierConflict   Slug = "adult-external-identifier-conflict"
 	StudentExternalIdentifierConflict Slug = "student-external-identifier-conflict"
 	HouseholdConflict                 Slug = "household-conflict"
+	RestoreReasonRequired             Slug = "restore-reason-required"
+	RosterRecordNotDeleted            Slug = "roster-record-not-deleted"
 )
 
 // Definition describes one registered problem type.
@@ -76,6 +78,8 @@ var registry = map[Slug]Definition{
 	AdultExternalIdentifierConflict:   {Slug: AdultExternalIdentifierConflict, Title: "Adult external identifier conflict"},
 	StudentExternalIdentifierConflict: {Slug: StudentExternalIdentifierConflict, Title: "Student external identifier conflict"},
 	HouseholdConflict:                 {Slug: HouseholdConflict, Title: "Household conflict"},
+	RestoreReasonRequired:             {Slug: RestoreReasonRequired, Title: "Restore reason required"},
+	RosterRecordNotDeleted:            {Slug: RosterRecordNotDeleted, Title: "Roster record is not deleted"},
 }
 
 // Definitions returns the registry in stable slug order for contract

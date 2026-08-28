@@ -599,6 +599,39 @@ I’ll inspect the current issue/PR state and the existing household/guardian li
 - Validation: backend unit/all tests, lint, format/vet, generated OpenAPI drift, frontend 80 tests/build/lint, and `git diff --check` pass. `make test-backend` cannot start because Docker is unavailable; migration round-trip/smoke remain environment-dependent.
 - Open items: commit/push, open PR with `Fixes #103` and SPEC §§21.3/9.2/5.4, inspect CI/reviews, then complete Workpad.
 
+### Review follow-up on PR #116
+
+CI was green but four acceptance-criteria gaps survived it, because nothing in the suite covered them:
+
+- **No isolation test for the new query paths (SPEC §9.2, AGENTS.md rule 2).** The Layer 2 registry
+  harness probes read/fetch/update/delete only; `include_deleted` and `Restore*` were unprobed, and
+  `include_deleted` is the one statement that deliberately drops a filter. `tests/integration/roster_restore_test.go`
+  now probes both. The service-level call fails earlier than expected — a foreign organisation cannot
+  resolve the owner's school year at all — so the new statements are also probed directly through
+  `InTenantRead`/`InTenant`, below that check, which is where §9.2's "must not depend on each query
+  remembering to filter" actually bites.
+- **Households had no restore coverage**, though the acceptance criteria name them alongside students
+  and adults. Added, including the not-deleted and blank-reason rejections.
+- **No test read a restore audit entry back.** The existing tests assert `auditCount >= n`, which
+  cannot show that actor, time and reason survived. The household test now asserts the entry's
+  action, object, year, actor label, occurrence time, reason and change summary (SPEC §5.4).
+- **Two restore errors carried misleading problem slugs**: a 400 "reason required" was typed
+  `resource-not-found` and a 409 "not deleted" was typed `school-year-transition-invalid`. Added
+  `restore-reason-required` and `roster-record-not-deleted`, following the existing
+  `school-year-reason-required` precedent, and regenerated `openapi.json`.
+- **Household restore bypassed `useRosterMutation`**, so it refetched one query by hand, left the
+  rest of the year's cache stale, and dropped the rejected promise on the floor — a failed restore
+  showed the user nothing. Now on the shared mutation, with the deleted-row treatment the people
+  table already had.
+- Added frontend tests for both roster surfaces asserting the request the filter issues and the call
+  the restore action makes. #96 removed these controls precisely because they were inert; nothing
+  would have caught them going inert again.
+- Validation: full backend suite with `-race` against the local Postgres (all packages pass,
+  integration included), `gofmt`/`go vet`, generated-code drift, frontend 82 tests, build and lint,
+  `git diff --check`. **`make lint` cannot run locally**: golangci-lint v1.64.8 is built with go1.26.4
+  against a go1.27.0 toolchain, so it reports 15 spurious `undefined: <package> (typecheck)` errors in
+  files nobody touched. CI pins its own toolchain and is the authoritative gate for that check.
+
 ## 2026-08-27T23:47:09Z - Failed run output tail
 
 - final_state: failed

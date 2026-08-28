@@ -16,6 +16,7 @@ const otherStudent: Student = { ...student, id: 'student-2', legal_given_name: '
 
 const householdOne: Household = { ...ids, ...timestamps, id: 'household-1', display_name: 'Stone family' }
 const householdTwo: Household = { ...ids, ...timestamps, id: 'household-2', display_name: 'Stone second home' }
+const deletedHousehold: Household = { ...ids, ...timestamps, id: 'household-3', display_name: 'Withdrawn family', deleted_at: '2026-08-02T00:00:00Z' }
 
 // Membership rows carry identifiers only; the display name has to be joined
 // from the roster (SPEC §8.7), which is what these fixtures exercise.
@@ -102,6 +103,39 @@ describe('household pages', () => {
     renderWithQueryClient(<MemoryRouter initialEntries={['/y/year-1/households/household-2']}><Routes><Route path="/y/:schoolYearId/households/:householdId" element={<HouseholdDetailPage />} /></Routes></MemoryRouter>)
     expect(await screen.findByRole('heading', { name: 'Stone second home' })).toBeInTheDocument()
     expect(await screen.findByRole('link', { name: 'Riley Stone' })).toBeInTheDocument()
+  })
+
+  // SPEC §21.3. These controls were removed in #96 because they were typed
+  // against fields the API did not return, so the checkbox filtered nothing and
+  // no row ever rendered as deleted. The assertions below are on the request the
+  // control issues and the call the action makes, which is what "inert" failed.
+  it('asks for deleted households only when the filter is set, and restores one with a reason', async () => {
+    const list = vi.spyOn(householdApi, 'list').mockImplementation(async (_schoolYearId, includeDeleted) =>
+      includeDeleted ? [householdOne, deletedHousehold] : [householdOne])
+    vi.spyOn(householdApi, 'listMembership').mockResolvedValue({ students: [], adults: [] })
+    const restore = vi.spyOn(householdApi, 'restore').mockResolvedValue(deletedHousehold)
+
+    renderWithQueryClient(<MemoryRouter initialEntries={['/y/year-1/households']}><Routes><Route path="/y/:schoolYearId/households" element={<HouseholdListPage />} /></Routes></MemoryRouter>)
+
+    const table = await screen.findByRole('table', { name: 'Households' })
+    expect(within(table).queryByText('Withdrawn family')).not.toBeInTheDocument()
+    expect(list).toHaveBeenCalledWith('year-1', false)
+
+    fireEvent.click(screen.getByLabelText('Show deleted'))
+
+    expect(await screen.findByText('Withdrawn family')).toBeInTheDocument()
+    expect(list).toHaveBeenCalledWith('year-1', true)
+
+    const deletedRow = screen.getByText('Withdrawn family').closest('tr')!
+    // SPEC §5.4: the restore reason is recorded, so an empty prompt is not a
+    // restore at all.
+    vi.spyOn(window, 'prompt').mockReturnValueOnce(null)
+    fireEvent.click(within(deletedRow).getByRole('button', { name: 'Restore' }))
+    expect(restore).not.toHaveBeenCalled()
+
+    vi.spyOn(window, 'prompt').mockReturnValueOnce('the family withdrew the request')
+    fireEvent.click(within(deletedRow).getByRole('button', { name: 'Restore' }))
+    await waitFor(() => expect(restore).toHaveBeenCalledWith('year-1', 'household-3', 'the family withdrew the request'))
   })
 
   // StrictMode double-invokes effects in development, which is how the app

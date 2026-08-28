@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import {
   displayNamesById,
   householdApi,
+  type Household,
   type HouseholdInput,
   type HouseholdMembership,
   type PersonKind,
@@ -23,7 +24,13 @@ export function HouseholdListPage() {
   const { schoolYearId } = useParams<{ schoolYearId: string }>()
   const [includeDeleted, setIncludeDeleted] = useState(false)
   const membershipQuery = useHouseholdMembership(schoolYearId, includeDeleted)
-  const { isLoading, error } = membershipQuery
+  // Restoring a household changes the household listing, the year's membership
+  // index and every roster column that names it, so it invalidates the year
+  // rather than refetching this one query by hand.
+  const restore = useRosterMutation<{ id: string; reason: string }, Household>(schoolYearId, ({ id, reason }) =>
+    householdApi.restore(schoolYearId!, id, reason))
+  const isLoading = membershipQuery.isLoading
+  const error = membershipQuery.error ?? restore.error
   const memberships = membershipQuery.data ?? []
 
   if (!schoolYearId) return <PageFrame><MissingSchoolYear /></PageFrame>
@@ -45,7 +52,7 @@ export function HouseholdListPage() {
       {!isLoading && !error && memberships.length > 0 && <HouseholdTable schoolYearId={schoolYearId} memberships={memberships} onRestore={(id) => {
         const reason = window.prompt('Why restore this household?')
         if (!reason?.trim()) return
-        void householdApi.restore(schoolYearId, id, reason).then(() => membershipQuery.refetch())
+        restore.mutate({ id, reason })
       }} />}
     </PageFrame>
   )
@@ -57,7 +64,7 @@ function HouseholdTable({ schoolYearId, memberships, onRestore }: { schoolYearId
       <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Students</TableHead><TableHead>Adults</TableHead><TableHead>Actions</TableHead></TableRow></TableHeader>
       <TableBody>
         {memberships.map((membership) => (
-          <TableRow key={membership.household.id}>
+          <TableRow key={membership.household.id} className={membership.household.deleted_at ? 'bg-muted/50 text-muted-foreground' : undefined}>
             <TableCell><Link className="font-medium text-primary hover:underline" to={`/y/${schoolYearId}/households/${membership.household.id}`}>{membership.household.display_name}</Link></TableCell>
             <TableCell>{membership.studentIds.length}</TableCell>
             <TableCell>{membership.adultIds.length}</TableCell><TableCell>{membership.household.deleted_at ? <Button type="button" size="sm" variant="outline" onClick={() => onRestore(membership.household.id)}>Restore</Button> : '—'}</TableCell>

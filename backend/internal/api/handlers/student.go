@@ -267,9 +267,9 @@ func studentProblem(err error) error {
 	case errors.Is(err, people.ErrStudentNoChanges):
 		return problems.New(http.StatusConflict, problems.SchoolYearTransitionInvalid, err.Error())
 	case errors.Is(err, people.ErrRestoreReasonRequired):
-		return problems.New(http.StatusBadRequest, problems.ResourceNotFound, "a reason is required to restore the student")
+		return problems.New(http.StatusBadRequest, problems.RestoreReasonRequired, "a reason is required to restore the student")
 	case errors.Is(err, people.ErrRestoreNotDeleted):
-		return problems.New(http.StatusConflict, problems.SchoolYearTransitionInvalid, "student is not deleted")
+		return problems.New(http.StatusConflict, problems.RosterRecordNotDeleted, "student is not deleted")
 	default:
 		return problems.New(http.StatusInternalServerError, problems.InternalError, "unable to change student")
 	}

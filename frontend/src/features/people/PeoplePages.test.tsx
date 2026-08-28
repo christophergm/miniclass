@@ -37,6 +37,8 @@ const vocabulary: VocabularyResponse = {
   ],
 }
 
+const deletedStudent: Student = { ...ids, ...timestamps, id: 'student-4', legal_given_name: 'Sam', legal_family_name: 'Vale', display_name: 'Sam Vale', grade_level_id: 'grade-1', homeroom_id: 'homeroom-a', deleted_at: '2026-08-02T00:00:00Z' }
+
 const adult: Adult = { ...ids, ...timestamps, id: 'adult-1', legal_given_name: 'Morgan', legal_family_name: 'Lee', preferred_given_name: 'Mo', display_name: 'Mo Lee', email: 'mo@example.test', participation_intent: 'help' }
 
 const households: Household[] = [
@@ -130,6 +132,41 @@ describe('people roster pages', () => {
     expect(within(rows[2]).getAllByRole('link')[0]).toHaveTextContent('Bea Apple')
     expect(within(rows[3]).getAllByRole('link')[0]).toHaveTextContent('Addie Zephyr')
     expect(screen.queryByText('Ada Zephyr')).not.toBeInTheDocument()
+  })
+
+  // SPEC §21.3. The deleted filter, the deleted-row treatment and the restore
+  // action were removed in #96 because they were typed against fields the API
+  // did not return. These assertions are on the request the filter issues and
+  // the call the action makes, so they fail if the controls go inert again.
+  it('asks for deleted students only when the filter is set, and restores one with a reason', async () => {
+    const list = vi.spyOn(studentApi, 'list').mockImplementation(async (_schoolYearId, includeDeleted) =>
+      includeDeleted ? [students[1], deletedStudent] : [students[1]])
+    const restore = vi.spyOn(studentApi, 'restore').mockResolvedValue({ ...deletedStudent, deleted_at: undefined })
+
+    renderStudents()
+
+    const table = await screen.findByRole('table', { name: 'Students' })
+    expect(within(table).queryByText('Sam Vale')).not.toBeInTheDocument()
+    expect(list).toHaveBeenCalledWith('year-1', false)
+
+    fireEvent.click(screen.getByLabelText('Show deleted'))
+
+    expect(await screen.findByText('Sam Vale')).toBeInTheDocument()
+    expect(list).toHaveBeenCalledWith('year-1', true)
+
+    const deletedRow = screen.getByText('Sam Vale').closest('tr')!
+    expect(deletedRow.className).toContain('text-muted-foreground')
+    expect(within(screen.getByText('Bea Apple').closest('tr')!).queryByRole('button', { name: 'Restore' })).not.toBeInTheDocument()
+
+    // SPEC §5.4: the reason is the record, so an abandoned prompt is not a
+    // restore.
+    vi.spyOn(window, 'prompt').mockReturnValueOnce(null)
+    fireEvent.click(within(deletedRow).getByRole('button', { name: 'Restore' }))
+    expect(restore).not.toHaveBeenCalled()
+
+    vi.spyOn(window, 'prompt').mockReturnValueOnce('deleted by mistake')
+    fireEvent.click(within(deletedRow).getByRole('button', { name: 'Restore' }))
+    await waitFor(() => expect(restore).toHaveBeenCalledWith('year-1', 'student-4', 'deleted by mistake'))
   })
 
   it('renders the grade and homeroom labels for the identifiers the roster returns', async () => {
