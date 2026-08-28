@@ -400,9 +400,9 @@ func householdProblem(err error) error {
 	case errors.Is(err, people.ErrHouseholdNoChanges), errors.Is(err, people.ErrGuardianRelationshipNoChanges):
 		return problems.New(http.StatusConflict, problems.SchoolYearTransitionInvalid, err.Error())
 	case errors.Is(err, people.ErrRestoreReasonRequired):
-		return problems.New(http.StatusBadRequest, problems.ResourceNotFound, "a reason is required to restore the household")
+		return problems.New(http.StatusBadRequest, problems.RestoreReasonRequired, "a reason is required to restore the household")
 	case errors.Is(err, people.ErrRestoreNotDeleted):
-		return problems.New(http.StatusConflict, problems.SchoolYearTransitionInvalid, "household is not deleted")
+		return problems.New(http.StatusConflict, problems.RosterRecordNotDeleted, "household is not deleted")
 	default:
 		return problems.New(http.StatusInternalServerError, problems.InternalError, "unable to change household data")
 	}
