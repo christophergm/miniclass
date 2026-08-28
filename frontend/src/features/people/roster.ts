@@ -34,11 +34,12 @@ export type PersonSummary = {
   legal_family_name: string
   preferred_given_name?: string
   external_identifier?: string
+  deleted_at?: string
 }
 
 export const studentApi = {
-  list: (schoolYearID: string) =>
-    unwrapList(api.GET('/api/school-years/{schoolYearID}/students', { params: { path: { schoolYearID } } })),
+  list: (schoolYearID: string, includeDeleted = false) =>
+    unwrapList(api.GET('/api/school-years/{schoolYearID}/students', { params: { path: { schoolYearID }, query: { include_deleted: includeDeleted } } })),
   get: (schoolYearID: string, studentID: string) =>
     unwrap(api.GET('/api/school-years/{schoolYearID}/students/{studentID}', { params: { path: { schoolYearID, studentID } } })),
   create: (schoolYearID: string, body: StudentInput) =>
@@ -47,11 +48,13 @@ export const studentApi = {
     unwrap(api.PATCH('/api/school-years/{schoolYearID}/students/{studentID}', { params: { path: { schoolYearID, studentID } }, body })),
   remove: (schoolYearID: string, studentID: string) =>
     unwrapNoContent(api.DELETE('/api/school-years/{schoolYearID}/students/{studentID}', { params: { path: { schoolYearID, studentID } } })),
+  restore: (schoolYearID: string, studentID: string, reason: string) =>
+    unwrap(api.POST('/api/school-years/{schoolYearID}/students/{studentID}/restore', { params: { path: { schoolYearID, studentID } }, body: { reason } })),
 }
 
 export const adultApi = {
-  list: (schoolYearID: string) =>
-    unwrapList(api.GET('/api/school-years/{schoolYearID}/adults', { params: { path: { schoolYearID } } })),
+  list: (schoolYearID: string, includeDeleted = false) =>
+    unwrapList(api.GET('/api/school-years/{schoolYearID}/adults', { params: { path: { schoolYearID }, query: { include_deleted: includeDeleted } } })),
   get: (schoolYearID: string, adultID: string) =>
     unwrap(api.GET('/api/school-years/{schoolYearID}/adults/{adultID}', { params: { path: { schoolYearID, adultID } } })),
   create: (schoolYearID: string, body: AdultInput) =>
@@ -60,11 +63,13 @@ export const adultApi = {
     unwrap(api.PATCH('/api/school-years/{schoolYearID}/adults/{adultID}', { params: { path: { schoolYearID, adultID } }, body })),
   remove: (schoolYearID: string, adultID: string) =>
     unwrapNoContent(api.DELETE('/api/school-years/{schoolYearID}/adults/{adultID}', { params: { path: { schoolYearID, adultID } } })),
+  restore: (schoolYearID: string, adultID: string, reason: string) =>
+    unwrap(api.POST('/api/school-years/{schoolYearID}/adults/{adultID}/restore', { params: { path: { schoolYearID, adultID } }, body: { reason } })),
 }
 
 export const householdApi = {
-  list: (schoolYearID: string) =>
-    unwrapList(api.GET('/api/school-years/{schoolYearID}/households', { params: { path: { schoolYearID } } })),
+  list: (schoolYearID: string, includeDeleted = false) =>
+    unwrapList(api.GET('/api/school-years/{schoolYearID}/households', { params: { path: { schoolYearID }, query: { include_deleted: includeDeleted } } })),
   get: (schoolYearID: string, householdID: string) =>
     unwrap(api.GET('/api/school-years/{schoolYearID}/households/{householdID}', { params: { path: { schoolYearID, householdID } } })),
   create: (schoolYearID: string, body: HouseholdInput) =>
@@ -73,6 +78,8 @@ export const householdApi = {
     unwrap(api.PATCH('/api/school-years/{schoolYearID}/households/{householdID}', { params: { path: { schoolYearID, householdID } }, body })),
   remove: (schoolYearID: string, householdID: string) =>
     unwrapNoContent(api.DELETE('/api/school-years/{schoolYearID}/households/{householdID}', { params: { path: { schoolYearID, householdID } } })),
+  restore: (schoolYearID: string, householdID: string, reason: string) =>
+    unwrap(api.POST('/api/school-years/{schoolYearID}/households/{householdID}/restore', { params: { path: { schoolYearID, householdID } }, body: { reason } })),
 
   // The year's whole membership in one request. The per-household sub-resources
   // below still serve the household detail page, which is looking at exactly one
@@ -112,8 +119,8 @@ export const guardianApi = {
 }
 
 /** Kind-agnostic listing, for the surfaces that render either roster. */
-export function listPeople(kind: PersonKind, schoolYearID: string): Promise<PersonSummary[]> {
-  return kind === 'student' ? studentApi.list(schoolYearID) : adultApi.list(schoolYearID)
+export function listPeople(kind: PersonKind, schoolYearID: string, includeDeleted = false): Promise<PersonSummary[]> {
+  return kind === 'student' ? studentApi.list(schoolYearID, includeDeleted) : adultApi.list(schoolYearID, includeDeleted)
 }
 
 export function displayNamesById(people: PersonSummary[]): Map<string, string> {
@@ -132,9 +139,9 @@ export type HouseholdMembership = {
 // display names and the membership listing for the links between them. It was
 // one request per household, which at the reference program's ~90 households
 // (SPEC §3.2) was tens of serial round trips behind the browser's connection cap.
-export async function listHouseholdMembership(schoolYearID: string): Promise<HouseholdMembership[]> {
+export async function listHouseholdMembership(schoolYearID: string, includeDeleted = false): Promise<HouseholdMembership[]> {
   const [households, membership] = await Promise.all([
-    householdApi.list(schoolYearID),
+    householdApi.list(schoolYearID, includeDeleted),
     householdApi.listMembership(schoolYearID),
   ])
   const studentIds = groupMemberIds(membership.students, (row) => row.student_id)

@@ -52,7 +52,7 @@ func (s *Service) CreateHousehold(ctx context.Context, organizationID string, sc
 	return result, nil
 }
 
-func (s *Service) ListHouseholds(ctx context.Context, organizationID string, schoolYearID ids.XID) ([]data.Household, error) {
+func (s *Service) ListHouseholds(ctx context.Context, organizationID string, schoolYearID ids.XID, includeDeleted bool) ([]data.Household, error) {
 	if s == nil || s.database == nil {
 		return nil, errors.New("list households: data service is nil")
 	}
@@ -62,11 +62,42 @@ func (s *Service) ListHouseholds(ctx context.Context, organizationID string, sch
 			return err
 		}
 		var err error
-		result, err = tx.ListHouseholds(ctx, schoolYearID)
+		result, err = tx.ListHouseholds(ctx, schoolYearID, includeDeleted)
 		return err
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list households: %w", err)
+	}
+	return result, nil
+}
+
+func (s *Service) RestoreHousehold(ctx context.Context, organizationID string, schoolYearID, id ids.XID, actor audit.Actor, reason string) (data.Household, error) {
+	if s == nil || s.database == nil {
+		return data.Household{}, errors.New("restore household: data service is nil")
+	}
+	reason, err := restoreReason(reason)
+	if err != nil {
+		return data.Household{}, err
+	}
+	var result data.Household
+	err = s.database.InTenant(ctx, organizationID, actor, func(ctx context.Context, tx *data.Tx) error {
+		current, err := tx.GetHouseholdByIDIncludingDeleted(ctx, schoolYearID, id)
+		if err != nil {
+			return err
+		}
+		if current.DeletedAt == nil {
+			return ErrRestoreNotDeleted
+		}
+		restored, err := tx.RestoreHousehold(ctx, schoolYearID, id)
+		if err != nil {
+			return err
+		}
+		result = restored
+		year := restored.SchoolYearID
+		return tx.Record(ctx, audit.Entry{Action: audit.ActionRestore, ObjectType: "household", ObjectID: &id, SchoolYearID: &year, Reason: reason, ChangeSummary: householdSummary(&current, &restored)})
+	})
+	if err != nil {
+		return data.Household{}, fmt.Errorf("restore household: %w", err)
 	}
 	return result, nil
 }

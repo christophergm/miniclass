@@ -69,7 +69,7 @@ func (s *Service) Create(ctx context.Context, organizationID string, schoolYearI
 	return result, nil
 }
 
-func (s *Service) List(ctx context.Context, organizationID string, schoolYearID ids.XID) ([]data.Adult, error) {
+func (s *Service) List(ctx context.Context, organizationID string, schoolYearID ids.XID, includeDeleted bool) ([]data.Adult, error) {
 	if s == nil || s.database == nil {
 		return nil, errors.New("list adults: data service is nil")
 	}
@@ -79,11 +79,42 @@ func (s *Service) List(ctx context.Context, organizationID string, schoolYearID 
 			return err
 		}
 		var err error
-		result, err = tx.ListAdults(ctx, schoolYearID)
+		result, err = tx.ListAdults(ctx, schoolYearID, includeDeleted)
 		return err
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list adults: %w", err)
+	}
+	return result, nil
+}
+
+func (s *Service) Restore(ctx context.Context, organizationID string, schoolYearID, id ids.XID, actor audit.Actor, reason string) (data.Adult, error) {
+	if s == nil || s.database == nil {
+		return data.Adult{}, errors.New("restore adult: data service is nil")
+	}
+	reason, err := restoreReason(reason)
+	if err != nil {
+		return data.Adult{}, err
+	}
+	var result data.Adult
+	err = s.database.InTenant(ctx, organizationID, actor, func(ctx context.Context, tx *data.Tx) error {
+		current, err := tx.GetAdultByIDIncludingDeleted(ctx, schoolYearID, id)
+		if err != nil {
+			return err
+		}
+		if current.DeletedAt == nil {
+			return ErrRestoreNotDeleted
+		}
+		restored, err := tx.RestoreAdult(ctx, schoolYearID, id)
+		if err != nil {
+			return err
+		}
+		result = restored
+		year := restored.SchoolYearID
+		return tx.Record(ctx, audit.Entry{Action: audit.ActionRestore, ObjectType: "adult", ObjectID: &id, SchoolYearID: &year, Reason: reason, ChangeSummary: adultSummary(&current, &restored)})
+	})
+	if err != nil {
+		return data.Adult{}, fmt.Errorf("restore adult: %w", err)
 	}
 	return result, nil
 }

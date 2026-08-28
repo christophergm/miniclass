@@ -57,10 +57,9 @@ func (tx *Tx) CreateStudent(ctx context.Context, schoolYearID, gradeLevelID, hom
 	return student(row)
 }
 
-// ListStudents lists active students for one year. The soft-delete predicate
-// is explicit here and in every other student query by design.
-func (tx *Tx) ListStudents(ctx context.Context, schoolYearID ids.XID) ([]Student, error) {
-	rows, err := tx.queries.ListStudents(ctx, db.ListStudentsParams{OrganizationID: tx.organizationID, SchoolYearID: schoolYearID})
+// ListStudents lists students for one year. Deleted rows are opt-in.
+func (tx *Tx) ListStudents(ctx context.Context, schoolYearID ids.XID, includeDeleted bool) ([]Student, error) {
+	rows, err := tx.queries.ListStudents(ctx, db.ListStudentsParams{OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, Column3: includeDeleted})
 	if err != nil {
 		return nil, fmt.Errorf("list students: %w", err)
 	}
@@ -83,6 +82,20 @@ func (tx *Tx) GetStudentByID(ctx context.Context, schoolYearID, id ids.XID) (Stu
 	row, err := tx.queries.GetStudentByID(ctx, db.GetStudentByIDParams{ID: id, OrganizationID: tx.organizationID, SchoolYearID: schoolYearID})
 	if err != nil {
 		return Student{}, fmt.Errorf("get student: %w", err)
+	}
+	return student(row)
+}
+
+// GetStudentByIDIncludingDeleted is reserved for restore and other explicit
+// historical operations. Ordinary reads use GetStudentByID so deleted rows
+// remain invisible by default.
+func (tx *Tx) GetStudentByIDIncludingDeleted(ctx context.Context, schoolYearID, id ids.XID) (Student, error) {
+	if strings.TrimSpace(string(id)) == "" || strings.TrimSpace(string(schoolYearID)) == "" {
+		return Student{}, errors.New("get student: ids are required")
+	}
+	row, err := tx.queries.GetStudentByIDIncludingDeleted(ctx, db.GetStudentByIDIncludingDeletedParams{ID: id, OrganizationID: tx.organizationID, SchoolYearID: schoolYearID})
+	if err != nil {
+		return Student{}, fmt.Errorf("get student including deleted: %w", err)
 	}
 	return student(row)
 }
@@ -118,6 +131,14 @@ func (tx *Tx) SoftDeleteStudent(ctx context.Context, schoolYearID, id ids.XID) (
 		return false, wrapStudentMutationError("delete student", err)
 	}
 	return rows == 1, nil
+}
+
+func (tx *Tx) RestoreStudent(ctx context.Context, schoolYearID, id ids.XID) (Student, error) {
+	row, err := tx.queries.RestoreStudent(ctx, db.RestoreStudentParams{ID: id, OrganizationID: tx.organizationID, SchoolYearID: schoolYearID})
+	if err != nil {
+		return Student{}, wrapStudentMutationError("restore student", err)
+	}
+	return student(row)
 }
 
 // ListAllActiveStudentsForRegistry is used only by the isolation registry.

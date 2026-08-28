@@ -38,16 +38,24 @@ func TestAdultCRUDSoftDeleteAndAudit(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, data.AdultParticipationLead, updated.ParticipationIntent)
 
-	listed, err := service.List(ctx, string(organizationID), year.ID)
+	listed, err := service.List(ctx, string(organizationID), year.ID, false)
 	require.NoError(t, err)
 	require.Len(t, listed, 1)
 
 	require.NoError(t, service.Delete(ctx, string(organizationID), year.ID, created.ID, actor))
-	listed, err = service.List(ctx, string(organizationID), year.ID)
+	listed, err = service.List(ctx, string(organizationID), year.ID, false)
 	require.NoError(t, err)
 	require.Empty(t, listed)
 	_, err = service.Get(ctx, string(organizationID), year.ID, created.ID)
 	require.ErrorIs(t, err, pgx.ErrNoRows)
+	deleted, err := service.List(ctx, string(organizationID), year.ID, true)
+	require.NoError(t, err)
+	require.Len(t, deleted, 1)
+	require.NotNil(t, deleted[0].DeletedAt)
+	restored, err := service.Restore(ctx, string(organizationID), year.ID, created.ID, actor, "corrected the deletion")
+	require.NoError(t, err)
+	require.Nil(t, restored.DeletedAt)
+	require.NoError(t, service.Delete(ctx, string(organizationID), year.ID, created.ID, actor))
 
 	// The partial external-identifier index allows a replacement after the
 	// old row has been soft-deleted.
@@ -65,5 +73,5 @@ func TestAdultCRUDSoftDeleteAndAudit(t *testing.T) {
 		return err
 	})
 	require.NoError(t, err)
-	require.GreaterOrEqual(t, auditCount, int64(5))
+	require.GreaterOrEqual(t, auditCount, int64(7))
 }

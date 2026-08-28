@@ -43,11 +43,11 @@ export function rosterKey(schoolYearId: string) {
 // only sometimes needs the roster still names the real key. Disabling by
 // withholding the school year would key the idle query differently and lose the
 // entry another surface has already filled.
-export function usePeople(kind: PersonKind, schoolYearId: string | undefined, options: { enabled?: boolean } = {}) {
+export function usePeople(kind: PersonKind, schoolYearId: string | undefined, options: { enabled?: boolean; includeDeleted?: boolean } = {}) {
   return useQuery({
     enabled: (options.enabled ?? true) && Boolean(schoolYearId),
-    queryKey: [...rosterKey(schoolYearId ?? ''), kind, 'list'],
-    queryFn: () => listPeople(kind, schoolYearId!),
+    queryKey: [...rosterKey(schoolYearId ?? ''), kind, 'list', options.includeDeleted ?? false],
+    queryFn: () => listPeople(kind, schoolYearId!, options.includeDeleted ?? false),
     staleTime: rosterStaleTime,
   })
 }
@@ -67,11 +67,11 @@ export function usePerson(kind: PersonKind, schoolYearId: string | undefined, pe
 }
 
 /** The year's households, each with the identifiers of its members. */
-export function useHouseholdMembership(schoolYearId: string | undefined) {
+export function useHouseholdMembership(schoolYearId: string | undefined, includeDeleted = false) {
   return useQuery({
     enabled: Boolean(schoolYearId),
-    queryKey: [...rosterKey(schoolYearId ?? ''), 'household-membership'],
-    queryFn: () => listHouseholdMembership(schoolYearId!),
+    queryKey: [...rosterKey(schoolYearId ?? ''), 'household-membership', includeDeleted],
+    queryFn: () => listHouseholdMembership(schoolYearId!, includeDeleted),
     staleTime: rosterStaleTime,
   })
 }

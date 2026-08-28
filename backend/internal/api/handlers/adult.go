@@ -19,10 +19,11 @@ import (
 
 type AdultService interface {
 	Create(context.Context, string, ids.XID, audit.Actor, people.AdultCreateInput) (data.Adult, error)
-	List(context.Context, string, ids.XID) ([]data.Adult, error)
+	List(context.Context, string, ids.XID, bool) ([]data.Adult, error)
 	Get(context.Context, string, ids.XID, ids.XID) (data.Adult, error)
 	Update(context.Context, string, ids.XID, ids.XID, audit.Actor, people.AdultUpdateInput) (data.Adult, error)
 	Delete(context.Context, string, ids.XID, ids.XID, audit.Actor) error
+	Restore(context.Context, string, ids.XID, ids.XID, audit.Actor, string) (data.Adult, error)
 }
 
 type AdultHandler struct{ service AdultService }
@@ -30,19 +31,20 @@ type AdultHandler struct{ service AdultService }
 func NewAdultHandler(service AdultService) *AdultHandler { return &AdultHandler{service: service} }
 
 type AdultResponse struct {
-	ID                  string    `json:"id" doc:"Opaque adult identifier."`
-	OrganizationID      string    `json:"organization_id" doc:"Opaque organization identifier."`
-	SchoolYearID        string    `json:"school_year_id" doc:"Opaque school-year identifier."`
-	LegalGivenName      string    `json:"legal_given_name"`
-	LegalFamilyName     string    `json:"legal_family_name"`
-	PreferredGivenName  *string   `json:"preferred_given_name,omitempty"`
-	Email               *string   `json:"email,omitempty"`
-	Phone               *string   `json:"phone,omitempty"`
-	ExternalIdentifier  *string   `json:"external_identifier,omitempty"`
-	ParticipationIntent string    `json:"participation_intent" enum:"lead,help,unavailable"`
-	DisplayName         string    `json:"display_name"`
-	CreatedAt           time.Time `json:"created_at"`
-	UpdatedAt           time.Time `json:"updated_at"`
+	ID                  string     `json:"id" doc:"Opaque adult identifier."`
+	OrganizationID      string     `json:"organization_id" doc:"Opaque organization identifier."`
+	SchoolYearID        string     `json:"school_year_id" doc:"Opaque school-year identifier."`
+	LegalGivenName      string     `json:"legal_given_name"`
+	LegalFamilyName     string     `json:"legal_family_name"`
+	PreferredGivenName  *string    `json:"preferred_given_name,omitempty"`
+	Email               *string    `json:"email,omitempty"`
+	Phone               *string    `json:"phone,omitempty"`
+	ExternalIdentifier  *string    `json:"external_identifier,omitempty"`
+	ParticipationIntent string     `json:"participation_intent" enum:"lead,help,unavailable"`
+	DisplayName         string     `json:"display_name"`
+	DeletedAt           *time.Time `json:"deleted_at,omitempty"`
+	CreatedAt           time.Time  `json:"created_at"`
+	UpdatedAt           time.Time  `json:"updated_at"`
 }
 
 type AdultPathInput struct {
@@ -71,7 +73,10 @@ type CreateAdultInput struct {
 	}
 }
 
-type ListAdultsInput struct{ AdultYearPathInput }
+type ListAdultsInput struct {
+	AdultYearPathInput
+	IncludeDeleted bool `query:"include_deleted" doc:"Include soft-deleted adults."`
+}
 
 type GetAdultInput struct{ AdultPathInput }
 
@@ -89,6 +94,12 @@ type UpdateAdultInput struct {
 }
 
 type DeleteAdultInput struct{ AdultPathInput }
+type RestoreAdultInput struct {
+	AdultPathInput
+	Body struct {
+		Reason string `json:"reason" minLength:"1" doc:"Why the deleted adult is being restored."`
+	}
+}
 
 func (h *AdultHandler) List(ctx context.Context, input *ListAdultsInput) (*AdultListOutput, error) {
 	account, err := adultAccount(ctx)
@@ -101,7 +112,7 @@ func (h *AdultHandler) List(ctx context.Context, input *ListAdultsInput) (*Adult
 	if input == nil || strings.TrimSpace(input.SchoolYearID) == "" {
 		return nil, adultNotFound()
 	}
-	rows, err := h.service.List(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID))
+	rows, err := h.service.List(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), input.IncludeDeleted)
 	if err != nil {
 		return nil, adultProblem(err)
 	}
@@ -200,6 +211,21 @@ func (h *AdultHandler) Delete(ctx context.Context, input *DeleteAdultInput) (*Ad
 	return &AdultDeleteOutput{}, nil
 }
 
+func (h *AdultHandler) Restore(ctx context.Context, input *RestoreAdultInput) (*AdultOutput, error) {
+	account, err := adultAccount(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if h == nil || h.service == nil || input == nil || strings.TrimSpace(input.SchoolYearID) == "" || strings.TrimSpace(input.AdultID) == "" {
+		return nil, adultNotFound()
+	}
+	row, err := h.service.Restore(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), ids.XID(input.AdultID), adultActor(account), input.Body.Reason)
+	if err != nil {
+		return nil, adultProblem(err)
+	}
+	return &AdultOutput{Body: adultResponse(row)}, nil
+}
+
 func adultAccount(ctx context.Context) (auth.AccountPrincipal, error) {
 	principal, ok := auth.PrincipalFromContext(ctx)
 	if !ok {
@@ -225,6 +251,7 @@ func adultResponse(row data.Adult) AdultResponse {
 		LegalGivenName: row.LegalGivenName, LegalFamilyName: row.LegalFamilyName, PreferredGivenName: row.PreferredGivenName,
 		Email: row.Email, Phone: row.Phone, ExternalIdentifier: row.ExternalIdentifier,
 		ParticipationIntent: string(row.ParticipationIntent), DisplayName: people.DisplayName(preferred, &legalGiven, &legalFamily),
+		DeletedAt: row.DeletedAt,
 		CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 	}
 }
@@ -246,6 +273,10 @@ func adultProblem(err error) error {
 		return problems.New(http.StatusBadRequest, problems.ResourceNotFound, err.Error())
 	case errors.Is(err, people.ErrNoChanges):
 		return problems.New(http.StatusConflict, problems.SchoolYearTransitionInvalid, err.Error())
+	case errors.Is(err, people.ErrRestoreReasonRequired):
+		return problems.New(http.StatusBadRequest, problems.ResourceNotFound, "a reason is required to restore the adult")
+	case errors.Is(err, people.ErrRestoreNotDeleted):
+		return problems.New(http.StatusConflict, problems.SchoolYearTransitionInvalid, "adult is not deleted")
 	default:
 		return problems.New(http.StatusInternalServerError, problems.InternalError, "unable to change adult")
 	}

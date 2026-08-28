@@ -19,10 +19,11 @@ import (
 
 type HouseholdService interface {
 	CreateHousehold(context.Context, string, ids.XID, audit.Actor, people.HouseholdCreateInput) (data.Household, error)
-	ListHouseholds(context.Context, string, ids.XID) ([]data.Household, error)
+	ListHouseholds(context.Context, string, ids.XID, bool) ([]data.Household, error)
 	GetHousehold(context.Context, string, ids.XID, ids.XID) (data.Household, error)
 	UpdateHousehold(context.Context, string, ids.XID, ids.XID, audit.Actor, people.HouseholdUpdateInput) (data.Household, error)
 	DeleteHousehold(context.Context, string, ids.XID, ids.XID, audit.Actor) error
+	RestoreHousehold(context.Context, string, ids.XID, ids.XID, audit.Actor, string) (data.Household, error)
 	ListHouseholdMembership(context.Context, string, ids.XID) (people.HouseholdMembership, error)
 	ListHouseholdStudents(context.Context, string, ids.XID, ids.XID) ([]data.HouseholdStudent, error)
 	AddStudentToHousehold(context.Context, string, ids.XID, ids.XID, ids.XID, audit.Actor) (data.HouseholdStudent, error)
@@ -39,12 +40,13 @@ func NewHouseholdHandler(service HouseholdService) *HouseholdHandler {
 }
 
 type HouseholdResponse struct {
-	ID             string    `json:"id" doc:"Opaque household identifier."`
-	OrganizationID string    `json:"organization_id" doc:"Opaque organization identifier."`
-	SchoolYearID   string    `json:"school_year_id" doc:"Opaque school-year identifier."`
-	DisplayName    string    `json:"display_name"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	ID             string     `json:"id" doc:"Opaque household identifier."`
+	OrganizationID string     `json:"organization_id" doc:"Opaque organization identifier."`
+	SchoolYearID   string     `json:"school_year_id" doc:"Opaque school-year identifier."`
+	DisplayName    string     `json:"display_name"`
+	DeletedAt      *time.Time `json:"deleted_at,omitempty"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
 }
 
 type HouseholdStudentResponse struct {
@@ -94,7 +96,10 @@ type CreateHouseholdInput struct {
 		DisplayName string `json:"display_name" minLength:"1"`
 	}
 }
-type ListHouseholdsInput struct{ HouseholdYearPathInput }
+type ListHouseholdsInput struct {
+	HouseholdYearPathInput
+	IncludeDeleted bool `query:"include_deleted" doc:"Include soft-deleted households."`
+}
 type ListHouseholdMembershipInput struct{ HouseholdYearPathInput }
 type GetHouseholdInput struct{ HouseholdPathInput }
 type UpdateHouseholdInput struct {
@@ -104,6 +109,12 @@ type UpdateHouseholdInput struct {
 	}
 }
 type DeleteHouseholdInput struct{ HouseholdPathInput }
+type RestoreHouseholdInput struct {
+	HouseholdPathInput
+	Body struct {
+		Reason string `json:"reason" minLength:"1" doc:"Why the deleted household is being restored."`
+	}
+}
 type HouseholdStudentYearPathInput struct {
 	SchoolYearID string `path:"schoolYearID" minLength:"1"`
 	HouseholdID  string `path:"householdID" minLength:"1"`
@@ -139,7 +150,7 @@ func (h *HouseholdHandler) List(ctx context.Context, input *ListHouseholdsInput)
 	if h == nil || h.service == nil || input == nil {
 		return nil, householdNotFound()
 	}
-	rows, err := h.service.ListHouseholds(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID))
+	rows, err := h.service.ListHouseholds(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), input.IncludeDeleted)
 	if err != nil {
 		return nil, householdProblem(err)
 	}
@@ -207,6 +218,21 @@ func (h *HouseholdHandler) Delete(ctx context.Context, input *DeleteHouseholdInp
 		return nil, householdProblem(err)
 	}
 	return &HouseholdDeleteOutput{}, nil
+}
+
+func (h *HouseholdHandler) Restore(ctx context.Context, input *RestoreHouseholdInput) (*HouseholdOutput, error) {
+	account, err := householdAccount(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if h == nil || h.service == nil || input == nil || strings.TrimSpace(input.SchoolYearID) == "" || strings.TrimSpace(input.HouseholdID) == "" {
+		return nil, householdNotFound()
+	}
+	row, err := h.service.RestoreHousehold(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), ids.XID(input.HouseholdID), householdActor(account), input.Body.Reason)
+	if err != nil {
+		return nil, householdProblem(err)
+	}
+	return &HouseholdOutput{Body: householdResponse(row)}, nil
 }
 
 func (h *HouseholdHandler) ListMembership(ctx context.Context, input *ListHouseholdMembershipInput) (*HouseholdMembershipOutput, error) {
@@ -348,7 +374,7 @@ func householdActor(account auth.AccountPrincipal) audit.Actor {
 }
 
 func householdResponse(row data.Household) HouseholdResponse {
-	return HouseholdResponse{ID: string(row.ID), OrganizationID: string(row.OrganizationID), SchoolYearID: string(row.SchoolYearID), DisplayName: row.DisplayName, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+	return HouseholdResponse{ID: string(row.ID), OrganizationID: string(row.OrganizationID), SchoolYearID: string(row.SchoolYearID), DisplayName: row.DisplayName, DeletedAt: row.DeletedAt, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
 }
 func householdStudentResponse(row data.HouseholdStudent) HouseholdStudentResponse {
 	return HouseholdStudentResponse{ID: string(row.ID), HouseholdID: string(row.HouseholdID), StudentID: string(row.StudentID)}
@@ -373,6 +399,10 @@ func householdProblem(err error) error {
 		return problems.New(http.StatusBadRequest, problems.ResourceNotFound, err.Error())
 	case errors.Is(err, people.ErrHouseholdNoChanges), errors.Is(err, people.ErrGuardianRelationshipNoChanges):
 		return problems.New(http.StatusConflict, problems.SchoolYearTransitionInvalid, err.Error())
+	case errors.Is(err, people.ErrRestoreReasonRequired):
+		return problems.New(http.StatusBadRequest, problems.ResourceNotFound, "a reason is required to restore the household")
+	case errors.Is(err, people.ErrRestoreNotDeleted):
+		return problems.New(http.StatusConflict, problems.SchoolYearTransitionInvalid, "household is not deleted")
 	default:
 		return problems.New(http.StatusInternalServerError, problems.InternalError, "unable to change household data")
 	}

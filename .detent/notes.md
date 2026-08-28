@@ -589,3 +589,40 @@ Output tail:
 ```text
 I’ll inspect the current issue/PR state and the existing household/guardian listing queries, reproduce the soft-delete leak, then make the smallest scoped fix and run the relevant backend plus repository gates. I’ll keep the Workpad and `.detent/notes.md` current throughout.The issue is open and has no existing PR or Workpad comment. A maintainer note confirms the household membership UI now uses the listing endpoints, and restore behavior is tracked separately in #103; this fix should remain a query-time exclusion that preserves reversible link rows. I’m checking dependency state and the current SQL/test architecture before editing.The dependency check is clear: #101 has no native blockers or `Depends on:` references. The branch is clean but behind the freshly fetched `origin/main`, so I’ll rebase it before source changes. The live household member queries already filter deleted members in two paths; the remaining leak is the guardian query plus household-listing predicates that must also exclude deleted households and preserve registry queries.The rebase onto current `origin/main` completed cleanly. The implementation target is now precise: add `exists` checks for both live person endpoints to `ListGuardianRelationships`, and require an active household in the per-household student/adult listings. The year-wide membership queries already enforce all three live-record predicates; registry queries remain intentionally unfiltered. I’m adding regression coverage that also proves retained link rows are still removable/servable through their explicit historical paths.The pinned sqlc container is available, so generated output was regenerated with the repository-required v1.27.0 rather than the worker’s v1.31.1 binary. The regression test now covers both deleted relationship endpoints, both membership kinds, direct row retention, and the deleted-household query path. Next I’m running focused backend tests; integration cases will use the repository’s two-role database harness if its test URLs are available.The focused compile exposed one test-only API mismatch: membership retention is intentionally available through `internal/data`, not the `people.Service`. I’m correcting the assertions to use the tenant-scoped read transaction, which also keeps the test aligned with the repository’s data-access boundary.The focused backend compilation/tests now pass. The integration package reports success in this checkout, but I’m verifying whether its database-backed cases actually ran or were skipped, then I’ll run the full required gates and address any environment-specific failures without weakening coverage.The first required gate is currently blocked by a pre-existing Docker resource collision: `make test-backend` cannot start its fixed-name `miniclass-postgres` container because another container already owns that name. I won’t remove or overwrite that container; I’m inspecting whether it is a compatible repository database so I can run the equivalent backend checks safely, while recording the exact gate result.
 ```
+
+## Issue #103 restore soft-deleted roster records
+
+- Added opt-in `include_deleted` list queries and `deleted_at` responses for students, adults, and households.
+- Added audited, reason-required restore operations with `manage_roster` Huma routes; restore uses tenant-scoped including-deleted lookup and records actor/time/reason.
+- Restored frontend deleted filters, styling, and restore actions for people and households, using generated OpenAPI types and query invalidation.
+- Pinned sqlc v1.27.0 generated artifacts via `CGO_ENABLED=0 GOSUMDB=off`; normal local Make generation refuses worker sqlc v1.31.1.
+- Validation: backend unit/all tests, lint, format/vet, generated OpenAPI drift, frontend 80 tests/build/lint, and `git diff --check` pass. `make test-backend` cannot start because Docker is unavailable; migration round-trip/smoke remain environment-dependent.
+- Open items: commit/push, open PR with `Fixes #103` and SPEC §§21.3/9.2/5.4, inspect CI/reviews, then complete Workpad.
+
+## 2026-08-27T23:47:09Z - Failed run output tail
+
+- final_state: failed
+- error: stream turn: context canceled
+close codex app-server transport: signal: terminated: stderr: [2m2026-08-27T23:39:27.837061Z[0m [31mERROR[0m [2mcodex_core::tools::router[0m[2m:[0m [3merror[0m[2m=[0mexec_command failed for `/bin/zsh -lc 'rg -n "Restore|restore|include_deleted|deleted_at|reason" backend/internal frontend/src backend/sql | head -400'`: CreateProcess { message: "Rejected(\"Failed to create unified exec process: No such file or directory (os error 2)\")" }
+[2m2026-08-27T23:44:17.614222Z[0m [31mERROR[0m [2mcodex_core::tools::router[0m[2m:[0m [3merror[0m[2m=[0mapply_patch verification failed: Failed to find expected lines in /Users/chrismott/dev/personal/miniclass-worktrees/miniclass-christophergm_miniclass_103-c15424b0c426/backend/internal/api/handlers/household.go:
+	UpdatedAt     time.Time `json:"updated_at"`
+worker github REST budget monitor failed: Get "https://api.github.com/rate_limit": context deadline exceeded
+
+Output tail:
+
+```text
+I’m resuming the in-progress #103 implementation from the preserved worktree state. I’ll verify the current source, Workpad, and test results first, then finish validation and the PR handoff without changing scope.The branch is now confirmed based on the current `origin/main`; the earlier soft-delete listing fix is already merged there, so this worktree is clean and correctly positioned for #103. The issue has no PR or Workpad yet. I’m creating the required tracking comment and mapping the existing roster, audit, and generated-contract patterns before implementing the restore/include-deleted surface.The implementation shape is clear: list queries will take an explicit boolean and retain the default active-only predicate; restore will be a separate audited `POST .../{id}/restore` operation with a required reason, using “including deleted” lookup only inside the restore transaction. I’ll add a distinct `restore` audit action so the audit log records the operation precisely, then wire the three list pages to an opt-in filter and inline restore action.The backend changes are in place: all three list paths now have an explicit opt-in flag, each entity has a restore data operation and service audit entry, and the API has capability-protected restore routes. I’m regenerating sqlc/OpenAPI next; compilation will catch any generated-parameter or Huma contract details before I add the frontend and regression tests.
+```
+
+## 2026-08-28T01:16:21Z - Failed run output tail
+
+- final_state: failed
+- error: stream turn: context canceled
+close codex app-server transport: signal: terminated
+worker github REST budget monitor failed: Get "https://api.github.com/rate_limit": dial tcp: lookup api.github.com: no such host
+
+Output tail:
+
+```text
+I’m continuing the preserved #103 implementation from the current worktree. I’ll inspect the existing diff and tracker state, finish any incomplete restore/list wiring, then run the full project gates and complete the PR handoff with the required Workpad evidence. I’m using the backend-development skill because this change crosses the repository’s API, data-access, and test layers.
+```

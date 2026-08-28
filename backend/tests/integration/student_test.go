@@ -41,7 +41,7 @@ func TestStudentCRUDSoftDeleteAndPriorYearLink(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, &prior.ID, created.PriorYearStudentID)
 
-	listed, err := service.ListStudents(ctx, string(organizationID), year.ID)
+	listed, err := service.ListStudents(ctx, string(organizationID), year.ID, false)
 	require.NoError(t, err)
 	require.Len(t, listed, 1)
 
@@ -51,11 +51,22 @@ func TestStudentCRUDSoftDeleteAndPriorYearLink(t *testing.T) {
 	require.Equal(t, "Alex", *updated.PreferredGivenName)
 
 	require.NoError(t, service.DeleteStudent(ctx, string(organizationID), year.ID, created.ID, actor))
-	listed, err = service.ListStudents(ctx, string(organizationID), year.ID)
+	listed, err = service.ListStudents(ctx, string(organizationID), year.ID, false)
 	require.NoError(t, err)
 	require.Empty(t, listed)
 	_, err = service.GetStudent(ctx, string(organizationID), year.ID, created.ID)
 	require.ErrorIs(t, err, pgx.ErrNoRows)
+	deleted, err := service.ListStudents(ctx, string(organizationID), year.ID, true)
+	require.NoError(t, err)
+	require.Len(t, deleted, 1)
+	require.NotNil(t, deleted[0].DeletedAt)
+	restored, err := service.RestoreStudent(ctx, string(organizationID), year.ID, created.ID, actor, "corrected the deletion")
+	require.NoError(t, err)
+	require.Nil(t, restored.DeletedAt)
+	listed, err = service.ListStudents(ctx, string(organizationID), year.ID, false)
+	require.NoError(t, err)
+	require.Len(t, listed, 1)
+	require.NoError(t, service.DeleteStudent(ctx, string(organizationID), year.ID, created.ID, actor))
 
 	replacement, err := service.CreateStudent(ctx, string(organizationID), year.ID, actor, people.StudentCreateInput{
 		LegalGivenName: "Jordan", LegalFamilyName: "Rivera", GradeLevelID: grade.ID, HomeroomID: homeroom.ID,
@@ -71,7 +82,7 @@ func TestStudentCRUDSoftDeleteAndPriorYearLink(t *testing.T) {
 		return err
 	})
 	require.NoError(t, err)
-	require.GreaterOrEqual(t, auditCount, int64(7))
+	require.GreaterOrEqual(t, auditCount, int64(9))
 }
 
 func stringPointer(value string) *string { return &value }

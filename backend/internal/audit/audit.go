@@ -29,6 +29,7 @@ const (
 	ActionCreate                    Action = "create"
 	ActionEdit                      Action = "edit"
 	ActionSoftDelete                Action = "soft_delete"
+	ActionRestore                   Action = "restore"
 	ActionHardDelete                Action = "hard_delete"
 	ActionImportCommit              Action = "import_commit"
 	ActionSchoolYearCreate          Action = "school_year_create"
@@ -67,6 +68,7 @@ var actions = []Action{
 	ActionCreate,
 	ActionEdit,
 	ActionSoftDelete,
+	ActionRestore,
 	ActionHardDelete,
 	ActionImportCommit,
 	ActionSchoolYearCreate,

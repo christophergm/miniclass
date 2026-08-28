@@ -46,8 +46,11 @@ export function AdultListPage() {
 export function PeopleListPage({ kind }: PageProps) {
   const { schoolYearId } = useParams<{ schoolYearId: string }>()
   const copy = pageCopy[kind]
-  const peopleQuery = usePeople(kind, schoolYearId)
-  const membershipQuery = useHouseholdMembership(schoolYearId)
+  const [includeDeleted, setIncludeDeleted] = useState(false)
+  const peopleQuery = usePeople(kind, schoolYearId, { includeDeleted })
+  const membershipQuery = useHouseholdMembership(schoolYearId, includeDeleted)
+  const restore = useRosterMutation<{ id: string; reason: string }, Student | Adult>(schoolYearId, async ({ id, reason }): Promise<Student | Adult> =>
+    kind === 'student' ? studentApi.restore(schoolYearId!, id, reason) : adultApi.restore(schoolYearId!, id, reason))
   // Only the student roster renders grade and homeroom labels.
   const vocabularyQuery = useVocabulary({ enabled: kind === 'student' })
   const [query, setQuery] = useState('')
@@ -55,7 +58,7 @@ export function PeopleListPage({ kind }: PageProps) {
   const [homeroomId, setHomeroomId] = useState('')
 
   const isLoading = peopleQuery.isLoading
-  const error = peopleQuery.error
+  const error = peopleQuery.error ?? restore.error
 
   // Membership and the vocabulary are supporting context, so their errors are
   // not surfaced: a membership failure must not hide the roster, and an absent
@@ -110,25 +113,31 @@ export function PeopleListPage({ kind }: PageProps) {
             </label>
           </>}
         </div>
+        <label className="mt-4 flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={includeDeleted} onChange={(event) => setIncludeDeleted(event.target.checked)} />Show deleted</label>
       </section>
 
       {isLoading && <p className="mt-8 text-sm text-muted-foreground" role="status">Loading {copy.plural.toLowerCase()}…</p>}
       {error !== null && <p className="mt-8 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive" role="alert">{errorMessage(error, `Unable to load ${copy.plural.toLowerCase()}.`)}</p>}
       {!isLoading && !error && filteredPeople.length === 0 && <p className="mt-8 rounded-lg border bg-card p-6 text-sm text-muted-foreground">No {copy.plural.toLowerCase()} match these filters.</p>}
       {!isLoading && !error && filteredPeople.length > 0 && (
-        <PeopleTable kind={kind} schoolYearId={schoolYearId} people={filteredPeople} households={households} grades={grades} homerooms={homerooms} />
+        <PeopleTable kind={kind} schoolYearId={schoolYearId} people={filteredPeople} households={households} grades={grades} homerooms={homerooms} onRestore={(id) => {
+          const reason = window.prompt(`Why restore this ${copy.singular}?`)
+          if (!reason?.trim()) return
+          restore.mutate({ id, reason })
+        }} />
       )}
     </PageFrame>
   )
 }
 
-function PeopleTable({ kind, schoolYearId, people, households, grades, homerooms }: {
+function PeopleTable({ kind, schoolYearId, people, households, grades, homerooms, onRestore }: {
   kind: PersonKind
   schoolYearId: string
   people: PersonSummary[]
   households: Map<string, Household[]>
   grades: GradeLevel[]
   homerooms: Homeroom[]
+  onRestore: (id: string) => void
 }) {
   const copy = pageCopy[kind]
   const gradeLabels = new Map(grades.map((grade) => [grade.id, grade.label]))
@@ -139,12 +148,12 @@ function PeopleTable({ kind, schoolYearId, people, households, grades, homerooms
         <TableRow>
           <TableHead>Name</TableHead>
           {kind === 'student' ? <><TableHead>Grade</TableHead><TableHead>Homeroom</TableHead></> : <><TableHead>Email</TableHead><TableHead>Participation</TableHead></>}
-          <TableHead>Households</TableHead><TableHead>External ID</TableHead>
+          <TableHead>Households</TableHead><TableHead>External ID</TableHead><TableHead>Actions</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {people.map((person) => (
-          <TableRow key={person.id}>
+          <TableRow key={person.id} className={person.deleted_at ? 'bg-muted/50 text-muted-foreground' : undefined}>
             <TableCell><Link className="font-medium text-primary hover:underline" to={`/y/${schoolYearId}/${copy.path}/${person.id}`}>{person.display_name}</Link></TableCell>
             {kind === 'student'
               ? <>
@@ -156,7 +165,7 @@ function PeopleTable({ kind, schoolYearId, people, households, grades, homerooms
                 <TableCell className="capitalize">{(person as Adult).participation_intent}</TableCell>
               </>}
             <TableCell><HouseholdLinks households={households.get(person.id) ?? []} schoolYearId={schoolYearId} /></TableCell>
-            <TableCell>{person.external_identifier ?? '—'}</TableCell>
+            <TableCell>{person.external_identifier ?? '—'}</TableCell><TableCell>{person.deleted_at ? <Button type="button" size="sm" variant="outline" onClick={() => onRestore(person.id)}>Restore</Button> : '—'}</TableCell>
           </TableRow>
         ))}
       </TableBody>
