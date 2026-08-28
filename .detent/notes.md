@@ -1,5 +1,14 @@
 # Detent handoff notes
 
+## Issue #110 query cache identity boundary
+
+- Current worktree is cleanly based on `origin/main` at `494cfb2`; the stale prior entry for #101 was already merged and is unrelated.
+- `AuthProvider` now tracks the last signed-in Supabase user ID across sign-out events and clears the shared React Query cache only when a different non-null identity arrives. Same-user `TOKEN_REFRESHED` events and `SIGNED_OUT` leave the cache intact, preventing anonymous refetches while the shell unmounts.
+- Added `AuthProvider.test.tsx` covering the exact sign-out → different sign-in transition for `['account']` and a school-year key, plus same-user refresh preservation. Bare `AuthProvider` tests now render under `QueryClientProvider`.
+- Focused Vitest/build could not start because this checkout has no installed frontend dependencies (`openapi-typescript`, Vitest, TypeScript, and ESLint binaries absent); frontend lint also fails before ESLint because Bun cannot write its tempdir. Migration round-trip cannot start without `MIGRATION_ROUNDTRIP_DATABASE_URL`, and smoke cannot start without `.env`.
+- Backend lint/format, direct `go test -race -v ./... -count=1` (database cases skipped without test URLs), pinned generated-code drift, and `git diff --check` pass. `make test-backend` stops at the pre-existing fixed-name `miniclass-postgres` collision.
+- Open items: commit and push, open PR with `Fixes #110` and SPEC §§9.3/11.1, inspect current-head CI/reviews, then complete the Workpad.
+
 ## Issue #101 soft-deleted people in relationship and membership listings
 
 - Worktree rebased cleanly onto `origin/main` at `14ea2e0`; no PR existed at start and the issue has no native dependencies or `Depends on:` references.

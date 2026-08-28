@@ -1,4 +1,5 @@
 import { act, render, screen } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -22,12 +23,15 @@ function sessionlessClient(): AuthClient {
 }
 
 function renderSignIn(props: { localDevAuth: boolean; devToken: DevTokenStatus }) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
-    <MemoryRouter initialEntries={['/sign-in']}>
-      <AuthProvider client={sessionlessClient()}>
-        <SignInPage {...props} />
-      </AuthProvider>
-    </MemoryRouter>,
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/sign-in']}>
+        <AuthProvider client={sessionlessClient()}>
+          <SignInPage {...props} />
+        </AuthProvider>
+      </MemoryRouter>
+    </QueryClientProvider>,
   )
 }
 
@@ -109,11 +113,13 @@ describe('sign-in page under local development auth', () => {
     const client = createLocalDevAuthClient(localToken, { kind: 'valid', expiresAt }) as AuthClient
 
     render(
-      <MemoryRouter initialEntries={['/sign-in']}>
-        <AuthProvider client={client}>
-          <SessionSurface devToken={{ kind: 'valid', expiresAt }} />
-        </AuthProvider>
-      </MemoryRouter>,
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter initialEntries={['/sign-in']}>
+          <AuthProvider client={client}>
+            <SessionSurface devToken={{ kind: 'valid', expiresAt }} />
+          </AuthProvider>
+        </MemoryRouter>
+      </QueryClientProvider>,
     )
 
     await act(async () => {})
@@ -132,11 +138,13 @@ describe('sign-in page under local development auth', () => {
   it('explains an API-invalid session and signs out the persisted client', async () => {
     const client = sessionlessClient()
     render(
-      <MemoryRouter initialEntries={['/sign-in']}>
-        <AuthProvider client={client}>
-          <SignInPage />
-        </AuthProvider>
-      </MemoryRouter>,
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter initialEntries={['/sign-in']}>
+          <AuthProvider client={client}>
+            <SignInPage />
+          </AuthProvider>
+        </MemoryRouter>
+      </QueryClientProvider>,
     )
 
     await act(async () => {})

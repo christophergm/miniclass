@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -18,12 +19,15 @@ function authClient(): AuthClient {
 }
 
 function renderReset(props: { localDevAuth: boolean; devToken: DevTokenStatus }) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
-    <MemoryRouter initialEntries={['/reset-password']}>
-      <AuthProvider client={authClient()}>
-        <ResetPasswordPage {...props} />
-      </AuthProvider>
-    </MemoryRouter>,
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/reset-password']}>
+        <AuthProvider client={authClient()}>
+          <ResetPasswordPage {...props} />
+        </AuthProvider>
+      </MemoryRouter>
+    </QueryClientProvider>,
   )
 }
 
@@ -45,11 +49,13 @@ describe('reset-password page authentication paths', () => {
   it('keeps the reset form and success response on the real Supabase path', async () => {
     const client = authClient()
     render(
-      <MemoryRouter initialEntries={['/reset-password']}>
-        <AuthProvider client={client}>
-          <ResetPasswordPage localDevAuth={false} devToken={{ kind: 'missing' }} />
-        </AuthProvider>
-      </MemoryRouter>,
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter initialEntries={['/reset-password']}>
+          <AuthProvider client={client}>
+            <ResetPasswordPage localDevAuth={false} devToken={{ kind: 'missing' }} />
+          </AuthProvider>
+        </MemoryRouter>
+      </QueryClientProvider>,
     )
 
     fireEvent.change(await screen.findByLabelText('Email'), { target: { value: 'admin@example.test' } })
