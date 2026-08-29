@@ -32,9 +32,9 @@ const vocabulary: VocabularyResponse = {
     { ...timestamps, id: 'grade-2', organization_id: 'org-1', code: '2', label: 'Second grade', ordinal: 2 },
   ],
   homerooms: [
-    { ...timestamps, id: 'homeroom-a', organization_id: 'org-1', name: 'Room A' },
-    { ...timestamps, id: 'homeroom-b', organization_id: 'org-1', name: 'Room B' },
-    { ...timestamps, id: 'homeroom-c', organization_id: 'org-1', name: 'Room C' },
+    { ...timestamps, id: 'homeroom-a', organization_id: 'org-1', name: 'Room A', external_identifier: null },
+    { ...timestamps, id: 'homeroom-b', organization_id: 'org-1', name: 'Room B', external_identifier: null },
+    { ...timestamps, id: 'homeroom-c', organization_id: 'org-1', name: 'Room C', external_identifier: null },
   ],
 }
 
