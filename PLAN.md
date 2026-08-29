@@ -280,43 +280,48 @@ cheap.
 
 ### Phase 2 — Ingest engine
 
-*SPEC §11, plus §10.1 vocabularies. Built generic because §13.8 reuses it verbatim for preferences.*
+*SPEC §11, plus §10.1 vocabularies. Scope and source authority are fixed by
+[ADR 0014](./docs/adr/0014-roster-ingest-scope-and-source-authority.md); §13.8 reuses the resulting
+two-phase mechanism in Phase 4.*
 
 **Feature track**
 
-- Pluggable source parsers (CSV and JSON minimum) that translate to the canonical shape and do
-  nothing else. Parsers resolve fields **by name or explicit mapping, never by position** (§11.3) —
-  six different survey layouts in two years is why.
-- Canonical shape: Student, Adult, Guardian-relationship records. The wide format (one row per
-  adult, students inline) is also supported, and its authority is **the adult on the row, not the
-  student**: it sets exactly that adult's guardian edges and never touches an edge owned by another
-  adult. Two adults' rows therefore compose into a two-guardian student, and removal by import still
-  works. The §11.5 `Update` preview must list the guardian edges being **removed** and not only
-  those added, because a partial re-export that accidentally omits a child would otherwise silently
-  drop that edge.
-- Two-phase preview → atomic commit, with per-row `Create` / `Update` / `Unchanged` / `Conflict` /
-  `Error`. Commit blocked while any `Error` exists. `Update` rows show field-by-field changes.
-- Matching: external identifier wins outright; otherwise normalised name; more than one candidate is
-  a `Conflict` the system **must not** resolve. No fuzzy merging (§11.6).
+- Two source kinds: `roster_json`, the community-platform wide export described in §11.4, and
+  `grades_csv`, a two-column student-name/grade file. Both meet §11.3's CSV and JSON minimums.
+  Parsers translate to the canonical shape and resolve fields **by name or explicit mapping, never
+  by position** (§11.3).
+- The wide format's authority is **the adult on the row, not the student**: it sets exactly that
+  adult's guardian edges and never touches an edge owned by another adult. Two adults' rows compose
+  into a two-guardian student, and removal by import still works. The §11.5 `Update` preview must
+  list guardian edges being **removed**, not only those added.
+- Matching is by external identifier only (§11.6 rule 1). Name matching is out of scope for the
+  observed sources; a future source without external identifiers requires a new decision.
+- The enrolment and adult filters, nullable grade and nullable participation intent, non-parsed
+  classroom labels, and exclusion reporting are fixed in ADR 0014 (§5.2, §10.1, §15.2, §21.1).
+- Two-phase preview → atomic commit is stateless and content-hash guarded, with per-row `Create` /
+  `Update` / `Unchanged` / `Conflict` / `Error`. Commit is blocked while any `Error` exists, while
+  `Conflict` rows are reported and skipped for manual correction and re-import (§11.5, ADR 0014).
 - **Idempotency (§11.7)** — re-importing an unchanged source produces zero changes and reports every
   row `Unchanged`. This is a hard requirement driven by the observed repeated-partial-import
   workflow.
-- The grade and homeroom vocabularies are **already in place from Phase 1**, because a hand-built
-  roster needs them. Phase 2 adds only what import requires of them: resolving an incoming grade or
-  homeroom label to an existing vocabulary entry, and reporting an unrecognised one as a row error
-  rather than silently creating a value (§10.2's rule that vocabularies are never inferred from
-  imported headers).
 
 **Platform track**
 
-- A golden-file corpus built from the six real historical survey layouts (Appendix B.3).
+- Synthetic golden-file fixtures cover both source kinds. An opt-in parser conformance check may use
+  a real historical export but MUST touch no database; an operator demonstration against their own
+  instance records the audit entry as evidence. Real roster data is never loaded into development or
+  test databases.
 - A property test asserting import idempotency across arbitrary re-import orderings.
 
 **Exit criteria**
 
-- A real historical roster export imports cleanly, and importing it a second time reports every row
-  `Unchanged`.
-- A deliberately ambiguous name produces a `Conflict` that the system refuses to resolve.
+- Synthetic fixtures for both source kinds parse and import cleanly, and importing each unchanged
+  source a second time reports every row `Unchanged`.
+- An opt-in parser conformance check against a real historical export touches no database.
+- An operator demonstration against their own instance produces the import audit entry as evidence.
+- A deliberately ambiguous or otherwise unresolved row is reported for manual correction; the
+  Phase 2 source contract does not attempt name-based matching, and individual conflict resolution
+  is deferred until the Phase 4 preference import trigger (§11.5, ADR 0014).
 
 ---
 

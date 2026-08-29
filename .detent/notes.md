@@ -1,5 +1,20 @@
 # Detent handoff notes
 
+## Issue #120 roster ingest scope and source authority
+
+- Documentation-only change in `docs/adr/0014-roster-ingest-scope-and-source-authority.md` and
+  `PLAN.md`; no code, schema, or generated artifacts changed.
+- ADR 0014 is Accepted and cites SPEC §§5.2/10.1/11/15.2/20.1/21.1. It fixes Phase 2 to
+  `roster_json` (community-platform wide export) and `grades_csv` (student name + grade), external
+  identifier-only matching, reported enrolment/adult filters, nullable grade/intent, literal adult
+  guardian authority, stateless content-hash preview/commit, and deferred individual Conflict
+  resolution until the Phase 4 preference-import trigger.
+- `PLAN.md` replaces the contradictory real-historical-export database exit criterion with synthetic
+  CI fixtures, an opt-in no-database parser conformance check, and an operator demonstration against
+  their own instance. It removes the generic/name-matching claims and stale household implication.
+- Validation so far: `git diff --check` passes. Workpad/PR handoff remains.
+- Skill draft: no — this is a one-off documentation decision, not a reusable procedure.
+
 ## Issue #110 query cache identity boundary
 
 - Current worktree is cleanly based on `origin/main` at `494cfb2`; the stale prior entry for #101 was already merged and is unrelated.
