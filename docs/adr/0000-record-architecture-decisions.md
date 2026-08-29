@@ -77,5 +77,7 @@ and not readable as a set.
 | [0008](./0008-authorization-capabilities-and-audit.md) | Authorization, capabilities and the audit log | Accepted |
 | [0009](./0009-administrator-sessions-and-identity-provider.md) | Administrator sessions and identity-provider choice | Accepted |
 | [0010](./0010-schema-generated-code-and-migration-conventions.md) | Schema, generated code and migration conventions | Accepted |
+| [0011](./0011-local-development-orchestration-and-environment-contract.md) | Local development orchestration and environment contract | Accepted |
 | [0012](./0012-remove-the-household-entity.md) | Remove the Household entity | Accepted |
 | [0013](./0013-guardian-and-volunteer-access.md) | Guardian and volunteer access mechanics | Open |
+| [0014](./0014-roster-ingest-scope-and-source-authority.md) | Roster ingest scope and source authority | Accepted |
