@@ -33,7 +33,6 @@ type RouterOptions struct {
 	Vocabularies           handlers.VocabularyService
 	Adults                 handlers.AdultService
 	Students               handlers.StudentService
-	Households             handlers.HouseholdService
 	GuardianRelationships  handlers.GuardianRelationshipService
 	Verifier               auth.Verifier
 }
@@ -382,25 +381,6 @@ func registerOperations(api huma.API, options RouterOptions) {
 		Summary:     "Restore a soft-deleted student",
 		Errors:      []int{http.StatusBadRequest, http.StatusConflict, http.StatusNotFound},
 	}, auth.CapabilityManageRoster, false, students.Restore)
-
-	households := handlers.NewHouseholdHandler(options.Households)
-	registerOperation(api, huma.Operation{OperationID: "list-households", Method: http.MethodGet, Path: apiBasePath + "/school-years/{schoolYearID}/households", Summary: "List households in a school year", Errors: []int{http.StatusNotFound}}, auth.CapabilityManageRoster, false, households.List)
-	registerOperation(api, huma.Operation{OperationID: "create-household", Method: http.MethodPost, Path: apiBasePath + "/school-years/{schoolYearID}/households", Summary: "Create a household", Errors: []int{http.StatusBadRequest, http.StatusConflict, http.StatusNotFound}}, auth.CapabilityManageRoster, false, households.Create)
-	registerOperation(api, huma.Operation{OperationID: "get-household", Method: http.MethodGet, Path: apiBasePath + "/school-years/{schoolYearID}/households/{householdID}", Summary: "Get a household", Errors: []int{http.StatusNotFound}}, auth.CapabilityManageRoster, false, households.Get)
-	registerOperation(api, huma.Operation{OperationID: "update-household", Method: http.MethodPatch, Path: apiBasePath + "/school-years/{schoolYearID}/households/{householdID}", Summary: "Edit a household", Errors: []int{http.StatusBadRequest, http.StatusConflict, http.StatusNotFound}}, auth.CapabilityManageRoster, false, households.Update)
-	registerOperation(api, huma.Operation{OperationID: "delete-household", Method: http.MethodDelete, Path: apiBasePath + "/school-years/{schoolYearID}/households/{householdID}", Summary: "Soft-delete a household", Errors: []int{http.StatusConflict, http.StatusNotFound}}, auth.CapabilityManageRoster, false, households.Delete)
-	registerOperation(api, huma.Operation{OperationID: "restore-household", Method: http.MethodPost, Path: apiBasePath + "/school-years/{schoolYearID}/households/{householdID}/restore", Summary: "Restore a soft-deleted household", Errors: []int{http.StatusBadRequest, http.StatusConflict, http.StatusNotFound}}, auth.CapabilityManageRoster, false, households.Restore)
-	// A sibling collection rather than a sub-resource of one household: it is the
-	// bounded answer to "which households does each person belong to" for a whole
-	// year, which the per-household sub-resources below can only give one
-	// household at a time.
-	registerOperation(api, huma.Operation{OperationID: "list-household-memberships", Method: http.MethodGet, Path: apiBasePath + "/school-years/{schoolYearID}/household-memberships", Summary: "List every household membership in a school year", Errors: []int{http.StatusNotFound}}, auth.CapabilityManageRoster, false, households.ListMembership)
-	registerOperation(api, huma.Operation{OperationID: "list-household-students", Method: http.MethodGet, Path: apiBasePath + "/school-years/{schoolYearID}/households/{householdID}/students", Summary: "List students in a household", Errors: []int{http.StatusNotFound}}, auth.CapabilityManageRoster, false, households.ListStudents)
-	registerOperation(api, huma.Operation{OperationID: "add-household-student", Method: http.MethodPost, Path: apiBasePath + "/school-years/{schoolYearID}/households/{householdID}/students", Summary: "Add a student to a household", Errors: []int{http.StatusConflict, http.StatusNotFound}}, auth.CapabilityManageRoster, false, households.AddStudent)
-	registerOperation(api, huma.Operation{OperationID: "remove-household-student", Method: http.MethodDelete, Path: apiBasePath + "/school-years/{schoolYearID}/households/{householdID}/students/{studentID}", Summary: "Remove a student from a household", Errors: []int{http.StatusConflict, http.StatusNotFound}}, auth.CapabilityManageRoster, false, households.DeleteStudent)
-	registerOperation(api, huma.Operation{OperationID: "list-household-adults", Method: http.MethodGet, Path: apiBasePath + "/school-years/{schoolYearID}/households/{householdID}/adults", Summary: "List adults in a household", Errors: []int{http.StatusNotFound}}, auth.CapabilityManageRoster, false, households.ListAdults)
-	registerOperation(api, huma.Operation{OperationID: "add-household-adult", Method: http.MethodPost, Path: apiBasePath + "/school-years/{schoolYearID}/households/{householdID}/adults", Summary: "Add an adult to a household", Errors: []int{http.StatusConflict, http.StatusNotFound}}, auth.CapabilityManageRoster, false, households.AddAdult)
-	registerOperation(api, huma.Operation{OperationID: "remove-household-adult", Method: http.MethodDelete, Path: apiBasePath + "/school-years/{schoolYearID}/households/{householdID}/adults/{adultID}", Summary: "Remove an adult from a household", Errors: []int{http.StatusConflict, http.StatusNotFound}}, auth.CapabilityManageRoster, false, households.DeleteAdult)
 
 	guardianRelationships := handlers.NewGuardianRelationshipHandler(options.GuardianRelationships)
 	registerOperation(api, huma.Operation{OperationID: "list-guardian-relationships", Method: http.MethodGet, Path: apiBasePath + "/school-years/{schoolYearID}/guardian-relationships", Summary: "List guardian relationships in a school year", Errors: []int{http.StatusNotFound}}, auth.CapabilityManageRoster, false, guardianRelationships.List)

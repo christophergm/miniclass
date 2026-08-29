@@ -3,8 +3,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   adultApi,
   guardianApi,
-  householdApi,
-  listHouseholdMembership,
   listPeople,
   studentApi,
   type Adult,
@@ -19,7 +17,7 @@ import {
 //     detail page and the guardian section below it both want the opposite
 //     roster; they now fetch it once.
 //   - A remount serves the cache, so navigating list -> detail -> back does not
-//     refetch the year's roster, households and membership every time.
+//     refetch the year's rosters and guardian edges every time.
 //   - StrictMode's deliberate double effect invocation stops reaching the
 //     network. The hand-rolled effects these hooks replace guarded against the
 //     stale state update with an `active` flag but never cancelled or deduped
@@ -30,11 +28,12 @@ import {
 // useSchoolYears.
 const rosterStaleTime = 30 * 1000
 
-// One key prefix per school year. Households, membership and the two rosters
-// are mutually dependent — adding a household member changes that person's
-// household column, the household's member count, and the year's membership
-// index — so a mutation invalidates the year rather than trying to enumerate
-// what it touched. Getting that enumeration wrong is silent staleness.
+// One key prefix per school year. The guardian edges and the two rosters are
+// mutually dependent — adding a guardian relationship changes that student's
+// Guardians column, that adult's Children column, and the year-wide edge
+// listing both are derived from — so a mutation invalidates the year rather
+// than trying to enumerate what it touched. Getting that enumeration wrong is
+// silent staleness.
 export function rosterKey(schoolYearId: string) {
   return ['roster', schoolYearId] as const
 }
@@ -66,44 +65,18 @@ export function usePerson(kind: PersonKind, schoolYearId: string | undefined, pe
   })
 }
 
-/** The year's households, each with the identifiers of its members. */
-export function useHouseholdMembership(schoolYearId: string | undefined, includeDeleted = false) {
+/**
+ * Every guardian relationship in the school year, in one request. A surface
+ * rendering a whole roster needs the edges of everyone on it, and asks the
+ * question once for the year; the per-person read below is for a surface
+ * looking at exactly one person. Fanning that per-person read out across a
+ * listing cost ~181 requests to render one column.
+ */
+export function useYearGuardianRelationships(schoolYearId: string | undefined) {
   return useQuery({
     enabled: Boolean(schoolYearId),
-    queryKey: [...rosterKey(schoolYearId ?? ''), 'household-membership', includeDeleted],
-    queryFn: () => listHouseholdMembership(schoolYearId!, includeDeleted),
-    staleTime: rosterStaleTime,
-  })
-}
-
-export function useHousehold(schoolYearId: string | undefined, householdId: string | undefined) {
-  return useQuery({
-    enabled: Boolean(schoolYearId) && Boolean(householdId),
-    queryKey: [...rosterKey(schoolYearId ?? ''), 'households', householdId],
-    queryFn: () => householdApi.get(schoolYearId!, householdId!),
-    staleTime: rosterStaleTime,
-  })
-}
-
-/**
- * One household's members, from the per-household sub-resources. The household
- * detail page is looking at exactly one household, so this is the bounded read;
- * a surface rendering a whole roster wants useHouseholdMembership instead.
- */
-export function useHouseholdMembers(schoolYearId: string | undefined, householdId: string | undefined) {
-  return useQuery({
-    enabled: Boolean(schoolYearId) && Boolean(householdId),
-    queryKey: [...rosterKey(schoolYearId ?? ''), 'households', householdId, 'members'],
-    queryFn: async () => {
-      const [students, adults] = await Promise.all([
-        householdApi.listStudents(schoolYearId!, householdId!),
-        householdApi.listAdults(schoolYearId!, householdId!),
-      ])
-      return {
-        student: students.map((row) => row.student_id),
-        adult: adults.map((row) => row.adult_id),
-      }
-    },
+    queryKey: [...rosterKey(schoolYearId ?? ''), 'guardian-relationships', 'year'],
+    queryFn: () => guardianApi.listForYear(schoolYearId!),
     staleTime: rosterStaleTime,
   })
 }

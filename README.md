@@ -25,7 +25,7 @@ See [ADR 0001](./docs/adr/0001-application-stack-and-topology.md) for the full r
 - Frontend: React + TypeScript + Vite, TanStack Query, Tailwind CSS v4 and shadcn/ui
 - Backend: Go + chi + pgx + sqlc, Goose migrations
 - Database: PostgreSQL 18 (Supabase in production, Docker locally)
-- Auth: Supabase Auth for administrators; application-owned tokens for household, class-leader and
+- Auth: Supabase Auth for administrators; application-owned tokens for guardian, class-leader and
   public share links ([ADR 0002](./docs/adr/0002-authentication-and-access-mechanisms.md),
   [ADR 0009](./docs/adr/0009-administrator-sessions-and-identity-provider.md))
 - Tenancy: PostgreSQL row-level security, enabled and forced, behind a closure-based data layer

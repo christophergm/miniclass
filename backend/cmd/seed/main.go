@@ -59,7 +59,7 @@ func run(ctx context.Context, args []string, databaseURL string, output io.Write
 	}
 	_, _ = fmt.Fprintf(output, "Organization: %s (%s)\n", result.OrganizationName, result.OrganizationID)
 	_, _ = fmt.Fprintf(output, "School year: %s\n", result.SchoolYearID)
-	_, _ = fmt.Fprintf(output, "Roster: %d students, %d adults, %d households\n", result.Students, result.Adults, result.Households)
+	_, _ = fmt.Fprintf(output, "Roster: %d students, %d adults\n", result.Students, result.Adults)
 	if bound := result.BoundOwner; bound != nil {
 		_, _ = fmt.Fprintf(output, "Bound provider subject: %s\n", bound.ProviderSubject)
 		_, _ = fmt.Fprintf(output, "Bound email: %s\n", bound.Email)

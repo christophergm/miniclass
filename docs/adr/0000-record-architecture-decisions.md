@@ -72,8 +72,10 @@ and not readable as a set.
 | [0003](./0003-assignment-solver-technology.md) | Assignment solver technology | Accepted |
 | [0004](./0004-api-contract-and-type-generation.md) | API contract and type generation | Accepted |
 | [0005](./0005-published-artifact-availability.md) | Published-artifact availability and topology | Accepted |
-| [0006](./0006-household-and-volunteer-access.md) | Household and volunteer access mechanics | Open |
+| [0006](./0006-household-and-volunteer-access.md) | Household and volunteer access mechanics | Superseded by 0012 |
 | [0007](./0007-tenancy-enforcement-and-data-access.md) | Tenancy enforcement and data access | Accepted |
 | [0008](./0008-authorization-capabilities-and-audit.md) | Authorization, capabilities and the audit log | Accepted |
 | [0009](./0009-administrator-sessions-and-identity-provider.md) | Administrator sessions and identity-provider choice | Accepted |
 | [0010](./0010-schema-generated-code-and-migration-conventions.md) | Schema, generated code and migration conventions | Accepted |
+| [0012](./0012-remove-the-household-entity.md) | Remove the Household entity | Accepted |
+| [0013](./0013-guardian-and-volunteer-access.md) | Guardian and volunteer access mechanics | Open |

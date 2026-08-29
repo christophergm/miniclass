@@ -8,7 +8,7 @@ import { resourceApi, type VocabularyResponse } from '@/lib/apiResources'
 import { renderWithQueryClient } from '@/test/queryClient'
 
 import { AdultDetailPage, AdultListPage, StudentDetailPage, StudentListPage } from './PeoplePages'
-import { adultApi, guardianApi, householdApi, studentApi, type Adult, type Household, type Student } from './roster'
+import { adultApi, guardianApi, studentApi, type Adult, type GuardianRelationship, type Student } from './roster'
 
 // Fixtures are typed against the generated contract, so a backend field rename
 // fails this file at compile time rather than passing against a shape the API
@@ -22,6 +22,7 @@ const students: Student[] = [
   { ...ids, ...timestamps, id: 'student-1', legal_given_name: 'Bea', legal_family_name: 'Apple', display_name: 'Bea Apple', grade_level_id: 'grade-1', homeroom_id: 'homeroom-a' },
   { ...ids, ...timestamps, id: 'student-3', legal_given_name: 'Ari', legal_family_name: 'Apple', preferred_given_name: 'Aria', display_name: 'Aria Apple', grade_level_id: 'grade-2', homeroom_id: 'homeroom-b' },
 ]
+const deletedStudent: Student = { ...ids, ...timestamps, id: 'student-4', legal_given_name: 'Sam', legal_family_name: 'Vale', display_name: 'Sam Vale', grade_level_id: 'grade-1', homeroom_id: 'homeroom-a', deleted_at: '2026-08-02T00:00:00Z' }
 
 const vocabulary: VocabularyResponse = {
   organization_id: 'org-1',
@@ -37,39 +38,36 @@ const vocabulary: VocabularyResponse = {
   ],
 }
 
-const deletedStudent: Student = { ...ids, ...timestamps, id: 'student-4', legal_given_name: 'Sam', legal_family_name: 'Vale', display_name: 'Sam Vale', grade_level_id: 'grade-1', homeroom_id: 'homeroom-a', deleted_at: '2026-08-02T00:00:00Z' }
-
-const adult: Adult = { ...ids, ...timestamps, id: 'adult-1', legal_given_name: 'Morgan', legal_family_name: 'Lee', preferred_given_name: 'Mo', display_name: 'Mo Lee', email: 'mo@example.test', participation_intent: 'help' }
-
-const households: Household[] = [
-  { ...ids, ...timestamps, id: 'household-1', display_name: 'Primary home' },
-  { ...ids, ...timestamps, id: 'household-2', display_name: 'Second home' },
+const adults: Adult[] = [
+  { ...ids, ...timestamps, id: 'adult-1', legal_given_name: 'Morgan', legal_family_name: 'Lee', preferred_given_name: 'Mo', display_name: 'Mo Lee', email: 'mo@example.test', participation_intent: 'help' },
+  { ...ids, ...timestamps, id: 'adult-2', legal_given_name: 'Jo', legal_family_name: 'Kim', display_name: 'Jo Kim', participation_intent: 'lead' },
 ]
+const adult = adults[0]
 
-/**
- * Membership arrives as the year's rows in one call. The per-household
- * sub-resources are stubbed to reject so that a reintroduced fan-out fails here
- * rather than passing quietly.
- */
-function stubMembership(
-  studentIdsByHousehold: Record<string, string[]> = {},
-  adultIdsByHousehold: Record<string, string[]> = {},
-  householdList: Household[] = households,
-) {
-  vi.spyOn(householdApi, 'list').mockResolvedValue(householdList)
-  vi.spyOn(householdApi, 'listMembership').mockResolvedValue({
-    students: Object.entries(studentIdsByHousehold).flatMap(([household_id, studentIds]) =>
-      studentIds.map((student_id) => ({ id: `${household_id}-${student_id}`, household_id, student_id }))),
-    adults: Object.entries(adultIdsByHousehold).flatMap(([household_id, adultIds]) =>
-      adultIds.map((adult_id) => ({ id: `${household_id}-${adult_id}`, household_id, adult_id }))),
-  })
-  vi.spyOn(householdApi, 'listStudents').mockRejectedValue(new Error('a roster surface must not read membership one household at a time'))
-  vi.spyOn(householdApi, 'listAdults').mockRejectedValue(new Error('a roster surface must not read membership one household at a time'))
+function relationship(id: string, adult_id: string, student_id: string): GuardianRelationship {
+  return { ...ids, ...timestamps, id, adult_id, student_id, relationship_type: 'parent' }
 }
 
+/**
+ * The year's guardian edges arrive in one call, which is what the Guardians and
+ * Children columns are derived from. The per-person reads are stubbed with the
+ * same filter the server applies, so a detail page still sees only its own
+ * person's edges; that a listing never reaches for them is asserted by call
+ * count in the bounded-requests case below.
+ */
+function stubGuardianRelationships(relationships: GuardianRelationship[] = []) {
+  vi.spyOn(guardianApi, 'listForYear').mockResolvedValue(relationships)
+  vi.spyOn(guardianApi, 'listForStudent').mockImplementation(async (_schoolYearID, student_id) => relationships.filter((edge) => edge.student_id === student_id))
+  vi.spyOn(guardianApi, 'listForAdult').mockImplementation(async (_schoolYearID, adult_id) => relationships.filter((edge) => edge.adult_id === adult_id))
+}
+
+// Every people surface now reads both rosters: its own, and the opposite one for
+// the counterpart display names the derived column links to.
 beforeEach(() => {
   vi.spyOn(resourceApi, 'getVocabulary').mockResolvedValue(vocabulary)
-  stubMembership()
+  vi.spyOn(studentApi, 'list').mockResolvedValue([])
+  vi.spyOn(adultApi, 'list').mockResolvedValue([])
+  stubGuardianRelationships()
 })
 
 afterEach(() => { vi.restoreAllMocks() })
@@ -85,39 +83,71 @@ function renderStudents(path = '/y/year-1/students') {
   )
 }
 
+function renderAdults(path = '/y/year-1/adults') {
+  return renderWithQueryClient(
+    <MemoryRouter initialEntries={[path]}>
+      <Routes>
+        <Route path="/y/:schoolYearId/adults" element={<AdultListPage />} />
+        <Route path="/y/:schoolYearId/adults/:personId" element={<AdultDetailPage />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+}
+
 describe('people roster pages', () => {
-  it('shows every household for a student in the student list', async () => {
+  it('lists every guardian of a student, linked to the adult record', async () => {
     vi.spyOn(studentApi, 'list').mockResolvedValue([students[0]])
-    stubMembership({ 'household-1': ['student-2'], 'household-2': ['student-2'] })
+    vi.spyOn(adultApi, 'list').mockResolvedValue(adults)
+    stubGuardianRelationships([relationship('rel-1', 'adult-1', 'student-2'), relationship('rel-2', 'adult-2', 'student-2')])
 
     renderStudents()
 
     const table = await screen.findByRole('table', { name: 'Students' })
-    expect(await within(table).findByRole('link', { name: 'Primary home' })).toBeInTheDocument()
-    expect(within(table).getByRole('link', { name: 'Second home' })).toBeInTheDocument()
+    expect(within(table).getByRole('columnheader', { name: 'Guardians' })).toBeInTheDocument()
+    // The link joins on the adult identifier the edge carries, never the name.
+    expect(await within(table).findByRole('link', { name: 'Mo Lee' })).toHaveAttribute('href', '/y/year-1/adults/adult-1')
+    expect(within(table).getByRole('link', { name: 'Jo Kim' })).toHaveAttribute('href', '/y/year-1/adults/adult-2')
   })
 
-  it('shows both household links on student detail and warns without blocking a student with none', async () => {
+  it('lists the children an adult is a guardian of, linked to the student record', async () => {
+    vi.spyOn(adultApi, 'list').mockResolvedValue([adult])
+    vi.spyOn(studentApi, 'list').mockResolvedValue(students)
+    stubGuardianRelationships([relationship('rel-1', 'adult-1', 'student-2'), relationship('rel-2', 'adult-1', 'student-1')])
+
+    renderAdults()
+
+    const table = await screen.findByRole('table', { name: 'Adults' })
+    expect(within(table).getByRole('columnheader', { name: 'Children' })).toBeInTheDocument()
+    expect(await within(table).findByRole('link', { name: 'Addie Zephyr' })).toHaveAttribute('href', '/y/year-1/students/student-2')
+    expect(within(table).getByRole('link', { name: 'Bea Apple' })).toHaveAttribute('href', '/y/year-1/students/student-1')
+  })
+
+  // SPEC §8.2: nobody can be reached about a child with no guardian, so the
+  // roster says so. SPEC §15.3 and ADR 0013 make an adult who is a guardian of
+  // nobody an ordinary volunteer record, which is why only one of these two
+  // columns carries a warning.
+  it('warns on a student with no guardian and stays silent on an adult with no children', async () => {
+    vi.spyOn(studentApi, 'list').mockResolvedValue([students[0]])
+    vi.spyOn(adultApi, 'list').mockResolvedValue([adult])
+
+    const studentList = renderStudents()
+    const studentTable = await screen.findByRole('table', { name: 'Students' })
+    expect(within(studentTable).getByText('No guardian')).toHaveAttribute('role', 'status')
+    studentList.unmount()
+
+    renderAdults()
+    const adultTable = await screen.findByRole('table', { name: 'Adults' })
+    expect(within(adultTable).queryByText('No guardian')).not.toBeInTheDocument()
+    expect(within(adultTable).queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  // SPEC §5.2 warns and never blocks: the record still saves.
+  it('warns without blocking on the detail page of a student with no guardian', async () => {
     vi.spyOn(studentApi, 'get').mockResolvedValue(students[0])
-    vi.spyOn(adultApi, 'list').mockResolvedValue([])
-    vi.spyOn(guardianApi, 'listForStudent').mockResolvedValue([])
-    stubMembership({ 'household-1': ['student-2'], 'household-2': ['student-2'] })
-
-    const detail = renderStudents('/y/year-1/students/student-2')
-
-    expect(await screen.findByRole('link', { name: 'Primary home' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Second home' })).toBeInTheDocument()
-
-    detail.unmount()
-    vi.restoreAllMocks()
-    vi.spyOn(resourceApi, 'getVocabulary').mockResolvedValue(vocabulary)
-    vi.spyOn(studentApi, 'get').mockResolvedValue(students[0])
-    vi.spyOn(adultApi, 'list').mockResolvedValue([])
-    vi.spyOn(guardianApi, 'listForStudent').mockResolvedValue([])
-    stubMembership()
 
     renderStudents('/y/year-1/students/student-2')
-    expect(await screen.findByText('This person has no household yet. This is a warning only; you can still save the roster record.')).toBeInTheDocument()
+
+    expect(await screen.findByText('This student has no guardian yet. Nobody can be reached about this child. This is a warning only; you can still save the roster record.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled()
   })
 
@@ -198,26 +228,26 @@ describe('people roster pages', () => {
     expect(screen.queryByRole('link', { name: 'Aria Apple' })).not.toBeInTheDocument()
   })
 
-  // SPEC §3.2 records ~90 households in the reference program. The Households
-  // column used to cost one request per household on each of these surfaces.
-  // The vocabulary count differs by surface because only the student roster
-  // renders grade and homeroom labels.
+  // Issue #104: the derived column used to be read one entity at a time, which
+  // was ~181 requests on the reference program's roster (SPEC §3.2). It is now
+  // the year's guardian edges in one request whatever the size of the year, so a
+  // reintroduced fan-out fails here rather than passing quietly. The vocabulary
+  // count differs by surface because only the student roster renders grade and
+  // homeroom labels.
   it.each([
-    ['student list', '/y/year-1/students', 1],
-    ['adult list', '/y/year-1/adults', 0],
-    ['student detail', '/y/year-1/students/student-2', 1],
-    ['adult detail', '/y/year-1/adults/adult-1', 0],
-  ])('reads household membership in a bounded number of requests on the %s', async (_surface, path, vocabularyCalls) => {
-    const manyHouseholds: Household[] = Array.from({ length: 90 }, (_value, index) => ({
-      ...ids, ...timestamps, id: `household-${index}`, display_name: `Household ${index}`,
-    }))
-    stubMembership({ 'household-7': ['student-2'] }, { 'household-7': ['adult-1'] }, manyHouseholds)
-    vi.spyOn(studentApi, 'list').mockResolvedValue([students[0]])
+    ['student list', '/y/year-1/students', 'Mo Lee', 1, 1, 0, 0],
+    ['adult list', '/y/year-1/adults', 'Addie Zephyr', 0, 1, 0, 0],
+    ['student detail', '/y/year-1/students/student-2', 'Mo Lee', 1, 0, 1, 0],
+    ['adult detail', '/y/year-1/adults/adult-1', 'Addie Zephyr', 0, 0, 0, 1],
+  ])('reads the year’s guardian edges in a bounded number of requests on the %s', async (_surface, path, linkName, vocabularyCalls, yearWideCalls, perStudentCalls, perAdultCalls) => {
+    const manyStudents: Student[] = [students[0], ...Array.from({ length: 180 }, (_value, index) => ({
+      ...ids, ...timestamps, id: `student-extra-${index}`, legal_given_name: 'Sam', legal_family_name: `Extra${index}`, display_name: `Sam Extra${index}`, grade_level_id: 'grade-1', homeroom_id: 'homeroom-a',
+    }))]
+    stubGuardianRelationships([relationship('rel-1', 'adult-1', 'student-2')])
+    vi.spyOn(studentApi, 'list').mockResolvedValue(manyStudents)
     vi.spyOn(studentApi, 'get').mockResolvedValue(students[0])
     vi.spyOn(adultApi, 'list').mockResolvedValue([adult])
     vi.spyOn(adultApi, 'get').mockResolvedValue(adult)
-    vi.spyOn(guardianApi, 'listForStudent').mockResolvedValue([])
-    vi.spyOn(guardianApi, 'listForAdult').mockResolvedValue([])
 
     // StrictMode is on in main.tsx and deliberately double-invokes effects in
     // development. React Query dedupes the second mount; the useEffect fetches
@@ -235,11 +265,11 @@ describe('people roster pages', () => {
       </StrictMode>,
     )
 
-    expect(await screen.findByRole('link', { name: 'Household 7' })).toBeInTheDocument()
-    expect(householdApi.listMembership).toHaveBeenCalledTimes(1)
-    expect(householdApi.list).toHaveBeenCalledTimes(1)
-    expect(householdApi.listStudents).not.toHaveBeenCalled()
-    expect(householdApi.listAdults).not.toHaveBeenCalled()
+    expect(await screen.findByRole('link', { name: linkName })).toBeInTheDocument()
+    expect(guardianApi.listForYear).toHaveBeenCalledTimes(yearWideCalls)
+    // A listing renders 181 people and still asks nothing per person.
+    expect(guardianApi.listForStudent).toHaveBeenCalledTimes(perStudentCalls)
+    expect(guardianApi.listForAdult).toHaveBeenCalledTimes(perAdultCalls)
     expect(resourceApi.getVocabulary).toHaveBeenCalledTimes(vocabularyCalls)
   })
 

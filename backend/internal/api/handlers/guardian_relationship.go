@@ -2,13 +2,19 @@ package handlers
 
 import (
 	"context"
+	"errors"
+	"net/http"
 	"strings"
 	"time"
 
+	"github.com/chrismott/miniclass/internal/api/problems"
 	"github.com/chrismott/miniclass/internal/audit"
+	"github.com/chrismott/miniclass/internal/auth"
 	"github.com/chrismott/miniclass/internal/data"
 	"github.com/chrismott/miniclass/internal/ids"
 	"github.com/chrismott/miniclass/internal/people"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type GuardianRelationshipListOutput struct {
@@ -72,12 +78,12 @@ func NewGuardianRelationshipHandler(service GuardianRelationshipService) *Guardi
 }
 
 func (h *GuardianRelationshipHandler) List(ctx context.Context, input *ListGuardianRelationshipsInput) (*GuardianRelationshipListOutput, error) {
-	account, err := householdAccount(ctx)
+	account, err := guardianRelationshipAccount(ctx)
 	if err != nil {
 		return nil, err
 	}
 	if h == nil || h.service == nil || input == nil {
-		return nil, householdNotFound()
+		return nil, guardianRelationshipNotFound()
 	}
 	filter := data.GuardianRelationshipFilter{
 		AdultID:   ids.XID(strings.TrimSpace(input.AdultID)),
@@ -85,7 +91,7 @@ func (h *GuardianRelationshipHandler) List(ctx context.Context, input *ListGuard
 	}
 	rows, err := h.service.ListGuardianRelationships(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), filter)
 	if err != nil {
-		return nil, householdProblem(err)
+		return nil, guardianRelationshipProblem(err)
 	}
 	result := make([]GuardianRelationshipResponse, 0, len(rows))
 	for _, row := range rows {
@@ -95,69 +101,108 @@ func (h *GuardianRelationshipHandler) List(ctx context.Context, input *ListGuard
 }
 
 func (h *GuardianRelationshipHandler) Create(ctx context.Context, input *CreateGuardianRelationshipInput) (*GuardianRelationshipOutput, error) {
-	account, err := householdAccount(ctx)
+	account, err := guardianRelationshipAccount(ctx)
 	if err != nil {
 		return nil, err
 	}
 	if h == nil || h.service == nil || input == nil {
-		return nil, householdNotFound()
+		return nil, guardianRelationshipNotFound()
 	}
-	row, err := h.service.CreateGuardianRelationship(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), householdActor(account), people.GuardianRelationshipCreateInput{AdultID: ids.XID(input.Body.AdultID), StudentID: ids.XID(input.Body.StudentID), RelationshipType: data.GuardianRelationshipType(strings.TrimSpace(input.Body.RelationshipType))})
+	row, err := h.service.CreateGuardianRelationship(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), guardianRelationshipActor(account), people.GuardianRelationshipCreateInput{AdultID: ids.XID(input.Body.AdultID), StudentID: ids.XID(input.Body.StudentID), RelationshipType: data.GuardianRelationshipType(strings.TrimSpace(input.Body.RelationshipType))})
 	if err != nil {
-		return nil, householdProblem(err)
+		return nil, guardianRelationshipProblem(err)
 	}
 	return &GuardianRelationshipOutput{Body: guardianRelationshipResponse(row)}, nil
 }
 
 func (h *GuardianRelationshipHandler) Get(ctx context.Context, input *GetGuardianRelationshipInput) (*GuardianRelationshipOutput, error) {
-	account, err := householdAccount(ctx)
+	account, err := guardianRelationshipAccount(ctx)
 	if err != nil {
 		return nil, err
 	}
 	if h == nil || h.service == nil || input == nil {
-		return nil, householdNotFound()
+		return nil, guardianRelationshipNotFound()
 	}
 	row, err := h.service.GetGuardianRelationship(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), ids.XID(input.RelationshipID))
 	if err != nil {
-		return nil, householdProblem(err)
+		return nil, guardianRelationshipProblem(err)
 	}
 	return &GuardianRelationshipOutput{Body: guardianRelationshipResponse(row)}, nil
 }
 
 func (h *GuardianRelationshipHandler) Update(ctx context.Context, input *UpdateGuardianRelationshipInput) (*GuardianRelationshipOutput, error) {
-	account, err := householdAccount(ctx)
+	account, err := guardianRelationshipAccount(ctx)
 	if err != nil {
 		return nil, err
 	}
 	if h == nil || h.service == nil || input == nil {
-		return nil, householdNotFound()
+		return nil, guardianRelationshipNotFound()
 	}
 	var relationshipType *data.GuardianRelationshipType
 	if input.Body.RelationshipType != nil {
 		value := data.GuardianRelationshipType(strings.TrimSpace(*input.Body.RelationshipType))
 		relationshipType = &value
 	}
-	row, err := h.service.UpdateGuardianRelationship(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), ids.XID(input.RelationshipID), householdActor(account), people.GuardianRelationshipUpdateInput{RelationshipType: relationshipType})
+	row, err := h.service.UpdateGuardianRelationship(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), ids.XID(input.RelationshipID), guardianRelationshipActor(account), people.GuardianRelationshipUpdateInput{RelationshipType: relationshipType})
 	if err != nil {
-		return nil, householdProblem(err)
+		return nil, guardianRelationshipProblem(err)
 	}
 	return &GuardianRelationshipOutput{Body: guardianRelationshipResponse(row)}, nil
 }
 
 func (h *GuardianRelationshipHandler) Delete(ctx context.Context, input *DeleteGuardianRelationshipInput) (*GuardianRelationshipDeleteOutput, error) {
-	account, err := householdAccount(ctx)
+	account, err := guardianRelationshipAccount(ctx)
 	if err != nil {
 		return nil, err
 	}
 	if h == nil || h.service == nil || input == nil {
-		return nil, householdNotFound()
+		return nil, guardianRelationshipNotFound()
 	}
-	if err := h.service.DeleteGuardianRelationship(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), ids.XID(input.RelationshipID), householdActor(account)); err != nil {
-		return nil, householdProblem(err)
+	if err := h.service.DeleteGuardianRelationship(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), ids.XID(input.RelationshipID), guardianRelationshipActor(account)); err != nil {
+		return nil, guardianRelationshipProblem(err)
 	}
 	return &GuardianRelationshipDeleteOutput{}, nil
 }
 
+func guardianRelationshipAccount(ctx context.Context) (auth.AccountPrincipal, error) {
+	principal, ok := auth.PrincipalFromContext(ctx)
+	if !ok {
+		return auth.AccountPrincipal{}, problems.New(http.StatusInternalServerError, problems.AuthenticationUnavailable, "resolved principal is missing")
+	}
+	account, ok := principal.(auth.AccountPrincipal)
+	if !ok {
+		return auth.AccountPrincipal{}, problems.New(http.StatusInternalServerError, problems.AuthenticationUnavailable, "account principal has an unsupported type")
+	}
+	return account, nil
+}
+
+func guardianRelationshipActor(account auth.AccountPrincipal) audit.Actor {
+	userID := account.UserID
+	return audit.Actor{Type: audit.ActorTypeUser, UserID: &userID, Label: account.Email}
+}
+
 func guardianRelationshipResponse(row data.GuardianRelationship) GuardianRelationshipResponse {
 	return GuardianRelationshipResponse{ID: string(row.ID), OrganizationID: string(row.OrganizationID), SchoolYearID: string(row.SchoolYearID), AdultID: string(row.AdultID), StudentID: string(row.StudentID), RelationshipType: string(row.RelationshipType), CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+}
+
+func guardianRelationshipNotFound() error {
+	return problems.New(http.StatusNotFound, problems.ResourceNotFound, "guardian relationship not found")
+}
+
+func guardianRelationshipProblem(err error) error {
+	var pgErr *pgconn.PgError
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		return guardianRelationshipNotFound()
+	case data.IsSchoolYearClosed(err):
+		return problems.New(http.StatusConflict, problems.SchoolYearClosed, "the school year is closed and cannot be changed")
+	case errors.As(err, &pgErr) && pgErr.Code == "23505":
+		return problems.New(http.StatusConflict, problems.GuardianRelationshipConflict, "the guardian relationship already exists")
+	case strings.Contains(err.Error(), "invalid relationship type"):
+		return problems.New(http.StatusBadRequest, problems.ResourceNotFound, err.Error())
+	case errors.Is(err, people.ErrGuardianRelationshipNoChanges):
+		return problems.New(http.StatusConflict, problems.SchoolYearTransitionInvalid, err.Error())
+	default:
+		return problems.New(http.StatusInternalServerError, problems.InternalError, "unable to change guardian relationship data")
+	}
 }

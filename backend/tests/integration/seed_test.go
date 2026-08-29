@@ -28,7 +28,6 @@ func TestSeedCorpusLoadsWithAppendixDistributionAndEdgeCases(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, seed.StudentCount, result.Students)
 	require.Equal(t, seed.AdultCount, result.Adults)
-	require.Equal(t, seed.HouseholdCount, result.Households)
 	require.NotEmpty(t, result.OrganizationID)
 	require.Contains(t, result.ClaimURL, "http://localhost:5173/claim")
 	require.Nil(t, result.BoundOwner, "a seed without an owner subject bound a login")
@@ -37,11 +36,8 @@ func TestSeedCorpusLoadsWithAppendixDistributionAndEdgeCases(t *testing.T) {
 	require.NoError(t, err)
 	adults, err := people.New(harness.Database).List(ctx, result.OrganizationID, resultSchoolYearID(result), false)
 	require.NoError(t, err)
-	households, err := people.New(harness.Database).ListHouseholds(ctx, result.OrganizationID, resultSchoolYearID(result), false)
-	require.NoError(t, err)
 	require.Len(t, students, seed.StudentCount)
 	require.Len(t, adults, seed.AdultCount)
-	require.Len(t, households, seed.HouseholdCount)
 
 	vocabularySnapshot, err := vocabulary.New(harness.Database).List(ctx, result.OrganizationID, false)
 	require.NoError(t, err)
@@ -70,43 +66,53 @@ func TestSeedCorpusLoadsWithAppendixDistributionAndEdgeCases(t *testing.T) {
 	require.Equal(t, 45, participation[data.AdultParticipationHelp])
 	require.Equal(t, 44, participation[data.AdultParticipationUnavailable])
 
-	studentMemberships := allStudentMemberships(t, harness, result.OrganizationID)
-	studentMembershipCounts := countStudentMemberships(studentMemberships)
-	studentsWithoutHousehold := 0
-	studentsInMultipleHouseholds := 0
-	for _, student := range students {
-		switch studentMembershipCounts[string(student.ID)] {
-		case 0:
-			studentsWithoutHousehold++
-		case 2:
-			studentsInMultipleHouseholds++
-		}
-	}
-	require.Equal(t, 2, studentsWithoutHousehold)
-	require.GreaterOrEqual(t, studentsInMultipleHouseholds, 2)
-
-	adultMemberships := allAdultMemberships(t, harness, result.OrganizationID)
-	adultMembershipCounts := map[string]int{}
-	for _, membership := range adultMemberships {
-		adultMembershipCounts[string(membership.AdultID)]++
-	}
+	// Corpus.Validate proves these shapes on the pure input graph; asserting them
+	// again here proves the loader carried them into the database, which is the
+	// only place the frontend and a developer will ever meet them.
 	guardianRelationships := allGuardianRelationships(t, harness, result.OrganizationID)
-	guardianCounts := map[string]int{}
+	guardedStudents := map[string]map[string]bool{}
+	studentGuardians := map[string]map[string]bool{}
 	for _, relationship := range guardianRelationships {
-		guardianCounts[string(relationship.AdultID)]++
+		adultID, studentID := string(relationship.AdultID), string(relationship.StudentID)
+		if guardedStudents[adultID] == nil {
+			guardedStudents[adultID] = map[string]bool{}
+		}
+		if studentGuardians[studentID] == nil {
+			studentGuardians[studentID] = map[string]bool{}
+		}
+		guardedStudents[adultID][studentID] = true
+		studentGuardians[studentID][adultID] = true
 	}
-	adultsInMultipleHouseholds := 0
-	adultsWithoutHouseholdOrGuardian := 0
+
+	// SPEC §8.2: a participating student with no guardian warns and never blocks,
+	// so the corpus carries one for that warning to be seen on. The students with
+	// two guardians are the separated families the reference program ran a second
+	// survey for.
+	studentsWithoutGuardian := 0
+	studentsWithTwoGuardians := 0
+	for _, student := range students {
+		switch len(studentGuardians[string(student.ID)]) {
+		case 0:
+			studentsWithoutGuardian++
+		case 2:
+			studentsWithTwoGuardians++
+		}
+	}
+	require.Equal(t, 1, studentsWithoutGuardian)
+	require.GreaterOrEqual(t, studentsWithTwoGuardians, 3)
+
+	adultsGuardingSeveralStudents := 0
+	adultsWithoutGuardianRelationship := 0
 	for _, adult := range adults {
-		if adultMembershipCounts[string(adult.ID)] >= 2 {
-			adultsInMultipleHouseholds++
-		}
-		if adultMembershipCounts[string(adult.ID)] == 0 && guardianCounts[string(adult.ID)] == 0 {
-			adultsWithoutHouseholdOrGuardian++
+		switch {
+		case len(guardedStudents[string(adult.ID)]) == 0:
+			adultsWithoutGuardianRelationship++
+		case len(guardedStudents[string(adult.ID)]) >= 2:
+			adultsGuardingSeveralStudents++
 		}
 	}
-	require.GreaterOrEqual(t, adultsInMultipleHouseholds, 1)
-	require.GreaterOrEqual(t, adultsWithoutHouseholdOrGuardian, 2)
+	require.GreaterOrEqual(t, adultsGuardingSeveralStudents, 1)
+	require.Equal(t, 2, adultsWithoutGuardianRelationship)
 
 	noExternalIdentifier := 0
 	familyCounts := map[string]int{}
@@ -212,26 +218,6 @@ func countOrganizationsNamed(t *testing.T, harness *testharness.Harness, name st
 	return count
 }
 
-func allStudentMemberships(t *testing.T, harness *testharness.Harness, organizationID string) []data.HouseholdStudent {
-	var result []data.HouseholdStudent
-	require.NoError(t, harness.Database.InTenantRead(harness.Context, organizationID, func(ctx context.Context, tx *data.Tx) error {
-		var err error
-		result, err = tx.ListAllHouseholdStudentsForRegistry(ctx)
-		return err
-	}))
-	return result
-}
-
-func allAdultMemberships(t *testing.T, harness *testharness.Harness, organizationID string) []data.HouseholdAdult {
-	var result []data.HouseholdAdult
-	require.NoError(t, harness.Database.InTenantRead(harness.Context, organizationID, func(ctx context.Context, tx *data.Tx) error {
-		var err error
-		result, err = tx.ListAllHouseholdAdultsForRegistry(ctx)
-		return err
-	}))
-	return result
-}
-
 func allGuardianRelationships(t *testing.T, harness *testharness.Harness, organizationID string) []data.GuardianRelationship {
 	var result []data.GuardianRelationship
 	require.NoError(t, harness.Database.InTenantRead(harness.Context, organizationID, func(ctx context.Context, tx *data.Tx) error {
@@ -239,13 +225,5 @@ func allGuardianRelationships(t *testing.T, harness *testharness.Harness, organi
 		result, err = tx.ListAllGuardianRelationshipsForRegistry(ctx)
 		return err
 	}))
-	return result
-}
-
-func countStudentMemberships(rows []data.HouseholdStudent) map[string]int {
-	result := map[string]int{}
-	for _, row := range rows {
-		result[string(row.StudentID)]++
-	}
 	return result
 }

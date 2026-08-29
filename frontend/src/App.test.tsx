@@ -143,18 +143,14 @@ describe('App routing', () => {
     expect(screen.queryByText(/school year/i)).not.toBeInTheDocument()
   })
 
-  // The route parameter has to be named what the page's useParams reads. It was
-  // declared as `:personId` while HouseholdDetailPage read `householdId`, so
-  // every household detail URL rendered the empty "Add household" form. The
-  // household tests render the component under their own route table, so only a
-  // test that goes through App's routes can catch this.
-  it('opens an existing household from its detail URL rather than the new-household form', async () => {
+  // The route parameter has to be named what the page's useParams reads. The
+  // people tests render each page under their own route table, so only a test
+  // that goes through App's routes can catch a mismatch.
+  it('opens an existing student from its detail URL rather than the new-student form', async () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const url = requestUrl(input)
-      if (url.includes('/api/school-years/year-1/households/household-1')) {
-        return url.endsWith('/household-1')
-          ? jsonResponse({ id: 'household-1', organization_id: 'org-test', school_year_id: 'year-1', display_name: 'Stone family', created_at: '2026-08-01T00:00:00Z', updated_at: '2026-08-01T00:00:00Z' })
-          : jsonResponse([])
+      if (url.includes('/api/school-years/year-1/students/student-1')) {
+        return jsonResponse({ id: 'student-1', organization_id: 'org-test', school_year_id: 'year-1', legal_given_name: 'Riley', legal_family_name: 'Stone', display_name: 'Riley Stone', grade_level_id: 'grade-1', homeroom_id: 'homeroom-a', created_at: '2026-08-01T00:00:00Z', updated_at: '2026-08-01T00:00:00Z' })
       }
       if (url.endsWith('/api/school-years/year-1')) {
         return jsonResponse({ id: 'year-1', organization_id: 'org-test', label: '2026–27', state: 'active', created_at: '2026-08-01T00:00:00Z', updated_at: '2026-08-01T00:00:00Z' })
@@ -165,10 +161,10 @@ describe('App routing', () => {
       return jsonResponse([])
     }))
 
-    renderApp('/y/year-1/households/household-1', authenticatedClient())
+    renderApp('/y/year-1/students/student-1', authenticatedClient())
 
-    expect(await screen.findByRole('heading', { name: 'Stone family' })).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'Add household' })).not.toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Riley Stone' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Add student' })).not.toBeInTheDocument()
   })
 })
 

@@ -15,7 +15,7 @@ const (
 	AccessTokenBytes = 32
 
 	PurposeAdminInvitation   = "admin_invitation"
-	PurposeHousehold         = "household_submission"
+	PurposeGuardian          = "guardian_submission"
 	PurposeClassLeader       = "class_leader"
 	PurposeHomeroomTeacher   = "homeroom_teacher"
 	PurposePublishedArtifact = "published_artifact"

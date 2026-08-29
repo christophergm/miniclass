@@ -9,17 +9,17 @@ import { activeGradeLevels, activeHomerooms, type GradeLevel, type Homeroom } fr
 import { useVocabulary } from '@/lib/hooks/useVocabulary'
 
 import { GuardianRelationships } from './GuardianRelationships'
-import { useHouseholdMembership, usePeople, usePerson, useRosterMutation } from './roster-queries'
+import { usePeople, usePerson, useRosterMutation, useYearGuardianRelationships } from './roster-queries'
 import {
   adultApi,
-  householdsByPerson,
+  relatedPeopleByPerson,
   studentApi,
   type Adult,
   type AdultInput,
-  type Household,
   type ParticipationIntent,
   type PersonKind,
   type PersonSummary,
+  type RelatedPerson,
   type Student,
   type StudentInput,
 } from './roster'
@@ -48,9 +48,16 @@ export function PeopleListPage({ kind }: PageProps) {
   const copy = pageCopy[kind]
   const [includeDeleted, setIncludeDeleted] = useState(false)
   const peopleQuery = usePeople(kind, schoolYearId, { includeDeleted })
-  const membershipQuery = useHouseholdMembership(schoolYearId, includeDeleted)
   const restore = useRosterMutation<{ id: string; reason: string }, Student | Adult>(schoolYearId, async ({ id, reason }): Promise<Student | Adult> =>
     kind === 'student' ? studentApi.restore(schoolYearId!, id, reason) : adultApi.restore(schoolYearId!, id, reason))
+  // The Guardians / Children column is derived from the guardian edges, because
+  // ADR 0012 leaves nothing else relating an adult to a student. Two year-wide
+  // requests answer it for the whole roster — the year's edges, and the opposite
+  // roster for the counterpart display names — rather than one request per
+  // person, which cost ~181 of them on the reference program's roster.
+  const counterpartKind: PersonKind = kind === 'student' ? 'adult' : 'student'
+  const counterpartsQuery = usePeople(counterpartKind, schoolYearId)
+  const relationshipsQuery = useYearGuardianRelationships(schoolYearId)
   // Only the student roster renders grade and homeroom labels.
   const vocabularyQuery = useVocabulary({ enabled: kind === 'student' })
   const [query, setQuery] = useState('')
@@ -60,12 +67,12 @@ export function PeopleListPage({ kind }: PageProps) {
   const isLoading = peopleQuery.isLoading
   const error = peopleQuery.error ?? restore.error
 
-  // Membership and the vocabulary are supporting context, so their errors are
-  // not surfaced: a membership failure must not hide the roster, and an absent
+  // The relationships and the vocabulary are supporting context, so their errors
+  // are not surfaced: a failure there must not hide the roster, and an absent
   // vocabulary falls back to rendering identifiers rather than labels.
-  const households = useMemo(
-    () => householdsByPerson(membershipQuery.data ?? [], kind),
-    [kind, membershipQuery.data],
+  const relatedPeople = useMemo(
+    () => relatedPeopleByPerson(relationshipsQuery.data ?? [], kind, counterpartsQuery.data ?? []),
+    [counterpartsQuery.data, kind, relationshipsQuery.data],
   )
   const vocabulary = vocabularyQuery.data ?? null
   const grades = vocabulary ? activeGradeLevels(vocabulary) : []
@@ -120,7 +127,7 @@ export function PeopleListPage({ kind }: PageProps) {
       {error !== null && <p className="mt-8 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive" role="alert">{errorMessage(error, `Unable to load ${copy.plural.toLowerCase()}.`)}</p>}
       {!isLoading && !error && filteredPeople.length === 0 && <p className="mt-8 rounded-lg border bg-card p-6 text-sm text-muted-foreground">No {copy.plural.toLowerCase()} match these filters.</p>}
       {!isLoading && !error && filteredPeople.length > 0 && (
-        <PeopleTable kind={kind} schoolYearId={schoolYearId} people={filteredPeople} households={households} grades={grades} homerooms={homerooms} onRestore={(id) => {
+        <PeopleTable kind={kind} schoolYearId={schoolYearId} people={filteredPeople} relatedPeople={relatedPeople} grades={grades} homerooms={homerooms} onRestore={(id) => {
           const reason = window.prompt(`Why restore this ${copy.singular}?`)
           if (!reason?.trim()) return
           restore.mutate({ id, reason })
@@ -130,11 +137,11 @@ export function PeopleListPage({ kind }: PageProps) {
   )
 }
 
-function PeopleTable({ kind, schoolYearId, people, households, grades, homerooms, onRestore }: {
+function PeopleTable({ kind, schoolYearId, people, relatedPeople, grades, homerooms, onRestore }: {
   kind: PersonKind
   schoolYearId: string
   people: PersonSummary[]
-  households: Map<string, Household[]>
+  relatedPeople: Map<string, RelatedPerson[]>
   grades: GradeLevel[]
   homerooms: Homeroom[]
   onRestore: (id: string) => void
@@ -148,7 +155,7 @@ function PeopleTable({ kind, schoolYearId, people, households, grades, homerooms
         <TableRow>
           <TableHead>Name</TableHead>
           {kind === 'student' ? <><TableHead>Grade</TableHead><TableHead>Homeroom</TableHead></> : <><TableHead>Email</TableHead><TableHead>Participation</TableHead></>}
-          <TableHead>Households</TableHead><TableHead>External ID</TableHead><TableHead>Actions</TableHead>
+          <TableHead>{kind === 'student' ? 'Guardians' : 'Children'}</TableHead><TableHead>External ID</TableHead><TableHead>Actions</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -164,8 +171,9 @@ function PeopleTable({ kind, schoolYearId, people, households, grades, homerooms
                 <TableCell>{(person as Adult).email ?? '—'}</TableCell>
                 <TableCell className="capitalize">{(person as Adult).participation_intent}</TableCell>
               </>}
-            <TableCell><HouseholdLinks households={households.get(person.id) ?? []} schoolYearId={schoolYearId} /></TableCell>
-            <TableCell>{person.external_identifier ?? '—'}</TableCell><TableCell>{person.deleted_at ? <Button type="button" size="sm" variant="outline" onClick={() => onRestore(person.id)}>Restore</Button> : '—'}</TableCell>
+            <TableCell><RelatedPeopleLinks kind={kind} related={relatedPeople.get(person.id) ?? []} schoolYearId={schoolYearId} /></TableCell>
+            <TableCell>{person.external_identifier ?? '—'}</TableCell>
+            <TableCell>{person.deleted_at ? <Button type="button" size="sm" variant="outline" onClick={() => onRestore(person.id)}>Restore</Button> : '—'}</TableCell>
           </TableRow>
         ))}
       </TableBody>
@@ -189,7 +197,6 @@ export function PersonDetailPage({ kind }: PageProps) {
   const recordId = isNew ? undefined : personId
 
   const personQuery = usePerson(kind, schoolYearId, recordId)
-  const membershipQuery = useHouseholdMembership(schoolYearId)
   const vocabularyQuery = useVocabulary({ enabled: kind === 'student' })
   const save = useRosterMutation<PersonInputValues, Student | Adult>(schoolYearId, (next) => savePerson(kind, schoolYearId!, recordId, next))
   const remove = useRosterMutation<void, void>(schoolYearId, () => (kind === 'student' ? studentApi.remove(schoolYearId!, personId!) : adultApi.remove(schoolYearId!, personId!)))
@@ -207,11 +214,6 @@ export function PersonDetailPage({ kind }: PageProps) {
     setValues(valuesFromPerson(kind, person))
   }, [kind, person])
 
-  // Membership is supporting context; a failure must not block editing.
-  const households = useMemo(
-    () => (personId ? householdsByPerson(membershipQuery.data ?? [], kind).get(personId) ?? [] : []),
-    [kind, membershipQuery.data, personId],
-  )
   const fieldErrors = fieldErrorMap(save.error)
   const error = save.error ?? remove.error ?? personQuery.error ?? vocabularyQuery.error ?? null
   const isSaving = save.isPending
@@ -277,10 +279,7 @@ export function PersonDetailPage({ kind }: PageProps) {
         </div>
         <div className="flex gap-3"><Button type="submit" disabled={isSaving}>{isSaving ? 'Saving…' : 'Save'}</Button><Button asChild type="button" variant="outline"><Link to={`/y/${schoolYearId}/${copy.path}`}>Cancel</Link></Button></div>
       </form>
-      {!isNew && person && <>
-        <HouseholdMembershipSection households={households} schoolYearId={yearId} />
-        <GuardianRelationships kind={kind} schoolYearId={yearId} personId={person.id} />
-      </>}
+      {!isNew && person && <GuardianRelationships kind={kind} schoolYearId={yearId} personId={person.id} />}
     </PageFrame>
   )
 }
@@ -384,13 +383,14 @@ function FieldError({ id, message }: { id?: string; message: string }) {
   return <span id={id} className="mt-1 block text-xs font-normal text-destructive" role="alert">{message}</span>
 }
 
-function HouseholdLinks({ households, schoolYearId }: { households: Household[]; schoolYearId: string }) {
-  if (households.length === 0) return <span className="text-amber-700" role="status">No household assigned</span>
-  return <span className="flex flex-wrap gap-x-2 gap-y-1">{households.map((household) => <Link key={household.id} className="text-primary hover:underline" to={`/y/${schoolYearId}/households/${household.id}`}>{household.display_name}</Link>)}</span>
-}
-
-function HouseholdMembershipSection({ households, schoolYearId }: { households: Household[]; schoolYearId: string }) {
-  return <section className="mt-10 rounded-lg border bg-card p-6" aria-labelledby="person-households-heading"><h2 id="person-households-heading" className="text-xl font-semibold">Household membership</h2><p className="mt-2 text-sm text-muted-foreground">Membership is independent from guardian relationships. Editing a guardian relationship will not add this person to a household.</p>{households.length === 0 ? <p className="mt-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">This person has no household yet. This is a warning only; you can still save the roster record.</p> : <ul className="mt-4 flex flex-wrap gap-2">{households.map((household) => <li key={household.id}><Link className="inline-flex rounded-md border px-3 py-2 text-sm text-primary hover:bg-accent" to={`/y/${schoolYearId}/households/${household.id}`}>{household.display_name}</Link></li>)}</ul>}</section>
+// A student with no guardian is called out here as well as on the detail page:
+// nobody can be reached about that child (SPEC §8.2). An adult who is a guardian
+// of nobody is an ordinary volunteer record (SPEC §15.3, ADR 0013), not a
+// defect, so that cell reports plainly and never in the warning colour.
+function RelatedPeopleLinks({ kind, related, schoolYearId }: { kind: PersonKind; related: RelatedPerson[]; schoolYearId: string }) {
+  if (related.length === 0) return kind === 'student' ? <span className="text-amber-700" role="status">No guardian</span> : <span className="text-muted-foreground">—</span>
+  const counterpartPath = pageCopy[kind === 'student' ? 'adult' : 'student'].path
+  return <span className="flex flex-wrap gap-x-2 gap-y-1">{related.map((person) => <Link key={person.id} className="text-primary hover:underline" to={`/y/${schoolYearId}/${counterpartPath}/${person.id}`}>{person.display_name}</Link>)}</span>
 }
 
 function MissingSchoolYear({ kind }: PageProps) {

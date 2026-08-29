@@ -90,30 +90,6 @@ func (f *Factory) CreateAdult(ctx context.Context, schoolYearID ids.XID, input p
 	return f.people.Create(ctx, f.organizationID, schoolYearID, f.actor, input)
 }
 
-// CreateHousehold creates one minimal-valid household in a school year.
-func (f *Factory) CreateHousehold(ctx context.Context, schoolYearID ids.XID, input people.HouseholdCreateInput) (data.Household, error) {
-	if err := f.validate(); err != nil {
-		return data.Household{}, err
-	}
-	return f.people.CreateHousehold(ctx, f.organizationID, schoolYearID, f.actor, input)
-}
-
-// AddStudentToHousehold creates one student membership.
-func (f *Factory) AddStudentToHousehold(ctx context.Context, schoolYearID, householdID, studentID ids.XID) (data.HouseholdStudent, error) {
-	if err := f.validate(); err != nil {
-		return data.HouseholdStudent{}, err
-	}
-	return f.people.AddStudentToHousehold(ctx, f.organizationID, schoolYearID, householdID, studentID, f.actor)
-}
-
-// AddAdultToHousehold creates one adult membership.
-func (f *Factory) AddAdultToHousehold(ctx context.Context, schoolYearID, householdID, adultID ids.XID) (data.HouseholdAdult, error) {
-	if err := f.validate(); err != nil {
-		return data.HouseholdAdult{}, err
-	}
-	return f.people.AddAdultToHousehold(ctx, f.organizationID, schoolYearID, householdID, adultID, f.actor)
-}
-
 // CreateGuardianRelationship creates one adult-to-student relationship.
 func (f *Factory) CreateGuardianRelationship(ctx context.Context, schoolYearID ids.XID, input people.GuardianRelationshipCreateInput) (data.GuardianRelationship, error) {
 	if err := f.validate(); err != nil {

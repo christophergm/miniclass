@@ -33,7 +33,6 @@ type ServerOptions struct {
 	Vocabularies           handlers.VocabularyService
 	Adults                 handlers.AdultService
 	Students               handlers.StudentService
-	Households             handlers.HouseholdService
 	GuardianRelationships  handlers.GuardianRelationshipService
 	Verifier               auth.Verifier
 	Logger                 *slog.Logger
@@ -88,7 +87,6 @@ func NewServer(options ...ServerOption) *Server {
 		Vocabularies:           settings.Vocabularies,
 		Adults:                 settings.Adults,
 		Students:               settings.Students,
-		Households:             settings.Households,
 		GuardianRelationships:  settings.GuardianRelationships,
 		Verifier:               settings.Verifier,
 		Logger:                 settings.Logger,
@@ -194,11 +192,6 @@ func WithAdults(service handlers.AdultService) ServerOption {
 // WithStudents supplies the student roster service used by CRUD routes.
 func WithStudents(service handlers.StudentService) ServerOption {
 	return func(options *ServerOptions) { options.Students = service }
-}
-
-// WithHouseholds supplies the household, membership, and guardian services.
-func WithHouseholds(service handlers.HouseholdService) ServerOption {
-	return func(options *ServerOptions) { options.Households = service }
 }
 
 // WithGuardianRelationships supplies the relationship service used by guardian routes.
