@@ -21,7 +21,7 @@ function relationship(overrides: Partial<GuardianRelationship> = {}): GuardianRe
 }
 
 describe('guardian relationships', () => {
-  it('edits a typed relationship from a student detail without changing membership', async () => {
+  it('edits a typed relationship from a student detail', async () => {
     vi.spyOn(guardianApi, 'listForStudent').mockResolvedValue([relationship()])
     vi.spyOn(adultApi, 'list').mockResolvedValue([morgan])
     const update = vi.spyOn(guardianApi, 'update').mockResolvedValue(relationship({ relationship_type: 'guardian' }))
@@ -29,7 +29,6 @@ describe('guardian relationships', () => {
     renderWithQueryClient(<MemoryRouter><GuardianRelationships kind="student" schoolYearId="year-1" personId="student-1" /></MemoryRouter>)
 
     expect(await screen.findByRole('link', { name: 'Morgan Lee' })).toBeInTheDocument()
-    expect(screen.getByText(/They are separate from household membership/)).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText('Relationship for Morgan Lee'), { target: { value: 'guardian' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(update).toHaveBeenCalledWith('year-1', 'relationship-1', 'guardian'))
@@ -45,7 +44,10 @@ describe('guardian relationships', () => {
     expect(screen.getByLabelText('Relationship for Riley Stone')).toHaveValue('grandparent')
   })
 
-  it('asks the API for only the selected adult’s relationships', async () => {
+  // SPEC §15.3 and ADR 0013: an adult who is a guardian of nobody is a
+  // legitimate volunteer record, so this is reported plainly and never as the
+  // warning a student with no guardian gets.
+  it('asks the API for only the selected adult’s relationships and does not warn when there are none', async () => {
     const listForAdult = vi.spyOn(guardianApi, 'listForAdult').mockResolvedValue([])
     vi.spyOn(studentApi, 'list').mockResolvedValue([riley])
 
@@ -53,6 +55,26 @@ describe('guardian relationships', () => {
 
     expect(await screen.findByText('No guardian relationships recorded.')).toBeInTheDocument()
     expect(listForAdult).toHaveBeenCalledWith('year-1', 'adult-1')
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(screen.queryByText(/no guardian yet/i)).not.toBeInTheDocument()
+  })
+
+  // SPEC §8.2 requires a warning and SPEC §5.2 forbids a block: nobody can be
+  // reached about this child, and the roster record is still saveable. This is
+  // the only warning of its kind on a person now (ADR 0012).
+  it('warns that a student has no guardian without disabling anything', async () => {
+    vi.spyOn(guardianApi, 'listForStudent').mockResolvedValue([])
+    vi.spyOn(adultApi, 'list').mockResolvedValue([morgan])
+
+    renderWithQueryClient(<MemoryRouter><GuardianRelationships kind="student" schoolYearId="year-1" personId="student-1" /></MemoryRouter>)
+
+    const warning = await screen.findByText('This student has no guardian yet. Nobody can be reached about this child. This is a warning only; you can still save the roster record.')
+    expect(warning).toHaveAttribute('role', 'status')
+    expect(warning).toHaveClass('border-amber-300', 'bg-amber-50', 'text-amber-900')
+
+    // The section still offers the fix rather than refusing the record.
+    fireEvent.change(await screen.findByLabelText('Adult'), { target: { value: 'adult-1' } })
+    expect(screen.getByRole('button', { name: 'Add relationship' })).toBeEnabled()
   })
 
   it('adds a relationship with the create endpoint and removes it by identifier', async () => {

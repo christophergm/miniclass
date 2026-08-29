@@ -9,9 +9,8 @@ import (
 )
 
 const (
-	StudentCount   = 139
-	AdultCount     = 102
-	HouseholdCount = 90
+	StudentCount = 139
+	AdultCount   = 102
 )
 
 // StudentSpec is the deterministic, database-independent shape of one seed
@@ -35,20 +34,6 @@ type AdultSpec struct {
 	ParticipationIntent data.AdultParticipationIntent
 }
 
-type HouseholdSpec struct {
-	DisplayName string
-}
-
-type StudentMembershipSpec struct {
-	StudentIndex   int
-	HouseholdIndex int
-}
-
-type AdultMembershipSpec struct {
-	AdultIndex     int
-	HouseholdIndex int
-}
-
 type GuardianSpec struct {
 	AdultIndex       int
 	StudentIndex     int
@@ -59,24 +44,20 @@ type GuardianSpec struct {
 // names, in relationships so duplicate family names and two-word surnames
 // cannot affect joins.
 type Corpus struct {
-	Grades             []string
-	Homerooms          []string
-	Students           []StudentSpec
-	Adults             []AdultSpec
-	Households         []HouseholdSpec
-	StudentMemberships []StudentMembershipSpec
-	AdultMemberships   []AdultMembershipSpec
-	Guardians          []GuardianSpec
+	Grades    []string
+	Homerooms []string
+	Students  []StudentSpec
+	Adults    []AdultSpec
+	Guardians []GuardianSpec
 }
 
 // Generate returns the same synthetic corpus on every call.
 func Generate() Corpus {
 	corpus := Corpus{
-		Grades:     []string{"1", "2", "3", "4", "5", "6"},
-		Homerooms:  []string{"Red", "Blue", "Green", "Gold", "Purple", "Silver"},
-		Students:   make([]StudentSpec, 0, StudentCount),
-		Adults:     make([]AdultSpec, 0, AdultCount),
-		Households: make([]HouseholdSpec, 0, HouseholdCount),
+		Grades:    []string{"1", "2", "3", "4", "5", "6"},
+		Homerooms: []string{"Red", "Blue", "Green", "Gold", "Purple", "Silver"},
+		Students:  make([]StudentSpec, 0, StudentCount),
+		Adults:    make([]AdultSpec, 0, AdultCount),
 	}
 
 	gradeCounts := [...]int{20, 27, 22, 21, 30, 19}
@@ -129,39 +110,51 @@ func Generate() Corpus {
 		})
 	}
 
-	for index := 0; index < HouseholdCount; index++ {
-		corpus.Households = append(corpus.Households, HouseholdSpec{DisplayName: fmt.Sprintf("Synthetic Household %03d", index+1)})
-		corpus.StudentMemberships = append(corpus.StudentMemberships, StudentMembershipSpec{StudentIndex: index, HouseholdIndex: index})
-		corpus.AdultMemberships = append(corpus.AdultMemberships, AdultMembershipSpec{AdultIndex: index, HouseholdIndex: index})
-	}
-	for index := 90; index < 137; index++ {
-		corpus.StudentMemberships = append(corpus.StudentMemberships, StudentMembershipSpec{StudentIndex: index, HouseholdIndex: index - 90})
-	}
-	corpus.StudentMemberships = append(corpus.StudentMemberships,
-		StudentMembershipSpec{StudentIndex: 0, HouseholdIndex: 1},
-		StudentMembershipSpec{StudentIndex: 1, HouseholdIndex: 2},
-	)
-	for index := 90; index < 100; index++ {
-		corpus.AdultMemberships = append(corpus.AdultMemberships, AdultMembershipSpec{AdultIndex: index, HouseholdIndex: index - 90})
-	}
-	corpus.AdultMemberships = append(corpus.AdultMemberships, AdultMembershipSpec{AdultIndex: 0, HouseholdIndex: 1})
-
+	// The guardian edge is the only family construct (SPEC §8.2), so the shape of
+	// this graph is the only thing that decides what a family looks like in a
+	// development database. Left uniform it would be one adult per child, and
+	// every surface that derives "the students this adult guards" would be
+	// exercised only in the case where the derivation is uninteresting. The bulk
+	// loops below give the ordinary case; the named block after them carries the
+	// shapes Validate refuses to lose.
 	relationshipTypes := [...]data.GuardianRelationshipType{
 		data.GuardianRelationshipParent, data.GuardianRelationshipGuardian,
 		data.GuardianRelationshipGrandparent, data.GuardianRelationshipOther,
 	}
 	for index := 0; index < 100; index++ {
 		corpus.Guardians = append(corpus.Guardians, GuardianSpec{
-			AdultIndex: index, StudentIndex: index % 137, RelationshipType: relationshipTypes[index%len(relationshipTypes)],
+			AdultIndex: index, StudentIndex: index, RelationshipType: relationshipTypes[index%len(relationshipTypes)],
 		})
 	}
+	// Siblings: adults 0 to 36 guard a second child, so the derived scope is a
+	// set rather than a singleton for a good share of the roster.
+	for index := 100; index < 137; index++ {
+		corpus.Guardians = append(corpus.Guardians, GuardianSpec{
+			AdultIndex: index - 100, StudentIndex: index, RelationshipType: relationshipTypes[index%len(relationshipTypes)],
+		})
+	}
+	corpus.Guardians = append(corpus.Guardians,
+		// A separated family. Student 137's two guardians have no other child
+		// between them, so nothing in the data links those two adults — which is
+		// the point: after ADR 0012 nothing can. SPEC §8.2 records that the
+		// reference program ran a whole second survey for these families.
+		GuardianSpec{AdultIndex: 98, StudentIndex: 137, RelationshipType: data.GuardianRelationshipParent},
+		GuardianSpec{AdultIndex: 99, StudentIndex: 137, RelationshipType: data.GuardianRelationshipParent},
+		// An adult across two families. Adult 97 guards students 95 and 96, whose
+		// other guardians are different adults, so this adult's derived scope
+		// spans a boundary a stored grouping would have had to choose one side of.
+		GuardianSpec{AdultIndex: 97, StudentIndex: 95, RelationshipType: data.GuardianRelationshipGrandparent},
+		GuardianSpec{AdultIndex: 97, StudentIndex: 96, RelationshipType: data.GuardianRelationshipGrandparent},
+	)
+	// Student 138 is left with no guardian at all, and adults 100 and 101 with no
+	// student. Both absences are deliberate; see Validate.
 	return corpus
 }
 
 // Validate checks the corpus invariants without requiring PostgreSQL.
 func (c Corpus) Validate() error {
-	if len(c.Grades) != 6 || len(c.Homerooms) != 6 || len(c.Students) != StudentCount || len(c.Adults) != AdultCount || len(c.Households) != HouseholdCount {
-		return fmt.Errorf("corpus dimensions are grades=%d homerooms=%d students=%d adults=%d households=%d", len(c.Grades), len(c.Homerooms), len(c.Students), len(c.Adults), len(c.Households))
+	if len(c.Grades) != 6 || len(c.Homerooms) != 6 || len(c.Students) != StudentCount || len(c.Adults) != AdultCount {
+		return fmt.Errorf("corpus dimensions are grades=%d homerooms=%d students=%d adults=%d", len(c.Grades), len(c.Homerooms), len(c.Students), len(c.Adults))
 	}
 	gradeCounts := make([]int, len(c.Grades))
 	for index, student := range c.Students {
@@ -198,23 +191,96 @@ func (c Corpus) Validate() error {
 	if familyNames["Synthetic Family 01"] < 2 || len(homerooms) != 6 {
 		return fmt.Errorf("student name or homeroom edge cases are missing")
 	}
-	studentMemberships := map[int]int{}
-	for _, membership := range c.StudentMemberships {
-		studentMemberships[membership.StudentIndex]++
+	// The guardian graph is the whole of the family model now, so its deliberate
+	// shapes are invariants rather than incidental data. Each check below is
+	// stated as "some such case exists" rather than by index, so that moving a
+	// case is allowed and losing one is not.
+	guardedStudents := make([]map[int]bool, len(c.Adults))
+	studentGuardians := make([]map[int]bool, len(c.Students))
+	for index, relationship := range c.Guardians {
+		if relationship.AdultIndex < 0 || relationship.AdultIndex >= len(c.Adults) || relationship.StudentIndex < 0 || relationship.StudentIndex >= len(c.Students) {
+			return fmt.Errorf("guardian relationship %d references an unknown adult or student", index)
+		}
+		if guardedStudents[relationship.AdultIndex] == nil {
+			guardedStudents[relationship.AdultIndex] = map[int]bool{}
+		}
+		if studentGuardians[relationship.StudentIndex] == nil {
+			studentGuardians[relationship.StudentIndex] = map[int]bool{}
+		}
+		guardedStudents[relationship.AdultIndex][relationship.StudentIndex] = true
+		studentGuardians[relationship.StudentIndex][relationship.AdultIndex] = true
 	}
-	if studentMemberships[0] < 2 || studentMemberships[1] < 2 || studentMemberships[137] != 0 || studentMemberships[138] != 0 {
-		return fmt.Errorf("student household edge cases are missing")
+	if len(guardedStudents[100]) != 0 || len(guardedStudents[101]) != 0 {
+		return fmt.Errorf("adults 100 and 101 must guard no student: they are the non-guardian volunteers")
 	}
-	adultMemberships := map[int]int{}
-	for _, membership := range c.AdultMemberships {
-		adultMemberships[membership.AdultIndex]++
+	if !hasUnguardedStudent(studentGuardians) {
+		return fmt.Errorf("no student without a guardian: SPEC \u00a78.2's warning has nothing to fire on")
 	}
-	guardianRelationships := map[int]int{}
-	for _, relationship := range c.Guardians {
-		guardianRelationships[relationship.AdultIndex]++
+	if !hasSeparatedFamily(studentGuardians, guardedStudents) {
+		return fmt.Errorf("no student with two guardians who share no other student")
 	}
-	if adultMemberships[0] < 2 || adultMemberships[100] != 0 || adultMemberships[101] != 0 || guardianRelationships[100] != 0 || guardianRelationships[101] != 0 {
-		return fmt.Errorf("adult relationship edge cases are missing")
+	if !hasAdultAcrossFamilies(guardedStudents, studentGuardians) {
+		return fmt.Errorf("no adult guarding co-guarded students that share no other guardian")
 	}
 	return nil
+}
+
+// hasUnguardedStudent reports the case SPEC §8.2 requires a warning for, and
+// never a block. A warning with no data behind it is a warning nobody has seen,
+// so the development corpus carries one on purpose.
+func hasUnguardedStudent(studentGuardians []map[int]bool) bool {
+	for _, guardians := range studentGuardians {
+		if len(guardians) == 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// hasSeparatedFamily reports one student with two guardians who guard no other
+// child in common. Nothing else in the data relates those two adults, because
+// after ADR 0012 there is nothing else that could.
+func hasSeparatedFamily(studentGuardians, guardedStudents []map[int]bool) bool {
+	for student, guardians := range studentGuardians {
+		for left := range guardians {
+			for right := range guardians {
+				if left < right && !sharesOther(guardedStudents[left], guardedStudents[right], student) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// hasAdultAcrossFamilies reports an adult guarding two students that each have
+// another guardian, and not the same other guardian. Requiring both students to
+// be co-guarded is what separates this from a pair of siblings, who share every
+// guardian they have; it is also what keeps the check from passing on a corpus
+// where every child has exactly one adult.
+func hasAdultAcrossFamilies(guardedStudents, studentGuardians []map[int]bool) bool {
+	for adult, students := range guardedStudents {
+		for left := range students {
+			for right := range students {
+				if left >= right || len(studentGuardians[left]) < 2 || len(studentGuardians[right]) < 2 {
+					continue
+				}
+				if !sharesOther(studentGuardians[left], studentGuardians[right], adult) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// sharesOther reports whether two index sets have a member in common other than
+// the one they are already known to share.
+func sharesOther(left, right map[int]bool, except int) bool {
+	for index := range left {
+		if index != except && right[index] {
+			return true
+		}
+	}
+	return false
 }

@@ -12,7 +12,6 @@ import { NotFoundPage } from '@/features/errors/NotFoundPage'
 import { SchoolYearGuard, SchoolYearListPage, SchoolYearWorkspace } from '@/features/school-years/SchoolYearPages'
 import { SettingsPage } from '@/features/settings/SettingsPage'
 import { AdultDetailPage, AdultListPage, StudentDetailPage, StudentListPage } from '@/features/people/PeoplePages'
-import { HouseholdDetailPage, HouseholdListPage } from '@/features/people/HouseholdPages'
 import { AuditLog } from '@/features/audit/AuditLog'
 
 function App() {
@@ -58,14 +57,6 @@ function AppRoutes() {
             <Route path="adults" element={<AdultListPage />} />
             <Route path="adults/new" element={<AdultDetailPage />} />
             <Route path="adults/:personId" element={<AdultDetailPage />} />
-
-            {/* Households scoped to a school year */}
-            {/* The param name is read by HouseholdDetailPage's useParams; a
-                mismatch here makes every household detail URL render the
-                empty "Add household" form instead. */}
-            <Route path="households" element={<HouseholdListPage />} />
-            <Route path="households/new" element={<HouseholdDetailPage />} />
-            <Route path="households/:householdId" element={<HouseholdDetailPage />} />
 
             {/* An unknown address inside a resolved school year reports itself.
                 It used to fall back to the workspace, which renders the year's

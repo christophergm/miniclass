@@ -42,7 +42,6 @@ type Result struct {
 	ExpiresAt        time.Time
 	Students         int
 	Adults           int
-	Households       int
 	// BoundOwner is nil unless Options.OwnerSubject was set.
 	BoundOwner *BoundAccount
 }
@@ -198,24 +197,6 @@ func Load(ctx context.Context, database *data.DB, options Options) (Result, erro
 		adultIDs[index] = string(row.ID)
 	}
 
-	householdIDs := make([]string, len(corpus.Households))
-	for index, spec := range corpus.Households {
-		row, err := factory.CreateHousehold(ctx, year.ID, people.HouseholdCreateInput{DisplayName: spec.DisplayName})
-		if err != nil {
-			return Result{}, fmt.Errorf("seed: create household %d: %w", index+1, err)
-		}
-		householdIDs[index] = string(row.ID)
-	}
-	for index, membership := range corpus.StudentMemberships {
-		if _, err := factory.AddStudentToHousehold(ctx, year.ID, mustXID(householdIDs[membership.HouseholdIndex]), mustXID(studentIDs[membership.StudentIndex])); err != nil {
-			return Result{}, fmt.Errorf("seed: create student membership %d: %w", index+1, err)
-		}
-	}
-	for index, membership := range corpus.AdultMemberships {
-		if _, err := factory.AddAdultToHousehold(ctx, year.ID, mustXID(householdIDs[membership.HouseholdIndex]), mustXID(adultIDs[membership.AdultIndex])); err != nil {
-			return Result{}, fmt.Errorf("seed: create adult membership %d: %w", index+1, err)
-		}
-	}
 	for index, relationship := range corpus.Guardians {
 		if _, err := factory.CreateGuardianRelationship(ctx, year.ID, people.GuardianRelationshipCreateInput{
 			AdultID: mustXID(adultIDs[relationship.AdultIndex]), StudentID: mustXID(studentIDs[relationship.StudentIndex]),
@@ -228,7 +209,7 @@ func Load(ctx context.Context, database *data.DB, options Options) (Result, erro
 	return Result{
 		OrganizationID: string(bootstrap.Organization.ID), OrganizationName: bootstrap.Organization.Name,
 		SchoolYearID: string(year.ID), ClaimURL: bootstrap.ClaimURL, ExpiresAt: bootstrap.Token.ExpiresAt,
-		Students: len(studentIDs), Adults: len(adultIDs), Households: len(householdIDs),
+		Students: len(studentIDs), Adults: len(adultIDs),
 		BoundOwner: boundOwner,
 	}, nil
 }

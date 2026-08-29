@@ -15,11 +15,11 @@ import (
 type AccessTokenPurpose string
 
 const (
-	AccessTokenPurposeAdminInvitation     AccessTokenPurpose = "admin_invitation"
-	AccessTokenPurposeHouseholdSubmission AccessTokenPurpose = "household_submission"
-	AccessTokenPurposeClassLeader         AccessTokenPurpose = "class_leader"
-	AccessTokenPurposeHomeroomTeacher     AccessTokenPurpose = "homeroom_teacher"
-	AccessTokenPurposePublishedArtifact   AccessTokenPurpose = "published_artifact"
+	AccessTokenPurposeAdminInvitation    AccessTokenPurpose = "admin_invitation"
+	AccessTokenPurposeGuardianSubmission AccessTokenPurpose = "guardian_submission"
+	AccessTokenPurposeClassLeader        AccessTokenPurpose = "class_leader"
+	AccessTokenPurposeHomeroomTeacher    AccessTokenPurpose = "homeroom_teacher"
+	AccessTokenPurposePublishedArtifact  AccessTokenPurpose = "published_artifact"
 )
 
 func (e *AccessTokenPurpose) Scan(src interface{}) error {
@@ -344,36 +344,6 @@ type Homeroom struct {
 	OrganizationID ids.XID            `json:"organization_id"`
 	Name           string             `json:"name"`
 	RetiredAt      pgtype.Timestamptz `json:"retired_at"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
-}
-
-type Household struct {
-	ID             ids.XID            `json:"id"`
-	OrganizationID ids.XID            `json:"organization_id"`
-	SchoolYearID   ids.XID            `json:"school_year_id"`
-	DisplayName    string             `json:"display_name"`
-	DeletedAt      pgtype.Timestamptz `json:"deleted_at"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
-}
-
-type HouseholdAdult struct {
-	ID             ids.XID            `json:"id"`
-	OrganizationID ids.XID            `json:"organization_id"`
-	SchoolYearID   ids.XID            `json:"school_year_id"`
-	HouseholdID    ids.XID            `json:"household_id"`
-	AdultID        ids.XID            `json:"adult_id"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
-}
-
-type HouseholdStudent struct {
-	ID             ids.XID            `json:"id"`
-	OrganizationID ids.XID            `json:"organization_id"`
-	SchoolYearID   ids.XID            `json:"school_year_id"`
-	HouseholdID    ids.XID            `json:"household_id"`
-	StudentID      ids.XID            `json:"student_id"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }

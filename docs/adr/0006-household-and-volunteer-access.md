@@ -1,6 +1,6 @@
 # 6. Household and volunteer access mechanics
 
-- **Status:** Open — deliberately carried; resolved at the start of Phase 4
+- **Status:** Superseded by [0012](./0012-remove-the-household-entity.md)
 - **Date:** 2026-08-23
 - **Relates to:** SPEC §13.9 and §24.2, both of which the specification itself leaves open
 - **Related:** [0002](./0002-authentication-and-access-mechanisms.md)

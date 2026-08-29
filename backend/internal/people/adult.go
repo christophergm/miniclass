@@ -1,5 +1,6 @@
-// Package people owns roster person services. Adult identity is independent
-// of household membership so the later access decision remains open.
+// Package people owns roster person services. An Adult is first-class and
+// stands alone: guardian edges hang off it, and no grouping entity owns it
+// (ADR 0012), so the later access decision remains open.
 package people
 
 import (

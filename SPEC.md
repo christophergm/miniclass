@@ -46,7 +46,7 @@ the Google Forms / Sheets / Docs process wrapped around them.
 
 - [6. Personas and Roles](#6-personas-and-roles)
   - [6.1 Program organizer / administrator](#61-program-organizer--administrator)
-  - [6.2 Household guardian](#62-household-guardian)
+  - [6.2 Guardian](#62-guardian)
   - [6.3 Class leader and helper](#63-class-leader-and-helper)
   - [6.4 Homeroom teacher](#64-homeroom-teacher)
   - [6.5 Student](#65-student)
@@ -105,7 +105,7 @@ the Google Forms / Sheets / Docs process wrapped around them.
   - [13.6 Preference surveys](#136-preference-surveys)
   - [13.7 Collection](#137-collection)
   - [13.8 Import of preferences](#138-import-of-preferences)
-  - [13.9 Open: household access mechanics](#139-open-household-access-mechanics)
+  - [13.9 Open: guardian access mechanics](#139-open-guardian-access-mechanics)
 - [14. Catalog, Sessions and Lifecycle](#14-catalog-sessions-and-lifecycle)
   - [14.1 Session definition](#141-session-definition)
   - [14.2 Catalog authoring](#142-catalog-authoring)
@@ -151,7 +151,7 @@ the Google Forms / Sheets / Docs process wrapped around them.
   - [18.3 Class list](#183-class-list)
   - [18.4 Homeroom dismissal list](#184-homeroom-dismissal-list)
   - [18.5 Sensitive content exclusion](#185-sensitive-content-exclusion)
-  - [18.6 Household placement view](#186-household-placement-view)
+  - [18.6 Guardian placement view](#186-guardian-placement-view)
   - [18.7 Course guide](#187-course-guide)
   - [18.8 Link lifecycle](#188-link-lifecycle)
 - [19. Reporting and Quality](#19-reporting-and-quality)
@@ -188,7 +188,7 @@ the Google Forms / Sheets / Docs process wrapped around them.
   - [23.2 Deprecated and colliding terms](#232-deprecated-and-colliding-terms)
 - [24. Deferred Items and Open Questions](#24-deferred-items-and-open-questions)
   - [24.1 Deferred to a later release](#241-deferred-to-a-later-release)
-  - [24.2 Open: household access mechanics](#242-open-household-access-mechanics)
+  - [24.2 Open: guardian access mechanics](#242-open-guardian-access-mechanics)
   - [24.3 Open: student direct access](#243-open-student-direct-access)
   - [24.4 Known limitation carried forward](#244-known-limitation-carried-forward)
   - [24.5 Questions for the program organizers](#245-questions-for-the-program-organizers)
@@ -539,15 +539,19 @@ recruiting and is the named contact for co-placement requests. The system MUST t
 multiple administrators per organization, and SHOULD support distinguishing their permissions
 (§6.6). `[New]` — neither predecessor had authentication of any kind.
 
-### 6.2 Household guardian
+### 6.2 Guardian
 
-A parent or guardian acting for one or more students. Submits preference information, declares their
-own participation intent and availability, and views their children's placements. Authenticates by
-magic link (§9.3); no password, no account creation.
+An adult with a recorded relationship to one or more students (§8.2). Submits preference information,
+declares their own participation intent and availability, and views their students' placements.
+Authenticates by magic link (§9.3); no password, no account creation.
 
-The authenticated household view shows **household information only** — the household's own students,
-their preferences, their placements, and the household adults' own participation details. It MUST
-NOT show class rosters, other households' data, or any program-wide view.
+The authenticated guardian view shows **that adult's own information only** — the students they are a
+guardian of, those students' preferences and placements, and the adult's own participation details.
+It MUST NOT show class rosters, another adult's students, or any program-wide view.
+
+Scope is derived from the guardian relationships in force at the moment of the request, not from any
+stored grouping (§8.2). Two guardians of the same student therefore each see that student,
+independently, and neither is shown the other.
 
 ### 6.3 Class leader and helper
 
@@ -556,19 +560,19 @@ meets, and their co-leaders' contact details.
 
 Access is by shared link only (§18.3), never through an account.
 
-**The two personas do not merge.** `[New]` A class leader is very often also a household guardian —
-in the reference program that is the normal case, since leaders are recruited from among the
-parents. The system MUST keep the two access paths separate regardless:
+**The two personas do not merge.** `[New]` A class leader is very often also a guardian — in the
+reference program that is the normal case, since leaders are recruited from among the parents. The
+system MUST keep the two access paths separate regardless:
 
-- The household view shows household information only, even when the authenticated adult leads a
-  class.
+- The guardian view shows that adult's own information only, even when the authenticated adult leads
+  a class.
 - Class information reaches that same person through the class link, exactly as it reaches a leader
   who has no children in the program.
 
 This is deliberate. Merging the two would mean the contents of an authenticated view varied by the
 viewer's unrelated volunteer role, which complicates the permission model, complicates the interface,
-and creates a second path by which roster data can reach a household session. Keeping them separate
-means the household view has exactly one shape.
+and creates a second path by which roster data can reach a guardian session. Keeping them separate
+means the guardian view has exactly one shape.
 
 ### 6.4 Homeroom teacher
 
@@ -578,12 +582,12 @@ goes where. Six people in the reference program, using it weekly for two minutes
 ### 6.5 Student
 
 The subject of every placement and the author of the preferences that drive it, but not a system
-user in v1. Preference submission is mediated by the household, matching current practice — the
-survey addresses children directly while a parent operates the keyboard.
+user in v1. Preference submission is mediated by a guardian, matching current practice — the survey
+addresses children directly while a parent operates the keyboard.
 
 Direct student access is deferred (§4.3) but anticipated: §13 requires that a preference record
-identify the student it describes rather than the household that submitted it, so that opening a
-direct channel later is an access change and not a data-model change.
+identify the student it describes rather than the adult who submitted it, so that opening a direct
+channel later is an access change and not a data-model change.
 
 ### 6.6 Role and permission model
 
@@ -594,7 +598,7 @@ The system MUST implement at least the following roles.
 | `Owner` | Organization | Account |
 | `Administrator` | Organization | Account |
 | `Coordinator` | Organization | Account |
-| `Household` | Own household | Magic link |
+| `Guardian` | Own students | Magic link |
 | `Class leader` | Own offerings | Tokenized link |
 | `Homeroom teacher` | Own homeroom | Tokenized link |
 
@@ -623,13 +627,13 @@ Seven capabilities, of which the first two are annual and the rest repeat every 
 
 | Capability | Cadence | Section |
 |---|---|---|
-| **Roster** — load and maintain students, adults, households | Annual | §11 |
+| **Roster** — load and maintain students, adults and guardian relationships | Annual | §11 |
 | **Preferences** — standing interest profiles | Annual, refreshable | §13 |
 | **Catalog** — author the offerings for a session | Per session | §14 |
 | **Preferences** — ranked choices over the published catalog | Per session, optional | §13 |
 | **Staffing** — assign volunteers, collect availability and confirmations | Per session | §15 |
 | **Assignment** — solve, review, override, re-solve | Per session | §17 |
-| **Publishing** — share links, household views | Per session | §18 |
+| **Publishing** — share links, guardian views | Per session | §18 |
 | **Reporting** — quality, demand, participation | Continuous | §19 |
 
 ### 7.2 The session as the unit of work
@@ -668,7 +672,7 @@ decided what.
 
 ```mermaid
 flowchart TD
-    IMP[Roster import] --> SY[School year: students, adults, households]
+    IMP[Roster import] --> SY[School year: students, adults, guardians]
     SY --> PM[Program membership]
     PM --> IP[Interest profiles]
     PM --> CAT[Session catalog]
@@ -684,7 +688,7 @@ flowchart TD
     REVIEW --> PUB[Publish]
     PUB --> CL[Class list link]
     PUB --> DL[Dismissal list link]
-    PUB --> HV[Household view]
+    PUB --> HV[Guardian view]
     PUB --> HIST
     STF --> DRAFT
     DRAFT --> QR[Quality dashboard]
@@ -697,7 +701,7 @@ flowchart TD
 ```
 Organization                       tenant boundary
   School Year                      people are loaded here, fresh, each year
-    Student, Adult, Household
+    Student, Adult, Guardian Relationship
     Program                        a subset of the year's students
       Interest Area vocabulary
       Interest Profile
@@ -727,7 +731,7 @@ case.
 
 ### 8.2 People
 
-Three entities, all scoped to a school year.
+Two entities and one relationship, all scoped to a school year.
 
 **Student** `[Built]`
 
@@ -756,16 +760,24 @@ An adult may be a guardian, a class leader, both, or neither. The predecessor co
 "teacher" in its planning module; this specification does not — the role is a property of what the
 person is assigned to do, not of the person.
 
-**Household** `[Built]` — a grouping of adults and students used for preference submission scope,
-magic-link addressing, and sibling reasoning.
-
-A student MAY belong to more than one household. This is not an edge case: the reference program ran
-a separate second-household survey specifically to serve separated families, and the wide import
-format's inability to express it is a documented limitation (§11.4).
-
 **Guardian relationship** `[Built]` — links an adult to a student with a relationship type (parent,
-guardian, grandparent, other). Distinct from household membership, because the two do not always
-coincide.
+guardian, grandparent, other). It is the only construct relating an adult to a student, and every
+family-shaped question in this specification is answered through it.
+
+A student MAY have more than one guardian, and those guardians need not live together or have any
+recorded relationship to one another. This is not an edge case: the reference program ran a separate
+second-household survey specifically to serve separated families.
+
+There is deliberately **no entity grouping adults and students into a family or a household**. An
+earlier draft of this specification modelled one; it was removed because no source of data
+establishes it. The surveys and directory exports the program actually holds state which children an
+adult is responsible for — which is the guardian edge — and never which adults belong together.
+Anything the system needs about a family is therefore **derived** at read time from the guardian
+edges, most often as *the students an adult is a guardian of*, and is never stored (§23.2).
+
+A participating student with no guardian relationship MUST produce a warning rather than an error.
+Nobody can be reached about that child, which is worth surfacing prominently and is never a reason to
+refuse the roster (§5.2).
 
 ### 8.3 Program membership and session participation
 
@@ -858,9 +870,9 @@ depends on it.
 
 Cross-year identity is deliberately weak (§5.6). A prior-year record is immutable history, not a
 live record to be kept in agreement, so the link imposes no synchronization burden: a name change, a
-household restructuring or a correction in the new year does not propagate backwards and does not
-need to. What the link buys is the ability to ask, later, how a child fared across several years —
-and nothing more.
+change of guardian or a correction in the new year does not propagate backwards and does not need
+to. What the link buys is the ability to ask, later, how a child fared across several years — and
+nothing more.
 
 ### 8.8 Entity relationship diagram
 
@@ -869,10 +881,7 @@ erDiagram
     ORGANIZATION ||--o{ SCHOOL_YEAR : contains
     SCHOOL_YEAR ||--o{ STUDENT : enrolls
     SCHOOL_YEAR ||--o{ ADULT : registers
-    SCHOOL_YEAR ||--o{ HOUSEHOLD : contains
     SCHOOL_YEAR ||--o{ PROGRAM : runs
-    HOUSEHOLD ||--o{ STUDENT : includes
-    HOUSEHOLD ||--o{ ADULT : includes
     ADULT ||--o{ GUARDIAN_RELATIONSHIP : has
     STUDENT ||--o{ GUARDIAN_RELATIONSHIP : has
     STUDENT ||--o| STUDENT : prior_year_link
@@ -944,16 +953,17 @@ Four mechanisms, deliberately unequal.
 | Principal | Mechanism | Lifetime |
 |---|---|---|
 | Owner, Administrator, Coordinator | Account with credential | Session-based, renewable |
-| Household guardian | Emailed magic link | Scoped to a submission window |
+| Guardian | Emailed magic link | Scoped to a submission window |
 | Class leader, Homeroom teacher | Tokenized link | Scoped to a session |
 | Public reader | Unauthenticated share link | Scoped to a session, expiring (§9.5) |
 
 Only administrators have passwords. This is a requirement, not an accident of scope: the population
-is ~90 households and ~60 volunteers who use the system a handful of times a year, and account
-management for that population would cost more in support than it returns in security.
+is ~100 parents and volunteers who use the system a handful of times a year, and account management
+for that population would cost more in support than it returns in security.
 
-A magic link MUST be single-purpose and scoped to the household it was issued to. It MUST NOT grant
-access to any other household's data, and MUST NOT be reusable after its window closes.
+A magic link MUST be single-purpose and scoped to the adult it was issued to. It MUST NOT grant
+access to any other adult's data, MUST NOT reach a student that adult is not a guardian of, and MUST
+NOT be reusable after its window closes.
 
 ### 9.4 Authorization
 
@@ -1183,7 +1193,7 @@ The system MUST support both:
 
 - **Structured import** `[Built]` for bulk loading, at the start of a year and repeatedly as
   families arrive.
-- **Manual creation and editing** `[Built]` of every person, household and relationship.
+- **Manual creation and editing** `[Built]` of every person and relationship.
 
 Both are required. Import alone fails the routine case of one family joining in November; manual
 entry alone fails the annual load of ~140 students and ~60 adults.
@@ -1213,8 +1223,8 @@ Three record types:
 
 | Record | Contents |
 |---|---|
-| Student | Names, grade, homeroom, optional external identifier, optional household key |
-| Adult | Names, email, phone, optional external identifier, optional household key |
+| Student | Names, grade, homeroom, optional external identifier |
+| Adult | Names, email, phone, optional external identifier |
 | Guardian relationship | Adult reference, student reference, relationship type |
 
 Separate records per type is the documented format. `[New]`
@@ -1223,11 +1233,17 @@ A **wide format** — one row per adult, with several students named inline — 
 because it is the natural shape of a household survey export and is what the reference program
 already produces. `[Built]`
 
-The wide format has a known limitation that the documented format does not: it cannot express a
-student with guardians in two households. This is not hypothetical — the reference program ran a
-separate second-household survey precisely for separated families. Implementations MUST NOT treat
-the wide format as fully expressive, and the preview MUST make clear when a wide import would
-replace rather than augment an existing relationship set.
+**A wide row's authority is the adult it describes, not the students it names.** Importing one MUST
+set exactly that adult's guardian relationships, and MUST NOT add, alter or remove a relationship
+belonging to any other adult. Two adults' rows therefore compose into a student with two guardians,
+and a guardian genuinely dropped from a re-export is genuinely removed.
+
+This rule is load-bearing. The reference program ran a separate second-household survey precisely for
+separated families, and an import that treated one adult's row as authoritative for a student's whole
+set of guardians would delete the other parent — silently, and exactly for the families least able to
+absorb it. Correspondingly, the §11.5 preview MUST list the guardian relationships an import would
+**remove**, not only those it would add: a partial re-export that omits a child by accident is
+otherwise indistinguishable from one that omits them deliberately.
 
 ### 11.5 Two-phase import
 
@@ -1588,8 +1604,8 @@ Requirements:
 - Collection MUST be scoped by a submission window with an opening and closing time. For ranked
   choices this is governed by the session lifecycle (§14.3).
 - The system MUST be able to report, at any time, which students have not responded (§19.5).
-- A household MAY submit for all of its students in one sitting; the resulting records are
-  per-student (§6.5).
+- An adult MAY submit for every student they are a guardian of in one sitting; the resulting records
+  are per-student (§6.5).
 - Re-submission before the window closes MUST be permitted and MUST supersede per §13.2.
 
 Binding to a student at creation is what deletes the entire identity-reconciliation stage described
@@ -1608,16 +1624,16 @@ responses collected on paper.
 Imported preference rows are matched to students by the rules in §11.6. Unmatched rows MUST be
 reported for resolution and MUST NOT be discarded silently.
 
-### 13.9 Open: household access mechanics
+### 13.9 Open: guardian access mechanics
 
-The mechanics of household authentication are flagged as needing refinement and are not fully
-specified here (§24.2). Open points include: link delivery and renewal; whether a link addresses a
-household or an individual adult; how an adult belonging to two households is handled; and how a
-volunteer who is not a guardian obtains access in order to declare availability (§15.3).
+The mechanics of guardian authentication are flagged as needing refinement and are not fully
+specified here (§24.2). The open points are: link delivery and renewal; how a volunteer who is not a
+guardian obtains access in order to declare availability (§15.3); and what happens when an adult has
+no email address on file.
 
-What is settled: authentication is by emailed link rather than password (§9.3), the authenticated
-view shows household information only (§6.2), and preference records are per-student regardless of
-who submits them.
+What is settled: authentication is by emailed link rather than password (§9.3); a link addresses an
+individual adult and its scope is the students that adult is a guardian of (§6.2, §8.2); and
+preference records are per-student regardless of who submits them.
 
 ## 14. Catalog, Sessions and Lifecycle
 
@@ -1687,7 +1703,7 @@ catalog to assignment.
 | `VotingOpen` | Editable, warns | Accepted | — | Course guide and voting |
 | `VotingClosed` | Editable, warns | Closed | — | Course guide |
 | `Assigning` | Editable, warns | Closed | Draft | Course guide |
-| `Published` | Editable, warns | Closed | Published snapshot | Class list, dismissal list, household views |
+| `Published` | Editable, warns | Closed | Published snapshot | Class list, dismissal list, guardian views |
 | `Complete` | Read-only | Read-only | Read-only | Published artifacts until link expiry |
 
 Notes:
@@ -1787,8 +1803,9 @@ reference survey asks every parent about each individual Friday; the pipeline ha
 the answers were discarded and the information was reconstructed later as free text attached to
 staffing rows — `NOT MARCH 6`, `(12/5 only)`, `(not 12/12)`.
 
-An adult who is not a household guardian — an external instructor, for instance — MUST still be able
-to record availability. The access mechanism for this is part of the open question in §13.9.
+An adult who is a guardian of no student — an external instructor, for instance — MUST still be able
+to record availability. No guardian-scoped mechanism reaches them, which is what makes this the
+hardest of the open points in §13.9.
 
 ### 15.4 Staffing assignments
 
@@ -2401,13 +2418,14 @@ person leading the class — the same gap as the current process. The difference
 information is now captured and structured rather than discarded, so closing the gap becomes a
 display change (§24.4).
 
-### 18.6 Household placement view
+### 18.6 Guardian placement view
 
-`[New]` Authenticated, not published. Shows a household's own students and, for each: their
-placement, the offering's description, where and when it meets, and who is leading it.
+`[New]` Authenticated, not published. Shows the students the authenticated adult is a guardian of
+and, for each: their placement, the offering's description, where and when it meets, and who is
+leading it.
 
-This replaces scanning a whole-program class list to find one child, and it is the household's
-landing page after following their magic link. It shows household information only (§6.2).
+This replaces scanning a whole-program class list to find one child, and it is the adult's landing
+page after following their magic link. It shows that adult's own information only (§6.2).
 
 ### 18.7 Course guide
 
@@ -2501,8 +2519,18 @@ what to create.
 ### 19.5 Response tracking
 
 At any time, the system MUST be able to report which participating students have not submitted — a
-response to a given survey (§13.6), or ranked choices for an open session — grouped by household so
-that a single follow-up covers a family.
+response to a given survey (§13.6), or ranked choices for an open session — grouped by guardian, so
+that a single follow-up covers every child that adult is responsible for.
+
+Because the grouping is by guardian rather than by any stored family (§8.2), the report is **not a
+partition** of the student set: a student with two guardians appears under both. That is correct for
+its purpose — either adult can answer and both are worth asking — but it means a total taken over the
+report double-counts such students, and any count of non-responders MUST be taken over students
+rather than over report rows.
+
+A participating student with no guardian at all MUST appear in this report as unreachable rather than
+be omitted from it. They are the case that most needs an organizer's attention, and the one a
+guardian-grouped report would otherwise hide.
 
 This report is also the basis for targeting a follow-up survey at non-responders (§13.6.2).
 
@@ -2642,7 +2670,7 @@ rather than be discovered during a review.
 | Legal and preferred names | Students, adults |
 | Grade, homeroom | Students |
 | Email, phone | Adults |
-| Household composition and guardian relationships | Both |
+| Guardian relationships | Both |
 | Tags and tag notes | Students, adults |
 | Comments | Students, adults |
 | Stated preferences | Students |
@@ -2703,7 +2731,7 @@ Every way personal data leaves the administrative interface, and its control:
 | Surface | Control |
 |---|---|
 | Public share links | Session-scoped, expiring, revocable; content restricted by §18.5 |
-| Household view | Authenticated; own household only (§6.2) |
+| Guardian view | Authenticated; own students only (§6.2) |
 | Class leader view | Tokenized; own offerings only |
 | Print views | Inherit the sensitivity rules of their source surface |
 | Exports and reports | Administrator-only; MUST respect sensitivity levels |
@@ -2735,7 +2763,6 @@ engineering error here is building for a scale that will never arrive.
 | Dimension | Expected | Design headroom |
 |---|---|---|
 | Students | ~140 | 1,000 |
-| Households | ~90 | 700 |
 | Adults | ~60 | 1,000 |
 | Programs | 1–2 | 10 |
 | Sessions per program | 8 | 40 |
@@ -2743,7 +2770,7 @@ engineering error here is building for a scale that will never arrive.
 | Concurrent administrators | 1, occasionally 2 | 10 |
 
 **Concurrency.** Administrative work is effectively single-user. The genuine concurrency peaks are
-elsewhere and are read-only: households submitting preferences in the days before a deadline, and
+elsewhere and are read-only: guardians submitting preferences in the days before a deadline, and
 published links being opened at the start of a session.
 
 **Total data volume** for a tenant-year is measured in tens of thousands of rows. An implementation
@@ -2787,7 +2814,7 @@ cannot be regenerated. Backups MUST exist and restoration MUST be tested.
 
 - Interfaces SHOULD meet a recognized accessibility standard; the specific level is
   `Implementation-defined`.
-- Household preference submission MUST be usable on a phone. It is the surface used by the largest
+- Guardian preference submission MUST be usable on a phone. It is the surface used by the largest
   and least technical population, often once a year.
 - The class list and dismissal list MUST be print-friendly via stylesheet (§18.3, §18.4). Generating
   downloadable documents is not required.
@@ -2841,8 +2868,7 @@ these questions are currently unanswerable even in principle (§3.3).
 | **Warning** | A visible, non-blocking indication that a soft rule is unmet or a hard rule was overridden (§16.5) |
 | **Solve run** | An immutable record of one execution of the assignment engine (§20.2) |
 | **Share link** | An unauthenticated, session-scoped, expiring URL serving a published artifact (§9.5) |
-| **Household** | A grouping of adults and students, used for submission scope and access (§8.2) |
-| **Guardian** | An adult with a recorded relationship to a student (§8.2) |
+| **Guardian** | An adult with a recorded relationship to a student; the unit of submission scope and magic-link addressing (§8.2) |
 | **Class leader** | An adult assigned to run an offering (§15.4) |
 | **Homeroom** | A student's base class group in the school; the axis of the dismissal list (§10.1) |
 | **Participation** | Whether a student takes part in a program, and in a given session (§8.3) |
@@ -2850,7 +2876,8 @@ these questions are currently unanswerable even in principle (§3.3).
 ### 23.2 Deprecated and colliding terms
 
 The predecessor vocabulary is ambiguous in ways that caused real confusion, including a renaming
-episode visible in its own commit history. This document avoids the following terms.
+episode visible in its own commit history. This document avoids the following terms. The last entry
+is this specification's own rather than the predecessor's, and is retired for a different reason.
 
 | Avoided term | What it meant | Use instead |
 |---|---|---|
@@ -2863,6 +2890,15 @@ episode visible in its own commit history. This document avoids the following te
 | **Stream** | A vertical cohort at the reference school | A **tag**; it has no special semantics (§10.1) |
 | **Fallback** | A synthetic catch-all class absorbing unplaceable students | No equivalent; see **unplaced** (§17.13) |
 | **Skip** | A flat list of names excluded from a run | **Session non-participation** (§8.3) |
+| **Household** | A grouping of adults and students; modelled in an earlier draft of *this* document as the unit of submission scope and access | No equivalent. Use the **guardian relationship**, or the derived phrase *the students an adult is a guardian of* (§8.2) |
+
+`Household` is listed because a reader who knows this domain will expect the entity and be surprised
+by its absence. It was removed once it became clear that nothing available establishes the grouping:
+the surveys and directory exports state which children an adult is responsible for, never which
+adults belong together, so the entity could only ever have been populated by hand or by inference —
+and inferring it from shared surnames or addresses gets separated families wrong, which is precisely
+the population it existed to serve. Reintroducing it is the most likely way to reacquire a problem
+this specification has already solved.
 
 ## 24. Deferred Items and Open Questions
 
@@ -2872,7 +2908,7 @@ episode visible in its own commit history. This document avoids the following te
 |---|---|---|
 | **Notifications** of any kind | Requires delivery infrastructure and consent handling; the school already has a push channel | Organizers distribute links manually, as today |
 | **Change tracking** against a published baseline | §18.2 provides a last-updated timestamp, which covers the common need | A reader cannot see *what* changed since they last looked |
-| **Direct student access** to preference submission | §24.3 | Preferences remain household-mediated |
+| **Direct student access** to preference submission | §24.3 | Preferences remain guardian-mediated |
 | **Volunteer-to-class optimization** | Rejected on merit, not deferred (§15.6) | None |
 | **Cross-year identity resolution and rollover** | Rejected on merit (§5.6); the nullable link (§8.7) preserves the option | Multi-year analysis requires links to have been set |
 | **Sensitive information reaching class leaders** | §24.4 | The information is captured but unused |
@@ -2880,20 +2916,26 @@ episode visible in its own commit history. This document avoids the following te
 | **Full temporal versioning** | §20.5 | Routine roster and catalog edits are summarized, not reconstructable |
 | **Fully generalized student attributes** | §10.1; promotion path is non-breaking | Programs that are not grade-structured are unsupported |
 
-### 24.2 Open: household access mechanics
+### 24.2 Open: guardian access mechanics
 
-Authentication by emailed magic link is settled (§9.3), as is the household-only scope of the
-authenticated view (§6.2). The mechanics are not.
+Authentication by emailed magic link is settled (§9.3). So is the addressing: a link identifies an
+**individual adult**, and its scope is the students that adult is a guardian of (§6.2, §8.2).
+Removing the household entity settled that by elimination — there is no grouping left for a link to
+address — and it likewise disposed of the question of an adult belonging to two households, which is
+now simply an adult with guardian relationships to students who share no other guardian.
 
-Unresolved:
+Three points remain unresolved:
 
-- Does a link address a **household** or an **individual adult**? The former is simpler; the latter
-  is needed to attribute submissions and to hold per-adult availability.
-- How is an adult belonging to **two households** handled?
 - How are links **delivered and renewed** — on request, on a schedule, or per submission window?
 - How does a **volunteer who is not a guardian** obtain access in order to record availability and
-  confirmations (§15.3)? They have no household.
-- What happens when a household has **no email address** on file?
+  confirmations (§15.3)? They are a guardian of nobody, so no guardian-scoped mechanism reaches them.
+  This was the most constraining of these questions before the household entity was removed, and it
+  is more so now: it is the only structural one left.
+- What happens when an adult has **no email address** on file?
+
+One cost is carried knowingly. An adult-addressed link asserts *identity*, and an emailed bearer
+token is thin evidence of identity. While the addressing was still a choice this was an argument
+against it; it is now simply a property of the design.
 
 ### 24.3 Open: student direct access
 
@@ -2902,8 +2944,8 @@ surveys: no login accounts, scoped magic links / QR codes / short access codes."
 
 The two positions need reconciling before implementation. This specification's requirement is
 narrower and compatible with either outcome: a preference record identifies the **student** it
-describes, not the household that submitted it (§6.5, §13.7), so opening a direct channel later is
-an access change rather than a data-model change.
+describes, not the adult who submitted it (§6.5, §13.7), so opening a direct channel later is an
+access change rather than a data-model change.
 
 What is genuinely open is whether v1 ships that channel. Arguments for doing so: the survey already
 addresses children directly, and classroom-administered QR codes would raise response rates among
@@ -2938,7 +2980,7 @@ be checked before or during implementation.
 | 5 | Is minimum viable enrollment a real operational concern, or is capacity alone sufficient? | Real, but low-weight (§8.4) |
 | 6 | Must every student have a homeroom? The dismissal list pivots on it. | Yes, required (§10.1) |
 | 7 | Can an offering meet on only some of a session's dates? | No; per-date variation is a staffing matter (§8.4) |
-| 8 | How common are students with guardians in two households? | Common enough to require support (§8.2) |
+| 8 | How common are students whose guardians do not live together, and should either guardian be able to see what the other submitted? | Common enough that several guardians per student is the normal shape rather than an edge case; each guardian sees the student independently and is not shown the other (§6.2, §8.2) |
 | 9 | Is the `Coordinator` role the right permission split, or is it drawn in the wrong place? | Publishing and deletion withheld (§6.6) |
 | 10 | Should a share link expire at session end, or outlive it? | Session end (§9.5) |
 | 11 | Should ranked-choice depth vary by session, or be fixed for a program? | Per session (§14.1) |
@@ -3065,7 +3107,7 @@ The source of the provenance markers used throughout this document.
 | Per-date confirmation | Full UI, unused | — | `[Designed]` |
 | Class list and dismissal list | — | Full | `[Built]` |
 | Publish lifecycle and share links | — | Manual upload | `[New]` |
-| Household placement view | — | — | `[New]` |
+| Guardian placement view | — | — | `[New]` |
 | Quality metrics and dashboard | — | — | `[New]` |
 | Demand analysis | — | — | `[New]` |
 | Audit log, solve runs, comments | — | Note columns | `[New]` |

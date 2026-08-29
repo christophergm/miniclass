@@ -82,11 +82,31 @@ rather than left implicit in the task list:
 | D8 | Administrator sessions and provider | **Stay with Supabase**; local JWKS verification behind an interface with a test issuer, bearer tokens in the browser, invitation-based provisioning. Clerk evaluated and rejected. | [0009](./docs/adr/0009-administrator-sessions-and-identity-provider.md) |
 | D9 | Schema and generated-code conventions | UUIDv7 keys, closed sets single-sourced, timestamped migrations, and a fixed set of committed generated artifacts that are never hand-merged. | [0010](./docs/adr/0010-schema-generated-code-and-migration-conventions.md) |
 
+One further decision postdates Phase 1. It is listed separately rather than folded into the table
+above, because that table records what decomposition revealed and this one records what shipping
+revealed — the roster work established that no source for household data exists:
+
+| ID | Decision | Resolution | ADR |
+|---|---|---|---|
+| D10 | Household as a domain entity | **Household removed from the domain model.** The guardian relationship is the sole family construct; scope is derived, not stored. | [0012](./docs/adr/0012-remove-the-household-entity.md) |
+
+The historical wide survey format is one row per adult with their children named inline, so the
+adult→student edge is sourced and the adult→adult grouping into a household never was. There is no
+replacement entity and renaming to `Family` was rejected: a name for an inference does not make it
+sourced. ADR 0012 supersedes [0006](./docs/adr/0006-household-and-volunteer-access.md), whose
+unresolved questions carry forward into 0013 untouched.
+
+D10 postdates Phase 1, so it is retrofit rather than plan: Phase 1 shipped the three household
+tables and they have to come back out. That lands as a **new timestamped migration** whose `Down`
+recreates them exactly — never as an edit to the merged one — together with the API, frontend and
+seed surfaces built on top of them. The Phase 1 bullets below describe the model as it stands after
+that removal, not as it was first built.
+
 One spec-level question is carried deliberately unresolved:
 
 | ID | Question | Handling | ADR |
 |---|---|---|---|
-| D5 | Household and volunteer access mechanics (SPEC §13.9, §24.2) | **Carried open.** Decided at the start of Phase 4. Phase 1 must not foreclose either option. | [0006](./docs/adr/0006-household-and-volunteer-access.md) |
+| D5 | Guardian and volunteer access mechanics (SPEC §13.9, §24.2) | **Carried open.** Decided at the start of Phase 4. Adult-addressed links are settled by D10 and no longer a fork; what remains open is how a non-guardian volunteer obtains access, delivery and renewal cadence, and what happens to an adult with no email on file. | [0013](./docs/adr/0013-guardian-and-volunteer-access.md) |
 
 ---
 
@@ -110,7 +130,7 @@ graph TD
     P0["Phase 0<br/>Decisions and Platform"] --> P1["Phase 1<br/>Tenancy, Identity, People, Audit"]
     P1 --> P2["Phase 2<br/>Ingest Engine"]
     P2 --> P3["Phase 3<br/>Programs, Catalog, Sessions"]
-    P3 --> P4["Phase 4<br/>Preferences and Household Access"]
+    P3 --> P4["Phase 4<br/>Preferences and Guardian Access"]
     P4 --> P5["Phase 5<br/>Engine v0"]
     P5 --> P6["Phase 6<br/>Publishing and Artifacts"]
     P6 --> R1{{"R1 — Usable"}}
@@ -172,7 +192,9 @@ green. Before the domain model arrives, the gate must be real.
 - Every CI check is enumerated in `detent.yaml` and blocks the Detent gate.
 - A deliberately broken `gofmt`, `sqlc` drift, or down-migration fails CI — demonstrated once, with
   recorded evidence.
-- ADRs 0001–0005 and 0007–0010 are accepted; 0006 is recorded as open.
+- ADRs 0001–0005 and 0007–0010 are accepted, and the phase's one deliberately open question is
+  written down as an ADR rather than left implicit in a task list — 0006 when the phase closed, 0013
+  now that 0012 has superseded it.
 - The repository contains no document that describes the project as "scaffolding, implementation
   needed", and no screen that displays invented data.
 
@@ -189,8 +211,9 @@ cheap.
 
 **Feature track**
 
-- Organisation → School Year → Student / Adult / Household / GuardianRelationship, with row-level
-  `organization_id` on every entity below Organisation.
+- Organisation → School Year → Student / Adult / GuardianRelationship, with row-level
+  `organization_id` on every entity below Organisation. (Household was originally built here and is
+  removed by D10.)
 - The tenancy guard: central and **default-deny**. A query issued without tenant context must
   **fail**, not return unscoped rows. Applies to reads, writes, aggregates and reports.
 - Administrator authentication (Supabase Auth per ADRs 0002 and 0009) with invitation-based
@@ -199,8 +222,8 @@ cheap.
   requests return **not-found, not forbidden** (§9.4).
 - Append-only audit log, written inside the mutating transaction. A read-write transaction that
   records no entry does not commit.
-- Manual CRUD for every person, household and relationship — §11.2 requires this independently of
-  import, and it is how the roster is corrected all year.
+- Manual CRUD for every person and every guardian relationship — §11.2 requires this independently
+  of import, and it is how the roster is corrected all year.
 - **Grade and homeroom vocabularies** (§10.1), moved here from Phase 2. A roster cannot be built by
   hand without them, and text columns would admit precisely the defect §10.1 forbids — ordering taken
   from the string, so grade `10` sorts before grade `9`. Homerooms are retirable rather than
@@ -213,8 +236,11 @@ cheap.
 
 **Things that are easy to get wrong here**
 
-- A student **may belong to more than one household** (§8.2). Separated families are explicitly not
-  an edge case, and the wide import format in Phase 2 cannot express them.
+- A student **may have more than one guardian** (§8.2). Separated families are explicitly not an
+  edge case; the wide import format in Phase 2 expresses them as two adults' rows, because each row
+  carries the authority of its own adult only. There is no entity above the relationship: the set of
+  students an adult can act for is derived from their guardian edges at read time, never stored
+  (D10).
 - Adult *role* is a property of assignment, not of the person (§8.2).
 - Preferred given name is displayed in preference to legal name **everywhere** (§8.2).
 - Identifiers are opaque and system-generated; **names are never keys** (§8.7). The predecessor
@@ -235,10 +261,11 @@ cheap.
 - Test data factories. Tests isolate by **organisation, not by schema**, which is faster,
   parallel-safe, and dogfoods the guard.
 - A seed corpus sized from SPEC Appendix B.1: 139 students in the recorded grade distribution
-  (20/27/22/21/30/19), six homerooms, ~90 households, ~100 adults with the recorded participation
-  split, generated deterministically with synthetic names. It deliberately includes the awkward cases
-  the schema can hold — students in two households, students in none, adults in two households, and a
-  two-word surname, which is the shape that silently cost the predecessor a session (A.5 defects 4–5).
+  (20/27/22/21/30/19), six homerooms, ~100 adults with the recorded participation split, generated
+  deterministically with synthetic names. It deliberately includes the awkward cases the schema can
+  hold — students with two guardians, students with none, adults who are guardians of students in
+  more than one family, and a two-word surname, which is the shape that silently cost the
+  predecessor a session (A.5 defects 4–5).
   **Never load a real roster into a development or test database.**
 
 **Exit criteria**
@@ -261,8 +288,12 @@ cheap.
   nothing else. Parsers resolve fields **by name or explicit mapping, never by position** (§11.3) —
   six different survey layouts in two years is why.
 - Canonical shape: Student, Adult, Guardian-relationship records. The wide format (one row per
-  adult, students inline) is also supported but **cannot express two-household students**; preview
-  must make clear when a wide import would replace rather than augment a relationship set.
+  adult, students inline) is also supported, and its authority is **the adult on the row, not the
+  student**: it sets exactly that adult's guardian edges and never touches an edge owned by another
+  adult. Two adults' rows therefore compose into a two-guardian student, and removal by import still
+  works. The §11.5 `Update` preview must list the guardian edges being **removed** and not only
+  those added, because a partial re-export that accidentally omits a child would otherwise silently
+  drop that edge.
 - Two-phase preview → atomic commit, with per-row `Create` / `Update` / `Unchanged` / `Conflict` /
   `Error`. Commit blocked while any `Error` exists. `Update` rows show field-by-field changes.
 - Matching: external identifier wins outright; otherwise normalised name; more than one candidate is
@@ -326,9 +357,10 @@ right in this phase even though nothing consumes them until Phase 8.
 
 ---
 
-### Phase 4 — Preferences and household access
+### Phase 4 — Preferences and guardian access
 
-*SPEC §13, §19.5. Resolve D5 at the start of this phase.*
+*SPEC §13, §19.5. Resolve D5 ([ADR 0013](./docs/adr/0013-guardian-and-volunteer-access.md)) at the
+start of this phase.*
 
 **Feature track**
 
@@ -343,24 +375,31 @@ right in this phase even though nothing consumes them until Phase 8.
 - Three states distinguished everywhere: **Rated**, **Unrated**, **No response**. The predecessor
   summed "no rating" with "very interested" into one queue key and consequently placed non-responders
   last (A.5 defect 9).
-- Household access per ADR 0006: preference records bound to a specific student at creation, never
-  by typed name; submissions record who and when; re-submission before window close permitted.
+- Guardian access per ADR 0013, **adult-addressed**: a link is issued to an adult and covers the
+  students they are a guardian of, a scope derived at read time rather than stored. Preference
+  records are bound to a specific student at creation, never by typed name; submissions record who
+  and when; re-submission before window close permitted.
+- A participating student with **no guardian relationship** is a roster warning, never a block
+  (§5.2). There is nobody to address a link to, which the organiser must see and act on, but the
+  system does not refuse the student — an organiser can enter preferences on their behalf.
 - Preference import through the Phase 2 engine — **this is what backfills two years of history so
   that fairness and variety have data from the first solve.**
-- Response tracking grouped by household, so one follow-up covers a family (§19.5).
+- Response tracking grouped by guardian, so one follow-up covers everything one adult owes (§19.5).
+  Grouping by guardian no longer partitions the student set: a student with two guardians appears
+  under both. That is correct for chasing, and it means counts taken over the report double-count.
 
 **Platform track**
 
-- Playwright end-to-end coverage of the household submission flow at a mobile viewport. §22.4 makes
+- Playwright end-to-end coverage of the guardian submission flow at a mobile viewport. §22.4 makes
   phone usability a MUST, and this is the only surface a non-administrator uses at volume.
 - Accessibility baseline in CI.
 
 **Exit criteria**
 
-- A household can submit for all its students on a phone in one sitting, producing per-student
-  records.
+- An adult can submit for every student they are a guardian of on a phone in one sitting, producing
+  per-student records.
 - Two years of historical preferences are loaded and queryable.
-- A report names every non-responder, grouped by household.
+- A report names every non-responder, grouped by guardian.
 
 ---
 
@@ -423,7 +462,7 @@ it is not a hardening pass.
 - Share-link lifecycle: one link per artifact per session, expiring, regenerable, revocable,
   high-entropy, encoding no identifiers, not indexable. Expired links fail cleanly with an
   explanation.
-- Household placement view (authenticated, not published).
+- Guardian placement view (authenticated, not published).
 - Print stylesheets. No downloadable documents are required.
 - The independently-servable topology from D4 / ADR 0005. §22.3 carves out a hard exception for
   published pages: the dismissal list is consulted at 12:45 on a Friday with children waiting, and
@@ -622,6 +661,6 @@ These become part of `AGENTS.md` in Phase 0 and apply to every subsequent phase.
 | Determinism treated as a later hardening pass | 5 | It gates re-solve, comparison and reproducibility. Built in Phase 5 or not at all. |
 | Sensitivity leak through an export or print path | 7 | Central enforcement plus a surface-enumerating test. §21.5 names this the most probable regression. |
 | Hard delete misses published snapshots | 10 | §21.3 names this the most likely silent failure. Test asserts absence from artifacts, not just from tables. |
-| Household access decision (D5) taken too late and forecloses per-adult attribution | 4 | Phase 1 models adults independently of households so either resolution remains open. |
+| Volunteer access decision (D5) taken too late to shape Phase 4 | 4 | Adult addressing is settled by D10, so the remaining question is the non-guardian volunteer, which touches no schema Phase 1 owns. |
 | Agent throughput outpaces review quality | all | Phase 0 makes the gate real before domain volume begins. |
 | Two years of historical preferences never get loaded | 4 | Without them fairness and variety have no data. Treated as a Phase 4 exit criterion, not a nice-to-have. |

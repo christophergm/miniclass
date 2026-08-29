@@ -13,52 +13,59 @@ import (
 )
 
 // SPEC §21.3 makes soft deletion reversible, and §5.4 makes the judgement
-// behind the reversal data. The student and adult cases live with their own
-// CRUD tests; households had no coverage of either half, and no test anywhere
-// read the restore entry back to prove the actor, time and reason survived.
-func TestHouseholdSoftDeleteVisibilityRestoreAndAudit(t *testing.T) {
+// behind the reversal data. The visibility and restore halves are covered by
+// the student and adult CRUD tests; what lives only here is reading the restore
+// entry back to prove the actor, time and reason survived it.
+//
+// This was written against the household, which no longer exists (SPEC §8.2).
+// The subject moved to the student rather than the test being deleted: the
+// audit read-back is the coverage, the household was only the carrier, and
+// nothing else in the suite asserts that a restore reason reaches the log.
+func TestStudentSoftDeleteVisibilityRestoreAndAudit(t *testing.T) {
 	harness := testharness.Open(t)
 	ctx := harness.Context
-	actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "household restore integration test"}
+	actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "student restore integration test"}
 	service := people.New(harness.Database)
-	tenant := newMembershipFixture(t, harness, service, actor, "HouseholdRestore")
+	tenant := newGuardianFixture(t, harness, service, actor, "StudentRestore")
 	organizationID := string(tenant.organizationID)
 
-	active, err := service.ListHouseholds(ctx, organizationID, tenant.year.ID, false)
+	active, err := service.ListStudents(ctx, organizationID, tenant.year.ID, false)
 	require.NoError(t, err)
-	require.Contains(t, rosterHouseholdIDs(active), string(tenant.household.ID))
+	require.Contains(t, rosterStudentIDs(active), string(tenant.student.ID))
 
-	require.NoError(t, service.DeleteHousehold(ctx, organizationID, tenant.year.ID, tenant.household.ID, actor))
+	require.NoError(t, service.DeleteStudent(ctx, organizationID, tenant.year.ID, tenant.student.ID, actor))
 
-	active, err = service.ListHouseholds(ctx, organizationID, tenant.year.ID, false)
+	active, err = service.ListStudents(ctx, organizationID, tenant.year.ID, false)
 	require.NoError(t, err)
-	require.NotContains(t, rosterHouseholdIDs(active), string(tenant.household.ID), "the default listing still names the deleted household")
+	require.NotContains(t, rosterStudentIDs(active), string(tenant.student.ID), "the default listing still names the deleted student")
 
-	including, err := service.ListHouseholds(ctx, organizationID, tenant.year.ID, true)
+	including, err := service.ListStudents(ctx, organizationID, tenant.year.ID, true)
 	require.NoError(t, err)
-	deleted := findHousehold(including, tenant.household.ID)
-	require.NotNil(t, deleted, "include_deleted did not return the deleted household")
-	require.NotNil(t, deleted.DeletedAt, "the deleted household came back without deleted_at")
+	deleted := findStudent(including, tenant.student.ID)
+	require.NotNil(t, deleted, "include_deleted did not return the deleted student")
+	require.NotNil(t, deleted.DeletedAt, "the deleted student came back without deleted_at")
 
 	const reason = "the family withdrew the request"
-	restored, err := service.RestoreHousehold(ctx, organizationID, tenant.year.ID, tenant.household.ID, actor, reason)
+	restored, err := service.RestoreStudent(ctx, organizationID, tenant.year.ID, tenant.student.ID, actor, reason)
 	require.NoError(t, err)
 	require.Nil(t, restored.DeletedAt)
 
-	active, err = service.ListHouseholds(ctx, organizationID, tenant.year.ID, false)
+	active, err = service.ListStudents(ctx, organizationID, tenant.year.ID, false)
 	require.NoError(t, err)
-	require.Contains(t, rosterHouseholdIDs(active), string(tenant.household.ID), "the restored household is missing from the default listing")
+	require.Contains(t, rosterStudentIDs(active), string(tenant.student.ID), "the restored student is missing from the default listing")
 
-	// Restoring a household that is not deleted is a no-op the caller should
+	// Restoring a student that is not deleted is a no-op the caller should
 	// hear about rather than a silent second restore.
-	_, err = service.RestoreHousehold(ctx, organizationID, tenant.year.ID, tenant.household.ID, actor, reason)
+	_, err = service.RestoreStudent(ctx, organizationID, tenant.year.ID, tenant.student.ID, actor, reason)
 	require.ErrorIs(t, err, people.ErrRestoreNotDeleted)
 
 	// SPEC §5.4: the reason is a record, not a formality.
-	_, err = service.RestoreHousehold(ctx, organizationID, tenant.year.ID, tenant.household.ID, actor, "   ")
+	_, err = service.RestoreStudent(ctx, organizationID, tenant.year.ID, tenant.student.ID, actor, "   ")
 	require.ErrorIs(t, err, people.ErrRestoreReasonRequired)
 
-	objectType := "household"
+	// Scoped to the organisation this test minted: the suite shares one
+	// database, so a global count would see every other test's restores.
+	objectType := "student"
 	entries, err := harness.Database.ListAuditLog(ctx, organizationID, data.AuditLogFilter{PageSize: 50, ObjectType: &objectType})
 	require.NoError(t, err)
 	var restoreEntries []data.AuditLogEntry
@@ -70,7 +77,7 @@ func TestHouseholdSoftDeleteVisibilityRestoreAndAudit(t *testing.T) {
 	require.Len(t, restoreEntries, 1, "the successful restore should be audited exactly once")
 	entry := restoreEntries[0]
 	require.NotNil(t, entry.ObjectID)
-	require.Equal(t, tenant.household.ID, *entry.ObjectID)
+	require.Equal(t, tenant.student.ID, *entry.ObjectID)
 	require.NotNil(t, entry.SchoolYearID)
 	require.Equal(t, tenant.year.ID, *entry.SchoolYearID)
 	require.Equal(t, actor.Label, entry.ActorLabel)
@@ -89,13 +96,12 @@ func TestDeletedRosterVisibilityAndRestoreAreTenantScoped(t *testing.T) {
 	ctx := harness.Context
 	actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "roster restore isolation test"}
 	service := people.New(harness.Database)
-	owner := newMembershipFixture(t, harness, service, actor, "RestoreIsolationOwner")
-	intruder := newMembershipFixture(t, harness, service, actor, "RestoreIsolationIntruder")
+	owner := newGuardianFixture(t, harness, service, actor, "RestoreIsolationOwner")
+	intruder := newGuardianFixture(t, harness, service, actor, "RestoreIsolationIntruder")
 	ownerID, intruderID := string(owner.organizationID), string(intruder.organizationID)
 
 	require.NoError(t, service.DeleteStudent(ctx, ownerID, owner.year.ID, owner.student.ID, actor))
 	require.NoError(t, service.Delete(ctx, ownerID, owner.year.ID, owner.adult.ID, actor))
-	require.NoError(t, service.DeleteHousehold(ctx, ownerID, owner.year.ID, owner.household.ID, actor))
 
 	// The outer guard: the intruder naming the owner's year by identifier
 	// cannot resolve it at all, so no listing or restore reaches the row.
@@ -103,14 +109,10 @@ func TestDeletedRosterVisibilityAndRestoreAreTenantScoped(t *testing.T) {
 	require.Error(t, err, "a foreign organisation can list deleted students")
 	_, err = service.List(ctx, intruderID, owner.year.ID, true)
 	require.Error(t, err, "a foreign organisation can list deleted adults")
-	_, err = service.ListHouseholds(ctx, intruderID, owner.year.ID, true)
-	require.Error(t, err, "a foreign organisation can list deleted households")
 	_, err = service.RestoreStudent(ctx, intruderID, owner.year.ID, owner.student.ID, actor, "cross-tenant probe")
 	require.Error(t, err, "a foreign organisation can restore a student")
 	_, err = service.Restore(ctx, intruderID, owner.year.ID, owner.adult.ID, actor, "cross-tenant probe")
 	require.Error(t, err, "a foreign organisation can restore an adult")
-	_, err = service.RestoreHousehold(ctx, intruderID, owner.year.ID, owner.household.ID, actor, "cross-tenant probe")
-	require.Error(t, err, "a foreign organisation can restore a household")
 
 	// SPEC §9.2 requires the guard to hold without each query remembering to
 	// filter, so the new statements are also probed directly, below the
@@ -126,11 +128,6 @@ func TestDeletedRosterVisibilityAndRestoreAreTenantScoped(t *testing.T) {
 			return err
 		}
 		require.NotContains(t, rosterAdultIDs(adults), string(owner.adult.ID), "include_deleted leaks a foreign organisation's adults")
-		households, err := tx.ListHouseholds(ctx, owner.year.ID, true)
-		if err != nil {
-			return err
-		}
-		require.NotContains(t, rosterHouseholdIDs(households), string(owner.household.ID), "include_deleted leaks a foreign organisation's households")
 		return nil
 	}))
 
@@ -142,8 +139,6 @@ func TestDeletedRosterVisibilityAndRestoreAreTenantScoped(t *testing.T) {
 		require.Error(t, err, "a foreign organisation can restore a student row")
 		_, err = tx.RestoreAdult(ctx, owner.year.ID, owner.adult.ID)
 		require.Error(t, err, "a foreign organisation can restore an adult row")
-		_, err = tx.RestoreHousehold(ctx, owner.year.ID, owner.household.ID)
-		require.Error(t, err, "a foreign organisation can restore a household row")
 		return nil
 	}))
 
@@ -169,14 +164,6 @@ func rosterStudentIDs(rows []data.Student) []string {
 	return result
 }
 
-func rosterHouseholdIDs(rows []data.Household) []string {
-	result := make([]string, 0, len(rows))
-	for _, row := range rows {
-		result = append(result, string(row.ID))
-	}
-	return result
-}
-
 func rosterAdultIDs(rows []data.Adult) []string {
 	result := make([]string, 0, len(rows))
 	for _, row := range rows {
@@ -185,7 +172,7 @@ func rosterAdultIDs(rows []data.Adult) []string {
 	return result
 }
 
-func findHousehold(rows []data.Household, id ids.XID) *data.Household {
+func findStudent(rows []data.Student, id ids.XID) *data.Student {
 	for i := range rows {
 		if rows[i].ID == id {
 			return &rows[i]

@@ -46,10 +46,20 @@ export function GuardianRelationships({ kind, schoolYearId, personId }: { kind: 
   return (
     <section className="mt-10 rounded-lg border bg-card p-6" aria-labelledby={`${kind}-guardian-heading`}>
       <h2 id={`${kind}-guardian-heading`} className="text-xl font-semibold">Guardian relationships</h2>
-      <p className="mt-2 text-sm text-muted-foreground">These typed links describe who acts for a student. They are separate from household membership, so adding a guardian here does not add a household member.</p>
+      <p className="mt-2 text-sm text-muted-foreground">These typed links describe who acts for a student. They are the only record of a family the system keeps, so everything it needs about one — who to contact, whose preferences cover which children — is read from here.</p>
       {error !== null && <p className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive" role="alert">{error instanceof Error ? error.message : 'Unable to update guardian relationships.'}</p>}
       {isLoading ? <p className="mt-6 text-sm text-muted-foreground" role="status">Loading guardian relationships…</p> : <>
-        {relationships.length === 0 && <p className="mt-6 text-sm text-muted-foreground">No guardian relationships recorded.</p>}
+        {/* A participating student with no guardian is a warning and never an
+            error (SPEC §8.2, §5.2): nobody can be reached about that child, which
+            is worth surfacing prominently and is not a reason to refuse the
+            roster record, so nothing here disables saving. An adult who is a
+            guardian of nobody gets no such warning — a volunteer with no children
+            in the program is a legitimate, expected record (SPEC §15.3, ADR
+            0013), and colouring it amber would train organisers to ignore the
+            colour. */}
+        {relationships.length === 0 && (kind === 'student'
+          ? <p className="mt-6 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">This student has no guardian yet. Nobody can be reached about this child. This is a warning only; you can still save the roster record.</p>
+          : <p className="mt-6 text-sm text-muted-foreground">No guardian relationships recorded.</p>)}
         <ul className="mt-4 space-y-3">{relationships.map((relationship) => <RelationshipRow key={relationship.id} kind={kind} schoolYearId={schoolYearId} relationship={relationship} label={displayNames.get(otherPersonId(relationship)) ?? otherPersonId(relationship)} disabled={isSaving} onSave={updateRelationship} onRemove={removeRelationship} />)}</ul>
         <div className="mt-6 flex flex-wrap items-end gap-3 border-t pt-6">
           <label className="min-w-64 flex-1 text-sm font-medium">{kind === 'student' ? 'Adult' : 'Student'}<select className="mt-2 flex h-9 w-full rounded-md border bg-transparent px-3 text-sm" value={selectedPersonId} onChange={(event) => setSelectedPersonId(event.target.value)}><option value="">Choose a {kind === 'student' ? 'adult' : 'student'}</option>{candidates.filter((candidate) => !relationships.some((relationship) => otherPersonId(relationship) === candidate.id)).map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.display_name}</option>)}</select></label>
