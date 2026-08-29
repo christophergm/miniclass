@@ -12,7 +12,9 @@
 - `PLAN.md` replaces the contradictory real-historical-export database exit criterion with synthetic
   CI fixtures, an opt-in no-database parser conformance check, and an operator demonstration against
   their own instance. It removes the generic/name-matching claims and stale household implication.
-- Validation so far: `git diff --check` passes. Workpad/PR handoff remains.
+- Validation: `git diff --check` passes. `make check` stops before project checks at the pre-existing
+  fixed-name `/miniclass-postgres` Docker collision. Commit `277f0da` is pushed and PR #129 is open;
+  current-head CI/review checks remain to be verified.
 - Skill draft: no — this is a one-off documentation decision, not a reusable procedure.
 
 ## Issue #110 query cache identity boundary
