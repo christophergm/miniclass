@@ -31,7 +31,7 @@ func createHomeroom(ctx context.Context, harness *testharness.Harness, organizat
 	}
 	row, err := vocabulary.New(harness.Database).CreateHomeroom(ctx, string(organizationID), audit.Actor{
 		Type: audit.ActorTypeSystem, Label: "layer 2 homeroom factory",
-	}, fmt.Sprintf("Synthetic Homeroom %s", organizationID))
+	}, fmt.Sprintf("Synthetic Homeroom %s", organizationID), nil)
 	if err != nil {
 		return "", err
 	}
@@ -66,7 +66,7 @@ func updateHomeroomByID(ctx context.Context, tx *data.Tx, id ids.XID) (bool, err
 	if err != nil {
 		return false, err
 	}
-	_, err = tx.UpdateHomeroom(ctx, id, row.Name+" updated")
+	_, err = tx.UpdateHomeroom(ctx, id, row.Name+" updated", row.ExternalIdentifier)
 	return err == nil, err
 }
 

@@ -13,7 +13,7 @@ func TestApplyAdultUpdatePreservesOmittedFieldsAndClearsEmptyOptionalValues(t *t
 	current := data.Adult{
 		LegalGivenName: "Alexander", LegalFamilyName: "Rivera",
 		PreferredGivenName: &preferred, Email: &email,
-		ParticipationIntent: data.AdultParticipationHelp,
+		ParticipationIntent: intentPointer(data.AdultParticipationHelp),
 	}
 	newEmail := ""
 	newIntent := data.AdultParticipationLead
@@ -25,11 +25,13 @@ func TestApplyAdultUpdatePreservesOmittedFieldsAndClearsEmptyOptionalValues(t *t
 	require.Equal(t, "Alexander", updated.LegalGivenName)
 	require.Equal(t, "Alex", *updated.PreferredGivenName)
 	require.Equal(t, "", *updated.Email)
-	require.Equal(t, data.AdultParticipationLead, updated.ParticipationIntent)
+	require.Equal(t, data.AdultParticipationLead, *updated.ParticipationIntent)
 }
 
 func TestApplyAdultUpdateRejectsNoChanges(t *testing.T) {
-	current := data.Adult{LegalGivenName: "Alex", LegalFamilyName: "Rivera", ParticipationIntent: data.AdultParticipationHelp}
+	current := data.Adult{LegalGivenName: "Alex", LegalFamilyName: "Rivera", ParticipationIntent: intentPointer(data.AdultParticipationHelp)}
 	_, changed := applyAdultUpdate(current, AdultUpdateInput{})
 	require.False(t, changed)
 }
+
+func intentPointer(value data.AdultParticipationIntent) *data.AdultParticipationIntent { return &value }

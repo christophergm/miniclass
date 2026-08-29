@@ -21,7 +21,7 @@ type Student struct {
 	LegalGivenName     string
 	LegalFamilyName    string
 	PreferredGivenName *string
-	GradeLevelID       ids.XID
+	GradeLevelID       *ids.XID
 	HomeroomID         ids.XID
 	ExternalIdentifier *string
 	PriorYearStudentID *ids.XID
@@ -31,14 +31,14 @@ type Student struct {
 }
 
 // CreateStudent inserts a student under the transaction tenant and year.
-func (tx *Tx) CreateStudent(ctx context.Context, schoolYearID, gradeLevelID, homeroomID ids.XID, legalGivenName, legalFamilyName string, preferredGivenName, externalIdentifier *string, priorYearStudentID *ids.XID) (Student, error) {
+func (tx *Tx) CreateStudent(ctx context.Context, schoolYearID ids.XID, gradeLevelID *ids.XID, homeroomID ids.XID, legalGivenName, legalFamilyName string, preferredGivenName, externalIdentifier *string, priorYearStudentID *ids.XID) (Student, error) {
 	legalGivenName = strings.TrimSpace(legalGivenName)
 	legalFamilyName = strings.TrimSpace(legalFamilyName)
 	if legalGivenName == "" || legalFamilyName == "" {
 		return Student{}, errors.New("create student: legal names are required")
 	}
-	if strings.TrimSpace(string(schoolYearID)) == "" || strings.TrimSpace(string(gradeLevelID)) == "" || strings.TrimSpace(string(homeroomID)) == "" {
-		return Student{}, errors.New("create student: school year, grade, and homeroom are required")
+	if strings.TrimSpace(string(schoolYearID)) == "" || strings.TrimSpace(string(homeroomID)) == "" {
+		return Student{}, errors.New("create student: school year and homeroom are required")
 	}
 	row, err := tx.queries.CreateStudent(ctx, db.CreateStudentParams{
 		OrganizationID:     tx.organizationID,
@@ -101,14 +101,14 @@ func (tx *Tx) GetStudentByIDIncludingDeleted(ctx context.Context, schoolYearID, 
 }
 
 // UpdateStudent replaces the editable fields of one active student.
-func (tx *Tx) UpdateStudent(ctx context.Context, schoolYearID, id ids.XID, legalGivenName, legalFamilyName string, preferredGivenName *string, gradeLevelID, homeroomID ids.XID, externalIdentifier *string, priorYearStudentID *ids.XID) (Student, error) {
+func (tx *Tx) UpdateStudent(ctx context.Context, schoolYearID, id ids.XID, legalGivenName, legalFamilyName string, preferredGivenName *string, gradeLevelID *ids.XID, homeroomID ids.XID, externalIdentifier *string, priorYearStudentID *ids.XID) (Student, error) {
 	legalGivenName = strings.TrimSpace(legalGivenName)
 	legalFamilyName = strings.TrimSpace(legalFamilyName)
 	if legalGivenName == "" || legalFamilyName == "" {
 		return Student{}, errors.New("update student: legal names are required")
 	}
-	if strings.TrimSpace(string(gradeLevelID)) == "" || strings.TrimSpace(string(homeroomID)) == "" {
-		return Student{}, errors.New("update student: grade and homeroom are required")
+	if strings.TrimSpace(string(homeroomID)) == "" {
+		return Student{}, errors.New("update student: homeroom is required")
 	}
 	row, err := tx.queries.UpdateStudent(ctx, db.UpdateStudentParams{
 		ID: id, OrganizationID: tx.organizationID, SchoolYearID: schoolYearID,

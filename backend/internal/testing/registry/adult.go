@@ -13,6 +13,10 @@ import (
 	"github.com/chrismott/miniclass/internal/testing/factories"
 )
 
+func adultIntentPointer(value data.AdultParticipationIntent) *data.AdultParticipationIntent {
+	return &value
+}
+
 func init() {
 	Register(Entity{
 		TableName: "adults", YearScoped: true,
@@ -34,7 +38,7 @@ func createAdult(ctx context.Context, harness *testharness.Harness, organization
 	}
 	row, err := factory.CreateAdult(ctx, year.ID, people.AdultCreateInput{
 		LegalGivenName: "Synthetic", LegalFamilyName: fmt.Sprintf("Adult %s", organizationID),
-		ParticipationIntent: data.AdultParticipationHelp,
+		ParticipationIntent: adultIntentPointer(data.AdultParticipationHelp),
 	})
 	if err != nil {
 		return "", err

@@ -37,11 +37,11 @@ func createGuardianRelationship(ctx context.Context, harness *testharness.Harnes
 	if err != nil {
 		return "", err
 	}
-	student, err := factory.CreateStudent(ctx, year.ID, people.StudentCreateInput{LegalGivenName: "Synthetic", LegalFamilyName: "Relationship Student", GradeLevelID: grade.ID, HomeroomID: homeroom.ID})
+	student, err := factory.CreateStudent(ctx, year.ID, people.StudentCreateInput{LegalGivenName: "Synthetic", LegalFamilyName: "Relationship Student", GradeLevelID: &grade.ID, HomeroomID: homeroom.ID})
 	if err != nil {
 		return "", err
 	}
-	adult, err := factory.CreateAdult(ctx, year.ID, people.AdultCreateInput{LegalGivenName: "Synthetic", LegalFamilyName: "Relationship Adult", ParticipationIntent: data.AdultParticipationHelp})
+	adult, err := factory.CreateAdult(ctx, year.ID, people.AdultCreateInput{LegalGivenName: "Synthetic", LegalFamilyName: "Relationship Adult", ParticipationIntent: adultIntentPointer(data.AdultParticipationHelp)})
 	if err != nil {
 		return "", err
 	}

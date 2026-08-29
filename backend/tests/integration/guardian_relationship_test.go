@@ -27,20 +27,20 @@ func TestAStudentMayHaveTwoGuardiansAndEachEdgeIsItsOwnRecord(t *testing.T) {
 	require.NoError(t, err)
 	grade, err := vocabulary.New(harness.Database).CreateGrade(ctx, string(organizationID), actor, "guardian-grade", "Guardian Grade")
 	require.NoError(t, err)
-	homeroom, err := vocabulary.New(harness.Database).CreateHomeroom(ctx, string(organizationID), actor, "Guardian Room")
+	homeroom, err := vocabulary.New(harness.Database).CreateHomeroom(ctx, string(organizationID), actor, "Guardian Room", nil)
 	require.NoError(t, err)
 
 	service := people.New(harness.Database)
 	student, err := service.CreateStudent(ctx, string(organizationID), year.ID, actor, people.StudentCreateInput{
-		LegalGivenName: "Synthetic", LegalFamilyName: "Guardian Student", GradeLevelID: grade.ID, HomeroomID: homeroom.ID,
+		LegalGivenName: "Synthetic", LegalFamilyName: "Guardian Student", GradeLevelID: xidPtr(grade.ID), HomeroomID: homeroom.ID,
 	})
 	require.NoError(t, err)
 	firstAdult, err := service.Create(ctx, string(organizationID), year.ID, actor, people.AdultCreateInput{
-		LegalGivenName: "Synthetic", LegalFamilyName: "Guardian Adult One", ParticipationIntent: data.AdultParticipationHelp,
+		LegalGivenName: "Synthetic", LegalFamilyName: "Guardian Adult One", ParticipationIntent: adultIntentPtr(data.AdultParticipationHelp),
 	})
 	require.NoError(t, err)
 	secondAdult, err := service.Create(ctx, string(organizationID), year.ID, actor, people.AdultCreateInput{
-		LegalGivenName: "Synthetic", LegalFamilyName: "Guardian Adult Two", ParticipationIntent: data.AdultParticipationHelp,
+		LegalGivenName: "Synthetic", LegalFamilyName: "Guardian Adult Two", ParticipationIntent: adultIntentPtr(data.AdultParticipationHelp),
 	})
 	require.NoError(t, err)
 
@@ -142,11 +142,11 @@ func TestGuardianRelationshipListingExcludesSoftDeletedPeople(t *testing.T) {
 	organizationID := string(tenant.organizationID)
 
 	studentB, err := service.CreateStudent(ctx, organizationID, tenant.year.ID, actor, people.StudentCreateInput{
-		LegalGivenName: "Synthetic", LegalFamilyName: "Guardian Student B", GradeLevelID: tenant.gradeID, HomeroomID: tenant.homeroomID,
+		LegalGivenName: "Synthetic", LegalFamilyName: "Guardian Student B", GradeLevelID: xidPtr(tenant.gradeID), HomeroomID: tenant.homeroomID,
 	})
 	require.NoError(t, err)
 	adultB, err := service.Create(ctx, organizationID, tenant.year.ID, actor, people.AdultCreateInput{
-		LegalGivenName: "Synthetic", LegalFamilyName: "Guardian Adult B", ParticipationIntent: data.AdultParticipationHelp,
+		LegalGivenName: "Synthetic", LegalFamilyName: "Guardian Adult B", ParticipationIntent: adultIntentPtr(data.AdultParticipationHelp),
 	})
 	require.NoError(t, err)
 
@@ -252,14 +252,14 @@ func newGuardianFixture(t *testing.T, harness *testharness.Harness, service *peo
 	require.NoError(t, err)
 	grade, err := vocabulary.New(harness.Database).CreateGrade(ctx, string(organizationID), actor, "relationship-grade", "Relationship Grade "+label)
 	require.NoError(t, err)
-	homeroom, err := vocabulary.New(harness.Database).CreateHomeroom(ctx, string(organizationID), actor, "Relationship Room "+label)
+	homeroom, err := vocabulary.New(harness.Database).CreateHomeroom(ctx, string(organizationID), actor, "Relationship Room "+label, nil)
 	require.NoError(t, err)
 	student, err := service.CreateStudent(ctx, string(organizationID), year.ID, actor, people.StudentCreateInput{
-		LegalGivenName: "Synthetic", LegalFamilyName: "Relationship Student " + label, GradeLevelID: grade.ID, HomeroomID: homeroom.ID,
+		LegalGivenName: "Synthetic", LegalFamilyName: "Relationship Student " + label, GradeLevelID: xidPtr(grade.ID), HomeroomID: homeroom.ID,
 	})
 	require.NoError(t, err)
 	adult, err := service.Create(ctx, string(organizationID), year.ID, actor, people.AdultCreateInput{
-		LegalGivenName: "Synthetic", LegalFamilyName: "Relationship Adult " + label, ParticipationIntent: data.AdultParticipationHelp,
+		LegalGivenName: "Synthetic", LegalFamilyName: "Relationship Adult " + label, ParticipationIntent: adultIntentPtr(data.AdultParticipationHelp),
 	})
 	require.NoError(t, err)
 	return guardianFixture{
@@ -288,20 +288,20 @@ func TestGuardianRelationshipListFiltersToOnePerson(t *testing.T) {
 	require.NoError(t, err)
 	grade, err := vocabulary.New(harness.Database).CreateGrade(ctx, string(organizationID), actor, "filter-grade", "Filter Grade")
 	require.NoError(t, err)
-	homeroom, err := vocabulary.New(harness.Database).CreateHomeroom(ctx, string(organizationID), actor, "Filter Room")
+	homeroom, err := vocabulary.New(harness.Database).CreateHomeroom(ctx, string(organizationID), actor, "Filter Room", nil)
 	require.NoError(t, err)
 
 	service := people.New(harness.Database)
 	newStudent := func(name string) data.Student {
 		student, err := service.CreateStudent(ctx, string(organizationID), year.ID, actor, people.StudentCreateInput{
-			LegalGivenName: "Synthetic", LegalFamilyName: name, GradeLevelID: grade.ID, HomeroomID: homeroom.ID,
+			LegalGivenName: "Synthetic", LegalFamilyName: name, GradeLevelID: xidPtr(grade.ID), HomeroomID: homeroom.ID,
 		})
 		require.NoError(t, err)
 		return student
 	}
 	newAdult := func(name string) data.Adult {
 		adult, err := service.Create(ctx, string(organizationID), year.ID, actor, people.AdultCreateInput{
-			LegalGivenName: "Synthetic", LegalFamilyName: name, ParticipationIntent: data.AdultParticipationHelp,
+			LegalGivenName: "Synthetic", LegalFamilyName: name, ParticipationIntent: adultIntentPtr(data.AdultParticipationHelp),
 		})
 		require.NoError(t, err)
 		return adult

@@ -19,7 +19,7 @@ type StudentCreateInput struct {
 	LegalGivenName     string
 	LegalFamilyName    string
 	PreferredGivenName *string
-	GradeLevelID       ids.XID
+	GradeLevelID       *ids.XID
 	HomeroomID         ids.XID
 	ExternalIdentifier *string
 	PriorYearStudentID *ids.XID
@@ -186,7 +186,7 @@ type studentUpdateValues struct {
 	LegalGivenName     string
 	LegalFamilyName    string
 	PreferredGivenName *string
-	GradeLevelID       ids.XID
+	GradeLevelID       *ids.XID
 	HomeroomID         ids.XID
 	ExternalIdentifier *string
 	PriorYearStudentID *ids.XID
@@ -209,8 +209,8 @@ func applyStudentUpdate(current data.Student, input StudentUpdateInput) (student
 	if input.PreferredGivenName != nil && !sameStudentOptionalString(result.PreferredGivenName, *input.PreferredGivenName) {
 		result.PreferredGivenName, changed = *input.PreferredGivenName, true
 	}
-	if input.GradeLevelID != nil && *input.GradeLevelID != result.GradeLevelID {
-		result.GradeLevelID, changed = *input.GradeLevelID, true
+	if input.GradeLevelID != nil && !sameStudentOptionalID(result.GradeLevelID, input.GradeLevelID) {
+		result.GradeLevelID, changed = input.GradeLevelID, true
 	}
 	if input.HomeroomID != nil && *input.HomeroomID != result.HomeroomID {
 		result.HomeroomID, changed = *input.HomeroomID, true

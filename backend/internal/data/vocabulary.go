@@ -26,12 +26,13 @@ type GradeLevel struct {
 
 // Homeroom is an organization's categorical homeroom vocabulary entry.
 type Homeroom struct {
-	ID             ids.XID
-	OrganizationID ids.XID
-	Name           string
-	RetiredAt      *time.Time
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ID                 ids.XID
+	OrganizationID     ids.XID
+	Name               string
+	ExternalIdentifier *string
+	RetiredAt          *time.Time
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 }
 
 // VocabularySettings contains the configurable label used for homerooms.
@@ -152,37 +153,51 @@ func (tx *Tx) ReorderGradeLevels(ctx context.Context, orderedIDs []ids.XID) ([]G
 	return tx.ListGradeLevels(ctx, true)
 }
 
-func (tx *Tx) CreateHomeroom(ctx context.Context, name string) (Homeroom, error) {
+func (tx *Tx) CreateHomeroom(ctx context.Context, name string, externalIdentifier *string) (Homeroom, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return Homeroom{}, errors.New("create homeroom: name is empty")
 	}
-	row, err := tx.queries.CreateHomeroom(ctx, db.CreateHomeroomParams{OrganizationID: tx.organizationID, Name: name})
+	row, err := tx.queries.CreateHomeroom(ctx, db.CreateHomeroomParams{OrganizationID: tx.organizationID, Name: name, ExternalIdentifier: nullableVocabularyText(externalIdentifier)})
 	if err != nil {
 		return Homeroom{}, fmt.Errorf("create homeroom: %w", err)
 	}
-	return homeroom(row)
+	return homeroomValues(row.ID, row.OrganizationID, row.Name, row.ExternalIdentifier, row.RetiredAt, row.CreatedAt, row.UpdatedAt)
 }
 
 // ListHomerooms returns picker entries unless includeRetired is requested.
 func (tx *Tx) ListHomerooms(ctx context.Context, includeRetired bool) ([]Homeroom, error) {
-	var rows []db.Homeroom
+	var result []Homeroom
 	var err error
 	if includeRetired {
-		rows, err = tx.queries.ListAllHomerooms(ctx)
+		rows, queryErr := tx.queries.ListAllHomerooms(ctx)
+		err = queryErr
+		if err == nil {
+			result = make([]Homeroom, 0, len(rows))
+			for _, row := range rows {
+				value, conversionErr := homeroomValues(row.ID, row.OrganizationID, row.Name, row.ExternalIdentifier, row.RetiredAt, row.CreatedAt, row.UpdatedAt)
+				if conversionErr != nil {
+					return nil, conversionErr
+				}
+				result = append(result, value)
+			}
+		}
 	} else {
-		rows, err = tx.queries.ListHomerooms(ctx)
+		rows, queryErr := tx.queries.ListHomerooms(ctx)
+		err = queryErr
+		if err == nil {
+			result = make([]Homeroom, 0, len(rows))
+			for _, row := range rows {
+				value, conversionErr := homeroomValues(row.ID, row.OrganizationID, row.Name, row.ExternalIdentifier, row.RetiredAt, row.CreatedAt, row.UpdatedAt)
+				if conversionErr != nil {
+					return nil, conversionErr
+				}
+				result = append(result, value)
+			}
+		}
 	}
 	if err != nil {
 		return nil, fmt.Errorf("list homerooms: %w", err)
-	}
-	result := make([]Homeroom, 0, len(rows))
-	for _, row := range rows {
-		value, err := homeroom(row)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, value)
 	}
 	return result, nil
 }
@@ -195,19 +210,19 @@ func (tx *Tx) GetHomeroomByID(ctx context.Context, id ids.XID) (Homeroom, error)
 	if err != nil {
 		return Homeroom{}, fmt.Errorf("get homeroom: %w", err)
 	}
-	return homeroom(row)
+	return homeroomValues(row.ID, row.OrganizationID, row.Name, row.ExternalIdentifier, row.RetiredAt, row.CreatedAt, row.UpdatedAt)
 }
 
-func (tx *Tx) UpdateHomeroom(ctx context.Context, id ids.XID, name string) (Homeroom, error) {
+func (tx *Tx) UpdateHomeroom(ctx context.Context, id ids.XID, name string, externalIdentifier *string) (Homeroom, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return Homeroom{}, errors.New("update homeroom: name is empty")
 	}
-	row, err := tx.queries.UpdateHomeroom(ctx, db.UpdateHomeroomParams{ID: id, Name: name})
+	row, err := tx.queries.UpdateHomeroom(ctx, db.UpdateHomeroomParams{ID: id, Name: name, ExternalIdentifier: nullableVocabularyText(externalIdentifier)})
 	if err != nil {
 		return Homeroom{}, fmt.Errorf("update homeroom: %w", err)
 	}
-	return homeroom(row)
+	return homeroomValues(row.ID, row.OrganizationID, row.Name, row.ExternalIdentifier, row.RetiredAt, row.CreatedAt, row.UpdatedAt)
 }
 
 func (tx *Tx) SetHomeroomRetired(ctx context.Context, id ids.XID, retired bool) (Homeroom, error) {
@@ -215,7 +230,7 @@ func (tx *Tx) SetHomeroomRetired(ctx context.Context, id ids.XID, retired bool) 
 	if err != nil {
 		return Homeroom{}, fmt.Errorf("set homeroom retirement: %w", err)
 	}
-	return homeroom(row)
+	return homeroomValues(row.ID, row.OrganizationID, row.Name, row.ExternalIdentifier, row.RetiredAt, row.CreatedAt, row.UpdatedAt)
 }
 
 func (tx *Tx) GetVocabularySettings(ctx context.Context) (VocabularySettings, error) {
@@ -264,17 +279,32 @@ func gradeLevel(row db.GradeLevel) (GradeLevel, error) {
 		Ordinal: int(row.Ordinal), RetiredAt: nullableTime(row.RetiredAt), CreatedAt: createdAt, UpdatedAt: updatedAt}, nil
 }
 
-func homeroom(row db.Homeroom) (Homeroom, error) {
-	createdAt, err := vocabularyTime(row.CreatedAt, "created_at")
+func homeroomValues(id, organizationID ids.XID, name string, externalIdentifier pgtype.Text, retiredAt, createdAt, updatedAt pgtype.Timestamptz) (Homeroom, error) {
+	created, err := vocabularyTime(createdAt, "created_at")
 	if err != nil {
 		return Homeroom{}, err
 	}
-	updatedAt, err := vocabularyTime(row.UpdatedAt, "updated_at")
+	updated, err := vocabularyTime(updatedAt, "updated_at")
 	if err != nil {
 		return Homeroom{}, err
 	}
-	return Homeroom{ID: row.ID, OrganizationID: row.OrganizationID, Name: row.Name,
-		RetiredAt: nullableTime(row.RetiredAt), CreatedAt: createdAt, UpdatedAt: updatedAt}, nil
+	return Homeroom{ID: id, OrganizationID: organizationID, Name: name, ExternalIdentifier: nullableVocabularyString(externalIdentifier),
+		RetiredAt: nullableTime(retiredAt), CreatedAt: created, UpdatedAt: updated}, nil
+}
+
+func nullableVocabularyText(value *string) pgtype.Text {
+	if value == nil || strings.TrimSpace(*value) == "" {
+		return pgtype.Text{}
+	}
+	return pgtype.Text{String: strings.TrimSpace(*value), Valid: true}
+}
+
+func nullableVocabularyString(value pgtype.Text) *string {
+	if !value.Valid {
+		return nil
+	}
+	result := value.String
+	return &result
 }
 
 func vocabularyTime(value pgtype.Timestamptz, name string) (time.Time, error) {

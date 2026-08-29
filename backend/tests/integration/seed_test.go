@@ -46,10 +46,12 @@ func TestSeedCorpusLoadsWithAppendixDistributionAndEdgeCases(t *testing.T) {
 
 	gradeCounts := map[string]int{}
 	for _, student := range students {
-		gradeCounts[string(student.GradeLevelID)]++
+		if student.GradeLevelID != nil {
+			gradeCounts[string(*student.GradeLevelID)]++
+		}
 	}
 	for index, grade := range vocabularySnapshot.Grades {
-		want := []int{20, 27, 22, 21, 30, 19}[index]
+		want := []int{19, 27, 22, 21, 30, 19}[index]
 		require.Equal(t, want, gradeCounts[string(grade.ID)])
 	}
 	homeroomIDs := map[string]bool{}
@@ -60,11 +62,16 @@ func TestSeedCorpusLoadsWithAppendixDistributionAndEdgeCases(t *testing.T) {
 
 	participation := map[data.AdultParticipationIntent]int{}
 	for _, adult := range adults {
-		participation[adult.ParticipationIntent]++
+		if adult.ParticipationIntent == nil {
+			participation[""]++
+		} else {
+			participation[*adult.ParticipationIntent]++
+		}
 	}
 	require.Equal(t, 13, participation[data.AdultParticipationLead])
 	require.Equal(t, 45, participation[data.AdultParticipationHelp])
-	require.Equal(t, 44, participation[data.AdultParticipationUnavailable])
+	require.Equal(t, 43, participation[data.AdultParticipationUnavailable])
+	require.Equal(t, 1, participation[""])
 
 	// Corpus.Validate proves these shapes on the pure input graph; asserting them
 	// again here proves the loader carried them into the database, which is the

@@ -25,7 +25,7 @@ type AdultCreateInput struct {
 	Email               *string
 	Phone               *string
 	ExternalIdentifier  *string
-	ParticipationIntent data.AdultParticipationIntent
+	ParticipationIntent *data.AdultParticipationIntent
 }
 
 type AdultUpdateInput struct {
@@ -214,10 +214,17 @@ func applyAdultUpdate(current data.Adult, input AdultUpdateInput) (AdultCreateIn
 	if input.ExternalIdentifier != nil && !sameAdultOptional(result.ExternalIdentifier, *input.ExternalIdentifier) {
 		result.ExternalIdentifier, changed = *input.ExternalIdentifier, true
 	}
-	if input.ParticipationIntent != nil && *input.ParticipationIntent != result.ParticipationIntent {
-		result.ParticipationIntent, changed = *input.ParticipationIntent, true
+	if input.ParticipationIntent != nil && !sameAdultIntent(result.ParticipationIntent, input.ParticipationIntent) {
+		result.ParticipationIntent, changed = input.ParticipationIntent, true
 	}
 	return result, changed
+}
+
+func sameAdultIntent(current, next *data.AdultParticipationIntent) bool {
+	if current == nil || next == nil {
+		return current == nil && next == nil
+	}
+	return *current == *next
 }
 
 func sameAdultOptional(current, next *string) bool {

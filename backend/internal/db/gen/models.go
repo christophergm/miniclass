@@ -286,19 +286,19 @@ type AccessToken struct {
 }
 
 type Adult struct {
-	ID                  ids.XID                  `json:"id"`
-	OrganizationID      ids.XID                  `json:"organization_id"`
-	SchoolYearID        ids.XID                  `json:"school_year_id"`
-	LegalGivenName      string                   `json:"legal_given_name"`
-	LegalFamilyName     string                   `json:"legal_family_name"`
-	PreferredGivenName  pgtype.Text              `json:"preferred_given_name"`
-	Email               pgtype.Text              `json:"email"`
-	Phone               pgtype.Text              `json:"phone"`
-	ExternalIdentifier  pgtype.Text              `json:"external_identifier"`
-	ParticipationIntent AdultParticipationIntent `json:"participation_intent"`
-	DeletedAt           pgtype.Timestamptz       `json:"deleted_at"`
-	CreatedAt           pgtype.Timestamptz       `json:"created_at"`
-	UpdatedAt           pgtype.Timestamptz       `json:"updated_at"`
+	ID                  ids.XID                      `json:"id"`
+	OrganizationID      ids.XID                      `json:"organization_id"`
+	SchoolYearID        ids.XID                      `json:"school_year_id"`
+	LegalGivenName      string                       `json:"legal_given_name"`
+	LegalFamilyName     string                       `json:"legal_family_name"`
+	PreferredGivenName  pgtype.Text                  `json:"preferred_given_name"`
+	Email               pgtype.Text                  `json:"email"`
+	Phone               pgtype.Text                  `json:"phone"`
+	ExternalIdentifier  pgtype.Text                  `json:"external_identifier"`
+	ParticipationIntent NullAdultParticipationIntent `json:"participation_intent"`
+	DeletedAt           pgtype.Timestamptz           `json:"deleted_at"`
+	CreatedAt           pgtype.Timestamptz           `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz           `json:"updated_at"`
 }
 
 type AuditLog struct {
@@ -340,12 +340,13 @@ type GuardianRelationship struct {
 }
 
 type Homeroom struct {
-	ID             ids.XID            `json:"id"`
-	OrganizationID ids.XID            `json:"organization_id"`
-	Name           string             `json:"name"`
-	RetiredAt      pgtype.Timestamptz `json:"retired_at"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	ID                 ids.XID            `json:"id"`
+	OrganizationID     ids.XID            `json:"organization_id"`
+	Name               string             `json:"name"`
+	RetiredAt          pgtype.Timestamptz `json:"retired_at"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	ExternalIdentifier pgtype.Text        `json:"external_identifier"`
 }
 
 type Organization struct {
@@ -383,7 +384,7 @@ type Student struct {
 	LegalGivenName     string             `json:"legal_given_name"`
 	LegalFamilyName    string             `json:"legal_family_name"`
 	PreferredGivenName pgtype.Text        `json:"preferred_given_name"`
-	GradeLevelID       ids.XID            `json:"grade_level_id"`
+	GradeLevelID       *ids.XID           `json:"grade_level_id"`
 	HomeroomID         ids.XID            `json:"homeroom_id"`
 	ExternalIdentifier pgtype.Text        `json:"external_identifier"`
 	PriorYearStudentID *ids.XID           `json:"prior_year_student_id"`

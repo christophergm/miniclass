@@ -81,6 +81,7 @@ export function PeopleListPage({ kind }: PageProps) {
     () => filterAndSortPeople(peopleQuery.data ?? [], kind, query, gradeLevelId, homeroomId),
     [gradeLevelId, homeroomId, kind, peopleQuery.data, query],
   )
+  const missingGradeCount = kind === 'student' ? (peopleQuery.data ?? []).filter((person) => (person as Student).grade_level_id == null).length : 0
 
   if (!schoolYearId) {
     return <PageFrame><MissingSchoolYear kind={kind} /></PageFrame>
@@ -123,6 +124,8 @@ export function PeopleListPage({ kind }: PageProps) {
         <label className="mt-4 flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={includeDeleted} onChange={(event) => setIncludeDeleted(event.target.checked)} />Show deleted</label>
       </section>
 
+      {missingGradeCount > 0 && <p className="mt-4 rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-900 dark:text-amber-200" role="status">{missingGradeCount} student{missingGradeCount === 1 ? '' : 's'} have no grade yet. This is a warning; you can still save roster changes.</p>}
+
       {isLoading && <p className="mt-8 text-sm text-muted-foreground" role="status">Loading {copy.plural.toLowerCase()}…</p>}
       {error !== null && <p className="mt-8 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive" role="alert">{errorMessage(error, `Unable to load ${copy.plural.toLowerCase()}.`)}</p>}
       {!isLoading && !error && filteredPeople.length === 0 && <p className="mt-8 rounded-lg border bg-card p-6 text-sm text-muted-foreground">No {copy.plural.toLowerCase()} match these filters.</p>}
@@ -164,12 +167,12 @@ function PeopleTable({ kind, schoolYearId, people, relatedPeople, grades, homero
             <TableCell><Link className="font-medium text-primary hover:underline" to={`/y/${schoolYearId}/${copy.path}/${person.id}`}>{person.display_name}</Link></TableCell>
             {kind === 'student'
               ? <>
-                <TableCell>{gradeLabels.get((person as Student).grade_level_id) ?? (person as Student).grade_level_id}</TableCell>
+                <TableCell>{gradeLabels.get((person as Student).grade_level_id ?? '') ?? ((person as Student).grade_level_id == null ? 'Missing grade' : (person as Student).grade_level_id)}</TableCell>
                 <TableCell>{homeroomLabels.get((person as Student).homeroom_id) ?? (person as Student).homeroom_id}</TableCell>
               </>
               : <>
                 <TableCell>{(person as Adult).email ?? '—'}</TableCell>
-                <TableCell className="capitalize">{(person as Adult).participation_intent}</TableCell>
+                <TableCell className="capitalize">{(person as Adult).participation_intent ?? 'Not declared'}</TableCell>
               </>}
             <TableCell><RelatedPeopleLinks kind={kind} related={relatedPeople.get(person.id) ?? []} schoolYearId={schoolYearId} /></TableCell>
             <TableCell>{person.external_identifier ?? '—'}</TableCell>
@@ -270,8 +273,8 @@ export function PersonDetailPage({ kind }: PageProps) {
             <Field label="Email" name="email" type="email" value={(values as AdultInputValues).email} error={fieldErrors.email} onChange={(value) => setValues({ ...values, email: value } as AdultInputValues)} />
             <Field label="Phone" name="phone" value={(values as AdultInputValues).phone} error={fieldErrors.phone} onChange={(value) => setValues({ ...values, phone: value } as AdultInputValues)} />
             <label className="text-sm font-medium" htmlFor="participation_intent">Participation intent<span className="mt-2 block text-xs font-normal text-muted-foreground">Used for adult planning, not a person role.</span>
-              <select id="participation_intent" className="mt-2 flex h-9 w-full rounded-md border bg-transparent px-3 text-sm" value={(values as AdultInputValues).participation_intent} onChange={(event) => setValues({ ...values, participation_intent: event.target.value as ParticipationIntent } as AdultInputValues)}>
-                <option value="lead">Lead</option><option value="help">Help</option><option value="unavailable">Unavailable</option>
+              <select id="participation_intent" className="mt-2 flex h-9 w-full rounded-md border bg-transparent px-3 text-sm" value={(values as AdultInputValues).participation_intent} onChange={(event) => setValues({ ...values, participation_intent: event.target.value as AdultInputValues['participation_intent'] } as AdultInputValues)}>
+                <option value="">Not declared</option><option value="lead">Lead</option><option value="help">Help</option><option value="unavailable">Unavailable</option>
               </select>
               {fieldErrors.participation_intent && <FieldError message={fieldErrors.participation_intent} />}
             </label>
@@ -300,13 +303,13 @@ type AdultInputValues = {
   external_identifier: string
   email: string
   phone: string
-  participation_intent: ParticipationIntent
+  participation_intent: Exclude<ParticipationIntent, null> | ''
 }
 
 function emptyValues(kind: PersonKind): PersonInputValues {
   return kind === 'student'
     ? { legal_given_name: '', legal_family_name: '', preferred_given_name: '', external_identifier: '', grade_level_id: '', homeroom_id: '' }
-    : { legal_given_name: '', legal_family_name: '', preferred_given_name: '', external_identifier: '', email: '', phone: '', participation_intent: 'unavailable' }
+    : { legal_given_name: '', legal_family_name: '', preferred_given_name: '', external_identifier: '', email: '', phone: '', participation_intent: '' }
 }
 
 function valuesFromPerson(kind: PersonKind, person: PersonSummary): PersonInputValues {
@@ -318,7 +321,7 @@ function valuesFromPerson(kind: PersonKind, person: PersonSummary): PersonInputV
   }
   return kind === 'student'
     ? { ...common, grade_level_id: (person as Student).grade_level_id, homeroom_id: (person as Student).homeroom_id }
-    : { ...common, email: (person as Adult).email ?? '', phone: (person as Adult).phone ?? '', participation_intent: (person as Adult).participation_intent }
+    : { ...common, email: (person as Adult).email ?? '', phone: (person as Adult).phone ?? '', participation_intent: (person as Adult).participation_intent ?? '' }
 }
 
 // SPEC §5.2 warns rather than blocks, so the form submits whatever the organiser
@@ -331,8 +334,8 @@ function savePerson(kind: PersonKind, schoolYearId: string, personId: string | u
     const body: StudentInput = {
       legal_given_name: student.legal_given_name,
       legal_family_name: student.legal_family_name,
-      grade_level_id: student.grade_level_id,
       homeroom_id: student.homeroom_id,
+      ...optional('grade_level_id', student.grade_level_id),
       ...optional('preferred_given_name', student.preferred_given_name),
       ...optional('external_identifier', student.external_identifier),
     }
@@ -343,7 +346,7 @@ function savePerson(kind: PersonKind, schoolYearId: string, personId: string | u
   const body: AdultInput = {
     legal_given_name: adult.legal_given_name,
     legal_family_name: adult.legal_family_name,
-    participation_intent: adult.participation_intent,
+    ...optional('participation_intent', adult.participation_intent),
     ...optional('preferred_given_name', adult.preferred_given_name),
     ...optional('external_identifier', adult.external_identifier),
     ...optional('email', adult.email),

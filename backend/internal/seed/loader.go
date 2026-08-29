@@ -173,9 +173,14 @@ func Load(ctx context.Context, database *data.DB, options Options) (Result, erro
 
 	studentIDs := make([]string, len(corpus.Students))
 	for index, spec := range corpus.Students {
+		var gradeLevelID *ids.XID
+		if spec.Grade != nil {
+			value := mustXID(gradeIDs[*spec.Grade-1])
+			gradeLevelID = &value
+		}
 		row, err := factory.CreateStudent(ctx, year.ID, people.StudentCreateInput{
 			LegalGivenName: spec.LegalGivenName, LegalFamilyName: spec.LegalFamilyName,
-			PreferredGivenName: spec.PreferredGivenName, GradeLevelID: mustXID(gradeIDs[spec.Grade-1]),
+			PreferredGivenName: spec.PreferredGivenName, GradeLevelID: gradeLevelID,
 			HomeroomID: mustXID(homeroomIDs[spec.Homeroom]), ExternalIdentifier: spec.ExternalIdentifier,
 		})
 		if err != nil {

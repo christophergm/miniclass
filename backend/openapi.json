@@ -114,7 +114,10 @@
               "help",
               "unavailable"
             ],
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "phone": {
             "type": "string"
@@ -367,7 +370,10 @@
               "help",
               "unavailable"
             ],
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "phone": {
             "type": "string"
@@ -378,8 +384,7 @@
         },
         "required": [
           "legal_given_name",
-          "legal_family_name",
-          "participation_intent"
+          "legal_family_name"
         ],
         "type": "object"
       },
@@ -459,6 +464,12 @@
             "readOnly": true,
             "type": "string"
           },
+          "external_identifier": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "name": {
             "minLength": 1,
             "type": "string"
@@ -510,7 +521,10 @@
           "grade_level_id": {
             "description": "Opaque grade-level identifier.",
             "minLength": 1,
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "homeroom_id": {
             "description": "Opaque homeroom identifier.",
@@ -536,7 +550,6 @@
         "required": [
           "legal_given_name",
           "legal_family_name",
-          "grade_level_id",
           "homeroom_id"
         ],
         "type": "object"
@@ -797,6 +810,12 @@
             "format": "date-time",
             "type": "string"
           },
+          "external_identifier": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "id": {
             "description": "Opaque homeroom identifier.",
             "type": "string"
@@ -821,6 +840,7 @@
           "id",
           "organization_id",
           "name",
+          "external_identifier",
           "created_at",
           "updated_at"
         ],
@@ -968,6 +988,7 @@
           "capability-required",
           "database-unavailable",
           "guardian-relationship-conflict",
+          "homeroom-external-identifier-conflict",
           "internal-error",
           "invalid-audit-cursor",
           "invalid-token",
@@ -1145,7 +1166,10 @@
           },
           "grade_level_id": {
             "description": "Opaque grade-level identifier.",
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "homeroom_id": {
             "description": "Opaque homeroom identifier.",
@@ -1227,7 +1251,10 @@
               "help",
               "unavailable"
             ],
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "phone": {
             "type": "string"
@@ -1300,6 +1327,12 @@
             "readOnly": true,
             "type": "string"
           },
+          "external_identifier": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "name": {
             "minLength": 1,
             "type": "string"
@@ -1360,7 +1393,10 @@
           },
           "grade_level_id": {
             "minLength": 1,
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "homeroom_id": {
             "minLength": 1,
@@ -4884,6 +4920,7 @@
     "capability-required",
     "database-unavailable",
     "guardian-relationship-conflict",
+    "homeroom-external-identifier-conflict",
     "internal-error",
     "invalid-audit-cursor",
     "invalid-token",

@@ -42,37 +42,37 @@ set ordinal = $2
 where id = $1;
 
 -- name: CreateHomeroom :one
-insert into homerooms (organization_id, name)
-values ($1, $2)
-returning id, organization_id, name, retired_at, created_at, updated_at;
+insert into homerooms (organization_id, name, external_identifier)
+values ($1, $2, $3)
+returning id, organization_id, name, external_identifier, retired_at, created_at, updated_at;
 
 -- name: ListHomerooms :many
-select id, organization_id, name, retired_at, created_at, updated_at
+select id, organization_id, name, external_identifier, retired_at, created_at, updated_at
 from homerooms
 where retired_at is null
 order by lower(name), id;
 
 -- name: ListAllHomerooms :many
-select id, organization_id, name, retired_at, created_at, updated_at
+select id, organization_id, name, external_identifier, retired_at, created_at, updated_at
 from homerooms
 order by lower(name), id;
 
 -- name: GetHomeroomByID :one
-select id, organization_id, name, retired_at, created_at, updated_at
+select id, organization_id, name, external_identifier, retired_at, created_at, updated_at
 from homerooms
 where id = $1;
 
 -- name: UpdateHomeroom :one
 update homerooms
-set name = $2
+set name = $2, external_identifier = $3
 where id = $1
-returning id, organization_id, name, retired_at, created_at, updated_at;
+returning id, organization_id, name, external_identifier, retired_at, created_at, updated_at;
 
 -- name: SetHomeroomRetired :one
 update homerooms
 set retired_at = case when $2::boolean then coalesce(retired_at, now()) else null end
 where id = $1
-returning id, organization_id, name, retired_at, created_at, updated_at;
+returning id, organization_id, name, external_identifier, retired_at, created_at, updated_at;
 
 -- name: GetOrganizationVocabularySettings :one
 select id, name, homeroom_label, created_at, updated_at

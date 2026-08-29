@@ -19,7 +19,7 @@ type StudentSpec struct {
 	LegalGivenName     string
 	LegalFamilyName    string
 	PreferredGivenName *string
-	Grade              int
+	Grade              *int
 	Homeroom           int
 	ExternalIdentifier *string
 }
@@ -31,7 +31,7 @@ type AdultSpec struct {
 	Email               *string
 	Phone               *string
 	ExternalIdentifier  *string
-	ParticipationIntent data.AdultParticipationIntent
+	ParticipationIntent *data.AdultParticipationIntent
 }
 
 type GuardianSpec struct {
@@ -81,17 +81,23 @@ func Generate() Corpus {
 			}
 			corpus.Students = append(corpus.Students, StudentSpec{
 				LegalGivenName: given, LegalFamilyName: family, PreferredGivenName: preferred,
-				Grade: grade + 1, Homeroom: index % len(corpus.Homerooms), ExternalIdentifier: external,
+				Grade: gradePointer(grade+1, index != 0), Homeroom: index % len(corpus.Homerooms), ExternalIdentifier: external,
 			})
 		}
 	}
 
 	for index := 0; index < AdultCount; index++ {
-		intent := data.AdultParticipationUnavailable
+		var intent *data.AdultParticipationIntent
+		if index != 101 {
+			value := data.AdultParticipationUnavailable
+			intent = &value
+		}
 		if index < 13 {
-			intent = data.AdultParticipationLead
+			value := data.AdultParticipationLead
+			intent = &value
 		} else if index < 58 {
-			intent = data.AdultParticipationHelp
+			value := data.AdultParticipationHelp
+			intent = &value
 		}
 		var email *string
 		if index < 100 {
@@ -157,24 +163,44 @@ func (c Corpus) Validate() error {
 		return fmt.Errorf("corpus dimensions are grades=%d homerooms=%d students=%d adults=%d", len(c.Grades), len(c.Homerooms), len(c.Students), len(c.Adults))
 	}
 	gradeCounts := make([]int, len(c.Grades))
+	ungraded := 0
 	for index, student := range c.Students {
-		if student.Grade < 1 || student.Grade > len(c.Grades) || student.Homeroom < 0 || student.Homeroom >= len(c.Homerooms) {
+		if student.Grade == nil {
+			ungraded++
+		} else if *student.Grade < 1 || *student.Grade > len(c.Grades) {
 			return fmt.Errorf("student %d has invalid grade or homeroom", index)
 		}
-		gradeCounts[student.Grade-1]++
+		if student.Homeroom < 0 || student.Homeroom >= len(c.Homerooms) {
+			return fmt.Errorf("student %d has invalid grade or homeroom", index)
+		}
+		if student.Grade != nil {
+			gradeCounts[*student.Grade-1]++
+		}
 	}
-	wantGrades := []int{20, 27, 22, 21, 30, 19}
+	wantGrades := []int{19, 27, 22, 21, 30, 19}
 	for index, want := range wantGrades {
 		if gradeCounts[index] != want {
 			return fmt.Errorf("grade %d has %d students, want %d", index+1, gradeCounts[index], want)
 		}
 	}
-	participation := map[data.AdultParticipationIntent]int{}
-	for _, adult := range c.Adults {
-		participation[adult.ParticipationIntent]++
+	if ungraded != 1 {
+		return fmt.Errorf("want one ungraded student, got %d", ungraded)
 	}
-	if participation[data.AdultParticipationLead] != 13 || participation[data.AdultParticipationHelp] != 45 || participation[data.AdultParticipationUnavailable] != 44 {
+	participation := map[data.AdultParticipationIntent]int{}
+	undeclared := 0
+	for _, adult := range c.Adults {
+		if adult.ParticipationIntent == nil {
+			undeclared++
+			participation[""]++
+		} else {
+			participation[*adult.ParticipationIntent]++
+		}
+	}
+	if participation[data.AdultParticipationLead] != 13 || participation[data.AdultParticipationHelp] != 45 || participation[data.AdultParticipationUnavailable] != 43 {
 		return fmt.Errorf("adult participation split is lead=%d help=%d unavailable=%d", participation[data.AdultParticipationLead], participation[data.AdultParticipationHelp], participation[data.AdultParticipationUnavailable])
+	}
+	if undeclared != 1 {
+		return fmt.Errorf("want one adult without a participation intent, got %d", undeclared)
 	}
 	if c.Students[0].ExternalIdentifier != nil || c.Students[2].LegalFamilyName != "Synthetic De La Sample" {
 		return fmt.Errorf("student edge cases are missing")
@@ -223,6 +249,13 @@ func (c Corpus) Validate() error {
 		return fmt.Errorf("no adult guarding co-guarded students that share no other guardian")
 	}
 	return nil
+}
+
+func gradePointer(value int, present bool) *int {
+	if !present {
+		return nil
+	}
+	return &value
 }
 
 // hasUnguardedStudent reports the case SPEC §8.2 requires a warning for, and
