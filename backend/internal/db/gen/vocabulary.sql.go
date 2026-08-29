@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/chrismott/miniclass/internal/ids"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createGradeLevel = `-- name: CreateGradeLevel :one
@@ -46,23 +47,35 @@ func (q *Queries) CreateGradeLevel(ctx context.Context, arg CreateGradeLevelPara
 }
 
 const createHomeroom = `-- name: CreateHomeroom :one
-insert into homerooms (organization_id, name)
-values ($1, $2)
-returning id, organization_id, name, retired_at, created_at, updated_at
+insert into homerooms (organization_id, name, external_identifier)
+values ($1, $2, $3)
+returning id, organization_id, name, external_identifier, retired_at, created_at, updated_at
 `
 
 type CreateHomeroomParams struct {
-	OrganizationID ids.XID `json:"organization_id"`
-	Name           string  `json:"name"`
+	OrganizationID     ids.XID     `json:"organization_id"`
+	Name               string      `json:"name"`
+	ExternalIdentifier pgtype.Text `json:"external_identifier"`
 }
 
-func (q *Queries) CreateHomeroom(ctx context.Context, arg CreateHomeroomParams) (Homeroom, error) {
-	row := q.db.QueryRow(ctx, createHomeroom, arg.OrganizationID, arg.Name)
-	var i Homeroom
+type CreateHomeroomRow struct {
+	ID                 ids.XID            `json:"id"`
+	OrganizationID     ids.XID            `json:"organization_id"`
+	Name               string             `json:"name"`
+	ExternalIdentifier pgtype.Text        `json:"external_identifier"`
+	RetiredAt          pgtype.Timestamptz `json:"retired_at"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) CreateHomeroom(ctx context.Context, arg CreateHomeroomParams) (CreateHomeroomRow, error) {
+	row := q.db.QueryRow(ctx, createHomeroom, arg.OrganizationID, arg.Name, arg.ExternalIdentifier)
+	var i CreateHomeroomRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
 		&i.Name,
+		&i.ExternalIdentifier,
 		&i.RetiredAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -93,18 +106,29 @@ func (q *Queries) GetGradeLevelByID(ctx context.Context, id ids.XID) (GradeLevel
 }
 
 const getHomeroomByID = `-- name: GetHomeroomByID :one
-select id, organization_id, name, retired_at, created_at, updated_at
+select id, organization_id, name, external_identifier, retired_at, created_at, updated_at
 from homerooms
 where id = $1
 `
 
-func (q *Queries) GetHomeroomByID(ctx context.Context, id ids.XID) (Homeroom, error) {
+type GetHomeroomByIDRow struct {
+	ID                 ids.XID            `json:"id"`
+	OrganizationID     ids.XID            `json:"organization_id"`
+	Name               string             `json:"name"`
+	ExternalIdentifier pgtype.Text        `json:"external_identifier"`
+	RetiredAt          pgtype.Timestamptz `json:"retired_at"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetHomeroomByID(ctx context.Context, id ids.XID) (GetHomeroomByIDRow, error) {
 	row := q.db.QueryRow(ctx, getHomeroomByID, id)
-	var i Homeroom
+	var i GetHomeroomByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
 		&i.Name,
+		&i.ExternalIdentifier,
 		&i.RetiredAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -167,24 +191,35 @@ func (q *Queries) ListAllGradeLevels(ctx context.Context) ([]GradeLevel, error) 
 }
 
 const listAllHomerooms = `-- name: ListAllHomerooms :many
-select id, organization_id, name, retired_at, created_at, updated_at
+select id, organization_id, name, external_identifier, retired_at, created_at, updated_at
 from homerooms
 order by lower(name), id
 `
 
-func (q *Queries) ListAllHomerooms(ctx context.Context) ([]Homeroom, error) {
+type ListAllHomeroomsRow struct {
+	ID                 ids.XID            `json:"id"`
+	OrganizationID     ids.XID            `json:"organization_id"`
+	Name               string             `json:"name"`
+	ExternalIdentifier pgtype.Text        `json:"external_identifier"`
+	RetiredAt          pgtype.Timestamptz `json:"retired_at"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) ListAllHomerooms(ctx context.Context) ([]ListAllHomeroomsRow, error) {
 	rows, err := q.db.Query(ctx, listAllHomerooms)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Homeroom{}
+	items := []ListAllHomeroomsRow{}
 	for rows.Next() {
-		var i Homeroom
+		var i ListAllHomeroomsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrganizationID,
 			&i.Name,
+			&i.ExternalIdentifier,
 			&i.RetiredAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -236,25 +271,36 @@ func (q *Queries) ListGradeLevels(ctx context.Context) ([]GradeLevel, error) {
 }
 
 const listHomerooms = `-- name: ListHomerooms :many
-select id, organization_id, name, retired_at, created_at, updated_at
+select id, organization_id, name, external_identifier, retired_at, created_at, updated_at
 from homerooms
 where retired_at is null
 order by lower(name), id
 `
 
-func (q *Queries) ListHomerooms(ctx context.Context) ([]Homeroom, error) {
+type ListHomeroomsRow struct {
+	ID                 ids.XID            `json:"id"`
+	OrganizationID     ids.XID            `json:"organization_id"`
+	Name               string             `json:"name"`
+	ExternalIdentifier pgtype.Text        `json:"external_identifier"`
+	RetiredAt          pgtype.Timestamptz `json:"retired_at"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) ListHomerooms(ctx context.Context) ([]ListHomeroomsRow, error) {
 	rows, err := q.db.Query(ctx, listHomerooms)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Homeroom{}
+	items := []ListHomeroomsRow{}
 	for rows.Next() {
-		var i Homeroom
+		var i ListHomeroomsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrganizationID,
 			&i.Name,
+			&i.ExternalIdentifier,
 			&i.RetiredAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -301,7 +347,7 @@ const setHomeroomRetired = `-- name: SetHomeroomRetired :one
 update homerooms
 set retired_at = case when $2::boolean then coalesce(retired_at, now()) else null end
 where id = $1
-returning id, organization_id, name, retired_at, created_at, updated_at
+returning id, organization_id, name, external_identifier, retired_at, created_at, updated_at
 `
 
 type SetHomeroomRetiredParams struct {
@@ -309,13 +355,24 @@ type SetHomeroomRetiredParams struct {
 	Column2 bool    `json:"column_2"`
 }
 
-func (q *Queries) SetHomeroomRetired(ctx context.Context, arg SetHomeroomRetiredParams) (Homeroom, error) {
+type SetHomeroomRetiredRow struct {
+	ID                 ids.XID            `json:"id"`
+	OrganizationID     ids.XID            `json:"organization_id"`
+	Name               string             `json:"name"`
+	ExternalIdentifier pgtype.Text        `json:"external_identifier"`
+	RetiredAt          pgtype.Timestamptz `json:"retired_at"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) SetHomeroomRetired(ctx context.Context, arg SetHomeroomRetiredParams) (SetHomeroomRetiredRow, error) {
 	row := q.db.QueryRow(ctx, setHomeroomRetired, arg.ID, arg.Column2)
-	var i Homeroom
+	var i SetHomeroomRetiredRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
 		&i.Name,
+		&i.ExternalIdentifier,
 		&i.RetiredAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -386,23 +443,35 @@ func (q *Queries) UpdateGradeLevelOrdinal(ctx context.Context, arg UpdateGradeLe
 
 const updateHomeroom = `-- name: UpdateHomeroom :one
 update homerooms
-set name = $2
+set name = $2, external_identifier = $3
 where id = $1
-returning id, organization_id, name, retired_at, created_at, updated_at
+returning id, organization_id, name, external_identifier, retired_at, created_at, updated_at
 `
 
 type UpdateHomeroomParams struct {
-	ID   ids.XID `json:"id"`
-	Name string  `json:"name"`
+	ID                 ids.XID     `json:"id"`
+	Name               string      `json:"name"`
+	ExternalIdentifier pgtype.Text `json:"external_identifier"`
 }
 
-func (q *Queries) UpdateHomeroom(ctx context.Context, arg UpdateHomeroomParams) (Homeroom, error) {
-	row := q.db.QueryRow(ctx, updateHomeroom, arg.ID, arg.Name)
-	var i Homeroom
+type UpdateHomeroomRow struct {
+	ID                 ids.XID            `json:"id"`
+	OrganizationID     ids.XID            `json:"organization_id"`
+	Name               string             `json:"name"`
+	ExternalIdentifier pgtype.Text        `json:"external_identifier"`
+	RetiredAt          pgtype.Timestamptz `json:"retired_at"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) UpdateHomeroom(ctx context.Context, arg UpdateHomeroomParams) (UpdateHomeroomRow, error) {
+	row := q.db.QueryRow(ctx, updateHomeroom, arg.ID, arg.Name, arg.ExternalIdentifier)
+	var i UpdateHomeroomRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
 		&i.Name,
+		&i.ExternalIdentifier,
 		&i.RetiredAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,

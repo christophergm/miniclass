@@ -31,15 +31,15 @@ returning id, organization_id, school_year_id, legal_given_name, legal_family_na
 `
 
 type CreateAdultParams struct {
-	OrganizationID      ids.XID                  `json:"organization_id"`
-	SchoolYearID        ids.XID                  `json:"school_year_id"`
-	LegalGivenName      string                   `json:"legal_given_name"`
-	LegalFamilyName     string                   `json:"legal_family_name"`
-	PreferredGivenName  pgtype.Text              `json:"preferred_given_name"`
-	Email               pgtype.Text              `json:"email"`
-	Phone               pgtype.Text              `json:"phone"`
-	ExternalIdentifier  pgtype.Text              `json:"external_identifier"`
-	ParticipationIntent AdultParticipationIntent `json:"participation_intent"`
+	OrganizationID      ids.XID                      `json:"organization_id"`
+	SchoolYearID        ids.XID                      `json:"school_year_id"`
+	LegalGivenName      string                       `json:"legal_given_name"`
+	LegalFamilyName     string                       `json:"legal_family_name"`
+	PreferredGivenName  pgtype.Text                  `json:"preferred_given_name"`
+	Email               pgtype.Text                  `json:"email"`
+	Phone               pgtype.Text                  `json:"phone"`
+	ExternalIdentifier  pgtype.Text                  `json:"external_identifier"`
+	ParticipationIntent NullAdultParticipationIntent `json:"participation_intent"`
 }
 
 func (q *Queries) CreateAdult(ctx context.Context, arg CreateAdultParams) (Adult, error) {
@@ -360,16 +360,16 @@ returning id, organization_id, school_year_id, legal_given_name, legal_family_na
 `
 
 type UpdateAdultParams struct {
-	ID                  ids.XID                  `json:"id"`
-	OrganizationID      ids.XID                  `json:"organization_id"`
-	SchoolYearID        ids.XID                  `json:"school_year_id"`
-	LegalGivenName      string                   `json:"legal_given_name"`
-	LegalFamilyName     string                   `json:"legal_family_name"`
-	PreferredGivenName  pgtype.Text              `json:"preferred_given_name"`
-	Email               pgtype.Text              `json:"email"`
-	Phone               pgtype.Text              `json:"phone"`
-	ExternalIdentifier  pgtype.Text              `json:"external_identifier"`
-	ParticipationIntent AdultParticipationIntent `json:"participation_intent"`
+	ID                  ids.XID                      `json:"id"`
+	OrganizationID      ids.XID                      `json:"organization_id"`
+	SchoolYearID        ids.XID                      `json:"school_year_id"`
+	LegalGivenName      string                       `json:"legal_given_name"`
+	LegalFamilyName     string                       `json:"legal_family_name"`
+	PreferredGivenName  pgtype.Text                  `json:"preferred_given_name"`
+	Email               pgtype.Text                  `json:"email"`
+	Phone               pgtype.Text                  `json:"phone"`
+	ExternalIdentifier  pgtype.Text                  `json:"external_identifier"`
+	ParticipationIntent NullAdultParticipationIntent `json:"participation_intent"`
 }
 
 func (q *Queries) UpdateAdult(ctx context.Context, arg UpdateAdultParams) (Adult, error) {

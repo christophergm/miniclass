@@ -70,7 +70,7 @@ func (f *fakeVocabularyService) GetHomeroom(context.Context, string, ids.XID) (d
 	return data.Homeroom{}, nil
 }
 
-func (f *fakeVocabularyService) CreateHomeroom(context.Context, string, audit.Actor, string) (data.Homeroom, error) {
+func (f *fakeVocabularyService) CreateHomeroom(context.Context, string, audit.Actor, string, *string) (data.Homeroom, error) {
 	return data.Homeroom{}, nil
 }
 

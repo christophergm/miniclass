@@ -27,16 +27,16 @@ func TestAdultCRUDSoftDeleteAndAudit(t *testing.T) {
 	service := people.New(harness.Database)
 	created, err := service.Create(ctx, string(organizationID), year.ID, actor, people.AdultCreateInput{
 		LegalGivenName: "Alexander", LegalFamilyName: "Rivera", PreferredGivenName: &preferred,
-		Email: &email, ExternalIdentifier: &externalIdentifier, ParticipationIntent: data.AdultParticipationHelp,
+		Email: &email, ExternalIdentifier: &externalIdentifier, ParticipationIntent: adultIntentPtr(data.AdultParticipationHelp),
 	})
 	require.NoError(t, err)
 	require.Equal(t, preferred, *created.PreferredGivenName)
-	require.Equal(t, data.AdultParticipationHelp, created.ParticipationIntent)
+	require.Equal(t, data.AdultParticipationHelp, *created.ParticipationIntent)
 
 	newIntent := data.AdultParticipationLead
 	updated, err := service.Update(ctx, string(organizationID), year.ID, created.ID, actor, people.AdultUpdateInput{ParticipationIntent: &newIntent})
 	require.NoError(t, err)
-	require.Equal(t, data.AdultParticipationLead, updated.ParticipationIntent)
+	require.Equal(t, data.AdultParticipationLead, *updated.ParticipationIntent)
 
 	listed, err := service.List(ctx, string(organizationID), year.ID, false)
 	require.NoError(t, err)
@@ -61,7 +61,7 @@ func TestAdultCRUDSoftDeleteAndAudit(t *testing.T) {
 	// old row has been soft-deleted.
 	replacement, err := service.Create(ctx, string(organizationID), year.ID, actor, people.AdultCreateInput{
 		LegalGivenName: "Jordan", LegalFamilyName: "Rivera", ExternalIdentifier: &externalIdentifier,
-		ParticipationIntent: data.AdultParticipationUnavailable,
+		ParticipationIntent: adultIntentPtr(data.AdultParticipationUnavailable),
 	})
 	require.NoError(t, err)
 	require.NotEqual(t, created.ID, replacement.ID)

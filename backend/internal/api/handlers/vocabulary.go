@@ -14,6 +14,7 @@ import (
 	"github.com/chrismott/miniclass/internal/ids"
 	"github.com/chrismott/miniclass/internal/vocabulary"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type VocabularyService interface {
@@ -23,7 +24,7 @@ type VocabularyService interface {
 	UpdateGrade(context.Context, string, ids.XID, audit.Actor, vocabulary.GradeLevelUpdate) (data.GradeLevel, error)
 	ReorderGrades(context.Context, string, audit.Actor, []ids.XID) ([]data.GradeLevel, error)
 	GetHomeroom(context.Context, string, ids.XID) (data.Homeroom, error)
-	CreateHomeroom(context.Context, string, audit.Actor, string) (data.Homeroom, error)
+	CreateHomeroom(context.Context, string, audit.Actor, string, *string) (data.Homeroom, error)
 	UpdateHomeroom(context.Context, string, ids.XID, audit.Actor, vocabulary.HomeroomUpdate) (data.Homeroom, error)
 	UpdateHomeroomLabel(context.Context, string, audit.Actor, string) (data.VocabularySettings, error)
 }
@@ -71,12 +72,13 @@ type GradeLevelOutput struct {
 }
 
 type HomeroomOutput struct {
-	ID             string     `json:"id" doc:"Opaque homeroom identifier."`
-	OrganizationID string     `json:"organization_id" doc:"Opaque organization identifier."`
-	Name           string     `json:"name"`
-	RetiredAt      *time.Time `json:"retired_at,omitempty"`
-	CreatedAt      time.Time  `json:"created_at"`
-	UpdatedAt      time.Time  `json:"updated_at"`
+	ID                 string     `json:"id" doc:"Opaque homeroom identifier."`
+	OrganizationID     string     `json:"organization_id" doc:"Opaque organization identifier."`
+	Name               string     `json:"name"`
+	ExternalIdentifier *string    `json:"external_identifier" nullable:"true"`
+	RetiredAt          *time.Time `json:"retired_at,omitempty"`
+	CreatedAt          time.Time  `json:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at"`
 }
 
 type GradeLevelPathInput struct {
@@ -99,7 +101,8 @@ type CreateGradeLevelInput struct {
 
 type CreateHomeroomInput struct {
 	Body struct {
-		Name string `json:"name" minLength:"1"`
+		Name               string  `json:"name" minLength:"1"`
+		ExternalIdentifier *string `json:"external_identifier,omitempty" nullable:"true"`
 	}
 }
 
@@ -115,8 +118,9 @@ type UpdateGradeLevelInput struct {
 type UpdateHomeroomInput struct {
 	HomeroomPathInput
 	Body struct {
-		Name    *string `json:"name,omitempty" minLength:"1"`
-		Retired *bool   `json:"retired,omitempty"`
+		Name               *string `json:"name,omitempty" minLength:"1"`
+		ExternalIdentifier *string `json:"external_identifier,omitempty" nullable:"true"`
+		Retired            *bool   `json:"retired,omitempty"`
 	}
 }
 
@@ -295,7 +299,7 @@ func (h *VocabularyHandler) CreateHomeroom(ctx context.Context, input *CreateHom
 	if h == nil || h.service == nil || input == nil {
 		return nil, problems.New(http.StatusBadRequest, problems.ResourceNotFound, "homeroom body is required")
 	}
-	row, err := h.service.CreateHomeroom(ctx, string(account.OrganizationID), vocabularyActor(account), input.Body.Name)
+	row, err := h.service.CreateHomeroom(ctx, string(account.OrganizationID), vocabularyActor(account), input.Body.Name, input.Body.ExternalIdentifier)
 	if err != nil {
 		return nil, vocabularyProblem(err)
 	}
@@ -310,8 +314,13 @@ func (h *VocabularyHandler) UpdateHomeroom(ctx context.Context, input *UpdateHom
 	if h == nil || h.service == nil || input == nil || strings.TrimSpace(input.HomeroomID) == "" {
 		return nil, problems.New(http.StatusNotFound, problems.ResourceNotFound, "homeroom not found")
 	}
+	var externalIdentifier **string
+	if input.Body.ExternalIdentifier != nil {
+		value := input.Body.ExternalIdentifier
+		externalIdentifier = &value
+	}
 	row, err := h.service.UpdateHomeroom(ctx, string(account.OrganizationID), ids.XID(input.HomeroomID), vocabularyActor(account), vocabulary.HomeroomUpdate{
-		Name: input.Body.Name, Retired: input.Body.Retired,
+		Name: input.Body.Name, ExternalIdentifier: externalIdentifier, Retired: input.Body.Retired,
 	})
 	if err != nil {
 		return nil, vocabularyProblem(err)
@@ -372,7 +381,7 @@ func gradeLevelResponse(row data.GradeLevel) GradeLevelOutput {
 }
 
 func homeroomResponse(row data.Homeroom) HomeroomOutput {
-	return HomeroomOutput{ID: string(row.ID), OrganizationID: string(row.OrganizationID), Name: row.Name, RetiredAt: row.RetiredAt, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+	return HomeroomOutput{ID: string(row.ID), OrganizationID: string(row.OrganizationID), Name: row.Name, ExternalIdentifier: row.ExternalIdentifier, RetiredAt: row.RetiredAt, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
 }
 
 func vocabularyProblem(err error) error {
@@ -383,9 +392,16 @@ func vocabularyProblem(err error) error {
 		return problems.New(http.StatusConflict, problems.SchoolYearTransitionInvalid, err.Error())
 	case errors.Is(err, vocabulary.ErrInvalid):
 		return problems.New(http.StatusBadRequest, problems.SchoolYearTransitionInvalid, err.Error())
+	case isUniqueViolation(err):
+		return problems.New(http.StatusConflict, problems.HomeroomExternalIdentifierConflict, "the homeroom external identifier is already used in this organisation")
 	case strings.Contains(err.Error(), "is empty"), strings.Contains(err.Error(), "must be positive"):
 		return problems.New(http.StatusBadRequest, problems.SchoolYearTransitionInvalid, err.Error())
 	default:
 		return problems.New(http.StatusInternalServerError, problems.InternalError, "unable to change vocabulary")
 	}
+}
+
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }

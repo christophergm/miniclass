@@ -42,7 +42,7 @@ func createStudent(ctx context.Context, harness *testharness.Harness, organizati
 	}
 	row, err := factory.CreateStudent(ctx, year.ID, people.StudentCreateInput{
 		LegalGivenName: "Synthetic", LegalFamilyName: fmt.Sprintf("Student %s", organizationID),
-		GradeLevelID: grade.ID, HomeroomID: homeroom.ID,
+		GradeLevelID: &grade.ID, HomeroomID: homeroom.ID,
 	})
 	if err != nil {
 		return "", err

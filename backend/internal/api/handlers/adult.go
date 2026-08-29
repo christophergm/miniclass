@@ -40,7 +40,7 @@ type AdultResponse struct {
 	Email               *string    `json:"email,omitempty"`
 	Phone               *string    `json:"phone,omitempty"`
 	ExternalIdentifier  *string    `json:"external_identifier,omitempty"`
-	ParticipationIntent string     `json:"participation_intent" enum:"lead,help,unavailable"`
+	ParticipationIntent *string    `json:"participation_intent" nullable:"true" enum:"lead,help,unavailable"`
 	DisplayName         string     `json:"display_name"`
 	DeletedAt           *time.Time `json:"deleted_at,omitempty"`
 	CreatedAt           time.Time  `json:"created_at"`
@@ -69,7 +69,7 @@ type CreateAdultInput struct {
 		Email               *string `json:"email,omitempty"`
 		Phone               *string `json:"phone,omitempty"`
 		ExternalIdentifier  *string `json:"external_identifier,omitempty"`
-		ParticipationIntent string  `json:"participation_intent" enum:"lead,help,unavailable"`
+		ParticipationIntent *string `json:"participation_intent,omitempty" nullable:"true" enum:"lead,help,unavailable"`
 	}
 }
 
@@ -89,7 +89,7 @@ type UpdateAdultInput struct {
 		Email               *string `json:"email,omitempty"`
 		Phone               *string `json:"phone,omitempty"`
 		ExternalIdentifier  *string `json:"external_identifier,omitempty"`
-		ParticipationIntent *string `json:"participation_intent,omitempty" enum:"lead,help,unavailable"`
+		ParticipationIntent *string `json:"participation_intent,omitempty" nullable:"true" enum:"lead,help,unavailable"`
 	}
 }
 
@@ -138,7 +138,7 @@ func (h *AdultHandler) Create(ctx context.Context, input *CreateAdultInput) (*Ad
 		LegalGivenName: input.Body.LegalGivenName, LegalFamilyName: input.Body.LegalFamilyName,
 		PreferredGivenName: input.Body.PreferredGivenName, Email: input.Body.Email, Phone: input.Body.Phone,
 		ExternalIdentifier:  input.Body.ExternalIdentifier,
-		ParticipationIntent: data.AdultParticipationIntent(strings.TrimSpace(input.Body.ParticipationIntent)),
+		ParticipationIntent: adultIntent(input.Body.ParticipationIntent),
 	})
 	if err != nil {
 		return nil, adultProblem(err)
@@ -250,10 +250,26 @@ func adultResponse(row data.Adult) AdultResponse {
 		ID: string(row.ID), OrganizationID: string(row.OrganizationID), SchoolYearID: string(row.SchoolYearID),
 		LegalGivenName: row.LegalGivenName, LegalFamilyName: row.LegalFamilyName, PreferredGivenName: row.PreferredGivenName,
 		Email: row.Email, Phone: row.Phone, ExternalIdentifier: row.ExternalIdentifier,
-		ParticipationIntent: string(row.ParticipationIntent), DisplayName: people.DisplayName(preferred, &legalGiven, &legalFamily),
+		ParticipationIntent: optionalAdultIntent(row.ParticipationIntent), DisplayName: people.DisplayName(preferred, &legalGiven, &legalFamily),
 		DeletedAt: row.DeletedAt,
 		CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 	}
+}
+
+func adultIntent(value *string) *data.AdultParticipationIntent {
+	if value == nil || strings.TrimSpace(*value) == "" {
+		return nil
+	}
+	intent := data.AdultParticipationIntent(strings.TrimSpace(*value))
+	return &intent
+}
+
+func optionalAdultIntent(value *data.AdultParticipationIntent) *string {
+	if value == nil {
+		return nil
+	}
+	result := string(*value)
+	return &result
 }
 
 func adultNotFound() error {

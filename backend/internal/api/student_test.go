@@ -27,7 +27,8 @@ func TestStudentRoutesUseTenantPrincipalAndCapability(t *testing.T) {
 	require.Equal(t, http.StatusOK, recording.Code)
 	require.Equal(t, "org-test", service.organizationID)
 	require.Equal(t, ids.XID("year-test"), service.schoolYearID)
-	require.Equal(t, ids.XID("grade-test"), service.input.GradeLevelID)
+	require.NotNil(t, service.input.GradeLevelID)
+	require.Equal(t, ids.XID("grade-test"), *service.input.GradeLevelID)
 	require.Equal(t, ids.XID("room-test"), service.input.HomeroomID)
 }
 

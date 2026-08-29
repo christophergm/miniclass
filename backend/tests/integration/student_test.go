@@ -6,6 +6,7 @@ import (
 
 	"github.com/chrismott/miniclass/internal/audit"
 	"github.com/chrismott/miniclass/internal/data"
+	"github.com/chrismott/miniclass/internal/ids"
 	"github.com/chrismott/miniclass/internal/people"
 	"github.com/chrismott/miniclass/internal/schoolyear"
 	testharness "github.com/chrismott/miniclass/internal/testing"
@@ -25,17 +26,17 @@ func TestStudentCRUDSoftDeleteAndPriorYearLink(t *testing.T) {
 	require.NoError(t, err)
 	grade, err := vocabulary.New(harness.Database).CreateGrade(ctx, string(organizationID), actor, "four", "Grade Four")
 	require.NoError(t, err)
-	homeroom, err := vocabulary.New(harness.Database).CreateHomeroom(ctx, string(organizationID), actor, "Room A")
+	homeroom, err := vocabulary.New(harness.Database).CreateHomeroom(ctx, string(organizationID), actor, "Room A", nil)
 	require.NoError(t, err)
 	service := people.New(harness.Database)
 	prior, err := service.CreateStudent(ctx, string(organizationID), priorYear.ID, actor, people.StudentCreateInput{
-		LegalGivenName: "Alex", LegalFamilyName: "Rivera", GradeLevelID: grade.ID, HomeroomID: homeroom.ID,
+		LegalGivenName: "Alex", LegalFamilyName: "Rivera", GradeLevelID: xidPtr(grade.ID), HomeroomID: homeroom.ID,
 	})
 	require.NoError(t, err)
 	externalIdentifier := "student-1"
 	created, err := service.CreateStudent(ctx, string(organizationID), year.ID, actor, people.StudentCreateInput{
 		LegalGivenName: "Alexander", LegalFamilyName: "Rivera", PreferredGivenName: stringPointer("Alex"),
-		GradeLevelID: grade.ID, HomeroomID: homeroom.ID, ExternalIdentifier: &externalIdentifier,
+		GradeLevelID: xidPtr(grade.ID), HomeroomID: homeroom.ID, ExternalIdentifier: &externalIdentifier,
 		PriorYearStudentID: &prior.ID,
 	})
 	require.NoError(t, err)
@@ -69,7 +70,7 @@ func TestStudentCRUDSoftDeleteAndPriorYearLink(t *testing.T) {
 	require.NoError(t, service.DeleteStudent(ctx, string(organizationID), year.ID, created.ID, actor))
 
 	replacement, err := service.CreateStudent(ctx, string(organizationID), year.ID, actor, people.StudentCreateInput{
-		LegalGivenName: "Jordan", LegalFamilyName: "Rivera", GradeLevelID: grade.ID, HomeroomID: homeroom.ID,
+		LegalGivenName: "Jordan", LegalFamilyName: "Rivera", GradeLevelID: xidPtr(grade.ID), HomeroomID: homeroom.ID,
 		ExternalIdentifier: &externalIdentifier,
 	})
 	require.NoError(t, err)
@@ -86,3 +87,9 @@ func TestStudentCRUDSoftDeleteAndPriorYearLink(t *testing.T) {
 }
 
 func stringPointer(value string) *string { return &value }
+
+func xidPtr(value ids.XID) *ids.XID { return &value }
+
+func adultIntentPtr(value data.AdultParticipationIntent) *data.AdultParticipationIntent {
+	return &value
+}

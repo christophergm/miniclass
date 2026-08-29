@@ -48,7 +48,7 @@ export const resourceApi = {
     unwrap(api.PATCH('/api/grade-levels/{gradeLevelID}', { params: { path: { gradeLevelID } }, body: value })),
   reorderGradeLevels: (ids: string[]) => unwrapList(api.POST('/api/grade-levels/reorder', { body: { ids } })),
 
-  createHomeroom: (name: string) => unwrap(api.POST('/api/homerooms', { body: { name } })),
+  createHomeroom: (value: Schemas['CreateHomeroomInputBody']) => unwrap(api.POST('/api/homerooms', { body: value })),
   updateHomeroom: (homeroomID: string, value: Schemas['UpdateHomeroomInputBody']) =>
     unwrap(api.PATCH('/api/homerooms/{homeroomID}', { params: { path: { homeroomID } }, body: value })),
 

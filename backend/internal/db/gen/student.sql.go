@@ -36,7 +36,7 @@ type CreateStudentParams struct {
 	LegalGivenName     string      `json:"legal_given_name"`
 	LegalFamilyName    string      `json:"legal_family_name"`
 	PreferredGivenName pgtype.Text `json:"preferred_given_name"`
-	GradeLevelID       ids.XID     `json:"grade_level_id"`
+	GradeLevelID       *ids.XID    `json:"grade_level_id"`
 	HomeroomID         ids.XID     `json:"homeroom_id"`
 	ExternalIdentifier pgtype.Text `json:"external_identifier"`
 	PriorYearStudentID *ids.XID    `json:"prior_year_student_id"`
@@ -366,7 +366,7 @@ type UpdateStudentParams struct {
 	LegalGivenName     string      `json:"legal_given_name"`
 	LegalFamilyName    string      `json:"legal_family_name"`
 	PreferredGivenName pgtype.Text `json:"preferred_given_name"`
-	GradeLevelID       ids.XID     `json:"grade_level_id"`
+	GradeLevelID       *ids.XID    `json:"grade_level_id"`
 	HomeroomID         ids.XID     `json:"homeroom_id"`
 	ExternalIdentifier pgtype.Text `json:"external_identifier"`
 	PriorYearStudentID *ids.XID    `json:"prior_year_student_id"`

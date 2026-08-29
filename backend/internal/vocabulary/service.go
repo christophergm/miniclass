@@ -25,8 +25,9 @@ type GradeLevelUpdate struct {
 }
 
 type HomeroomUpdate struct {
-	Name    *string
-	Retired *bool
+	Name               *string
+	ExternalIdentifier **string
+	Retired            *bool
 }
 
 type Snapshot struct {
@@ -199,19 +200,19 @@ func (s *Service) GetHomeroom(ctx context.Context, organizationID string, id ids
 	return result, nil
 }
 
-func (s *Service) CreateHomeroom(ctx context.Context, organizationID string, actor audit.Actor, name string) (data.Homeroom, error) {
+func (s *Service) CreateHomeroom(ctx context.Context, organizationID string, actor audit.Actor, name string, externalIdentifier *string) (data.Homeroom, error) {
 	if s == nil || s.database == nil {
 		return data.Homeroom{}, errors.New("create homeroom: data service is nil")
 	}
 	var result data.Homeroom
 	err := s.database.InTenant(ctx, organizationID, actor, func(ctx context.Context, tx *data.Tx) error {
 		var err error
-		result, err = tx.CreateHomeroom(ctx, name)
+		result, err = tx.CreateHomeroom(ctx, name, externalIdentifier)
 		if err != nil {
 			return err
 		}
 		id := result.ID
-		return recordChange(ctx, tx, &id, "homeroom", map[string]any{"name": result.Name})
+		return recordChange(ctx, tx, &id, "homeroom", map[string]any{"name": result.Name, "external_identifier": result.ExternalIdentifier})
 	})
 	if err != nil {
 		return data.Homeroom{}, fmt.Errorf("create homeroom: %w", err)
@@ -230,9 +231,23 @@ func (s *Service) UpdateHomeroom(ctx context.Context, organizationID string, id 
 			return err
 		}
 		changed := false
-		before := map[string]any{"name": current.Name, "retired": current.RetiredAt != nil}
+		before := map[string]any{"name": current.Name, "external_identifier": current.ExternalIdentifier, "retired": current.RetiredAt != nil}
+		if input.ExternalIdentifier != nil {
+			value := *input.ExternalIdentifier
+			if !sameOptionalString(current.ExternalIdentifier, value) {
+				result, err = tx.UpdateHomeroom(ctx, id, current.Name, value)
+				if err != nil {
+					return err
+				}
+				changed = true
+			}
+		}
 		if input.Name != nil && strings.TrimSpace(*input.Name) != current.Name {
-			result, err = tx.UpdateHomeroom(ctx, id, *input.Name)
+			externalIdentifier := current.ExternalIdentifier
+			if input.ExternalIdentifier != nil {
+				externalIdentifier = *input.ExternalIdentifier
+			}
+			result, err = tx.UpdateHomeroom(ctx, id, *input.Name, externalIdentifier)
 			if err != nil {
 				return err
 			}
@@ -252,13 +267,24 @@ func (s *Service) UpdateHomeroom(ctx context.Context, organizationID string, id 
 			result = current
 		}
 		return recordChange(ctx, tx, &id, "homeroom", map[string]any{
-			"before": before, "after": map[string]any{"name": result.Name, "retired": result.RetiredAt != nil},
+			"before": before, "after": map[string]any{"name": result.Name, "external_identifier": result.ExternalIdentifier, "retired": result.RetiredAt != nil},
 		})
 	})
 	if err != nil {
 		return data.Homeroom{}, fmt.Errorf("update homeroom: %w", err)
 	}
 	return result, nil
+}
+
+func sameOptionalString(current, next *string) bool {
+	currentValue, nextValue := "", ""
+	if current != nil {
+		currentValue = strings.TrimSpace(*current)
+	}
+	if next != nil {
+		nextValue = strings.TrimSpace(*next)
+	}
+	return currentValue == nextValue
 }
 
 func (s *Service) UpdateHomeroomLabel(ctx context.Context, organizationID string, actor audit.Actor, label string) (data.VocabularySettings, error) {

@@ -34,21 +34,21 @@ type Adult struct {
 	Email               *string
 	Phone               *string
 	ExternalIdentifier  *string
-	ParticipationIntent AdultParticipationIntent
+	ParticipationIntent *AdultParticipationIntent
 	DeletedAt           *time.Time
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
 }
 
 // CreateAdult inserts an active adult under the transaction tenant and year.
-func (tx *Tx) CreateAdult(ctx context.Context, schoolYearID ids.XID, legalGivenName, legalFamilyName string, preferredGivenName, email, phone, externalIdentifier *string, intent AdultParticipationIntent) (Adult, error) {
+func (tx *Tx) CreateAdult(ctx context.Context, schoolYearID ids.XID, legalGivenName, legalFamilyName string, preferredGivenName, email, phone, externalIdentifier *string, intent *AdultParticipationIntent) (Adult, error) {
 	legalGivenName = strings.TrimSpace(legalGivenName)
 	legalFamilyName = strings.TrimSpace(legalFamilyName)
 	if legalGivenName == "" || legalFamilyName == "" {
 		return Adult{}, errors.New("create adult: legal names are required")
 	}
 	if !validAdultParticipationIntent(intent) {
-		return Adult{}, fmt.Errorf("create adult: invalid participation intent %q", intent)
+		return Adult{}, fmt.Errorf("create adult: invalid participation intent %q", *intent)
 	}
 	row, err := tx.queries.CreateAdult(ctx, db.CreateAdultParams{
 		OrganizationID:      tx.organizationID,
@@ -59,7 +59,7 @@ func (tx *Tx) CreateAdult(ctx context.Context, schoolYearID ids.XID, legalGivenN
 		Email:               nullableAdultText(email),
 		Phone:               nullableAdultText(phone),
 		ExternalIdentifier:  nullableAdultText(externalIdentifier),
-		ParticipationIntent: db.AdultParticipationIntent(intent),
+		ParticipationIntent: nullableAdultIntent(intent),
 	})
 	if err != nil {
 		return Adult{}, wrapAdultMutationError("create adult", err)
@@ -108,21 +108,21 @@ func (tx *Tx) GetAdultByIDIncludingDeleted(ctx context.Context, schoolYearID, id
 }
 
 // UpdateAdult replaces the editable fields of one active adult.
-func (tx *Tx) UpdateAdult(ctx context.Context, schoolYearID, id ids.XID, legalGivenName, legalFamilyName string, preferredGivenName, email, phone, externalIdentifier *string, intent AdultParticipationIntent) (Adult, error) {
+func (tx *Tx) UpdateAdult(ctx context.Context, schoolYearID, id ids.XID, legalGivenName, legalFamilyName string, preferredGivenName, email, phone, externalIdentifier *string, intent *AdultParticipationIntent) (Adult, error) {
 	legalGivenName = strings.TrimSpace(legalGivenName)
 	legalFamilyName = strings.TrimSpace(legalFamilyName)
 	if legalGivenName == "" || legalFamilyName == "" {
 		return Adult{}, errors.New("update adult: legal names are required")
 	}
 	if !validAdultParticipationIntent(intent) {
-		return Adult{}, fmt.Errorf("update adult: invalid participation intent %q", intent)
+		return Adult{}, fmt.Errorf("update adult: invalid participation intent %q", *intent)
 	}
 	row, err := tx.queries.UpdateAdult(ctx, db.UpdateAdultParams{
 		ID: id, OrganizationID: tx.organizationID, SchoolYearID: schoolYearID,
 		LegalGivenName: legalGivenName, LegalFamilyName: legalFamilyName,
 		PreferredGivenName: nullableAdultText(preferredGivenName), Email: nullableAdultText(email),
 		Phone: nullableAdultText(phone), ExternalIdentifier: nullableAdultText(externalIdentifier),
-		ParticipationIntent: db.AdultParticipationIntent(intent),
+		ParticipationIntent: nullableAdultIntent(intent),
 	})
 	if err != nil {
 		return Adult{}, wrapAdultMutationError("update adult", err)
@@ -181,13 +181,23 @@ func (tx *Tx) FindAdultForRegistry(ctx context.Context, id ids.XID) (Adult, ids.
 	return value, value.SchoolYearID, err
 }
 
-func validAdultParticipationIntent(intent AdultParticipationIntent) bool {
-	switch intent {
+func validAdultParticipationIntent(intent *AdultParticipationIntent) bool {
+	if intent == nil {
+		return true
+	}
+	switch *intent {
 	case AdultParticipationLead, AdultParticipationHelp, AdultParticipationUnavailable:
 		return true
 	default:
 		return false
 	}
+}
+
+func nullableAdultIntent(value *AdultParticipationIntent) db.NullAdultParticipationIntent {
+	if value == nil {
+		return db.NullAdultParticipationIntent{}
+	}
+	return db.NullAdultParticipationIntent{AdultParticipationIntent: db.AdultParticipationIntent(*value), Valid: true}
 }
 
 func nullableAdultText(value *string) pgtype.Text {
@@ -211,9 +221,17 @@ func adult(row db.Adult) (Adult, error) {
 		LegalGivenName: row.LegalGivenName, LegalFamilyName: row.LegalFamilyName,
 		PreferredGivenName: nullableAdultString(row.PreferredGivenName), Email: nullableAdultString(row.Email),
 		Phone: nullableAdultString(row.Phone), ExternalIdentifier: nullableAdultString(row.ExternalIdentifier),
-		ParticipationIntent: AdultParticipationIntent(row.ParticipationIntent),
+		ParticipationIntent: nullableAdultIntentValue(row.ParticipationIntent),
 		DeletedAt:           nullableAdultTime(row.DeletedAt), CreatedAt: createdAt, UpdatedAt: updatedAt,
 	}, nil
+}
+
+func nullableAdultIntentValue(value db.NullAdultParticipationIntent) *AdultParticipationIntent {
+	if !value.Valid {
+		return nil
+	}
+	result := AdultParticipationIntent(value.AdultParticipationIntent)
+	return &result
 }
 
 func nullableAdultString(value pgtype.Text) *string {
