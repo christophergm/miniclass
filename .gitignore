@@ -51,3 +51,7 @@ Thumbs.db
 *.pem
 *.crt
 *.key
+
+# Data files (repository root only; an unanchored rule also matches
+# backend/internal/data, silently untracking new source files there)
+/data/
