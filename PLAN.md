@@ -1,6 +1,6 @@
 # Mini Class Planner — Delivery Plan
 
-**Status:** Phase 0 in progress
+**Status:** Phases 0 and 1 complete; Phase 2 decomposed
 **Source of truth for behaviour:** [`SPEC.md`](./SPEC.md). This document says *when* and *in what
 order*; the spec says *what*. Where the two disagree, the spec wins and this document is wrong.
 **Architecture decisions:** [`docs/adr/`](./docs/adr/)
@@ -30,7 +30,7 @@ Each phase carries two tracks:
   needs. Platform work is deliberately distributed rather than front-loaded, so each investment is
   paid for by the phase that consumes it.
 
-Only Phase 0 and Phase 1 are broken down to task level. Later phases are scoped and sequenced but
+Only Phases 0 to 2 are broken down to task level. Later phases are scoped and sequenced but
 not decomposed; each is decomposed at the point it starts, when the preceding phase's learnings are
 available. This document is expected to be revised at every phase boundary.
 
@@ -101,6 +101,22 @@ tables and they have to come back out. That lands as a **new timestamped migrati
 recreates them exactly — never as an edit to the merged one — together with the API, frontend and
 seed surfaces built on top of them. The Phase 1 bullets below describe the model as it stands after
 that removal, not as it was first built.
+
+One further decision was taken while decomposing Phase 2, once the real source documents had been
+measured rather than assumed:
+
+| ID | Decision | Resolution | ADR |
+|---|---|---|---|
+| D11 | Roster ingest scope and source authority | **Two import kinds** — a JSON roster export matched by external identifier, and a CSV of grades matched by whole normalised name. Literal adult authority on the wide row, two reported source filters, grade and participation intent nullable, stateless preview and commit. §11.5's individual conflict resolution knowingly deferred. | [0014](./docs/adr/0014-roster-ingest-scope-and-source-authority.md) |
+
+Measuring the source first changed three decisions that would otherwise have gone the other way. The
+export carries a stable opaque identifier on every person, which made §11.7 idempotency a dictionary
+lookup rather than the name-matching machinery it would be for a name-keyed source — so it is
+honoured here instead of deferred. It carries **no grade at all**, only a classroom, so grade arrives
+from a second source on a different timeline and `students.grade_level_id` has to become nullable.
+And a quarter of the children in it have no classroom, because they are alumni, younger siblings and
+administrative accounts rather than students — so ingest needs source filters, and those filters are
+inferences that must be reported rather than silent.
 
 One spec-level question is carried deliberately unresolved:
 
@@ -280,43 +296,83 @@ cheap.
 
 ### Phase 2 — Ingest engine
 
-*SPEC §11, plus §10.1 vocabularies. Built generic because §13.8 reuses it verbatim for preferences.*
+*SPEC §11, plus §10.1 vocabularies. Scope fixed by
+[ADR 0014](./docs/adr/0014-roster-ingest-scope-and-source-authority.md) after the real source
+documents were measured. The envelope is built generic because §13.8 reuses it for preferences, but
+graph resolution is roster-specific.*
+
+Two sources, deliberately narrow. The community-platform export is JSON, one row per adult with
+children named inline — the wide format of §11.4 — and it carries **no grade at all**. Grade arrives
+separately, from a two-column CSV produced by the school office and matched by name. The export is
+**external-identifier-complete**, which is what made §11.7 cheap enough to honour rather than defer.
 
 **Feature track**
 
-- Pluggable source parsers (CSV and JSON minimum) that translate to the canonical shape and do
-  nothing else. Parsers resolve fields **by name or explicit mapping, never by position** (§11.3) —
-  six different survey layouts in two years is why.
-- Canonical shape: Student, Adult, Guardian-relationship records. The wide format (one row per
-  adult, students inline) is also supported, and its authority is **the adult on the row, not the
-  student**: it sets exactly that adult's guardian edges and never touches an edge owned by another
-  adult. Two adults' rows therefore compose into a two-guardian student, and removal by import still
-  works. The §11.5 `Update` preview must list the guardian edges being **removed** and not only
-  those added, because a partial re-export that accidentally omits a child would otherwise silently
-  drop that edge.
-- Two-phase preview → atomic commit, with per-row `Create` / `Update` / `Unchanged` / `Conflict` /
-  `Error`. Commit blocked while any `Error` exists. `Update` rows show field-by-field changes.
-- Matching: external identifier wins outright; otherwise normalised name; more than one candidate is
-  a `Conflict` the system **must not** resolve. No fuzzy merging (§11.6).
+- Two import kinds against one envelope: `roster_json` and `grades_csv`. §11.3's CSV **and** JSON
+  minimums are both met by the pair. A CSV *roster* parser is not built.
+- Parsers resolve fields **by name, never by position** (§11.3) — six survey layouts in two years is
+  why. Unknown fields are ignored; the source carries a great deal the importer does not read.
+- Canonical shape: Student, Adult, Guardian-relationship records (§11.4). The wide row's authority is
+  **the adult on the row, not the student**: it sets exactly that adult's guardian edges and never
+  touches an edge owned by another adult. Two adults' rows therefore compose into a two-guardian
+  student, and removal by import still works. The §11.5 `Update` preview must list the guardian edges
+  being **removed** and not only those added, because a partial re-export that accidentally omits a
+  child would otherwise silently drop that edge.
+- Two-phase preview → atomic commit, with per-record `Create` / `Update` / `Unchanged` / `Conflict` /
+  `Error` and a roll-up to the source row — one wide row is several outcomes at once. Commit blocked
+  while any `Error` exists. `Update` records show field-by-field changes. **Stateless**, guarded by a
+  content hash; no import batch is persisted.
+- Matching: **external identifier only** for the roster (§11.6 rule 1 — every source record carries
+  one, so no further comparison is performed). `grades_csv` is the one place rule 2 is reached, and it
+  matches the **whole** normalised name string — never split into given and family, because splitting
+  is precisely A.5 defects 4–5. More than one candidate is a `Conflict` the system **must not**
+  resolve. No fuzzy merging (§11.6).
 - **Idempotency (§11.7)** — re-importing an unchanged source produces zero changes and reports every
-  row `Unchanged`. This is a hard requirement driven by the observed repeated-partial-import
+  record `Unchanged`. This is a hard requirement driven by the observed repeated-partial-import
   workflow.
+- **Two source filters, both always reported, never silent.** A child with no classroom reference is
+  not enrolled (62 of 247 in the observed export). An adult is imported only when named and guarding
+  at least one enrolled student (226 of 324 — and every one of the 185 enrolled students retains a
+  guardian).
+- **Grade and participation intent become nullable.** Neither has a source: §10.1 requires the grade
+  vocabulary to be ordered, not present, and §15.2 makes participation intent a declared survey
+  answer. A null grade is quarantined at programme membership in Phase 3.
 - The grade and homeroom vocabularies are **already in place from Phase 1**, because a hand-built
-  roster needs them. Phase 2 adds only what import requires of them: resolving an incoming grade or
-  homeroom label to an existing vocabulary entry, and reporting an unrecognised one as a row error
-  rather than silently creating a value (§10.2's rule that vocabularies are never inferred from
-  imported headers).
+  roster needs them. Phase 2 adds only what import requires: homerooms gain an `external_identifier`
+  so an incoming classroom joins on an opaque key rather than a name (§8.7), grade levels resolve by
+  normalised code or label, and an unrecognised value is a row `Error` rather than a silently created
+  one (§10.2's rule that vocabularies are never inferred from imported headers).
+- An import page: upload, preview grouped by outcome, **removals in their own section**, exclusions
+  shown with counts, commit gated on `Error`.
+
+**Knowingly deferred** — recorded with revisit triggers in ADR 0014
+
+- §11.5's requirement that `Conflict` rows be individually resolvable. Conflicts are reported and
+  skipped; the organiser corrects through manual CRUD and re-imports, which is safe only because
+  §11.7 holds. Revisit at the preferences import (§13.8) in Phase 4.
+- §11.3's SHOULD to materialise a parsed source to CSV before import.
+- Any roster source that does not carry external identifiers.
 
 **Platform track**
 
-- A golden-file corpus built from the six real historical survey layouts (Appendix B.3).
-- A property test asserting import idempotency across arbitrary re-import orderings.
+- A committed **synthetic** golden corpus, generated deterministically and shaped like the real
+  export. Three refusal paths exist *only* under fixtures, because the real export is too clean to
+  contain them: a repeated child with contradictory names, two enrolled children sharing a normalised
+  name, and an unresolvable classroom.
+- A property test asserting idempotency and convergence across partial re-import orderings.
+- An **opt-in** parser conformance check against a real export that touches **no database** and
+  asserts aggregate counts only.
 
 **Exit criteria**
 
-- A real historical roster export imports cleanly, and importing it a second time reports every row
+- The synthetic corpus imports cleanly, and importing it a second time reports every record
   `Unchanged`.
 - A deliberately ambiguous name produces a `Conflict` that the system refuses to resolve.
+- A guardian edge dropped from a re-export is listed in the preview and removed on commit.
+- The opt-in parser check passes against a real export, without a database.
+- A real export imports cleanly in the operator's own instance, evidenced by its audit entry. This is
+  an operator demonstration and **not** a CI test: `AGENTS.md` forbids loading real roster data into a
+  development or test database.
 
 ---
 
@@ -619,7 +675,7 @@ The same plan, viewed as a tooling roadmap.
 |---|---|---|---|---|
 | 0 | Go lint / fmt / vet, race, sqlc drift, migration round-trip, real Detent gate | — | Spec citations, isolation-test rule, PR template | ADRs replace narrative docs |
 | 1 | — | Isolation harness, factories, Appendix B seed corpus | Tenancy rules codified | Audit log |
-| 2 | — | Golden files, idempotency property test | Importer conventions | — |
+| 2 | — | Synthetic golden corpus, idempotency property test, opt-in parser check | Importer conventions | — |
 | 3 | — | State-machine tables | — | — |
 | 4 | Playwright, a11y | Mobile E2E | — | — |
 | 5 | Performance budget | **Historical replay harness**, determinism | Solver-change protocol | Solve-run reproducibility |
