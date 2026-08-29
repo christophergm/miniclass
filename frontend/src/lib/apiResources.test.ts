@@ -11,8 +11,8 @@ const vocabulary: VocabularyResponse = {
     { id: 'g0', organization_id: 'org-test', code: 'K', label: 'Kindergarten', ordinal: 0, retired_at: '2026-01-01', created_at: '', updated_at: '' },
   ],
   homerooms: [
-    { id: 'h1', organization_id: 'org-test', name: 'Blue', created_at: '', updated_at: '' },
-    { id: 'h2', organization_id: 'org-test', name: 'Green', retired_at: '2026-01-01', created_at: '', updated_at: '' },
+    { id: 'h1', organization_id: 'org-test', name: 'Blue', external_identifier: null, created_at: '', updated_at: '' },
+    { id: 'h2', organization_id: 'org-test', name: 'Green', external_identifier: null, retired_at: '2026-01-01', created_at: '', updated_at: '' },
   ],
 }
 

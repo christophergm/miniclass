@@ -320,7 +320,7 @@ function valuesFromPerson(kind: PersonKind, person: PersonSummary): PersonInputV
     external_identifier: person.external_identifier ?? '',
   }
   return kind === 'student'
-    ? { ...common, grade_level_id: (person as Student).grade_level_id, homeroom_id: (person as Student).homeroom_id }
+    ? { ...common, grade_level_id: (person as Student).grade_level_id ?? '', homeroom_id: (person as Student).homeroom_id }
     : { ...common, email: (person as Adult).email ?? '', phone: (person as Adult).phone ?? '', participation_intent: (person as Adult).participation_intent ?? '' }
 }
 
@@ -346,7 +346,7 @@ function savePerson(kind: PersonKind, schoolYearId: string, personId: string | u
   const body: AdultInput = {
     legal_given_name: adult.legal_given_name,
     legal_family_name: adult.legal_family_name,
-    ...optional('participation_intent', adult.participation_intent),
+    participation_intent: adult.participation_intent || undefined,
     ...optional('preferred_given_name', adult.preferred_given_name),
     ...optional('external_identifier', adult.external_identifier),
     ...optional('email', adult.email),
