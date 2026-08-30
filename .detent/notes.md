@@ -5,9 +5,10 @@
 - Base: `origin/main` at `7f89d69`; issue #122 is In Progress, no PR yet, no tracked dependency relation observed.
 - Current implementation: pure parser/filter package and deterministic synthetic corpus are present in the worktree; fixtures were regenerated after matching the ADR classroom distribution.
 - Required shape: named-field JSON parsing, canonical Student/Adult/GuardianRelationship records with source IDs, classroom enrolment filter, adult exclusion buckets, relationship mapping warnings, contradictions as errors, deterministic golden fixtures, opt-in real-export aggregate check.
-- Validation: focused `go test ./internal/ingest/roster -count=1` passes after `go generate ./internal/ingest/roster`; full backend/root gates remain.
-- Open items: run full gates, commit/push, open PR with `Fixes #122` and spec citation, inspect current-head CI/reviews, update Workpad, and hand off.
-- Skill draft: no decision yet; draft only if this run exposes a broadly reusable non-routine method.
+- Validation: focused roster tests, backend race tests, lint/depguard, format/vet, generation drift, and diff checks pass. Root `make check` is locally blocked at Docker setup by the pre-existing `/miniclass-postgres` name collision, but PR #131 current-head CI passed all ten required checks.
+- PR: #131, open, non-draft, `Fixes #122`, current head `0ea929e`.
+- Open items: human review/merge. No actionable review comments or CI failures remain.
+- Skill draft: no — the implementation exposed no broadly reusable non-routine method beyond normal Go parser/testdata work.
 
 ## 2026-08-30T07:19:09Z - Failed run output tail
 
