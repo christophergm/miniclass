@@ -66,15 +66,15 @@ export const resourceApi = {
   removeAdministrator: (memberID: string) =>
     unwrapNoContent(api.DELETE('/api/administrators/{memberID}', { params: { path: { memberID } } })),
 
-  previewImport: (kind: ImportKind, schoolYearID: string, document: File) =>
+  previewImport: async (kind: ImportKind, schoolYearID: string, document: File) =>
     unwrap(api.POST('/api/imports/{kind}/preview', {
       params: { path: { kind }, query: { school_year_id: schoolYearID } },
-      body: document,
+      body: await document.text(),
     })),
-  commitImport: (kind: ImportKind, schoolYearID: string, document: File, contentHash: string) =>
+  commitImport: async (kind: ImportKind, schoolYearID: string, document: File, contentHash: string) =>
     unwrap(api.POST('/api/imports/{kind}/commit', {
       params: { path: { kind }, query: { school_year_id: schoolYearID, content_hash: contentHash } },
-      body: document,
+      body: await document.text(),
     })),
 }
 
