@@ -35,6 +35,7 @@ type RouterOptions struct {
 	Students               handlers.StudentService
 	GuardianRelationships  handlers.GuardianRelationshipService
 	ImportPreview          handlers.ImportPreviewService
+	ImportCommit           handlers.ImportCommitService
 	Verifier               auth.Verifier
 }
 
@@ -68,7 +69,7 @@ func newRouter(options RouterOptions) (chi.Router, huma.API) {
 		cors.Handler(cors.Options{
 			AllowedOrigins:   allowedOrigins(options.AllowedOrigins),
 			AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-			AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+			AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "X-Import-Content-Hash"},
 			AllowCredentials: false,
 			MaxAge:           300,
 		}),
@@ -234,7 +235,7 @@ func registerOperations(api huma.API, options RouterOptions) {
 		Errors:      []int{http.StatusBadRequest, http.StatusConflict},
 	}, auth.CapabilityManageRoster, false, vocabularies.UpdateSettings)
 
-	imports := handlers.NewImportHandler(options.ImportPreview)
+	imports := handlers.NewImportHandler(options.ImportPreview, options.ImportCommit)
 	registerOperation(api, huma.Operation{
 		OperationID: "preview-import",
 		Method:      http.MethodPost,
@@ -252,6 +253,21 @@ func registerOperations(api huma.API, options RouterOptions) {
 			},
 		},
 	}, auth.CapabilityManageRoster, false, imports.Preview)
+	registerOperation(api, huma.Operation{
+		OperationID: "commit-import",
+		Method:      http.MethodPost,
+		Path:        apiBasePath + "/imports/{kind}/commit",
+		Summary:     "Commit a reviewed import",
+		Errors:      []int{http.StatusBadRequest, http.StatusNotFound, http.StatusConflict},
+		RequestBody: &huma.RequestBody{
+			Required: true,
+			Content: map[string]*huma.MediaType{
+				"application/json":         {Schema: &huma.Schema{Type: "array", Items: &huma.Schema{Type: "object"}}},
+				"text/csv":                 {Schema: &huma.Schema{Type: "string", Format: "binary"}},
+				"application/octet-stream": {Schema: &huma.Schema{Type: "string", Format: "binary"}},
+			},
+		},
+	}, auth.CapabilityManageRoster, false, imports.Commit)
 	registerOperation(api, huma.Operation{
 		OperationID: "list-grade-levels",
 		Method:      http.MethodGet,

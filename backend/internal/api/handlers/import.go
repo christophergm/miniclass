@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/chrismott/miniclass/internal/api/problems"
+	"github.com/chrismott/miniclass/internal/audit"
+	"github.com/chrismott/miniclass/internal/auth"
 	"github.com/chrismott/miniclass/internal/ids"
 	"github.com/chrismott/miniclass/internal/ingest"
 	"github.com/jackc/pgx/v5"
@@ -18,6 +20,13 @@ type ImportPreviewService interface {
 	Preview(context.Context, string, ids.XID, string, []byte) (ingest.Preview, error)
 }
 
+// ImportCommitService is the mutating application boundary for the second
+// phase. The actor comes from the authenticated principal and is persisted by
+// the same transaction as the import changes.
+type ImportCommitService interface {
+	Commit(context.Context, string, ids.XID, string, []byte, string, audit.Actor) (ingest.Preview, error)
+}
+
 // ImportPreviewInput accepts the exact submitted source document as a raw
 // body. The target year is a query parameter because the URL kind is shared
 // by sources with different canonical records.
@@ -27,7 +36,19 @@ type ImportPreviewInput struct {
 	RawBody      []byte
 }
 
+type ImportCommitInput struct {
+	Kind              string `path:"kind" minLength:"1" doc:"Registered import kind, such as roster_json."`
+	SchoolYearID      string `query:"school_year_id" minLength:"1" doc:"Opaque target school-year identifier."`
+	ContentHash       string `query:"content_hash" minLength:"1" doc:"SHA-256 hash returned by the reviewed preview."`
+	ContentHashHeader string `header:"X-Import-Content-Hash" doc:"Alternative hash header returned by the reviewed preview."`
+	RawBody           []byte
+}
+
 type ImportPreviewOutput struct {
+	Body ingest.Preview
+}
+
+type ImportCommitOutput struct {
 	Body ingest.Preview
 }
 
@@ -35,10 +56,17 @@ type ImportPreviewOutput struct {
 // the service because a read-only preview records no audit entry.
 type ImportHandler struct {
 	service ImportPreviewService
+	commit  ImportCommitService
 }
 
-func NewImportHandler(service ImportPreviewService) *ImportHandler {
-	return &ImportHandler{service: service}
+func NewImportHandler(service ImportPreviewService, commit ...ImportCommitService) *ImportHandler {
+	var commitService ImportCommitService
+	if len(commit) > 0 {
+		commitService = commit[0]
+	} else if candidate, ok := service.(ImportCommitService); ok {
+		commitService = candidate
+	}
+	return &ImportHandler{service: service, commit: commitService}
 }
 
 func (h *ImportHandler) Preview(ctx context.Context, input *ImportPreviewInput) (*ImportPreviewOutput, error) {
@@ -59,6 +87,36 @@ func (h *ImportHandler) Preview(ctx context.Context, input *ImportPreviewInput) 
 	return &ImportPreviewOutput{Body: preview}, nil
 }
 
+func (h *ImportHandler) Commit(ctx context.Context, input *ImportCommitInput) (*ImportCommitOutput, error) {
+	account, err := schoolYearAccount(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if h == nil || h.commit == nil {
+		return nil, problems.New(http.StatusInternalServerError, problems.DatabaseUnavailable, "import commit service is not configured")
+	}
+	if input == nil || strings.TrimSpace(input.Kind) == "" || strings.TrimSpace(input.SchoolYearID) == "" {
+		return nil, problems.New(http.StatusBadRequest, problems.ImportInvalid, "import kind and school year are required")
+	}
+	contentHash := strings.TrimSpace(input.ContentHash)
+	if contentHash == "" {
+		contentHash = strings.TrimSpace(input.ContentHashHeader)
+	}
+	if contentHash == "" {
+		return nil, problems.New(http.StatusBadRequest, problems.ImportInvalid, "the reviewed preview content hash is required")
+	}
+	preview, err := h.commit.Commit(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), strings.TrimSpace(input.Kind), input.RawBody, contentHash, importActor(account))
+	if err != nil {
+		return nil, importCommitProblem(err)
+	}
+	return &ImportCommitOutput{Body: preview}, nil
+}
+
+func importActor(account auth.AccountPrincipal) audit.Actor {
+	userID := account.UserID
+	return audit.Actor{Type: audit.ActorTypeUser, UserID: &userID, Label: account.Email}
+}
+
 func importPreviewProblem(err error) error {
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
@@ -73,5 +131,26 @@ func importPreviewProblem(err error) error {
 		return problems.New(http.StatusBadRequest, problems.ImportInvalid, "this import kind is registered but not supported in the current phase")
 	default:
 		return problems.New(http.StatusInternalServerError, problems.InternalError, "unable to preview import")
+	}
+}
+
+func importCommitProblem(err error) error {
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		return problems.New(http.StatusNotFound, problems.ResourceNotFound, "school year not found")
+	case errors.Is(err, ingest.ErrUnknownKind):
+		return problems.New(http.StatusNotFound, problems.ResourceNotFound, "import kind not found")
+	case errors.Is(err, ingest.ErrContentHashMismatch):
+		return problems.New(http.StatusConflict, problems.ImportInvalid, "the submitted document does not match the reviewed preview content hash")
+	case errors.Is(err, ingest.ErrCommitHasErrors):
+		return problems.New(http.StatusConflict, problems.ImportInvalid, "the import cannot be committed while the preview contains error records")
+	case errors.Is(err, ingest.ErrSchoolYearClosed):
+		return problems.New(http.StatusConflict, problems.SchoolYearClosed, "the school year is closed and cannot receive an import commit")
+	case errors.Is(err, ingest.ErrInvalidSource):
+		return problems.New(http.StatusBadRequest, problems.ImportInvalid, "the submitted import document is invalid")
+	case errors.Is(err, ingest.ErrUnsupportedKind):
+		return problems.New(http.StatusBadRequest, problems.ImportInvalid, "this import kind is registered but not supported in the current phase")
+	default:
+		return problems.New(http.StatusInternalServerError, problems.InternalError, "unable to commit import")
 	}
 }

@@ -3164,6 +3164,151 @@
         "x-required-capability": "manage_roster"
       }
     },
+    "/api/imports/{kind}/commit": {
+      "post": {
+        "operationId": "commit-import",
+        "parameters": [
+          {
+            "description": "Registered import kind, such as roster_json.",
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "description": "Registered import kind, such as roster_json.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque target school-year identifier.",
+            "explode": false,
+            "in": "query",
+            "name": "school_year_id",
+            "schema": {
+              "description": "Opaque target school-year identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "SHA-256 hash returned by the reviewed preview.",
+            "explode": false,
+            "in": "query",
+            "name": "content_hash",
+            "schema": {
+              "description": "SHA-256 hash returned by the reviewed preview.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Alternative hash header returned by the reviewed preview.",
+            "in": "header",
+            "name": "X-Import-Content-Hash",
+            "schema": {
+              "description": "Alternative hash header returned by the reviewed preview.",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "items": {
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "application/octet-stream": {
+              "schema": {
+                "contentMediaType": "application/octet-stream",
+                "format": "binary",
+                "type": "string"
+              }
+            },
+            "text/csv": {
+              "schema": {
+                "contentMediaType": "application/octet-stream",
+                "format": "binary",
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Preview"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Commit a reviewed import",
+        "x-required-capability": "manage_roster"
+      }
+    },
     "/api/imports/{kind}/preview": {
       "post": {
         "operationId": "preview-import",

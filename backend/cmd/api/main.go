@@ -62,6 +62,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		return fmt.Errorf("configure authentication: %w", err)
 	}
 
+	importService := ingest.NewPreviewService(database)
 	server := api.NewServerWithConfig(
 		*cfg,
 		api.WithDatabase(database),
@@ -72,7 +73,8 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		api.WithAdults(people.New(database)),
 		api.WithStudents(people.New(database)),
 		api.WithGuardianRelationships(people.New(database)),
-		api.WithImportPreview(ingest.NewPreviewService(database)),
+		api.WithImportPreview(importService),
+		api.WithImportCommit(importService),
 		api.WithVerifier(verifier),
 		api.WithLogger(logger),
 	)
