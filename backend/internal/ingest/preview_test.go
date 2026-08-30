@@ -149,6 +149,26 @@ func TestRosterPreviewReportsSoftDeleteUnresolvedClassroomAndEdgeRemoval(t *test
 	require.Equal(t, "relationship-db-2", preview.GuardianRelationshipRemovals[0].ExistingID)
 }
 
+func TestRosterPreviewTreatsAnEmptyAdultRowAsAuthoritative(t *testing.T) {
+	document := roster.Document{
+		Result: roster.Result{
+			Adults:   []roster.Adult{{SourceExternalIdentifier: "adult-1", GivenName: "Alex", FamilyName: "Adult"}},
+			Students: []roster.Student{{SourceExternalIdentifier: "child-1", GivenName: "Casey", FamilyName: "One", ClassroomExternalIdentifier: "room-1"}},
+		},
+		Rows: []roster.SourceRow{{Number: 1, Adult: roster.Adult{SourceExternalIdentifier: "adult-1", GivenName: "Alex", FamilyName: "Adult"}}},
+	}
+	state := CurrentState{
+		SchoolYear:    data.SchoolYear{ID: "year-1", State: data.SchoolYearSetup},
+		Adults:        []data.Adult{{ID: "adult-db", ExternalIdentifier: stringPointer("adult-1"), LegalGivenName: "Alex", LegalFamilyName: "Adult"}},
+		Students:      []data.Student{{ID: "student-db", ExternalIdentifier: stringPointer("child-1"), LegalGivenName: "Casey", LegalFamilyName: "One"}},
+		Relationships: []data.GuardianRelationship{{ID: "relationship-db", AdultID: "adult-db", StudentID: "student-db", RelationshipType: data.GuardianRelationshipParent}},
+	}
+
+	preview := classifyRoster(document, state)
+	require.Len(t, preview.GuardianRelationshipRemovals, 1)
+	require.Equal(t, "relationship-db", preview.GuardianRelationshipRemovals[0].ExistingID)
+}
+
 func parsePreviewDocument(t *testing.T, source string) roster.Document {
 	t.Helper()
 	document, err := roster.ParseDocument([]byte(strings.TrimSpace(source)))

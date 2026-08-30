@@ -89,24 +89,7 @@ func (s *Service) Preview(ctx context.Context, organizationID string, schoolYear
 		if err != nil {
 			return fmt.Errorf("parse %s: %w: %v", kind.Name, ErrInvalidSource, err)
 		}
-		state := CurrentState{SchoolYear: year}
-		state.Students, err = tx.ListStudents(ctx, schoolYearID, true)
-		if err != nil {
-			return err
-		}
-		state.Adults, err = tx.ListAdults(ctx, schoolYearID, true)
-		if err != nil {
-			return err
-		}
-		state.Relationships, err = tx.ListGuardianRelationships(ctx, schoolYearID, data.GuardianRelationshipFilter{})
-		if err != nil {
-			return err
-		}
-		state.GradeLevels, err = tx.ListGradeLevels(ctx, false)
-		if err != nil {
-			return err
-		}
-		state.Homerooms, err = tx.ListHomerooms(ctx, false)
+		state, err := loadCurrentState(ctx, tx, year)
 		if err != nil {
 			return err
 		}
@@ -124,6 +107,32 @@ func (s *Service) Preview(ctx context.Context, organizationID string, schoolYear
 		return Preview{}, fmt.Errorf("preview import: %w", err)
 	}
 	return result, nil
+}
+
+func loadCurrentState(ctx context.Context, tx *data.Tx, year data.SchoolYear) (CurrentState, error) {
+	state := CurrentState{SchoolYear: year}
+	var err error
+	state.Students, err = tx.ListStudents(ctx, year.ID, true)
+	if err != nil {
+		return CurrentState{}, err
+	}
+	state.Adults, err = tx.ListAdults(ctx, year.ID, true)
+	if err != nil {
+		return CurrentState{}, err
+	}
+	state.Relationships, err = tx.ListGuardianRelationships(ctx, year.ID, data.GuardianRelationshipFilter{})
+	if err != nil {
+		return CurrentState{}, err
+	}
+	state.GradeLevels, err = tx.ListGradeLevels(ctx, false)
+	if err != nil {
+		return CurrentState{}, err
+	}
+	state.Homerooms, err = tx.ListHomerooms(ctx, false)
+	if err != nil {
+		return CurrentState{}, err
+	}
+	return state, nil
 }
 
 func matchRoster(_ context.Context, parsed any, state CurrentState) (Preview, error) {
@@ -191,6 +200,9 @@ func classifyRoster(document roster.Document, state CurrentState) Preview {
 			Number: sourceRow.Number, SourceExternalIdentifier: adultID,
 			Records: make([]RecordPreview, 0, 1+len(sourceRow.Students)+len(sourceRow.GuardianRelationships)),
 		}
+		// The adult row is authoritative even when it contains no relationships:
+		// an empty edge set means all existing edges for this adult are omitted.
+		sourceEdgesByAdult[adultID] = make(map[string]struct{})
 		row.Records = append(row.Records, adultPreviews[adultID])
 		seenStudents := make(map[string]struct{})
 		for _, source := range sourceRow.Students {
@@ -211,9 +223,6 @@ func classifyRoster(document roster.Document, state CurrentState) Preview {
 			seenRelationships[key] = struct{}{}
 			if record, ok := relationshipPreviews[key]; ok {
 				row.Records = append(row.Records, record)
-			}
-			if sourceEdgesByAdult[adultID] == nil {
-				sourceEdgesByAdult[adultID] = make(map[string]struct{})
 			}
 			sourceEdgesByAdult[adultID][key] = struct{}{}
 		}

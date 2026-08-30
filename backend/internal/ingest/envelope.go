@@ -10,6 +10,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/chrismott/miniclass/internal/data"
 	"github.com/chrismott/miniclass/internal/ingest/roster"
 )
 
@@ -33,6 +34,8 @@ var (
 	ErrUnknownKind          = errors.New("import kind is not registered")
 	ErrUnsupportedKind      = errors.New("import kind is not supported by this phase")
 	ErrCommitNotImplemented = errors.New("import commit is not implemented in the preview phase")
+	ErrContentHashMismatch  = errors.New("import content hash does not match the submitted document")
+	ErrCommitHasErrors      = errors.New("import commit contains error records")
 )
 
 // Parser translates one source document into a kind-owned canonical document.
@@ -41,8 +44,9 @@ type Parser func([]byte) (any, error)
 // Matcher classifies a parsed document against a read-only database snapshot.
 type Matcher func(context.Context, any, CurrentState) (Preview, error)
 
-// Writer is the phase-two seam. The preview phase registers the writer
-// contract but deliberately does not mutate domain data.
+// Writer is the phase-two seam. It receives the tenant transaction selected by
+// Service.Commit, so kind-owned writes remain behind internal/data and share
+// the commit's atomic audit boundary.
 type Writer func(context.Context, CommitRequest) error
 
 // Kind is one pluggable import source. The record types remain owned by the
@@ -70,7 +74,7 @@ func NewRegistry() *Registry {
 		Name:    KindRosterJSON,
 		Parser:  func(document []byte) (any, error) { return roster.ParseDocument(document) },
 		Matcher: matchRoster,
-		Writer:  unavailableWriter,
+		Writer:  commitRoster,
 	})
 	registry.MustRegister(Kind{
 		Name:    KindGradesCSV,
@@ -141,7 +145,11 @@ type CommitRequest struct {
 	Kind         string
 	SchoolYearID string
 	ContentHash  string
+	Document     []byte
+	Parsed       any
 	Preview      Preview
+	State        CurrentState
+	Tx           *data.Tx
 }
 
 // FieldChange is one asserted source field that differs from the stored value.
