@@ -18,6 +18,8 @@ export type Administrator = Schemas['AdministratorResponse']
 export type AdministratorInvitation = Schemas['InvitationResponse']
 export type AuditLogResponse = Schemas['AuditLogOutputBody']
 export type AuditLogEntry = Schemas['AuditLogEntry']
+export type ImportPreview = Schemas['Preview']
+export type ImportKind = 'roster_json' | 'grades_csv'
 
 export const resourceApi = {
   getHealth: () => unwrap(api.GET('/api/health')),
@@ -63,6 +65,17 @@ export const resourceApi = {
     unwrap(api.PATCH('/api/administrators/{memberID}', { params: { path: { memberID } }, body: { role } })),
   removeAdministrator: (memberID: string) =>
     unwrapNoContent(api.DELETE('/api/administrators/{memberID}', { params: { path: { memberID } } })),
+
+  previewImport: (kind: ImportKind, schoolYearID: string, document: File) =>
+    unwrap(api.POST('/api/imports/{kind}/preview', {
+      params: { path: { kind }, query: { school_year_id: schoolYearID } },
+      body: document,
+    })),
+  commitImport: (kind: ImportKind, schoolYearID: string, document: File, contentHash: string) =>
+    unwrap(api.POST('/api/imports/{kind}/commit', {
+      params: { path: { kind }, query: { school_year_id: schoolYearID, content_hash: contentHash } },
+      body: document,
+    })),
 }
 
 export function activeGradeLevels(vocabulary: VocabularyResponse): GradeLevel[] {
