@@ -66,8 +66,8 @@ type Registry struct {
 }
 
 // NewRegistry returns the Phase 2 registry containing both declared source
-// kinds. grades_csv is registered now so adding its kind does not require a
-// new envelope; its matching and writing behavior arrives in P2-6.
+// kinds. Each kind owns parsing, matching, and writing behind the same
+// content-hash-guarded envelope.
 func NewRegistry() *Registry {
 	registry := &Registry{kinds: make(map[string]Kind)}
 	registry.MustRegister(Kind{
@@ -79,8 +79,8 @@ func NewRegistry() *Registry {
 	registry.MustRegister(Kind{
 		Name:    KindGradesCSV,
 		Parser:  func(document []byte) (any, error) { return roster.ParseGradesCSV(bytes.NewReader(document)) },
-		Matcher: unsupportedMatcher,
-		Writer:  unavailableWriter,
+		Matcher: matchGrades,
+		Writer:  commitGrades,
 	})
 	return registry
 }

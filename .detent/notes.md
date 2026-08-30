@@ -1,45 +1,8 @@
-## Current handoff — issue #123
+## Current handoff — issue #125
 
-- Scope: the read-only `internal/ingest` envelope, roster matching/classification, and `POST /api/imports/{kind}/preview`; no domain writes or audit entries.
-- Governing contract: SPEC §§5.2, 9.4, 10.1–10.2, 11.1, 11.3–11.7, 20.1, 21.3; ADRs 0007, 0008, 0014.
-- Base: `origin/main` at `ebb145b`; P2-2/#121 and P2-3/#122 are terminal/merged dependencies. Issue #123 is In Progress; no PR yet.
-- Existing implementation: `internal/ingest/roster` parses the synthetic `roster_json` and `grades_csv` corpus; `internal/ingest` now registers both kinds, previews `roster_json` as a source-row tree, matches only by year-scoped external ID, reports field changes, soft-delete conflicts, vocabulary errors, exclusions, warnings, and guardian removals, and hashes exact bytes. `POST /api/imports/{kind}/preview` is registered with `manage_roster`; `grades_csv` remains registered but unsupported until P2-6 owns whole-name matching and grade resolution.
-- Validation: focused ingest/API/integration tests pass; `go test -race -v ./... -count=1`, backend lint/depguard, format/vet, generated OpenAPI determinism, and `git diff --check` pass. New integration coverage exercises tenant isolation, closed years, read-only audit counts, the full synthetic corpus, repeated previews, and one hand edit. Local `make test-backend` and `make smoke` stop at the pre-existing `/miniclass-postgres` Docker name collision / missing `.env`; `make test-migrations` has no `MIGRATION_ROUNDTRIP_DATABASE_URL`; frontend test/build/lint cannot run because dependencies are not installed (`openapi-typescript` missing, `bunx eslint` temp install denied).
-- Handoff: commits `1f04952`, `7c54e0e`, and `565d95a` are pushed in PR #132 (`Fixes #123`), which is open and non-draft. Current head `565d95a` passed all ten required CI checks; no review or inline comments are actionable. Detent should advance the issue through its configured review lane.
-- Skill draft: no — this change used the repository's existing service/test patterns and exposed no broadly reusable non-routine method.
-
-## 2026-08-30T07:19:09Z - Failed run output tail
-
-- final_state: failed
-- error: stream turn: context canceled
-close codex app-server transport: signal: terminated: stderr: [2m2026-08-30T05:47:37.547587Z[0m [31mERROR[0m [2mcodex_core::tools::router[0m[2m:[0m [3merror[0m[2m=[0mapply_patch verification failed: invalid patch: multiple operations target /Users/chrismott/dev/personal/miniclass-worktrees/miniclass-christophergm_miniclass_122-2feb50729d32/.detent/notes.md
-[2m2026-08-30T05:52:38.655340Z[0m [31mERROR[0m [2mcodex_core::tools::router[0m[2m:[0m [3merror[0m[2m=[0mapply_patch verification failed: Failed to find expected lines in /Users/chrismott/dev/personal/miniclass-worktrees/miniclass-christophergm_miniclass_122-2feb50729d32/backend/internal/ingest/roster/cmd/generate/main.go:
-	directory := filepath.Join("..", "testdata")
-worker github REST budget monitor failed: Get "https://api.github.com/rate_limit": dial tcp: lookup api.github.com: no such host
-
-Output tail:
-
-```text
-I’m continuing issue #122 from the Detent worktree. I’ll first verify the preserved repository/tracker state and read the backend-development guidance, then complete the parser/filter/corpus implementation, run the required gates, and finish the PR handoff with the Workpad updated.The branch already contains a prior commit (`7f89d69`) and has no uncommitted changes, so I’m treating it as preserved implementation rather than starting over. The required skill confirms the Go/service conventions; next I’m checking the issue/PR state and auditing the committed diff against the repository instructions and acceptance scope.Issue #122 is still open/in progress, with no PR or existing Workpad comment. The repository has no ingest package yet; the current committed change is only a frontend fixture correction from the prior attempt. I found the governing contract in SPEC §§11.3–11.7 and ADR 0014, including the exact observed counts and the decision that classroom bands remain display-only. I’m now defining the package around those contracts and will include compatibility-friendly exported types/functions plus golden synthetic fixtures.I’m recording the required persistent Workpad now with the issue’s acceptance criteria, the SPEC/ADR citations, and an explicit `in_progress` status. I’ll also replace the stale handoff notes so the next stage sees issue #122’s actual scope and validation state.The first Workpad/notes write hit a tooling constraint because the patch tried to delete and recreate the same file in one operation; no repository change was accepted. I’m splitting that into separate safe edits and will then post the Workpad comment.The implementation shape is now clear: a stateless parser will decode only named fields into a canonical result, track child identity independently of source order, apply enrollment/adult filters after collecting all occurrences, and return warnings/exclusions as data. I’m adding the parser, a deterministic 324-adult/247-child synthetic source generator, golden files, and tests that exercise the edge cases explicitly required by the issue.The parser and generator compile. The first generation run revealed a path mistake in the generator: `../testdata` placed files beside the package instead of under `internal/ingest/roster/testdata`. I’m correcting that now, removing only those disposable misplaced outputs, and then I’ll add the behavioral tests before generating the committed goldens again.The first focused test pass caught three concrete issues in the initial implementation: only children referenced by relationships are visible (so the synthetic generator needed to reference all 62 unenrolled children), retained adults must not emit relationships to excluded children, and the contradiction error assertion should check the two quoted name variants as the parser reports them. I’m fixing those semantics now; these are exactly the kinds of filter-boundary checks the acceptance criteria require.The focused suite now passes for parser behavior and synthetic aggregate counts: 185 enrolled students, 226 retained adults, 303 edges, 62 child exclusions, and the three adult exclusion buckets. I’m doing a second semantic review before broad validation—especially repeated-child classroom data, golden-file verification, and dead/ambiguous helper code—so the committed fixtures prove the generator output rather than merely existing beside it.
-```
-
-## 2026-08-30T19:21:37Z - Failed run output tail
-
-- final_state: failed
-- error: stream turn: context canceled
-close codex app-server transport: signal: terminated: stderr: [2m2026-08-30T19:20:36.174186Z[0m [31mERROR[0m [2mcodex_core::tools::router[0m[2m:[0m [3merror[0m[2m=[0mapply_patch verification failed: Failed to find expected lines in /Users/chrismott/dev/personal/miniclass-worktrees/miniclass-christophergm_miniclass_124-13f201f62fd7/backend/cmd/api/main.go:
-		WithGuardianRelationships(people.New(database)),
-		WithImportPreview(ingest.NewPreviewService(database)),
-worker github REST budget monitor failed: Get "https://api.github.com/rate_limit": context deadline exceeded
-
-Output tail:
-
-```text
-I’m continuing issue #124 from its preserved Detent worktree. I’ll use the backend-development guidance, verify the current implementation and tracker/Workpad state, then complete the commit-phase behavior, run focused and full gates, and finish the PR handoff.The preserved worktree is clean at `origin/main` and issue #124 has no PR or Workpad comment yet; the checked-in `.detent/notes.md` is stale from #123. I’m treating the issue’s acceptance criteria as authoritative and auditing the existing ingest/data/API patterns plus SPEC §11/§20 and ADR 0014 before coding.The design is now pinned down: the service will recompute the preview inside one tenant transaction, reject hash drift or any `Error` before mutation, apply roster people and relationship changes through `internal/data`, hard-delete only the represented adult’s omitted edges, and append per-removal plus one aggregate `import_commit` audit record. The API will carry the hash as `content_hash` alongside the exact raw document and reuse `manage_roster`.
-```
-## Current handoff — issue #124
-
-- Scope: atomic `roster_json` import commit with content-hash binding, conflict/error policy, literal adult guardian-edge authority and hard-delete audits; API commit route is wired with `manage_roster`. Governing contract: SPEC §§11.2, 11.4–11.7, 20.1; ADRs 0007 and 0014.
-- Key files: `backend/internal/ingest/commit.go`, `envelope.go`, `preview.go`; `backend/internal/api/handlers/import.go`, `routes.go`, `server.go`; `backend/openapi.json`.
-- Validation: focused ingest/API tests, `go test ./...`, backend lint/depguard, format/vet, OpenAPI generation/drift and `git diff --check` pass. PR CI passed all ten required gates; local `make check` stopped at `db-up` because `/miniclass-postgres` is already occupied.
-- Handoff complete: PR #133 is open, non-draft, clean, references #124, and has no actionable review comments. No skill draft: this used existing service/data patterns without exposing a reusable non-routine method.
+- Scope: P2-6 `grades_csv`: header-name parsing, whole-cell normalized legal/preferred-name matching, update-only grade vocabulary resolution, preview/commit/idempotency, and audit summary. Governing contract: SPEC §§10.1–10.2, 11.3, 11.5–11.7, 20.1, Appendix A.5; ADR 0014.
+- Key files: `backend/internal/ingest/grades.go`, `backend/internal/ingest/envelope.go`, `backend/internal/ingest/commit.go`, `backend/internal/ingest/preview_test.go`; existing parser: `backend/internal/ingest/roster/grades.go`.
+- Implementation: exact duplicate assignments remain independently reviewable and deduplicated at write time; contradictory normalized-name assignments are `Conflict`; unmatched names are `Conflict` and never create students; unknown grades are `Error`.
+- Validation so far: `go test ./...` passes; focused ingest tests pass; `git diff --check` passes. Required make gates and PR handoff remain.
+- Open items: run all ten project gate commands as available, commit/push, open PR with `Fixes #125`, inspect CI/review, and update Workpad status only after the PR gate is ready.
+- Skill draft: no — implementation uses existing import/data patterns and has not exposed a broadly reusable non-routine method.

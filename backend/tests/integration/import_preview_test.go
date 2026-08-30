@@ -195,6 +195,61 @@ func TestImportPreviewRejectsClosedSchoolYear(t *testing.T) {
 	require.True(t, errors.Is(err, ingest.ErrSchoolYearClosed), "closed year = %v", err)
 }
 
+// TestGradesImportUpdatesExistingStudentsOnly verifies the name-based,
+// update-only source through the tenant transaction and commit audit boundary.
+func TestGradesImportUpdatesExistingStudentsOnly(t *testing.T) {
+	harness := testharness.Open(t)
+	ctx := harness.Context
+	organizationID := harness.MintOrganization(t)
+	actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "grades import integration test"}
+	year, err := schoolyear.New(harness.Database).Create(ctx, string(organizationID), actor, "2026–2027")
+	require.NoError(t, err)
+	homeroom, err := vocabulary.New(harness.Database).CreateHomeroom(ctx, string(organizationID), actor, "Grades Room", nil)
+	require.NoError(t, err)
+	grade, err := vocabulary.New(harness.Database).CreateGrade(ctx, string(organizationID), actor, "4", "Fourth Grade")
+	require.NoError(t, err)
+	preferred := "Katie"
+	peopleService := people.New(harness.Database)
+	_, err = peopleService.CreateStudent(ctx, string(organizationID), year.ID, actor, people.StudentCreateInput{
+		LegalGivenName: "Katherine", LegalFamilyName: "Smith", PreferredGivenName: &preferred, HomeroomID: homeroom.ID,
+	})
+	require.NoError(t, err)
+	_, err = peopleService.CreateStudent(ctx, string(organizationID), year.ID, actor, people.StudentCreateInput{
+		LegalGivenName: "Riley", LegalFamilyName: "De La Sample", HomeroomID: homeroom.ID,
+	})
+	require.NoError(t, err)
+
+	document := []byte("grade,student_name\n4,Katie Smith\nFourth Grade, Riley   De La Sample\n")
+	service := ingest.NewPreviewService(harness.Database)
+	preview, err := service.Preview(ctx, string(organizationID), year.ID, ingest.KindGradesCSV, document)
+	require.NoError(t, err)
+	require.Equal(t, ingest.OutcomeCounts{Update: 2}, preview.Counts)
+	require.Equal(t, "grade_level_id", preview.Rows[0].Records[0].Changes[0].Field)
+	require.Nil(t, preview.Rows[0].Records[0].Changes[0].Before)
+	require.Equal(t, string(grade.ID), preview.Rows[0].Records[0].Changes[0].After)
+
+	auditBefore := countAuditEntries(t, harness.Database, ctx, organizationID)
+	committed, err := service.Commit(ctx, string(organizationID), year.ID, ingest.KindGradesCSV, document, preview.ContentHash, actor)
+	require.NoError(t, err)
+	require.Equal(t, preview, committed)
+	require.Equal(t, auditBefore+1, countAuditEntries(t, harness.Database, ctx, organizationID), "one import_commit audit entry per commit")
+
+	students, err := peopleService.ListStudents(ctx, string(organizationID), year.ID, false)
+	require.NoError(t, err)
+	require.Len(t, students, 2, "grades import is update-only")
+	for _, student := range students {
+		require.NotNil(t, student.GradeLevelID)
+		require.Equal(t, grade.ID, *student.GradeLevelID)
+	}
+
+	repeated, err := service.Preview(ctx, string(organizationID), year.ID, ingest.KindGradesCSV, document)
+	require.NoError(t, err)
+	require.Equal(t, ingest.OutcomeCounts{Unchanged: 2}, repeated.Counts, "re-import is idempotent")
+	_, err = service.Commit(ctx, string(organizationID), year.ID, ingest.KindGradesCSV, document, repeated.ContentHash, actor)
+	require.NoError(t, err)
+	require.Equal(t, auditBefore+2, countAuditEntries(t, harness.Database, ctx, organizationID), "the repeated commit adds one aggregate audit entry")
+}
+
 func countAuditEntries(t *testing.T, database *data.DB, ctx context.Context, organizationID ids.XID) int64 {
 	t.Helper()
 	var count int64
