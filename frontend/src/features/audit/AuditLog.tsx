@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -28,8 +27,7 @@ function objectLabel(entry: AuditLogEntry) {
 }
 
 export function AuditLog() {
-  const [searchParams] = useSearchParams()
-  const initialObjectType = searchParams.get('object_type') ?? ''
+  const initialObjectType = new URLSearchParams(window.location.search).get('object_type') ?? ''
   const [objectType, setObjectType] = useState(initialObjectType)
   const [appliedObjectType, setAppliedObjectType] = useState(initialObjectType)
   const [cursor, setCursor] = useState<string>()

@@ -1,4 +1,4 @@
-import { useMemo, useState, type ChangeEvent, type ReactNode } from 'react'
+import { useState, type ChangeEvent, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
@@ -80,14 +80,12 @@ function OutcomeRows({ preview, outcome }: { preview: ImportPreview; outcome: Ou
 
 function Exclusions({ preview }: { preview: ImportPreview }) {
   const exclusions = preview.exclusions ?? []
-  const buckets = useMemo(() => {
-    const grouped = new Map<string, typeof exclusions>()
-    for (const exclusion of exclusions) {
-      const key = `${exclusion.record_type}:${exclusion.reason}`
-      grouped.set(key, [...(grouped.get(key) ?? []), exclusion])
-    }
-    return [...grouped.entries()]
-  }, [exclusions])
+  const grouped = new Map<string, typeof exclusions>()
+  for (const exclusion of exclusions) {
+    const key = `${exclusion.record_type}:${exclusion.reason}`
+    grouped.set(key, [...(grouped.get(key) ?? []), exclusion])
+  }
+  const buckets = [...grouped.entries()]
   if (!exclusions.length) return null
   return <Panel title="Excluded source records" count={exclusions.length} tone="warning"><p className="mt-2 text-sm text-amber-950">These records were excluded by the source filters. Review the bucket and reason before deciding whether the source needs correction.</p><div className="mt-4 space-y-3">{buckets.map(([key, bucket]) => <div className="rounded-md border border-amber-200 bg-background p-3" key={key}><p className="font-medium">{bucket[0].record_type} · {bucket[0].reason} <span className="text-muted-foreground">({bucket.length})</span></p><ul className="mt-2 list-inside list-disc text-sm">{bucket.map((entry) => <li key={entry.source_external_identifier}>{[entry.given_name, entry.family_name].filter(Boolean).join(' ') || entry.source_external_identifier}</li>)}</ul></div>)}</div></Panel>
 }

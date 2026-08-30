@@ -50,7 +50,7 @@ function setup(previewResult = preview(), commitResult = preview()) {
   return { previewMutation, commitMutation }
 }
 
-beforeEach(() => vi.clearAllMocks())
+beforeEach(() => { vi.clearAllMocks() })
 
 describe('ImportPage', () => {
   it('blocks commit while an Error record is present and explains why', () => {
