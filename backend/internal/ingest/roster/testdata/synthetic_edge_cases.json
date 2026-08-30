@@ -1,0 +1,13 @@
+[
+  {"id":"synthetic-edge-adult-1","given_name":"Edge","family_name":"Adult","relationships":[
+    {"relationship":"PARENT","child":{"id":"synthetic-edge-child-1","given_name":"Alex","family_name":"De La Cruz","groups":[{"id":"synthetic-edge-room","name":"Edge Room","class":"classroom","band":"display only"}]}},
+    {"relationship":"MOM","child":{"id":"synthetic-edge-child-2","given_name":"Same","family_name":"Name","groups":[{"id":"synthetic-edge-room","name":"Edge Room","class":"classroom","band":"display only"}]}}
+  ]},
+  {"id":"synthetic-edge-adult-2","given_name":"Second","family_name":"Adult","relationships":[
+    {"relationship":"DAD","child":{"id":"synthetic-edge-child-2","given_name":"Same","family_name":"Name","groups":[{"id":"synthetic-edge-room","name":"Edge Room","class":"classroom","band":"display only"}]}}
+  ]},
+  {"id":"synthetic-edge-adult-3","given_name":"Contradiction","family_name":"Adult","relationships":[
+    {"relationship":"PARENT","child":{"id":"synthetic-edge-contradiction","given_name":"First","family_name":"Version","groups":[{"id":"synthetic-edge-room","class":"classroom"}]}},
+    {"relationship":"PARENT","child":{"id":"synthetic-edge-contradiction","given_name":"Second","family_name":"Version","groups":[{"id":"synthetic-edge-room","class":"classroom"}]}}
+  ]}
+]
