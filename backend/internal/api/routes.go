@@ -34,6 +34,7 @@ type RouterOptions struct {
 	Adults                 handlers.AdultService
 	Students               handlers.StudentService
 	GuardianRelationships  handlers.GuardianRelationshipService
+	ImportPreview          handlers.ImportPreviewService
 	Verifier               auth.Verifier
 }
 
@@ -232,6 +233,25 @@ func registerOperations(api huma.API, options RouterOptions) {
 		Summary:     "Update the configured homeroom label",
 		Errors:      []int{http.StatusBadRequest, http.StatusConflict},
 	}, auth.CapabilityManageRoster, false, vocabularies.UpdateSettings)
+
+	imports := handlers.NewImportHandler(options.ImportPreview)
+	registerOperation(api, huma.Operation{
+		OperationID: "preview-import",
+		Method:      http.MethodPost,
+		Path:        apiBasePath + "/imports/{kind}/preview",
+		Summary:     "Preview an import without changing roster data",
+		Errors:      []int{http.StatusBadRequest, http.StatusNotFound, http.StatusConflict},
+		RequestBody: &huma.RequestBody{
+			Required: true,
+			Content: map[string]*huma.MediaType{
+				"application/json": {
+					Schema: &huma.Schema{Type: "array", Items: &huma.Schema{Type: "object"}},
+				},
+				"text/csv":                 {Schema: &huma.Schema{Type: "string", Format: "binary"}},
+				"application/octet-stream": {Schema: &huma.Schema{Type: "string", Format: "binary"}},
+			},
+		},
+	}, auth.CapabilityManageRoster, false, imports.Preview)
 	registerOperation(api, huma.Operation{
 		OperationID: "list-grade-levels",
 		Method:      http.MethodGet,

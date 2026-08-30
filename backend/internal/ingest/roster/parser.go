@@ -90,23 +90,57 @@ type Result struct {
 	ExcludedChildren      []ChildExclusion       `json:"excluded_children"`
 	ExcludedAdults        []AdultExclusion       `json:"excluded_adults"`
 	Warnings              []Warning              `json:"warnings"`
+
+	sourceRows []SourceRow
+}
+
+// SourceRow preserves the wide source shape for preview. A row can contain
+// an adult, several students, and several guardian edges, so the envelope can
+// report outcomes as a tree instead of flattening the import into rows.
+type SourceRow struct {
+	Number                int                    `json:"number"`
+	Adult                 Adult                  `json:"adult"`
+	Students              []Student              `json:"students"`
+	GuardianRelationships []GuardianRelationship `json:"guardian_relationships"`
+}
+
+// Document is the parsed roster plus the source-row association needed by the
+// preview phase. Result remains available for callers that only need the
+// canonical records.
+type Document struct {
+	Result Result
+	Rows   []SourceRow
 }
 
 // ParseJSON parses one wide roster export. It returns an error for malformed
 // or empty documents and for contradictory names for one child identifier.
 func ParseJSON(document []byte) (Result, error) {
+	parsed, err := ParseDocument(document)
+	if err != nil {
+		return Result{}, err
+	}
+	return parsed.Result, nil
+}
+
+// ParseDocument parses one wide roster export and retains the association
+// between each canonical record and its source row.
+func ParseDocument(document []byte) (Document, error) {
 	if len(bytes.TrimSpace(document)) == 0 {
-		return Result{}, errors.New("roster: empty JSON document")
+		return Document{}, errors.New("roster: empty JSON document")
 	}
 	var records []json.RawMessage
 	if err := json.Unmarshal(document, &records); err != nil {
-		return Result{}, fmt.Errorf("roster: decode JSON: %w", err)
+		return Document{}, fmt.Errorf("roster: decode JSON: %w", err)
 	}
 	if len(records) == 0 {
-		return Result{}, errors.New("roster: empty JSON array")
+		return Document{}, errors.New("roster: empty JSON array")
 	}
 
-	return parseRecords(records)
+	result, err := parseRecords(records)
+	if err != nil {
+		return Document{}, err
+	}
+	return Document{Result: result, Rows: result.sourceRows}, nil
 }
 
 // Parse is an alias for ParseJSON for callers that select a source parser by
@@ -137,6 +171,13 @@ type adultRecord struct {
 	enrolledCount int
 }
 
+type sourceRowReference struct {
+	Number                int
+	AdultID               string
+	ChildIDs              []string
+	GuardianRelationships []GuardianRelationship
+}
+
 func parseRecords(records []json.RawMessage) (Result, error) {
 	result := Result{
 		Students:              make([]Student, 0),
@@ -151,6 +192,7 @@ func parseRecords(records []json.RawMessage) (Result, error) {
 	adults := make(map[string]*adultRecord)
 	adultOrder := make([]string, 0)
 	seenEdges := make(map[string]bool)
+	rowReferences := make([]sourceRowReference, 0, len(records))
 
 	for recordIndex, raw := range records {
 		object, err := objectValue(raw)
@@ -180,6 +222,7 @@ func parseRecords(records []json.RawMessage) (Result, error) {
 			adultOrder = append(adultOrder, adultID)
 		}
 
+		row := sourceRowReference{Number: recordIndex + 1, AdultID: adultID}
 		relationships := rawList(object, "relationships")
 		for relationshipIndex, rawRelationship := range relationships {
 			relationshipObject, err := objectValue(rawRelationship)
@@ -228,6 +271,7 @@ func parseRecords(records []json.RawMessage) (Result, error) {
 			}
 
 			child := children[childID]
+			row.ChildIDs = append(row.ChildIDs, childID)
 			adult.childCount++
 			if child.seenClassroom {
 				adult.enrolledCount++
@@ -241,6 +285,7 @@ func parseRecords(records []json.RawMessage) (Result, error) {
 				})
 			}
 			edge := GuardianRelationship{AdultExternalIdentifier: adultID, StudentExternalIdentifier: childID, RelationshipType: mapped}
+			row.GuardianRelationships = append(row.GuardianRelationships, edge)
 			edgeKey := adultID + "\x00" + childID
 			if !seenEdges[edgeKey] {
 				seenEdges[edgeKey] = true
@@ -249,6 +294,7 @@ func parseRecords(records []json.RawMessage) (Result, error) {
 				}
 			}
 		}
+		rowReferences = append(rowReferences, row)
 	}
 
 	for _, childID := range childOrder {
@@ -281,6 +327,31 @@ func parseRecords(records []json.RawMessage) (Result, error) {
 			result.Adults = append(result.Adults, adult.Adult)
 			result.GuardianRelationships = append(result.GuardianRelationships, adult.relationships...)
 		}
+	}
+	for _, reference := range rowReferences {
+		row := SourceRow{Number: reference.Number, Adult: adults[reference.AdultID].Adult}
+		seenChildren := make(map[string]bool)
+		for _, childID := range reference.ChildIDs {
+			if seenChildren[childID] {
+				continue
+			}
+			seenChildren[childID] = true
+			if child := children[childID]; child != nil && child.seenClassroom {
+				row.Students = append(row.Students, child.Student)
+			}
+		}
+		seenRowEdges := make(map[string]bool)
+		for _, edge := range reference.GuardianRelationships {
+			key := edge.AdultExternalIdentifier + "\x00" + edge.StudentExternalIdentifier
+			if seenRowEdges[key] {
+				continue
+			}
+			seenRowEdges[key] = true
+			if child := children[edge.StudentExternalIdentifier]; child != nil && child.seenClassroom {
+				row.GuardianRelationships = append(row.GuardianRelationships, edge)
+			}
+		}
+		result.sourceRows = append(result.sourceRows, row)
 	}
 	return result, nil
 }

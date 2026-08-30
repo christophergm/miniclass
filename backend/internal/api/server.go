@@ -34,6 +34,7 @@ type ServerOptions struct {
 	Adults                 handlers.AdultService
 	Students               handlers.StudentService
 	GuardianRelationships  handlers.GuardianRelationshipService
+	ImportPreview          handlers.ImportPreviewService
 	Verifier               auth.Verifier
 	Logger                 *slog.Logger
 	TrustedProxyCIDRs      []string
@@ -88,6 +89,7 @@ func NewServer(options ...ServerOption) *Server {
 		Adults:                 settings.Adults,
 		Students:               settings.Students,
 		GuardianRelationships:  settings.GuardianRelationships,
+		ImportPreview:          settings.ImportPreview,
 		Verifier:               settings.Verifier,
 		Logger:                 settings.Logger,
 		TrustedProxyCIDRs:      settings.TrustedProxyCIDRs,
@@ -197,6 +199,11 @@ func WithStudents(service handlers.StudentService) ServerOption {
 // WithGuardianRelationships supplies the relationship service used by guardian routes.
 func WithGuardianRelationships(service handlers.GuardianRelationshipService) ServerOption {
 	return func(options *ServerOptions) { options.GuardianRelationships = service }
+}
+
+// WithImportPreview supplies the read-only import preview service.
+func WithImportPreview(service handlers.ImportPreviewService) ServerOption {
+	return func(options *ServerOptions) { options.ImportPreview = service }
 }
 
 // WithVerifier supplies the configured bearer-token verifier.

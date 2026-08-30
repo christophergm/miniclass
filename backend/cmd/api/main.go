@@ -17,6 +17,7 @@ import (
 	"github.com/chrismott/miniclass/internal/config"
 	"github.com/chrismott/miniclass/internal/data"
 	"github.com/chrismott/miniclass/internal/identity"
+	"github.com/chrismott/miniclass/internal/ingest"
 	"github.com/chrismott/miniclass/internal/people"
 	"github.com/chrismott/miniclass/internal/schoolyear"
 	"github.com/chrismott/miniclass/internal/vocabulary"
@@ -71,6 +72,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		api.WithAdults(people.New(database)),
 		api.WithStudents(people.New(database)),
 		api.WithGuardianRelationships(people.New(database)),
+		api.WithImportPreview(ingest.NewPreviewService(database)),
 		api.WithVerifier(verifier),
 		api.WithLogger(logger),
 	)

@@ -1,14 +1,12 @@
-## Current handoff — issue #122
+## Current handoff — issue #123
 
-- Scope: pure `internal/ingest/roster` parsers/filters and deterministic synthetic JSON/CSV corpus; no database or HTTP.
-- Governing contract: SPEC §§5.2, 8.2, 11.3–11.7, Appendix A.5; ADR 0014.
-- Base: `origin/main` at `7f89d69`; issue #122 is In Progress, no PR yet, no tracked dependency relation observed.
-- Current implementation: pure parser/filter package and deterministic synthetic corpus are present in the worktree; fixtures were regenerated after matching the ADR classroom distribution.
-- Required shape: named-field JSON parsing, canonical Student/Adult/GuardianRelationship records with source IDs, classroom enrolment filter, adult exclusion buckets, relationship mapping warnings, contradictions as errors, deterministic golden fixtures, opt-in real-export aggregate check.
-- Validation: focused roster tests, backend race tests, lint/depguard, format/vet, generation drift, and diff checks pass. Root `make check` is locally blocked at Docker setup by the pre-existing `/miniclass-postgres` name collision, but PR #131 current-head CI passed all ten required checks.
-- PR: #131, open, non-draft, `Fixes #122`, current head `0ea929e`.
-- Open items: human review/merge. No actionable review comments or CI failures remain.
-- Skill draft: no — the implementation exposed no broadly reusable non-routine method beyond normal Go parser/testdata work.
+- Scope: the read-only `internal/ingest` envelope, roster matching/classification, and `POST /api/imports/{kind}/preview`; no domain writes or audit entries.
+- Governing contract: SPEC §§5.2, 9.4, 10.1–10.2, 11.1, 11.3–11.7, 20.1, 21.3; ADRs 0007, 0008, 0014.
+- Base: `origin/main` at `ebb145b`; P2-2/#121 and P2-3/#122 are terminal/merged dependencies. Issue #123 is In Progress; no PR yet.
+- Existing implementation: `internal/ingest/roster` parses the synthetic `roster_json` and `grades_csv` corpus; `internal/ingest` now registers both kinds, previews `roster_json` as a source-row tree, matches only by year-scoped external ID, reports field changes, soft-delete conflicts, vocabulary errors, exclusions, warnings, and guardian removals, and hashes exact bytes. `POST /api/imports/{kind}/preview` is registered with `manage_roster`; `grades_csv` remains registered but unsupported until P2-6 owns whole-name matching and grade resolution.
+- Validation: focused ingest/API/integration tests pass; `go test -race -v ./... -count=1`, backend lint/depguard, format/vet, generated OpenAPI determinism, and `git diff --check` pass. New integration coverage exercises tenant isolation, closed years, read-only audit counts, the full synthetic corpus, repeated previews, and one hand edit. Local `make test-backend` and `make smoke` stop at the pre-existing `/miniclass-postgres` Docker name collision / missing `.env`; `make test-migrations` has no `MIGRATION_ROUNDTRIP_DATABASE_URL`; frontend test/build/lint cannot run because dependencies are not installed (`openapi-typescript` missing, `bunx eslint` temp install denied).
+- Open items: commit, push, PR, current-head CI, and human review handoff.
+- Skill draft: no — this change used the repository's existing service/test patterns and exposed no broadly reusable non-routine method.
 
 ## 2026-08-30T07:19:09Z - Failed run output tail
 
