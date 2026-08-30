@@ -41,5 +41,5 @@ I’m continuing issue #124 from its preserved Detent worktree. I’ll use the b
 
 - Scope: atomic `roster_json` import commit with content-hash binding, conflict/error policy, literal adult guardian-edge authority and hard-delete audits; API commit route is wired with `manage_roster`. Governing contract: SPEC §§11.2, 11.4–11.7, 20.1; ADRs 0007 and 0014.
 - Key files: `backend/internal/ingest/commit.go`, `envelope.go`, `preview.go`; `backend/internal/api/handlers/import.go`, `routes.go`, `server.go`; `backend/openapi.json`.
-- Validation: focused ingest/API tests, `go test ./...`, backend lint/depguard, format/vet, OpenAPI generation/drift and `git diff --check` pass. `make check` stops at `db-up` because `/miniclass-postgres` is already occupied; frontend and migration gates remain environment-dependent.
-- Open item: commit/push and open PR referencing #124; retain `in_progress` until PR/CI handoff is complete. No skill draft: this used existing service/data patterns without exposing a reusable non-routine method.
+- Validation: focused ingest/API tests, `go test ./...`, backend lint/depguard, format/vet, OpenAPI generation/drift and `git diff --check` pass. PR CI passed all ten required gates; local `make check` stopped at `db-up` because `/miniclass-postgres` is already occupied.
+- Handoff complete: PR #133 is open, non-draft, clean, references #124, and has no actionable review comments. No skill draft: this used existing service/data patterns without exposing a reusable non-routine method.
