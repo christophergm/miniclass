@@ -256,6 +256,46 @@ func commitRoster(ctx context.Context, request CommitRequest) error {
 	return nil
 }
 
+func commitGrades(ctx context.Context, request CommitRequest) error {
+	rows, ok := request.Parsed.([]roster.GradeRecord)
+	if !ok {
+		return errors.New("commit grades: unexpected parsed document")
+	}
+	if request.Tx == nil {
+		return errors.New("commit grades: transaction is nil")
+	}
+
+	updated := make(map[ids.XID]struct{})
+	for index, source := range rows {
+		if index >= len(request.Preview.Rows) || len(request.Preview.Rows[index].Records) != 1 {
+			return fmt.Errorf("commit grades: row %d is absent from the preview", index+2)
+		}
+		record := request.Preview.Rows[index].Records[0]
+		if record.Outcome != OutcomeUpdate {
+			continue
+		}
+		candidates := matchingGradeStudents(source.StudentName, request.State.Students)
+		if len(candidates) != 1 {
+			return fmt.Errorf("commit grades: row %d no longer has a unique student match", index+2)
+		}
+		student := candidates[0]
+		if _, exists := updated[student.ID]; exists {
+			continue
+		}
+		level, detail := resolveGradeLevel(source.Grade, request.State.GradeLevels)
+		if detail != "" {
+			return fmt.Errorf("commit grades: row %d: %s", index+2, detail)
+		}
+		if _, err := request.Tx.UpdateStudent(ctx, ids.XID(request.SchoolYearID), student.ID,
+			student.LegalGivenName, student.LegalFamilyName, student.PreferredGivenName, &level.ID,
+			student.HomeroomID, student.ExternalIdentifier, student.PriorYearStudentID); err != nil {
+			return fmt.Errorf("update grade for %q: %w", source.StudentName, err)
+		}
+		updated[student.ID] = struct{}{}
+	}
+	return nil
+}
+
 func previewRecordIndex(preview Preview) map[string]RecordPreview {
 	result := make(map[string]RecordPreview)
 	for _, row := range preview.Rows {

@@ -1,6 +1,7 @@
 package ingest
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"os"
@@ -27,6 +28,63 @@ func TestRegistryHasPhaseTwoKindsAndRequiredHooks(t *testing.T) {
 	}
 	require.Error(t, registry.Register(Kind{Name: KindRosterJSON, Parser: func([]byte) (any, error) { return nil, nil }, Matcher: unsupportedMatcher, Writer: unavailableWriter}))
 	require.Error(t, NewEmptyRegistry().Register(Kind{Name: "incomplete"}))
+}
+
+func TestGradesPreviewMatchesWholeNamesAndRemainsUpdateOnly(t *testing.T) {
+	preferred := "Katie"
+	gradeID := ids.XID("grade-four")
+	state := CurrentState{
+		SchoolYear: data.SchoolYear{ID: "year-grades", State: data.SchoolYearSetup},
+		Students: []data.Student{
+			{ID: "student-katie", LegalGivenName: "Katherine", LegalFamilyName: "Smith", PreferredGivenName: &preferred},
+			{ID: "student-del-a", LegalGivenName: "Riley", LegalFamilyName: "De La Sample"},
+			{ID: "student-alice", LegalGivenName: "Alice", LegalFamilyName: "Jones"},
+			{ID: "student-jordan", LegalGivenName: "Jordan", LegalFamilyName: "Unknown"},
+			{ID: "student-ambiguous-a", LegalGivenName: "Taylor", LegalFamilyName: "Same"},
+			{ID: "student-ambiguous-b", LegalGivenName: "Taylor", LegalFamilyName: "Same"},
+		},
+		GradeLevels: []data.GradeLevel{{ID: gradeID, Code: "4", Label: "Fourth Grade"}},
+	}
+	rows := []roster.GradeRecord{
+		{StudentName: "Katie Smith", Grade: "4"},
+		{StudentName: "  Riley   De La Sample ", Grade: "Fourth   Grade"},
+		{StudentName: " alice   JONES ", Grade: "4"},
+		{StudentName: "Taylor Same", Grade: "4"},
+		{StudentName: "Missing Student", Grade: "4"},
+		{StudentName: "Jordan Unknown", Grade: "not-a-grade"},
+		{StudentName: "Katie Smith", Grade: "4"},
+	}
+
+	preview, err := matchGrades(context.TODO(), rows, state)
+	require.NoError(t, err)
+	require.Equal(t, OutcomeCounts{Update: 4, Conflict: 2, Error: 1}, preview.Counts)
+	require.Len(t, preview.Rows, len(rows))
+	require.Equal(t, OutcomeUpdate, preview.Rows[0].Outcome, "preferred-name-only match")
+	require.Equal(t, "student-katie", preview.Rows[0].Records[0].ExistingID)
+	require.Equal(t, "grade_level_id", preview.Rows[0].Records[0].Changes[0].Field)
+	require.Nil(t, preview.Rows[0].Records[0].Changes[0].Before)
+	require.Equal(t, string(gradeID), preview.Rows[0].Records[0].Changes[0].After)
+	require.Equal(t, OutcomeUpdate, preview.Rows[1].Outcome, "two-word surname remains part of the whole name")
+	require.Equal(t, OutcomeUpdate, preview.Rows[2].Outcome, "case and internal whitespace are normalized")
+	require.Equal(t, OutcomeConflict, preview.Rows[3].Outcome, "ambiguous names are never chosen")
+	require.Equal(t, OutcomeConflict, preview.Rows[4].Outcome, "unmatched names are not created")
+	require.Equal(t, OutcomeError, preview.Rows[5].Outcome, "unknown vocabulary is an error")
+	require.Equal(t, OutcomeUpdate, preview.Rows[6].Outcome, "an identical duplicate remains reviewable")
+}
+
+func TestGradesPreviewConflictsContradictoryDuplicateAssignments(t *testing.T) {
+	state := CurrentState{
+		Students:    []data.Student{{ID: "student-1", LegalGivenName: "Casey", LegalFamilyName: "One"}},
+		GradeLevels: []data.GradeLevel{{ID: "grade-three", Code: "3", Label: "Third Grade"}, {ID: "grade-four", Code: "4", Label: "Fourth Grade"}},
+	}
+	preview, err := matchGrades(context.TODO(), []roster.GradeRecord{
+		{StudentName: "Casey One", Grade: "3"},
+		{StudentName: " casey   one ", Grade: "Fourth Grade"},
+	}, state)
+	require.NoError(t, err)
+	require.Equal(t, OutcomeCounts{Conflict: 2}, preview.Counts)
+	require.Equal(t, OutcomeConflict, preview.Rows[0].Outcome)
+	require.Equal(t, OutcomeConflict, preview.Rows[1].Outcome)
 }
 
 func TestContentHashCoversExactSubmittedBytes(t *testing.T) {
