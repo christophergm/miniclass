@@ -13,6 +13,7 @@ import { SchoolYearGuard, SchoolYearListPage, SchoolYearWorkspace } from '@/feat
 import { SettingsPage } from '@/features/settings/SettingsPage'
 import { AdultDetailPage, AdultListPage, StudentDetailPage, StudentListPage } from '@/features/people/PeoplePages'
 import { AuditLog } from '@/features/audit/AuditLog'
+import { ImportPage } from '@/features/imports/ImportPage'
 
 function App() {
   return (
@@ -57,6 +58,7 @@ function AppRoutes() {
             <Route path="adults" element={<AdultListPage />} />
             <Route path="adults/new" element={<AdultDetailPage />} />
             <Route path="adults/:personId" element={<AdultDetailPage />} />
+            <Route path="imports" element={<ImportPage />} />
 
             {/* An unknown address inside a resolved school year reports itself.
                 It used to fall back to the workspace, which renders the year's
