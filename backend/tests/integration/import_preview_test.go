@@ -183,6 +183,9 @@ func TestImportPreviewRejectsClosedSchoolYear(t *testing.T) {
 	actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "closed import preview integration test"}
 	year, err := schoolyear.New(harness.Database).Create(ctx, string(organizationID), actor, "2026–2027")
 	require.NoError(t, err)
+	active := data.SchoolYearActive
+	_, err = schoolyear.New(harness.Database).Update(ctx, string(organizationID), year.ID, auth.RoleAdministrator, actor, schoolyear.UpdateInput{State: &active})
+	require.NoError(t, err)
 	closed := data.SchoolYearClosed
 	_, err = schoolyear.New(harness.Database).Update(ctx, string(organizationID), year.ID, auth.RoleAdministrator, actor, schoolyear.UpdateInput{State: &closed})
 	require.NoError(t, err)
