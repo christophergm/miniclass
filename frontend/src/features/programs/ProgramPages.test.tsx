@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   sessionState: 'planning',
   programUpdate: vi.fn(),
   sessionUpdate: vi.fn(),
+  reorderAreas: vi.fn(),
 }))
 
 vi.mock('./usePrograms', () => {
@@ -30,7 +31,7 @@ vi.mock('./usePrograms', () => {
     useMeetingDates: query([{ id: 'date-1', school_year_id: 'year-1', organization_id: 'org-1', program_id: 'program-1', session_id: 'session-1', meeting_date: '2026-10-02', created_at: '', updated_at: '' }]),
     useOfferings: query([{ id: 'offering-1', school_year_id: 'year-1', organization_id: 'org-1', program_id: 'program-1', session_id: 'session-1', name: 'Making', description: 'Build a project', capacity: 10, minimum_viable_enrollment: 2, min_grade_level_id: 'grade-1', max_grade_level_id: 'grade-1', location: 'Studio', meeting_point: 'Front desk', meeting_instructions: 'Ask for the key', interest_area_id: null, created_at: '', updated_at: '' }]),
     useCatalogFeasibility: query({ participant_count: 2, warnings: [{ id: 'capacity', severity: 'warning', message: 'Capacity is below participation.', participant_count: 2, total_capacity: 1, total_minimum_viable_enrollment: 0, shortfall: 1, affected_grades: [], affected_areas: [], offering_ids: [] }] }),
-    useProgramInterestAreas: query([{ id: 'area-1', label: 'Making', ordinal: 1, retired_at: null }]),
+    useProgramInterestAreas: query([{ id: 'area-1', label: 'Making', ordinal: 1, retired_at: null }, { id: 'area-2', label: 'Gardening', ordinal: 2, retired_at: null }, { id: 'area-3', label: 'Music', ordinal: 3, retired_at: null }]),
     useVocabulary: query({ school_year_id: 'year-1', grade_levels: [{ id: 'grade-1', school_year_id: 'year-1', code: '1', label: 'Grade 1', ordinal: 1, created_at: '', updated_at: '' }], homerooms: [] }),
     useProgramMemberships: query([{ id: 'membership-1', student_id: 'student-1', legal_given_name: 'Riley', legal_family_name: 'Synthetic', grade_missing: false }]),
     useSessionNonParticipations: query([]),
@@ -42,7 +43,7 @@ vi.mock('./usePrograms', () => {
     useUpdateSession: mutation(mocks.sessionUpdate), useUpdateSessionObjectiveWeights: mutation(mocks.sessionUpdate),
     useCreateProgram: mutation(), useMissingGradeCount: query({ missing_grade_count: 0 }), useCreateInterestArea: mutation(),
     useAddProgramMembership: mutation(), useRemoveProgramMembership: mutation(), useCreateSession: mutation(),
-    useProgramObjectiveWeights: query({ defaults, effective: defaults }), useUpdateProgramObjectiveWeights: mutation(mocks.programUpdate), useReorderInterestAreas: mutation(), useUpdateInterestArea: mutation(),
+    useProgramObjectiveWeights: query({ defaults, effective: defaults }), useUpdateProgramObjectiveWeights: mutation(mocks.programUpdate), useReorderInterestAreas: mutation(mocks.reorderAreas), useUpdateInterestArea: mutation(),
   }
 })
 
@@ -262,5 +263,25 @@ describe('objective pages', () => {
     expect(screen.getByRole('heading', { name: 'Read-only history' })).toBeInTheDocument()
     expect(screen.getAllByRole('spinbutton').every((input) => (input as HTMLInputElement).disabled)).toBe(true)
     expect(screen.getByRole('button', { name: 'Save programme defaults' })).toBeDisabled()
+  })
+})
+
+describe('interest-area ordering', () => {
+  beforeEach(() => { mocks.reorderAreas.mockReset() })
+
+  it('swaps only adjacent areas in either direction and disables boundary moves', () => {
+    renderProgram()
+
+    expect(screen.getByRole('button', { name: 'Move Making up' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Move Music down' })).toBeDisabled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move Gardening up' }))
+    expect(mocks.reorderAreas).toHaveBeenLastCalledWith(['area-2', 'area-1', 'area-3'])
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move Gardening down' }))
+    expect(mocks.reorderAreas).toHaveBeenLastCalledWith(['area-1', 'area-3', 'area-2'])
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move Music up' }))
+    expect(mocks.reorderAreas).toHaveBeenLastCalledWith(['area-1', 'area-3', 'area-2'])
   })
 })
