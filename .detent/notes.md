@@ -163,3 +163,12 @@
 - Telemetry: quiet-window wait 0s; local merge-gate duration 0.011s; PR CI duration 1m56s; slow checks were Backend tests (111s), Generated code drift (108s), and Backend lint (85s); no post-merge main CI applies while the PR is open.
 - Open items: none. No PR reviews, inline comments, or issue blockers. Detent owns the completion-lane transition.
 - Skill draft: no — this was a focused frontend routing/presentation change and exposed no broadly reusable procedure.
+
+## Current work — issue #173
+
+- Scope: Move school-year creation and editing into focused modal flows per SPEC §§5.2, 5.4, and 11.1.
+- Key files: `frontend/src/features/school-years/SchoolYearPages.tsx`, `frontend/src/features/school-years/SchoolYearPages.test.tsx`, and `frontend/src/components/ui/button.tsx`.
+- Implementation: `/years` now opens a create modal; year Settings has an Edit modal containing label save, read-only timestamps, and state-specific lifecycle actions. Close is destructive-styled; closed-year reopen remains owner-only and requires a reason.
+- Validation: backend format/lint/vet and `git diff --check` pass; generation runs without generated-file changes. Focused/frontend checks cannot run because frontend dependencies, including `openapi-typescript`, are not installed. Full `make check` stops at Docker address-pool exhaustion before gates.
+- Open items: run CI after commit/push, verify PR review/check state, and update the Workpad handoff. No dependency blocker.
+- Skill draft: no — this is a focused UI refinement using the existing modal pattern and exposed no broadly reusable procedure.

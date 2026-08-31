@@ -3,6 +3,7 @@ import { Link, Outlet, useLocation, useOutletContext, useParams } from 'react-ro
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { ModalForm } from '@/components/ui/modal-form'
 import { ApiError } from '@/lib/api'
 import type { SchoolYear, SchoolYearState } from '@/lib/apiResources'
 import { useIsOwner } from '@/lib/hooks/useAccount'
@@ -45,10 +46,11 @@ export function SchoolYearListPage() {
   const { data: years, error, isError, isLoading } = useSchoolYears()
   const create = useCreateSchoolYear()
   const [label, setLabel] = useState('')
+  const [createOpen, setCreateOpen] = useState(false)
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    create.mutate(label, { onSuccess: () => setLabel('') })
+    create.mutate(label.trim(), { onSuccess: () => { setLabel(''); setCreateOpen(false) } })
   }
 
   return (
@@ -59,19 +61,25 @@ export function SchoolYearListPage() {
         <p className="mt-2 max-w-2xl text-sm text-muted-foreground">Choose a school year to work in. The selected year is always part of the URL, so shared and bookmarked links stay explicit.</p>
       </div>
 
-      <section aria-labelledby="create-school-year-heading" className="mt-8 rounded-lg border bg-card p-5 shadow-sm">
-        <h2 className="font-semibold" id="create-school-year-heading">Create a school year</h2>
-        <p className="mt-1 text-sm text-muted-foreground">A new year starts in setup. Closing a year is never required in order to create the next one.</p>
-        <form className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-start" onSubmit={submit}>
-          <div className="flex-1">
-            <label className="text-sm font-medium" htmlFor="school-year-label">Display label</label>
-            <Input className="mt-1" id="school-year-label" onChange={(event) => setLabel(event.target.value)} value={label} />
-            {fieldError(create.error, 'label') && <p className="mt-1 text-sm text-destructive">{fieldError(create.error, 'label')}</p>}
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-lg border bg-card p-5 shadow-sm">
+        <div>
+          <h2 className="font-semibold">Create a school year</h2>
+          <p className="mt-1 text-sm text-muted-foreground">A new year starts in setup. Closing a year is never required in order to create the next one.</p>
+        </div>
+        <Button onClick={() => { setLabel(''); setCreateOpen(true) }} type="button">Create year</Button>
+      </div>
+      <ModalForm dirty={Boolean(label.trim())} onClose={() => setCreateOpen(false)} open={createOpen} title="Create school year" description="A new school year starts in setup and can be activated when it is ready.">
+        <form className="space-y-4" onSubmit={submit}>
+          <label className="block text-sm font-medium" htmlFor="school-year-label">Display label<Input aria-describedby={fieldError(create.error, 'label') ? 'school-year-label-error' : undefined} className="mt-2" id="school-year-label" onChange={(event) => setLabel(event.target.value)} placeholder="e.g. 2026–27" required value={label} />
+            {fieldError(create.error, 'label') && <span className="mt-1 block text-sm font-normal text-destructive" id="school-year-label-error">{fieldError(create.error, 'label')}</span>}
+          </label>
+          <div className="flex gap-2">
+            <Button disabled={create.isPending || !label.trim()} type="submit">{create.isPending ? 'Creating…' : 'Create year'}</Button>
+            <Button onClick={() => setCreateOpen(false)} type="button" variant="outline">Cancel</Button>
           </div>
-          <Button className="sm:mt-6" disabled={create.isPending} type="submit">{create.isPending ? 'Creating…' : 'Create year'}</Button>
+          {create.isError && !fieldError(create.error, 'label') && <Problem error={create.error} fallback="Unable to create the school year." />}
         </form>
-        {create.isError && !fieldError(create.error, 'label') && <Problem error={create.error} fallback="Unable to create the school year." />}
-      </section>
+      </ModalForm>
 
       {isLoading && <p className="mt-8 text-sm text-muted-foreground" role="status">Loading school years…</p>}
       {isError && <Problem error={error} fallback="Unable to load school years." />}
@@ -165,13 +173,29 @@ export function SchoolYearSettingsPage() {
   const update = useUpdateSchoolYear(year.id)
   const [label, setLabel] = useState(year.label)
   const [reason, setReason] = useState('')
-  const [isReopening, setIsReopening] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
   const readOnly = year.state === 'closed'
+
+  function openEditor() {
+    setLabel(year.label)
+    setReason('')
+    setEditOpen(true)
+  }
+
+  function closeEditor() {
+    setEditOpen(false)
+    setReason('')
+  }
+
+  function saveLabel(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    update.mutate({ label: label.trim() }, { onSuccess: closeEditor })
+  }
 
   // A reopen is the one transition that carries a reason, and the reason is
   // recorded as an audit entry rather than merely permitted (SPEC §5.4).
   function transition(state: SchoolYearState) {
-    update.mutate({ state, ...(state === 'active' && year.state === 'closed' ? { reason } : {}) })
+    update.mutate({ state, ...(state === 'active' && year.state === 'closed' ? { reason: reason.trim() } : {}) }, { onSuccess: closeEditor })
   }
 
   return (
@@ -182,7 +206,10 @@ export function SchoolYearSettingsPage() {
           <h1 className="text-3xl font-semibold tracking-tight">Settings</h1>
           <p className="mt-2 text-sm text-muted-foreground">Manage {year.label} and its year-scoped tools.</p>
         </div>
-        <StateBadge className="rounded-full bg-secondary px-3 py-1 text-sm font-medium capitalize text-secondary-foreground" state={year.state} />
+        <div className="flex items-center gap-3">
+          <StateBadge className="rounded-full bg-secondary px-3 py-1 text-sm font-medium capitalize text-secondary-foreground" state={year.state} />
+          <Button onClick={openEditor} type="button" variant="outline">Edit</Button>
+        </div>
       </div>
 
       {readOnly && (
@@ -194,39 +221,44 @@ export function SchoolYearSettingsPage() {
 
       <section aria-labelledby="school-year-details-heading" className="mt-6 rounded-lg border bg-card p-5 shadow-sm">
         <h2 className="font-semibold" id="school-year-details-heading">Year details</h2>
-        <form className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end" onSubmit={(event) => { event.preventDefault(); update.mutate({ label }) }}>
-          <div className="flex-1">
-            <label className="text-sm font-medium" htmlFor="school-year-edit-label">Display label</label>
-            <Input className="mt-1" disabled={readOnly} id="school-year-edit-label" onChange={(event) => setLabel(event.target.value)} value={label} />
-            {fieldError(update.error, 'label') && <p className="mt-1 text-sm text-destructive">{fieldError(update.error, 'label')}</p>}
-          </div>
-          <Button disabled={readOnly || update.isPending} type="submit">{update.isPending ? 'Saving…' : 'Save label'}</Button>
-        </form>
-
-        {!readOnly && (
-          <div className="mt-6 flex flex-wrap gap-3">
-            {year.state === 'setup' && <Button disabled={update.isPending} onClick={() => transition('active')}>Activate year</Button>}
-            {year.state === 'active' && <Button disabled={update.isPending} onClick={() => transition('closed')} variant="outline">Close year</Button>}
-          </div>
-        )}
-
-        {readOnly && isOwner && !isReopening && <Button className="mt-6" disabled={update.isPending} onClick={() => setIsReopening(true)}>Reopen year</Button>}
-        {isReopening && (
-          <form className="mt-6 rounded-md border bg-muted/30 p-4" onSubmit={(event) => { event.preventDefault(); transition('active') }}>
-            <label className="text-sm font-medium" htmlFor="reopen-reason">Reason for reopening</label>
-            <Input className="mt-1" id="reopen-reason" onChange={(event) => setReason(event.target.value)} value={reason} />
-            <p className="mt-1 text-xs text-muted-foreground">The reason is recorded in the audit log.</p>
-            <div className="mt-3 flex gap-2">
-              <Button disabled={update.isPending} type="submit">{update.isPending ? 'Reopening…' : 'Confirm reopen'}</Button>
-              <Button onClick={() => setIsReopening(false)} type="button" variant="outline">Cancel</Button>
-            </div>
-          </form>
-        )}
-
-        {update.isError && <Problem error={update.error} fallback="Unable to update the school year." />}
+        <p className="mt-2 text-sm text-muted-foreground">Edit the display label or manage this year’s lifecycle from the Edit dialog.</p>
       </section>
 
-      <p className="mt-4 text-sm text-muted-foreground">Created {formatDate(year.created_at)} · Updated {formatDate(year.updated_at)}</p>
+      <ModalForm dirty={label.trim() !== year.label || Boolean(reason.trim())} onClose={closeEditor} open={editOpen} title="Edit school year" description="Update the label or manage the school-year lifecycle. Created and updated timestamps are read-only.">
+        <div className="space-y-5">
+          <form className="space-y-4" onSubmit={saveLabel}>
+            <label className="block text-sm font-medium" htmlFor="school-year-edit-label">Display label<Input aria-describedby={fieldError(update.error, 'label') ? 'school-year-edit-label-error' : undefined} className="mt-2" disabled={readOnly} id="school-year-edit-label" onChange={(event) => setLabel(event.target.value)} required value={label} />
+              {fieldError(update.error, 'label') && <span className="mt-1 block text-sm font-normal text-destructive" id="school-year-edit-label-error">{fieldError(update.error, 'label')}</span>}
+            </label>
+            <Button disabled={readOnly || update.isPending || !label.trim() || label.trim() === year.label} type="submit">{update.isPending ? 'Saving…' : 'Save label'}</Button>
+          </form>
+
+          <dl className="grid gap-3 rounded-md border bg-muted/30 p-4 text-sm sm:grid-cols-2">
+            <div><dt className="font-medium">Created</dt><dd className="mt-1 text-muted-foreground">{formatDate(year.created_at)}</dd></div>
+            <div><dt className="font-medium">Updated</dt><dd className="mt-1 text-muted-foreground">{formatDate(year.updated_at)}</dd></div>
+          </dl>
+
+          <div className="border-t pt-5">
+            <h3 className="font-medium">Lifecycle</h3>
+            {year.state === 'setup' && <Button className="mt-3" disabled={update.isPending} onClick={() => transition('active')} type="button">{update.isPending ? 'Activating…' : 'Activate year'}</Button>}
+            {year.state === 'active' && <Button className="mt-3" disabled={update.isPending} onClick={() => transition('closed')} type="button" variant="destructive">{update.isPending ? 'Closing…' : 'Close year'}</Button>}
+            {readOnly && isOwner && (
+              <form className="mt-3 space-y-3" onSubmit={(event) => { event.preventDefault(); transition('active') }}>
+                <label className="block text-sm font-medium" htmlFor="reopen-reason">Reason for reopening<Input className="mt-1" id="reopen-reason" onChange={(event) => setReason(event.target.value)} placeholder="Explain why this closed year is being reopened" required value={reason} /></label>
+                <p className="text-xs text-muted-foreground">The reason is recorded in the audit log.</p>
+                <Button disabled={update.isPending || !reason.trim()} type="submit">{update.isPending ? 'Reopening…' : 'Reopen year'}</Button>
+              </form>
+            )}
+            {readOnly && !isOwner && <p className="mt-3 text-sm text-muted-foreground">Only an Owner can reopen a closed school year.</p>}
+          </div>
+
+          <div className="flex justify-end">
+            <Button onClick={closeEditor} type="button" variant="outline">Cancel</Button>
+          </div>
+          {update.isError && <Problem error={update.error} fallback="Unable to update the school year." />}
+        </div>
+      </ModalForm>
+
       <section aria-labelledby="year-tools-heading" className="mt-6 rounded-lg border bg-card p-5 shadow-sm">
         <h2 className="font-semibold" id="year-tools-heading">Year tools</h2>
         <p className="mt-1 text-sm text-muted-foreground">Open the tools associated with this school year.</p>

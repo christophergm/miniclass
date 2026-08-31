@@ -86,18 +86,20 @@ beforeEach(() => {
 })
 
 describe('SchoolYearWorkspace', () => {
-  it('marks a closed year read-only and submits an owner reason when reopening', async () => {
+  it('opens the edit modal for a closed year and submits an owner reason when reopening', async () => {
     const mutate = vi.fn()
     mockQuery(useUpdateSchoolYear, { mutate, isPending: false, isError: false, error: null })
     renderWorkspace()
 
     expect(screen.getByRole('heading', { name: 'Read-only history' })).toBeInTheDocument()
+    expect(screen.queryByLabelText('Display label')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    expect(screen.getByRole('dialog', { name: 'Edit school year' })).toBeInTheDocument()
     expect(screen.getByLabelText('Display label')).toBeDisabled()
+    fireEvent.change(await screen.findByLabelText('Reason for reopening'), { target: { value: 'Corrected an import error' } })
     fireEvent.click(await screen.findByRole('button', { name: 'Reopen year' }))
-    fireEvent.change(screen.getByLabelText('Reason for reopening'), { target: { value: 'Corrected an import error' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm reopen' }))
 
-    expect(mutate).toHaveBeenCalledWith({ state: 'active', reason: 'Corrected an import error' })
+    expect(mutate).toHaveBeenCalledWith({ state: 'active', reason: 'Corrected an import error' }, expect.anything())
   })
 
   it('does not show the owner-only reopen control to an administrator', async () => {
@@ -105,20 +107,52 @@ describe('SchoolYearWorkspace', () => {
     renderWorkspace()
 
     expect(screen.getByRole('heading', { name: 'Read-only history' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Reopen year' })).not.toBeInTheDocument())
+    expect(screen.getByText('Only an Owner can reopen a closed school year.')).toBeInTheDocument()
   })
 
-  it('offers the close transition on an active year without asking for a reason', async () => {
+  it('offers a destructive close transition in the active year edit modal', async () => {
     const mutate = vi.fn()
     mockQuery(useSchoolYear, { data: year({ state: 'active' }), isLoading: false, isError: false, error: null })
     mockQuery(useUpdateSchoolYear, { mutate, isPending: false, isError: false, error: null })
     renderWorkspace()
 
     expect(screen.queryByRole('heading', { name: 'Read-only history' })).not.toBeInTheDocument()
-    fireEvent.click(await screen.findByRole('button', { name: 'Close year' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    const close = screen.getByRole('button', { name: 'Close year' })
+    expect(close).toHaveClass('bg-destructive')
+    fireEvent.click(close)
 
-    expect(mutate).toHaveBeenCalledWith({ state: 'closed' })
+    expect(mutate).toHaveBeenCalledWith({ state: 'closed' }, expect.anything())
     expect(screen.queryByLabelText('Reason for reopening')).not.toBeInTheDocument()
+  })
+
+  it('offers activation from the edit modal for a setup year', () => {
+    const mutate = vi.fn()
+    mockQuery(useSchoolYear, { data: year({ state: 'setup' }), isLoading: false, isError: false, error: null })
+    mockQuery(useUpdateSchoolYear, { mutate, isPending: false, isError: false, error: null })
+    renderWorkspace()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Activate year' }))
+
+    expect(mutate).toHaveBeenCalledWith({ state: 'active' }, expect.anything())
+  })
+
+  it('shows read-only timestamps and saves a changed label from the edit modal', () => {
+    const mutate = vi.fn()
+    mockQuery(useSchoolYear, { data: year({ state: 'active' }), isLoading: false, isError: false, error: null })
+    mockQuery(useUpdateSchoolYear, { mutate, isPending: false, isError: false, error: null })
+    renderWorkspace()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    expect(screen.getByText('Jan 1, 2026')).toBeInTheDocument()
+    expect(screen.getByText('Jan 2, 2026')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Display label'), { target: { value: '2026–27' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save label' }))
+
+    expect(mutate).toHaveBeenCalledWith({ label: '2026–27' }, expect.anything())
   })
 
   it('links the year workspace to its vocabulary', () => {
@@ -158,11 +192,13 @@ describe('SchoolYearLayout', () => {
 })
 
 describe('SchoolYearListPage', () => {
-  it('creates a school year from the label the organiser typed', async () => {
+  it('starts creation from a modal rather than a persistent form', () => {
     const mutate = vi.fn()
     mockQuery(useCreateSchoolYear, { mutate, isPending: false, isError: false, error: null })
     renderList()
 
+    expect(screen.queryByLabelText('Display label')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Create year' }))
     fireEvent.change(screen.getByLabelText('Display label'), { target: { value: '2026–27' } })
     fireEvent.click(screen.getByRole('button', { name: 'Create year' }))
 
