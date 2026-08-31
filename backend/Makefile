@@ -4,6 +4,16 @@ GOLANGCI_LINT_VERSION := v1.64.8
 SQLC_VERSION := v1.31.1
 GOOSE_VERSION := v3.19.2
 
+# Pin the toolchain that golangci-lint was built with. Its type checker cannot
+# read export data produced by a newer compiler, and the failure presents as
+# every third-party import being undefined -- chi, jwt, goose -- rather than as
+# a version mismatch, so the real lint findings never run. The `go` directive
+# in go.mod is a minimum rather than a pin, which proto resolves as ^1.26.0 and
+# satisfies with any newer local toolchain. Keep this equal to the go entry in
+# ../.prototools and the toolchain directive in go.mod.
+GO_TOOLCHAIN := go1.26.4
+export GOTOOLCHAIN := $(GO_TOOLCHAIN)
+
 # Load environment variables
 -include ../.env
 export
@@ -108,8 +118,13 @@ format: ## Verify Go formatting and run the Go vet analyzer
 	go vet ./...
 
 lint: ## Run the pinned golangci-lint configuration
-	@command -v golangci-lint >/dev/null || { echo "golangci-lint $(GOLANGCI_LINT_VERSION) is required; run make install-tools"; exit 1; }
+	@command -v golangci-lint >/dev/null || { echo "golangci-lint $(GOLANGCI_LINT_VERSION) is required; run make tools-install"; exit 1; }
 	@golangci-lint version | grep -F "$(GOLANGCI_LINT_VERSION)" >/dev/null || { echo "golangci-lint $(GOLANGCI_LINT_VERSION) is required"; golangci-lint version; exit 1; }
+	@golangci-lint version 2>&1 | grep -F "built with $(GO_TOOLCHAIN)" >/dev/null || { \
+		echo "golangci-lint was built with a Go other than $(GO_TOOLCHAIN); its type checker will report every third-party import as undefined instead of running the real linters. Run make tools-install to rebuild it against the pinned toolchain."; \
+		golangci-lint version; \
+		exit 1; \
+	}
 	golangci-lint run
 	$(MAKE) verify-depguard
 
