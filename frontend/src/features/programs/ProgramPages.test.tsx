@@ -1,4 +1,4 @@
-import { fireEvent, screen } from '@testing-library/react'
+import { fireEvent, screen, within } from '@testing-library/react'
 import { MemoryRouter, Outlet, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -39,7 +39,7 @@ vi.mock('./usePrograms', () => {
     useCreateOffering: vi.fn(() => ({ mutate: mocks.createOffering, isPending: false, isError: false, error: null })), useUpdateOffering: vi.fn(() => ({ mutate: mocks.updateOffering, isPending: false, isError: false, error: null })), useDeleteOffering: mutation(),
     useTransitionSession: mutation(mocks.transition), useCreateSessionNonParticipation: mutation(),
     useUpdateSessionNonParticipation: mutation(), useDeleteSessionNonParticipation: mutation(),
-    useUpdateSession: mutation(), useUpdateSessionObjectiveWeights: mutation(mocks.sessionUpdate),
+    useUpdateSession: mutation(mocks.sessionUpdate), useUpdateSessionObjectiveWeights: mutation(mocks.sessionUpdate),
     useCreateProgram: mutation(), useMissingGradeCount: query({ missing_grade_count: 0 }), useCreateInterestArea: mutation(),
     useAddProgramMembership: mutation(), useRemoveProgramMembership: mutation(), useCreateSession: mutation(),
     useProgramObjectiveWeights: query({ defaults, effective: defaults }), useUpdateProgramObjectiveWeights: mutation(mocks.programUpdate), useReorderInterestAreas: mutation(), useUpdateInterestArea: mutation(),
@@ -139,9 +139,37 @@ describe('SessionPage', () => {
 
     expect(screen.getByRole('heading', { name: 'Read-only history' })).toBeInTheDocument()
     expect(screen.getByText('Create offering')).toHaveAttribute('aria-disabled', 'true')
-    expect(screen.getByRole('button', { name: 'Add date' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Edit dates' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Transition' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Mark not participating' })).toBeDisabled()
+  })
+
+  it('edits the session and its meeting dates together in a modal', () => {
+    mocks.sessionUpdate.mockImplementation((_value, options) => options.onSuccess())
+    renderSession()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit session' }))
+    expect(screen.getByRole('dialog', { name: 'Edit session' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Save session' })).toBeEnabled()
+    fireEvent.change(screen.getByRole('textbox', { name: 'Session name' }), { target: { value: 'Winter session' } })
+    fireEvent.change(screen.getByLabelText('Meeting date 1'), { target: { value: '2026-10-09' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save session' }))
+
+    expect(mocks.sessionUpdate).toHaveBeenCalledWith({ sessionID: 'session-1', value: { name: 'Winter session', meeting_dates: ['2026-10-09'] } }, expect.any(Object))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('requires a meeting date before creating a session', () => {
+    renderProgram()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create session' }))
+    const dialog = screen.getByRole('dialog', { name: 'Create session' })
+    expect(within(dialog).getByRole('button', { name: 'Create session' })).toBeDisabled()
+    fireEvent.change(screen.getByRole('textbox', { name: 'Session name' }), { target: { value: 'Spring session' } })
+    expect(within(dialog).getByRole('button', { name: 'Create session' })).toBeDisabled()
+    fireEvent.change(screen.getByLabelText('New meeting date'), { target: { value: '2027-03-01' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Add date' }))
+    expect(within(dialog).getByRole('button', { name: 'Create session' })).toBeEnabled()
   })
 
   it('renders a labeled create page and maps Maximum enrollment to capacity', () => {
