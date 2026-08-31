@@ -1,5 +1,5 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
-import { Link, Navigate, Outlet, useLocation, useOutletContext, useParams } from 'react-router-dom'
+import { Link, Outlet, useLocation, useOutletContext, useParams } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
