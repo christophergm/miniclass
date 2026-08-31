@@ -41,7 +41,10 @@ export function SettingsPage() {
 
 function GradeLevelsSection({ levels }: { levels: GradeLevel[] }) {
   const create = useVocabularyMutation((value: { code: string; label: string }) => resourceApi.createGradeLevel(value))
-  const update = useVocabularyMutation((value: { id: string; code?: string; label?: string; retired?: boolean }) => resourceApi.updateGradeLevel(value.id, value))
+  // The identifier travels in the path, so it is destructured out rather than
+  // spread into the body: every generated request schema sets
+  // additionalProperties false, and a stray `id` is rejected as 422.
+  const update = useVocabularyMutation(({ id, ...body }: { id: string; code?: string; label?: string; retired?: boolean }) => resourceApi.updateGradeLevel(id, body))
   const reorder = useVocabularyMutation((ids: string[]) => resourceApi.reorderGradeLevels(ids))
   const [code, setCode] = useState('')
   const [label, setLabel] = useState('')
@@ -70,7 +73,7 @@ function GradeLevelsSection({ levels }: { levels: GradeLevel[] }) {
 
 function HomeroomsSection({ homerooms }: { homerooms: Homeroom[] }) {
   const create = useVocabularyMutation((value: { name: string; external_identifier?: string }) => resourceApi.createHomeroom(value))
-  const update = useVocabularyMutation((value: { id: string; name?: string; external_identifier?: string; retired?: boolean }) => resourceApi.updateHomeroom(value.id, value))
+  const update = useVocabularyMutation(({ id, ...body }: { id: string; name?: string; external_identifier?: string; retired?: boolean }) => resourceApi.updateHomeroom(id, body))
   const [name, setName] = useState('')
   const [externalIdentifier, setExternalIdentifier] = useState('')
   const [editing, setEditing] = useState<string | null>(null)
