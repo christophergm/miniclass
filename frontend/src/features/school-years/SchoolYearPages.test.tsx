@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -200,7 +200,7 @@ describe('SchoolYearListPage', () => {
     expect(screen.queryByLabelText('Display label')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Create year' }))
     fireEvent.change(screen.getByLabelText('Display label'), { target: { value: '2026–27' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Create year' }))
+    fireEvent.click(within(screen.getByRole('dialog', { name: 'Create school year' })).getByRole('button', { name: 'Create year' }))
 
     expect(mutate).toHaveBeenCalledWith('2026–27', expect.anything())
   })
