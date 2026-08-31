@@ -456,14 +456,11 @@ func classifyRelationship(source roster.GuardianRelationship, adultPreviews, stu
 func resolveHomeroom(source roster.Student, homerooms map[string][]data.Homeroom) (ids.XID, string) {
 	externalID := strings.TrimSpace(source.ClassroomExternalIdentifier)
 	if externalID == "" {
-		externalID = strings.TrimSpace(source.ClassroomID)
-	}
-	if externalID == "" {
-		return "", fmt.Sprintf("student source id %q has an unresolved classroom: source id is empty, label %q, band %q", source.SourceExternalIdentifier, source.ClassroomLabel, source.ClassroomBand)
+		return "", fmt.Sprintf("student source id %q has an unresolved classroom: source id is empty, label %q", source.SourceExternalIdentifier, source.ClassroomLabel)
 	}
 	matches := homerooms[externalID]
 	if len(matches) == 0 {
-		return "", fmt.Sprintf("student source id %q has an unresolved classroom: source id %q, label %q, band %q; create it in vocabulary settings before previewing again", source.SourceExternalIdentifier, externalID, source.ClassroomLabel, source.ClassroomBand)
+		return "", fmt.Sprintf("student source id %q has an unresolved classroom: source id %q, label %q; create it in vocabulary settings before previewing again", source.SourceExternalIdentifier, externalID, source.ClassroomLabel)
 	}
 	if len(matches) > 1 {
 		return "", fmt.Sprintf("student source id %q has an ambiguous classroom external identifier %q", source.SourceExternalIdentifier, externalID)

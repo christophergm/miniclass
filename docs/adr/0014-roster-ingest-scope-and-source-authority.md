@@ -63,7 +63,7 @@ guardian-relationship shape. A fully generic multi-entity pipeline is not part o
 - Participation intent is nullable. It is a declared survey answer (§15.2), not a roster fact;
   defaulting the 226 retained adults to `unavailable` would fabricate declarations that staffing
   later reads as data.
-- Classroom band labels are displayed, never parsed. Deriving grades from a label such as
+- Classroom band labels are neither parsed nor carried. Deriving grades from a label such as
   `3rd-4th Grade` would import a third party's vocabulary into validation and fail silently when a
   room is renamed.
 - Households are not imported. No source provides them, and ADR 0012 removes the entity; guardian

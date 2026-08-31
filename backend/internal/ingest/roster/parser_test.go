@@ -32,7 +32,6 @@ func TestParseSyntheticCorpusMatchesObservedShape(t *testing.T) {
 	for _, student := range result.Students {
 		require.NotEmpty(t, student.ClassroomExternalIdentifier)
 	}
-	require.NotEmpty(t, result.Students[2].ClassroomBand)
 	require.Equal(t, "De La Sample", result.Students[2].FamilyName)
 	classroomCounts := map[string]int{}
 	for _, student := range result.Students {
@@ -85,7 +84,6 @@ func TestParseResolvesFieldsByNameAndIgnoresUnknownFields(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "Casey", result.Students[0].GivenName)
 	require.Equal(t, "Example", result.Students[0].FamilyName)
-	require.Equal(t, "3rd-4th Grade", result.Students[0].ClassroomBand)
 	require.Equal(t, "parent", result.GuardianRelationships[0].RelationshipType)
 	require.Empty(t, result.Warnings)
 }
@@ -126,7 +124,6 @@ func TestParseReadsPlatformExportShape(t *testing.T) {
 	require.Equal(t, "Child", result.Students[0].GivenName)
 	require.Equal(t, "room-1", result.Students[0].ClassroomExternalIdentifier)
 	require.Equal(t, "Serena", result.Students[0].ClassroomLabel)
-	require.Equal(t, "3rd-4th Grade", result.Students[0].ClassroomBand)
 
 	require.Len(t, result.GuardianRelationships, 1)
 	require.Equal(t, "parent", result.GuardianRelationships[0].RelationshipType)
