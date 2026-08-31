@@ -1,3 +1,12 @@
+## Current work — issue #161
+
+- Scope: Clarify session lifecycle control labels and direct transitions per SPEC §§5.2, 5.4, 14.3–14.5, 20.1, 22.4.
+- Key files: `frontend/src/features/programs/ProgramPages.tsx` and `frontend/src/features/programs/ProgramPages.test.tsx`.
+- Implementation: exact `Choose allowed state` placeholder; forward legal transitions show `Transition` and call the existing direct API path; backward legal transitions show `Preview Transition…` and retain reason/confirmation safeguards; tests cover legal targets, direct payload, and preview confirmation flow.
+- Validation: `make format`, `make generate && git diff --exit-code`, and `git diff --check` pass. Frontend test/build cannot run locally because `openapi-typescript` and the installed Vitest binary are unavailable; frontend lint is blocked by Bun temp-cache permissions. Full CI remains to be run on the PR.
+- Open items: run backend and frontend required gates as available, commit/push, open PR referencing `Fixes #161`, verify current-head CI/review comments, and update Workpad to completion when eligible.
+- Skill draft: no — this is a focused presentation/interaction change and exposed no broadly reusable procedure.
+
 ## Current handoff — issue #139
 
 - Scope: Re-scope the existing grade and homeroom vocabularies to school years, including migration/backfill/down path, explicit year predicates, data/service/audit/API/ingest/seed/factory/registry/frontend updates, generated artifacts, and isolation/closed-year tests. Governing contract: SPEC §§8.1, 8.2, 10.1, 11.1, 20.1; ADRs 0007, 0010, 0014, 0015.
