@@ -176,7 +176,7 @@ describe('SessionPage', () => {
     renderOffering('/y/year-1/programs/program-1/sessions/session-1/offerings/new', year('closed'))
 
     expect(screen.getByRole('heading', { name: 'Read-only history' })).toBeInTheDocument()
-    expect(screen.getByText('Create offering')).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByRole('button', { name: 'Create offering' })).toBeDisabled()
     expect(screen.getByLabelText('Maximum enrollment')).toBeDisabled()
   })
 })
