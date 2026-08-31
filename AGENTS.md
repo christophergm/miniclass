@@ -16,12 +16,47 @@ Choose the effort from this project-specific rubric:
 
 Leave `model` unset so the issue inherits the fleet-standard model.
 
+## Commit messages
+
+Commit messages must follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/).
+If the change has an issue, end the subject with at least one issue ID in parentheses.
+
+Scopes are optional. When used, choose one lowercase scope for the primary component affected by
+ the commit. Keep the subject imperative, specific, and no longer than 72 characters where practical.
+
+A body is optional and should be included only when the subject and diff do not make the intent clear.
+Keep it concise:
+
+- Explain **why**, important constraints, or a notable trade-off; do not narrate the diff.
+- Use at most three short paragraphs and aim for no more than ten wrapped lines total.
+- Wrap body lines at 72 characters. If the explanation needs substantially more space, put it in the
+  pull request or issue instead of expanding the commit message.
+
+Separate the subject, body, and footer with a blank line. Use the footer only for machine-readable
+trailers or metadata, not for additional narrative.
+
+### Format
+
+```text
+<type>([optional scope]): <description> (ISSUE [ISSUE...])
+```
+
+For example:
+
+```text
+feat: add modal session editor (#1234)
+```
+
+```text
+feat(optimizer): improve parameters (#1234)
+```
+
 ## Standing rules
 
-1. **Cite the spec.** Every pull request names the `SPEC.md` section it implements. Behaviour with no
+1. **Cite the spec.** Pull requests with core system behavior should name the `SPEC.md` section it implements. Behaviour with no
    spec citation is either undiscovered scope or invention; both need a human. A change that is
    purely developer tooling — build, scripts, local environment, CI — may cite an ADR instead, because
-   `SPEC.md` describes the product and has no tooling section.
+   `SPEC.md` describes the product and has no tooling section. User interface changes or other presentation details may not need spec or ADR citations.
 2. **No tenant-scoped table without an isolation test.** SPEC §9.2 states that omitting one is a
    defect, not an oversight.
 3. **Never weaken a test to make CI green.** If a test is wrong, fix the test in its own change with
