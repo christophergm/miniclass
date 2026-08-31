@@ -3,8 +3,8 @@
 - Scope: Dedicated offering create/edit pages from the session summary, labeled one-property-per-row form, and “Maximum enrollment” UI terminology per SPEC §§8.4, 14.2, 16.1, 16.3, 16.5, 22.4.
 - Key files: `frontend/src/features/programs/OfferingPages.tsx`, `frontend/src/features/programs/ProgramPages.tsx`, `frontend/src/features/programs/usePrograms.ts`, `frontend/src/App.tsx`, and `frontend/src/features/programs/ProgramPages.test.tsx`.
 - Implementation: nested `/offerings/new` and `/offerings/:offeringId/edit` routes; shared form preserves the existing required `capacity` payload; closed-year controls remain read-only; create/edit save and cancel return to the session.
-- Validation: `make lint-backend`, `make format`, `make generate && git diff --exit-code`, and `git diff --check` pass. Frontend tests/build/lint are environment-limited: `openapi-typescript` is unavailable and Bun cannot write its temp directory. Full `make check` still needs to be run before handoff.
-- Open items: run full check, commit/push, open a non-draft PR referencing `Fixes #163`, verify current-head CI/comments, and update the issue Workpad.
+- Validation: local `make lint-backend`, `make format`, generation drift, and `git diff --check` pass; full `make check` stops at Docker network creation because all predefined address pools are exhausted. PR #168 head `9b14bea` passes all ten required CI checks, including frontend tests/build/lint. Quiet-window wait was 0s; local merge-gate duration was approximately 0s; PR CI duration was 1m56s; slow checks were Backend tests (1m54s), Generated code drift (1m42s), and Backend lint (1m21s). No post-merge main CI applies while the PR is open.
+- Open items: none; PR #168 is open, non-draft, references `Fixes #163`, and has no actionable review comments. Detent owns the completion-lane transition.
 - Skill draft: no — this is a focused frontend presentation change with no broadly reusable procedure discovered.
 
 ## Current work — issue #161
