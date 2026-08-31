@@ -395,3 +395,75 @@ func TestClosedYearOfferingMutationsAreRejected(t *testing.T) {
 	require.Error(t, err)
 	require.True(t, data.IsSchoolYearClosed(err), "closed-year offering delete = %v", err)
 }
+
+func TestObjectiveWeightsDefaultOverrideAndClearFallback(t *testing.T) {
+	harness := testharness.Open(t)
+	ctx := harness.Context
+	organizationID := harness.MintOrganization(t)
+	otherOrganizationID := harness.MintOrganization(t)
+	actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "objective weights integration test"}
+	factory := factories.New(harness.Database, string(organizationID), actor)
+	year, err := factory.CreateSchoolYear(ctx, "Synthetic objective weights year")
+	require.NoError(t, err)
+	programRow, err := factory.CreateProgram(ctx, year.ID, "Synthetic objective weights program")
+	require.NoError(t, err)
+	session, err := factory.CreateSession(ctx, year.ID, programRow.ID, "Synthetic objective weights session", 1, []time.Time{time.Date(2026, 9, 4, 0, 0, 0, 0, time.UTC)})
+	require.NoError(t, err)
+	service := program.New(harness.Database)
+
+	defaults, err := service.GetProgramObjectiveWeights(ctx, string(organizationID), year.ID, programRow.ID)
+	require.NoError(t, err)
+	require.Equal(t, 3, defaults.Effective.RankHighMax)
+	require.Equal(t, 10.0, defaults.Effective.RepeatOfferingPenalty)
+	require.Equal(t, defaults.Defaults, defaults.Effective)
+
+	updatedDefaults := defaults.Defaults
+	updatedDefaults.RepeatOfferingPenalty = 12.5
+	updatedDefaults.DeficitInfluence = 0.75
+	_, err = service.UpdateProgramObjectiveWeights(ctx, string(organizationID), actor, year.ID, programRow.ID, updatedDefaults)
+	require.NoError(t, err)
+
+	withoutOverride, err := service.GetSessionObjectiveWeights(ctx, string(organizationID), year.ID, programRow.ID, session.ID)
+	require.NoError(t, err)
+	require.Equal(t, updatedDefaults, withoutOverride.Effective)
+	require.Equal(t, data.ObjectiveWeightOverrides{}, withoutOverride.Overrides)
+
+	override := 7.25
+	overridden, err := service.UpdateSessionObjectiveWeights(ctx, string(organizationID), actor, year.ID, programRow.ID, session.ID, data.ObjectiveWeightOverrides{RepeatOfferingPenalty: &override}, "synthetic test override")
+	require.NoError(t, err)
+	require.Equal(t, override, overridden.Effective.RepeatOfferingPenalty)
+	require.Equal(t, updatedDefaults.DeficitInfluence, overridden.Effective.DeficitInfluence)
+	require.NotNil(t, overridden.Overrides.RepeatOfferingPenalty)
+
+	cleared, err := service.ClearSessionObjectiveWeights(ctx, string(organizationID), actor, year.ID, programRow.ID, session.ID)
+	require.NoError(t, err)
+	require.Equal(t, updatedDefaults, cleared.Effective)
+	require.Equal(t, data.ObjectiveWeightOverrides{}, cleared.Overrides)
+
+	_, err = service.GetProgramObjectiveWeights(ctx, string(otherOrganizationID), year.ID, programRow.ID)
+	require.ErrorIs(t, err, pgx.ErrNoRows, "another organization cannot read objective weights")
+
+	objectType := "program_objective_weights"
+	entries, err := harness.Database.ListAuditLog(ctx, string(organizationID), data.AuditLogFilter{ObjectType: &objectType, PageSize: 100})
+	require.NoError(t, err)
+	require.Len(t, entries, 1)
+	require.Equal(t, string(audit.ActionObjectiveWeightsChange), entries[0].Action)
+	objectType = "session_objective_weight_overrides"
+	entries, err = harness.Database.ListAuditLog(ctx, string(organizationID), data.AuditLogFilter{ObjectType: &objectType, PageSize: 100})
+	require.NoError(t, err)
+	require.Len(t, entries, 2)
+	require.Contains(t, []string{entries[0].Reason.String, entries[1].Reason.String}, "synthetic test override")
+	require.Contains(t, []string{entries[0].Reason.String, entries[1].Reason.String}, "organizer cleared session objective-weight overrides")
+
+	yearService := schoolyear.New(harness.Database)
+	year, err = yearService.Update(ctx, string(organizationID), year.ID, authRoleOwner, actor, schoolyear.UpdateInput{State: statePtr(data.SchoolYearActive)})
+	require.NoError(t, err)
+	_, err = yearService.Update(ctx, string(organizationID), year.ID, authRoleAdministrator, actor, schoolyear.UpdateInput{State: statePtr(data.SchoolYearClosed)})
+	require.NoError(t, err)
+	_, err = service.UpdateProgramObjectiveWeights(ctx, string(organizationID), actor, year.ID, programRow.ID, updatedDefaults)
+	require.Error(t, err)
+	require.True(t, data.IsSchoolYearClosed(err), "closed-year defaults edit = %v", err)
+	_, err = service.UpdateSessionObjectiveWeights(ctx, string(organizationID), actor, year.ID, programRow.ID, session.ID, data.ObjectiveWeightOverrides{RepeatOfferingPenalty: &override}, "closed-year test override")
+	require.Error(t, err)
+	require.True(t, data.IsSchoolYearClosed(err), "closed-year override edit = %v", err)
+}

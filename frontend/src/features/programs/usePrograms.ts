@@ -34,6 +34,16 @@ export function useOfferings(schoolYearID: string | undefined, programID: string
   return useQuery({ enabled: Boolean(schoolYearID && programID && sessionID), queryKey: offeringsKey(schoolYearID, programID, sessionID), queryFn: () => resourceApi.listOfferings(schoolYearID as string, programID as string, sessionID as string), retry: false })
 }
 
+export const objectiveWeightsKey = (schoolYearID: string | undefined, programID: string | undefined, sessionID?: string) => [...programsKey(schoolYearID), programID, 'objective-weights', sessionID] as const
+
+export function useProgramObjectiveWeights(schoolYearID: string | undefined, programID: string | undefined) {
+  return useQuery({ enabled: Boolean(schoolYearID && programID), queryKey: objectiveWeightsKey(schoolYearID, programID), queryFn: () => resourceApi.getProgramObjectiveWeights(schoolYearID as string, programID as string), retry: false })
+}
+
+export function useSessionObjectiveWeights(schoolYearID: string | undefined, programID: string | undefined, sessionID: string | undefined) {
+  return useQuery({ enabled: Boolean(schoolYearID && programID && sessionID), queryKey: objectiveWeightsKey(schoolYearID, programID, sessionID), queryFn: () => resourceApi.getSessionObjectiveWeights(schoolYearID as string, programID as string, sessionID as string), retry: false })
+}
+
 export function useMissingGradeCount(schoolYearID: string | undefined) {
   return useQuery({ enabled: Boolean(schoolYearID), queryKey: ['students', schoolYearID, 'missing-grade-count'], queryFn: () => resourceApi.countStudentsWithoutGrade(schoolYearID as string), retry: false })
 }
@@ -96,6 +106,21 @@ export function useUpdateOffering(schoolYearID: string, programID: string, sessi
 export function useDeleteOffering(schoolYearID: string, programID: string, sessionID: string) {
   const queryClient = useQueryClient()
   return useMutation({ mutationFn: (offeringID: string) => resourceApi.deleteOffering(schoolYearID, programID, sessionID, offeringID), onSuccess: () => queryClient.invalidateQueries({ queryKey: offeringsKey(schoolYearID, programID, sessionID) }) })
+}
+
+export function useUpdateProgramObjectiveWeights(schoolYearID: string, programID: string) {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: (value: Parameters<typeof resourceApi.updateProgramObjectiveWeights>[2]) => resourceApi.updateProgramObjectiveWeights(schoolYearID, programID, value), onSuccess: () => queryClient.invalidateQueries({ queryKey: objectiveWeightsKey(schoolYearID, programID) }) })
+}
+
+export function useUpdateSessionObjectiveWeights(schoolYearID: string, programID: string, sessionID: string) {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: (value: Parameters<typeof resourceApi.updateSessionObjectiveWeights>[3]) => resourceApi.updateSessionObjectiveWeights(schoolYearID, programID, sessionID, value), onSuccess: () => queryClient.invalidateQueries({ queryKey: objectiveWeightsKey(schoolYearID, programID, sessionID) }) })
+}
+
+export function useClearSessionObjectiveWeights(schoolYearID: string, programID: string, sessionID: string) {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: () => resourceApi.clearSessionObjectiveWeights(schoolYearID, programID, sessionID), onSuccess: () => queryClient.invalidateQueries({ queryKey: objectiveWeightsKey(schoolYearID, programID, sessionID) }) })
 }
 
 export function useAddProgramMembership(schoolYearID: string, programID: string) {

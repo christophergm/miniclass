@@ -479,6 +479,28 @@ type ProgramMembership struct {
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
+type ProgramObjectiveWeight struct {
+	ID                            ids.XID            `json:"id"`
+	OrganizationID                ids.XID            `json:"organization_id"`
+	SchoolYearID                  ids.XID            `json:"school_year_id"`
+	ProgramID                     ids.XID            `json:"program_id"`
+	RankHighMax                   int32              `json:"rank_high_max"`
+	DeficitUnwantedIncrement      float64            `json:"deficit_unwanted_increment"`
+	DeficitNeutralIncrement       float64            `json:"deficit_neutral_increment"`
+	DeficitAcceptableIncrement    float64            `json:"deficit_acceptable_increment"`
+	DeficitInfluence              float64            `json:"deficit_influence"`
+	RepeatOfferingPenalty         float64            `json:"repeat_offering_penalty"`
+	RepeatInterestAreaPenalty     float64            `json:"repeat_interest_area_penalty"`
+	TagPrefersWeight              float64            `json:"tag_prefers_weight"`
+	TagDiscouragesWeight          float64            `json:"tag_discourages_weight"`
+	PairingPrefersWeight          float64            `json:"pairing_prefers_weight"`
+	PairingDiscouragesWeight      float64            `json:"pairing_discourages_weight"`
+	BelowMinimumEnrollmentPenalty float64            `json:"below_minimum_enrollment_penalty"`
+	TagBalancePenalty             float64            `json:"tag_balance_penalty"`
+	CreatedAt                     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                     pgtype.Timestamptz `json:"updated_at"`
+}
+
 type SchoolYear struct {
 	ID             ids.XID            `json:"id"`
 	OrganizationID ids.XID            `json:"organization_id"`
@@ -510,6 +532,29 @@ type SessionNonParticipation struct {
 	Reason         string             `json:"reason"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SessionObjectiveWeightOverride struct {
+	ID                            ids.XID            `json:"id"`
+	OrganizationID                ids.XID            `json:"organization_id"`
+	SchoolYearID                  ids.XID            `json:"school_year_id"`
+	ProgramID                     ids.XID            `json:"program_id"`
+	SessionID                     ids.XID            `json:"session_id"`
+	RankHighMax                   pgtype.Int4        `json:"rank_high_max"`
+	DeficitUnwantedIncrement      pgtype.Float8      `json:"deficit_unwanted_increment"`
+	DeficitNeutralIncrement       pgtype.Float8      `json:"deficit_neutral_increment"`
+	DeficitAcceptableIncrement    pgtype.Float8      `json:"deficit_acceptable_increment"`
+	DeficitInfluence              pgtype.Float8      `json:"deficit_influence"`
+	RepeatOfferingPenalty         pgtype.Float8      `json:"repeat_offering_penalty"`
+	RepeatInterestAreaPenalty     pgtype.Float8      `json:"repeat_interest_area_penalty"`
+	TagPrefersWeight              pgtype.Float8      `json:"tag_prefers_weight"`
+	TagDiscouragesWeight          pgtype.Float8      `json:"tag_discourages_weight"`
+	PairingPrefersWeight          pgtype.Float8      `json:"pairing_prefers_weight"`
+	PairingDiscouragesWeight      pgtype.Float8      `json:"pairing_discourages_weight"`
+	BelowMinimumEnrollmentPenalty pgtype.Float8      `json:"below_minimum_enrollment_penalty"`
+	TagBalancePenalty             pgtype.Float8      `json:"tag_balance_penalty"`
+	CreatedAt                     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                     pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Student struct {

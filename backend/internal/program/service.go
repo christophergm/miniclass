@@ -39,6 +39,9 @@ func (s *Service) Create(ctx context.Context, organizationID string, actor audit
 		if err != nil {
 			return err
 		}
+		if _, err := tx.CreateProgramObjectiveWeights(ctx, schoolYearID, created.ID); err != nil {
+			return err
+		}
 		result = created
 		id, year := created.ID, created.SchoolYearID
 		return tx.Record(ctx, audit.Entry{Action: audit.ActionProgramCreate, ObjectType: "program", ObjectID: &id, SchoolYearID: &year, ChangeSummary: programSummary(created)})
