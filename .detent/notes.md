@@ -172,3 +172,10 @@
 - Validation: backend format/lint/vet and `git diff --check` pass; generation runs without generated-file changes. Local frontend checks cannot run because frontend dependencies, including `openapi-typescript`, are not installed. Full `make check` stops at Docker address-pool exhaustion before gates. PR #177 final head `0e52f46` passes all ten required CI checks; the first run caught and was fixed by scoping an ambiguous modal test query.
 - Open items: none; PR #177 is open, non-draft, merge-clean, references `Fixes #173`, and has no actionable review comments. Detent owns the completion-lane transition. No dependency blocker.
 - Skill draft: no — this is a focused UI refinement using the existing modal pattern and exposed no broadly reusable procedure.
+## Current work — issue #174
+
+- Scope: Make program detail session-first and move membership, interest-area, and assignment planner authoring to dedicated settings pages per SPEC §§12.1–12.4, 14.1, and 17.7.
+- Current implementation: `frontend/src/features/programs/ProgramPages.tsx` now has `ProgramDetailPage`, `ProgramSettingsPage`, `ProgramMembershipPage`, and `ProgramInterestAreasPage`; `frontend/src/App.tsx` routes settings subpages and renamed planner entry points. Program detail has no `All programs` control or embedded administrative authoring.
+- Validation so far: `git diff --check` passes; frontend focused tests cannot run because `openapi-typescript` and frontend dependencies are absent. Backend format/lint commands were started; rerun/confirm results before handoff.
+- Open items: finish focused validation, run the ten required gates as available, commit/push, open a non-draft PR referencing `Fixes #174`, verify current-head CI/reviews, and update the Workpad completion block.
+- Skill draft: no — this is a focused frontend routing/presentation change with no broadly reusable procedure discovered.

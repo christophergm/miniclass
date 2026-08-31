@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SchoolYear } from '@/lib/apiResources'
 import { renderWithQueryClient } from '@/test/queryClient'
 
-import { ProgramListPage, ProgramMembershipPage, ProgramObjectiveWeightsPage, SessionObjectiveWeightsPage, SessionPage } from './ProgramPages'
+import { ProgramDetailPage, ProgramInterestAreasPage, ProgramListPage, ProgramMembershipPage, ProgramObjectiveWeightsPage, ProgramSettingsPage, SessionObjectiveWeightsPage, SessionPage } from './ProgramPages'
 import { OfferingPage } from './OfferingPages'
 
 const mocks = vi.hoisted(() => ({
@@ -64,7 +64,22 @@ function renderOffering(path: string, currentYear = year('active')) {
 
 function renderProgram(currentYear = year('active')) {
   function ContextRoute() { return <Outlet context={currentYear} /> }
-  return renderWithQueryClient(<MemoryRouter initialEntries={['/y/year-1/programs/program-1']}><Routes><Route element={<ContextRoute />} path="/y/:schoolYearId"><Route element={<ProgramMembershipPage />} path="programs/:programId" /></Route></Routes></MemoryRouter>)
+  return renderWithQueryClient(<MemoryRouter initialEntries={['/y/year-1/programs/program-1']}><Routes><Route element={<ContextRoute />} path="/y/:schoolYearId"><Route element={<ProgramDetailPage />} path="programs/:programId" /></Route></Routes></MemoryRouter>)
+}
+
+function renderProgramSettings(currentYear = year('active')) {
+  function ContextRoute() { return <Outlet context={currentYear} /> }
+  return renderWithQueryClient(<MemoryRouter initialEntries={['/y/year-1/programs/program-1/settings']}><Routes><Route element={<ContextRoute />} path="/y/:schoolYearId"><Route element={<ProgramSettingsPage />} path="programs/:programId/settings" /></Route></Routes></MemoryRouter>)
+}
+
+function renderMembership(currentYear = year('active')) {
+  function ContextRoute() { return <Outlet context={currentYear} /> }
+  return renderWithQueryClient(<MemoryRouter initialEntries={['/y/year-1/programs/program-1/settings/membership']}><Routes><Route element={<ContextRoute />} path="/y/:schoolYearId"><Route element={<ProgramMembershipPage />} path="programs/:programId/settings/membership" /></Route></Routes></MemoryRouter>)
+}
+
+function renderInterestAreas(currentYear = year('active')) {
+  function ContextRoute() { return <Outlet context={currentYear} /> }
+  return renderWithQueryClient(<MemoryRouter initialEntries={['/y/year-1/programs/program-1/settings/interest-areas']}><Routes><Route element={<ContextRoute />} path="/y/:schoolYearId"><Route element={<ProgramInterestAreasPage />} path="programs/:programId/settings/interest-areas" /></Route></Routes></MemoryRouter>)
 }
 
 function renderProgramList(currentYear = year('active')) {
@@ -74,12 +89,12 @@ function renderProgramList(currentYear = year('active')) {
 
 function renderProgramObjectives(currentYear = year('active')) {
   function ContextRoute() { return <Outlet context={currentYear} /> }
-  return renderWithQueryClient(<MemoryRouter initialEntries={['/y/year-1/programs/program-1/objectives']}><Routes><Route element={<ContextRoute />} path="/y/:schoolYearId"><Route element={<ProgramObjectiveWeightsPage />} path="programs/:programId/objectives" /></Route></Routes></MemoryRouter>)
+  return renderWithQueryClient(<MemoryRouter initialEntries={['/y/year-1/programs/program-1/settings/assignment-planner']}><Routes><Route element={<ContextRoute />} path="/y/:schoolYearId"><Route element={<ProgramObjectiveWeightsPage />} path="programs/:programId/settings/assignment-planner" /></Route></Routes></MemoryRouter>)
 }
 
 function renderSessionObjectives(currentYear = year('active')) {
   function ContextRoute() { return <Outlet context={currentYear} /> }
-  return renderWithQueryClient(<MemoryRouter initialEntries={['/y/year-1/programs/program-1/sessions/session-1/objectives']}><Routes><Route element={<ContextRoute />} path="/y/:schoolYearId"><Route element={<SessionObjectiveWeightsPage />} path="programs/:programId/sessions/:sessionId/objectives" /></Route></Routes></MemoryRouter>)
+  return renderWithQueryClient(<MemoryRouter initialEntries={['/y/year-1/programs/program-1/sessions/session-1/assignment-planner']}><Routes><Route element={<ContextRoute />} path="/y/:schoolYearId"><Route element={<SessionObjectiveWeightsPage />} path="programs/:programId/sessions/:sessionId/assignment-planner" /></Route></Routes></MemoryRouter>)
 }
 
 describe('ProgramListPage', () => {
@@ -99,6 +114,35 @@ describe('ProgramListPage', () => {
   })
 })
 
+describe('program navigation', () => {
+  it('keeps the program home focused on sessions and links to settings', () => {
+    renderProgram()
+
+    expect(screen.getByRole('heading', { name: 'Sessions' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Program settings' })).toHaveAttribute('href', '/y/year-1/programs/program-1/settings')
+    expect(screen.queryByRole('heading', { name: 'Program membership' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Interest areas' })).not.toBeInTheDocument()
+    expect(screen.queryByText('All programs')).not.toBeInTheDocument()
+  })
+
+  it('provides dedicated settings destinations', () => {
+    renderProgramSettings()
+
+    expect(screen.getByRole('heading', { name: 'Enrichment settings' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open Membership →' })).toHaveAttribute('href', '/y/year-1/programs/program-1/settings/membership')
+    expect(screen.getByRole('link', { name: 'Open Interest areas →' })).toHaveAttribute('href', '/y/year-1/programs/program-1/settings/interest-areas')
+    expect(screen.getByRole('link', { name: 'Open Assignment planner →' })).toHaveAttribute('href', '/y/year-1/programs/program-1/settings/assignment-planner')
+  })
+
+  it('keeps membership on its dedicated settings page', () => {
+    renderMembership()
+
+    expect(screen.getByRole('heading', { name: 'Membership' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Programme membership' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Sessions' })).not.toBeInTheDocument()
+  })
+})
+
 describe('SessionPage', () => {
   beforeEach(() => { mocks.transition.mockReset(); mocks.createOffering.mockReset(); mocks.updateOffering.mockReset(); mocks.offering = null; mocks.sessionState = 'planning'; mocks.programUpdate.mockReset(); mocks.sessionUpdate.mockReset() })
 
@@ -113,7 +157,7 @@ describe('SessionPage', () => {
     expect(screen.getByRole('link', { name: 'Edit' })).toHaveAttribute('href', '/y/year-1/programs/program-1/sessions/session-1/offerings/offering-1/edit')
     expect(screen.getByText(/Maximum enrollment 10/)).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Session non-participation' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Assignment objectives' })).toHaveAttribute('href', '/y/year-1/programs/program-1/sessions/session-1/objectives')
+    expect(screen.getByRole('link', { name: 'Assignment planner' })).toHaveAttribute('href', '/y/year-1/programs/program-1/sessions/session-1/assignment-planner')
     expect(screen.queryByRole('heading', { name: 'Session objective overrides' })).not.toBeInTheDocument()
     expect(screen.getByText('Advisory only — you can continue authoring.')).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Choose allowed state' })).toBeInTheDocument()
@@ -239,14 +283,14 @@ describe('objective pages', () => {
   it('makes programme objective tuning discoverable without putting controls on programme authoring', () => {
     renderProgram()
 
-    expect(screen.getByRole('link', { name: 'Assignment objectives' })).toHaveAttribute('href', '/y/year-1/programs/program-1/objectives')
+    expect(screen.getByRole('link', { name: 'Program settings' })).toHaveAttribute('href', '/y/year-1/programs/program-1/settings')
     expect(screen.queryByRole('heading', { name: 'Assignment objective defaults' })).not.toBeInTheDocument()
   })
 
   it('presents one editable row per programme default and saves edits', () => {
     renderProgramObjectives()
 
-    expect(screen.getByRole('heading', { name: 'Assignment objectives' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Assignment planner' })).toBeInTheDocument()
     expect(screen.getByText('These settings tune how the automated placement engine weighs competing outcomes when generating assignments. They do not restrict catalogue authoring or prevent a session from proceeding.')).toBeInTheDocument()
     expect(screen.getAllByRole('spinbutton')).toHaveLength(13)
 
@@ -259,7 +303,7 @@ describe('objective pages', () => {
   it('shows inherited defaults and effective overrides for every session parameter', () => {
     renderSessionObjectives()
 
-    expect(screen.getByRole('heading', { name: 'Assignment objectives' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Assignment planner' })).toBeInTheDocument()
     expect(screen.getAllByRole('spinbutton')).toHaveLength(13)
     expect(screen.getByText(/Session override: 10/)).toBeInTheDocument()
     expect(screen.getAllByText(/Inherited programme default: 3/).length).toBeGreaterThan(0)
@@ -292,7 +336,7 @@ describe('interest-area ordering', () => {
   beforeEach(() => { mocks.reorderAreas.mockReset() })
 
   it('swaps only adjacent areas in either direction and disables boundary moves', () => {
-    renderProgram()
+    renderInterestAreas()
 
     expect(screen.getByRole('button', { name: 'Move Making up' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Move Music down' })).toBeDisabled()
