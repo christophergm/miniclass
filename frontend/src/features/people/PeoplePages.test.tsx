@@ -94,6 +94,11 @@ function renderAdults(path = '/y/year-1/adults') {
   )
 }
 
+/** The person link is the first in each body row; the Guardians column adds more. */
+function rowNames(table: HTMLElement) {
+  return within(table).getAllByRole('row').slice(1).map((row) => within(row).getAllByRole('link')[0]?.textContent)
+}
+
 describe('people roster pages', () => {
   it('lists every guardian of a student, linked to the adult record', async () => {
     vi.spyOn(studentApi, 'list').mockResolvedValue([students[0]])
@@ -162,6 +167,92 @@ describe('people roster pages', () => {
     expect(within(rows[2]).getAllByRole('link')[0]).toHaveTextContent('Bea Apple')
     expect(within(rows[3]).getAllByRole('link')[0]).toHaveTextContent('Addie Zephyr')
     expect(screen.queryByText('Ada Zephyr')).not.toBeInTheDocument()
+  })
+
+  // The external identifier is an opaque source key: it matters when reconciling
+  // one record against the export, and is noise in a roster scanned by name. It
+  // stays on the detail page, where a single record is being worked on. Both
+  // tables are asserted because they share the one PeopleTable.
+  it('keeps the external identifier out of the roster tables but on the detail page', async () => {
+    const identifiedStudent = { ...students[0], external_identifier: 'platform-9f3' }
+    vi.spyOn(studentApi, 'list').mockResolvedValue([identifiedStudent])
+    vi.spyOn(adultApi, 'list').mockResolvedValue([{ ...adult, external_identifier: 'platform-4c1' }])
+    vi.spyOn(studentApi, 'get').mockResolvedValue(identifiedStudent)
+
+    const studentListing = renderStudents()
+    const studentTable = await screen.findByRole('table', { name: 'Students' })
+    expect(within(studentTable).queryByRole('columnheader', { name: 'External ID' })).not.toBeInTheDocument()
+    expect(within(studentTable).queryByText('platform-9f3')).not.toBeInTheDocument()
+    studentListing.unmount()
+
+    const adultListing = renderAdults()
+    const adultTable = await screen.findByRole('table', { name: 'Adults' })
+    expect(within(adultTable).queryByRole('columnheader', { name: 'External ID' })).not.toBeInTheDocument()
+    expect(within(adultTable).queryByText('platform-4c1')).not.toBeInTheDocument()
+    adultListing.unmount()
+
+    renderStudents('/y/year-1/students/student-2')
+    expect(await screen.findByLabelText('External identifier')).toHaveValue('platform-9f3')
+  })
+
+  // SPEC §10.1 makes grade ordinal and states the ordering is the definition's,
+  // not the string's. Kindergarten sorts first on ordinal 0, while its label
+  // would fall between "First grade" and "Second grade" alphabetically, so this
+  // fails if the column ever orders by the rendered label.
+  it('sorts students by grade ordinal rather than label, and puts a missing grade last', async () => {
+    vi.spyOn(resourceApi, 'getVocabulary').mockResolvedValue({
+      ...vocabulary,
+      grade_levels: [
+        { ...timestamps, id: 'grade-k', organization_id: 'org-1', code: 'K', label: 'Kindergarten', ordinal: 0 },
+        ...(vocabulary.grade_levels ?? []),
+      ],
+    })
+    // All three graded students are needed to tell the orderings apart: by
+    // ordinal it is Kindergarten, First, Second; by label it would be "First
+    // grade", "Kindergarten", "Second grade".
+    vi.spyOn(studentApi, 'list').mockResolvedValue([
+      { ...students[1], id: 'student-second', display_name: 'Sec Ond', legal_family_name: 'Ond', grade_level_id: 'grade-2' },
+      { ...students[1], id: 'student-none', display_name: 'No Grade', legal_family_name: 'Grade', grade_level_id: null },
+      { ...students[1], id: 'student-k', display_name: 'Kin Der', legal_family_name: 'Der', grade_level_id: 'grade-k' },
+      { ...students[1], id: 'student-first', display_name: 'Fir St', legal_family_name: 'St', grade_level_id: 'grade-1' },
+    ])
+
+    renderStudents()
+    const table = await screen.findByRole('table', { name: 'Students' })
+    await waitFor(() => expect(within(table).getByRole('button', { name: 'Grade' })).toBeInTheDocument())
+
+    fireEvent.click(within(table).getByRole('button', { name: 'Grade' }))
+    expect(rowNames(table)).toEqual(['Kin Der', 'Fir St', 'Sec Ond', 'No Grade'])
+    expect(within(table).getByRole('columnheader', { name: 'Grade' })).toHaveAttribute('aria-sort', 'ascending')
+
+    // Toggling brings the students needing a grade to the top rather than
+    // burying them, which is the point of ordering by it at all.
+    fireEvent.click(within(table).getByRole('button', { name: 'Grade' }))
+    expect(rowNames(table)).toEqual(['No Grade', 'Sec Ond', 'Fir St', 'Kin Der'])
+    expect(within(table).getByRole('columnheader', { name: 'Grade' })).toHaveAttribute('aria-sort', 'descending')
+  })
+
+  // SPEC §8.2 and §15.2 both state the intents as lead, help, unavailable.
+  // A string compare would give help, lead, unavailable, so asserting lead
+  // first fails if the order degrades to alphabetical.
+  it('sorts adults by the spec order of participation intent, then by email with blanks last', async () => {
+    vi.spyOn(adultApi, 'list').mockResolvedValue([
+      { ...adult, id: 'adult-unavailable', display_name: 'Una Vail', legal_family_name: 'Vail', email: 'zoe@example.test', participation_intent: 'unavailable' },
+      { ...adult, id: 'adult-none', display_name: 'Nora None', legal_family_name: 'None', email: undefined, participation_intent: null },
+      { ...adult, id: 'adult-help', display_name: 'Hal Help', legal_family_name: 'Help', email: 'amy@example.test', participation_intent: 'help' },
+      { ...adult, id: 'adult-lead', display_name: 'Lee Lead', legal_family_name: 'Lead', email: 'mia@example.test', participation_intent: 'lead' },
+    ])
+
+    renderAdults()
+    const table = await screen.findByRole('table', { name: 'Adults' })
+    await waitFor(() => expect(within(table).getByRole('button', { name: 'Participation' })).toBeInTheDocument())
+
+    fireEvent.click(within(table).getByRole('button', { name: 'Participation' }))
+    expect(rowNames(table)).toEqual(['Lee Lead', 'Hal Help', 'Una Vail', 'Nora None'])
+
+    fireEvent.click(within(table).getByRole('button', { name: 'Email' }))
+    expect(rowNames(table)).toEqual(['Hal Help', 'Lee Lead', 'Una Vail', 'Nora None'])
+    expect(within(table).getByRole('columnheader', { name: 'Participation' })).toHaveAttribute('aria-sort', 'none')
   })
 
   // SPEC §21.3. The deleted filter, the deleted-row treatment and the restore
