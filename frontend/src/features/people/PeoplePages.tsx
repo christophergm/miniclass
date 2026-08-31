@@ -63,6 +63,9 @@ export function PeopleListPage({ kind }: PageProps) {
   const [query, setQuery] = useState('')
   const [gradeLevelId, setGradeLevelId] = useState('')
   const [homeroomId, setHomeroomId] = useState('')
+  // Name ascending is the server's own order, so the first paint is unchanged
+  // until an organiser chooses a column.
+  const [sort, setSort] = useState<SortState>({ key: 'name', direction: 'asc' })
 
   const isLoading = peopleQuery.isLoading
   const error = peopleQuery.error ?? restore.error
@@ -77,9 +80,18 @@ export function PeopleListPage({ kind }: PageProps) {
   const vocabulary = vocabularyQuery.data ?? null
   const grades = vocabulary ? activeGradeLevels(vocabulary) : []
   const homerooms = vocabulary ? activeHomerooms(vocabulary) : []
+  // Grade and homeroom are ordered by the vocabulary's own definition, so the
+  // whole vocabulary is used here rather than the active-only lists the filter
+  // selects offer: a student left on a retired grade still sorts by that
+  // grade's ordinal instead of falling in with the students who have none.
   const filteredPeople = useMemo(
-    () => filterAndSortPeople(peopleQuery.data ?? [], kind, query, gradeLevelId, homeroomId),
-    [gradeLevelId, homeroomId, kind, peopleQuery.data, query],
+    () => sortPeople(
+      filterPeople(peopleQuery.data ?? [], kind, query, gradeLevelId, homeroomId),
+      sort,
+      vocabulary?.grade_levels ?? [],
+      vocabulary?.homerooms ?? [],
+    ),
+    [gradeLevelId, homeroomId, kind, peopleQuery.data, query, sort, vocabulary],
   )
   const missingGradeCount = kind === 'student' ? (peopleQuery.data ?? []).filter((person) => (person as Student).grade_level_id == null).length : 0
 
@@ -130,7 +142,7 @@ export function PeopleListPage({ kind }: PageProps) {
       {error !== null && <p className="mt-8 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive" role="alert">{errorMessage(error, `Unable to load ${copy.plural.toLowerCase()}.`)}</p>}
       {!isLoading && !error && filteredPeople.length === 0 && <p className="mt-8 rounded-lg border bg-card p-6 text-sm text-muted-foreground">No {copy.plural.toLowerCase()} match these filters.</p>}
       {!isLoading && !error && filteredPeople.length > 0 && (
-        <PeopleTable kind={kind} schoolYearId={schoolYearId} people={filteredPeople} relatedPeople={relatedPeople} grades={grades} homerooms={homerooms} onRestore={(id) => {
+        <PeopleTable kind={kind} schoolYearId={schoolYearId} people={filteredPeople} relatedPeople={relatedPeople} grades={grades} homerooms={homerooms} sort={sort} onSort={(key) => setSort((current) => ({ key, direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc' }))} onRestore={(id) => {
           const reason = window.prompt(`Why restore this ${copy.singular}?`)
           if (!reason?.trim()) return
           restore.mutate({ id, reason })
@@ -140,13 +152,15 @@ export function PeopleListPage({ kind }: PageProps) {
   )
 }
 
-function PeopleTable({ kind, schoolYearId, people, relatedPeople, grades, homerooms, onRestore }: {
+function PeopleTable({ kind, schoolYearId, people, relatedPeople, grades, homerooms, sort, onSort, onRestore }: {
   kind: PersonKind
   schoolYearId: string
   people: PersonSummary[]
   relatedPeople: Map<string, RelatedPerson[]>
   grades: GradeLevel[]
   homerooms: Homeroom[]
+  sort: SortState
+  onSort: (key: SortKey) => void
   onRestore: (id: string) => void
 }) {
   const copy = pageCopy[kind]
@@ -156,9 +170,14 @@ function PeopleTable({ kind, schoolYearId, people, relatedPeople, grades, homero
     <Table className="mt-8" aria-label={copy.plural}>
       <TableHeader>
         <TableRow>
-          <TableHead>Name</TableHead>
-          {kind === 'student' ? <><TableHead>Grade</TableHead><TableHead>Homeroom</TableHead></> : <><TableHead>Email</TableHead><TableHead>Participation</TableHead></>}
-          <TableHead>{kind === 'student' ? 'Guardians' : 'Children'}</TableHead><TableHead>External ID</TableHead><TableHead>Actions</TableHead>
+          <SortableHead label="Name" sortKey="name" sort={sort} onSort={onSort} />
+          {kind === 'student'
+            ? <><SortableHead label="Grade" sortKey="grade" sort={sort} onSort={onSort} /><SortableHead label="Homeroom" sortKey="homeroom" sort={sort} onSort={onSort} /></>
+            : <><SortableHead label="Email" sortKey="email" sort={sort} onSort={onSort} /><SortableHead label="Participation" sortKey="participation" sort={sort} onSort={onSort} /></>}
+          {/* Guardians and Children are derived from the year's edge set rather
+              than a column on the person, so there is no single value to order
+              a roster by; Actions is a control. Neither offers a sort. */}
+          <TableHead>{kind === 'student' ? 'Guardians' : 'Children'}</TableHead><TableHead>Actions</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -175,12 +194,25 @@ function PeopleTable({ kind, schoolYearId, people, relatedPeople, grades, homero
                 <TableCell className="capitalize">{(person as Adult).participation_intent ?? 'Not declared'}</TableCell>
               </>}
             <TableCell><RelatedPeopleLinks kind={kind} related={relatedPeople.get(person.id) ?? []} schoolYearId={schoolYearId} /></TableCell>
-            <TableCell>{person.external_identifier ?? '—'}</TableCell>
             <TableCell>{person.deleted_at ? <Button type="button" size="sm" variant="outline" onClick={() => onRestore(person.id)}>Restore</Button> : '—'}</TableCell>
           </TableRow>
         ))}
       </TableBody>
     </Table>
+  )
+}
+
+// The arrow is decorative, so the header's accessible name stays the plain
+// column label and aria-sort carries the state a screen reader announces.
+function SortableHead({ label, sortKey, sort, onSort }: { label: string; sortKey: SortKey; sort: SortState; onSort: (key: SortKey) => void }) {
+  const active = sort.key === sortKey
+  return (
+    <TableHead aria-sort={active ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
+      <button type="button" className="flex items-center gap-1 font-medium hover:text-foreground" onClick={() => onSort(sortKey)}>
+        {label}
+        <span aria-hidden="true" className={active ? undefined : 'opacity-40'}>{active ? (sort.direction === 'asc' ? '↑' : '↓') : '↕'}</span>
+      </button>
+    </TableHead>
   )
 }
 
@@ -359,15 +391,83 @@ function optional<K extends string>(key: K, value: string): Record<K, string> | 
   return value.trim() === '' ? {} : ({ [key]: value } as Record<K, string>)
 }
 
-function filterAndSortPeople(people: PersonSummary[], kind: PersonKind, query: string, gradeLevelId: string, homeroomId: string) {
+function filterPeople(people: PersonSummary[], kind: PersonKind, query: string, gradeLevelId: string, homeroomId: string) {
   const normalized = query.trim().toLocaleLowerCase()
-  return people
-    .filter((person) => {
-      const student = person as Student
-      const matchesSearch = !normalized || person.display_name.toLocaleLowerCase().includes(normalized) || person.legal_given_name.toLocaleLowerCase().includes(normalized) || person.legal_family_name.toLocaleLowerCase().includes(normalized)
-      return matchesSearch && (kind !== 'student' || (!gradeLevelId || student.grade_level_id === gradeLevelId) && (!homeroomId || student.homeroom_id === homeroomId))
-    })
-    .sort((left, right) => compareValues(left.legal_family_name, right.legal_family_name) || compareValues(left.legal_given_name, right.legal_given_name) || compareValues(left.id, right.id))
+  return people.filter((person) => {
+    const student = person as Student
+    const matchesSearch = !normalized || person.display_name.toLocaleLowerCase().includes(normalized) || person.legal_given_name.toLocaleLowerCase().includes(normalized) || person.legal_family_name.toLocaleLowerCase().includes(normalized)
+    return matchesSearch && (kind !== 'student' || (!gradeLevelId || student.grade_level_id === gradeLevelId) && (!homeroomId || student.homeroom_id === homeroomId))
+  })
+}
+
+type SortDirection = 'asc' | 'desc'
+type SortKey = 'name' | 'grade' | 'homeroom' | 'email' | 'participation'
+type SortState = { key: SortKey; direction: SortDirection }
+
+// SPEC §8.2 and §15.2 both state the intents in this order -- lead, help,
+// unavailable -- so ordering by it follows the spec rather than inventing a
+// scale. Alphabetical would interleave them meaninglessly as help, lead,
+// unavailable.
+const participationRank: Record<NonNullable<ParticipationIntent>, number> = { lead: 0, help: 1, unavailable: 2 }
+
+/**
+ * Sorting is client-side because both roster listings return the whole year in
+ * one response: neither endpoint accepts a limit, an offset or a cursor, unlike
+ * the keyset-paged audit log. If a roster listing ever gains pagination this
+ * has to move to the server, or a sort will only order the page already in hand.
+ *
+ * A person the key is missing for -- no grade, no email, no declared intent --
+ * always compares as the greatest value, so ascending groups them last and
+ * descending brings them to the top. That matches Postgres's NULLS LAST default
+ * and lets an organiser surface the gaps by toggling rather than scrolling.
+ * Every comparison falls back to legal name and then the opaque id, so the order
+ * is total and a re-render cannot reshuffle equal rows.
+ */
+function sortPeople(people: PersonSummary[], sort: SortState, grades: GradeLevel[], homerooms: Homeroom[]) {
+  const gradeOrdinals = new Map(grades.map((grade) => [grade.id, grade.ordinal]))
+  const homeroomNames = new Map(homerooms.map((homeroom) => [homeroom.id, homeroom.name]))
+  const direction = sort.direction === 'asc' ? 1 : -1
+  return [...people].sort((left, right) =>
+    direction * compareBySortKey(sort.key, left, right, gradeOrdinals, homeroomNames)
+    || compareByName(left, right)
+    || compareValues(left.id, right.id))
+}
+
+function compareBySortKey(key: SortKey, left: PersonSummary, right: PersonSummary, gradeOrdinals: Map<string, number>, homeroomNames: Map<string, string>) {
+  if (key === 'name') return compareByName(left, right)
+  const leftValue = sortValue(key, left, gradeOrdinals, homeroomNames)
+  const rightValue = sortValue(key, right, gradeOrdinals, homeroomNames)
+  if (leftValue === undefined || rightValue === undefined) {
+    return leftValue === rightValue ? 0 : leftValue === undefined ? 1 : -1
+  }
+  return typeof leftValue === 'number' && typeof rightValue === 'number'
+    ? leftValue - rightValue
+    : compareValues(String(leftValue), String(rightValue))
+}
+
+// Grade orders by the vocabulary's ordinal, never by its label: SPEC §10.1 makes
+// grade ordinal and states the ordering is the definition's, not the string's,
+// so "10" must not fall between "1" and "2". Homeroom is categorical and orders
+// by the name an organiser reads.
+function sortValue(key: Exclude<SortKey, 'name'>, person: PersonSummary, gradeOrdinals: Map<string, number>, homeroomNames: Map<string, string>): string | number | undefined {
+  switch (key) {
+    case 'grade': {
+      const gradeLevelId = (person as Student).grade_level_id
+      return gradeLevelId == null ? undefined : gradeOrdinals.get(gradeLevelId)
+    }
+    case 'homeroom':
+      return homeroomNames.get((person as Student).homeroom_id)
+    case 'email':
+      return (person as Adult).email ?? undefined
+    case 'participation': {
+      const intent = (person as Adult).participation_intent
+      return intent == null ? undefined : participationRank[intent]
+    }
+  }
+}
+
+function compareByName(left: PersonSummary, right: PersonSummary) {
+  return compareValues(left.legal_family_name, right.legal_family_name) || compareValues(left.legal_given_name, right.legal_given_name)
 }
 
 function compareValues(left: string, right: string) {
