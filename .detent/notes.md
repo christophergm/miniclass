@@ -42,8 +42,8 @@
 - Scope: Move assignment objective tuning from programme/session authoring into dedicated pages per SPEC §§5.2, 12.1, 14.1, 17.4, 17.7, 20.2, 22.4.
 - Implementation in progress: `frontend/src/features/programs/ProgramPages.tsx` now has dedicated programme and session objective pages with all 13 parameters, explanations, effective/inherited display, explicit session audit reason, and closed-year read-only behavior; `frontend/src/App.tsx` adds both routes; authoring pages link to them and no longer render objective inputs.
 - Tests added for discoverability, route presentation, all parameters, edits, inherited/effective values, and closed-year disabling.
-- Validation so far: `git diff --check` passes. Focused frontend tests could not start because the worktree has no installed `vitest`/frontend dependencies; CI or a dependency-enabled environment must run the frontend gates.
-- Open items: verify the fresh PR CI after the fixture correction, inspect review comments, and update the issue Workpad completion status.
+- Validation: local `make generate`, backend lint/format, backend generated-code drift, and `git diff --check` pass. Local frontend commands are unavailable because dependencies are not installed. PR #167 workflow-dispatch validation for head `1e6228e` passes all ten required checks; its PR-specific check view is not populated by workflow-dispatch, so a normal pull-request run is being triggered by this final notes update.
+- Open items: verify the normal PR CI for the final head, inspect review comments, and update the issue Workpad completion status.
 - Skill draft: no — this is a focused frontend relocation using existing objective API/hooks; no broadly reusable procedure was discovered.
 
 ## Current work — issue #149
