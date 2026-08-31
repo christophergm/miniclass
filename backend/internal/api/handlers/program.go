@@ -24,6 +24,7 @@ type ProgramService interface {
 	GetInterestArea(context.Context, string, ids.XID, ids.XID, ids.XID) (data.InterestArea, error)
 	CreateInterestArea(context.Context, string, audit.Actor, ids.XID, ids.XID, string) (data.InterestArea, error)
 	UpdateInterestArea(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, programservice.InterestAreaUpdate) (data.InterestArea, error)
+	ReorderInterestAreas(context.Context, string, audit.Actor, ids.XID, ids.XID, []ids.XID) ([]data.InterestArea, error)
 	ListMemberships(context.Context, string, ids.XID, ids.XID) ([]data.ProgramMembership, error)
 	AddMembership(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID) (data.ProgramMembership, error)
 	DeleteMembership(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID) error
@@ -72,6 +73,7 @@ type ProgramListOutput struct{ Body []ProgramResponse }
 type ProgramOutput struct{ Body ProgramResponse }
 type InterestAreaListOutput struct{ Body []InterestAreaResponse }
 type InterestAreaOutput struct{ Body InterestAreaResponse }
+type ReorderInterestAreasOutput struct{ Body []InterestAreaResponse }
 type ProgramMembershipListOutput struct{ Body []ProgramMembershipResponse }
 type ProgramMembershipOutput struct{ Body ProgramMembershipResponse }
 type ProgramRosterSummaryOutput struct{ Body ProgramRosterSummaryResponse }
@@ -107,6 +109,13 @@ type UpdateInterestAreaInput struct {
 	}
 }
 type InterestAreaItemOutput struct{ Body InterestAreaResponse }
+type ReorderInterestAreasInput struct {
+	SchoolYearID string `path:"schoolYearID" minLength:"1"`
+	ProgramID    string `path:"programID" minLength:"1"`
+	Body         struct {
+		IDs []string `json:"ids" minItems:"1" doc:"Every interest-area ID in its new ordinal order."`
+	}
+}
 type ProgramMembershipPathInput struct {
 	SchoolYearID string `path:"schoolYearID" minLength:"1"`
 	ProgramID    string `path:"programID" minLength:"1"`
@@ -217,6 +226,29 @@ func (h *ProgramHandler) CreateInterestArea(ctx context.Context, input *CreateIn
 		return nil, interestAreaProblem(err)
 	}
 	return &InterestAreaItemOutput{Body: interestAreaResponse(row)}, nil
+}
+
+func (h *ProgramHandler) ReorderInterestAreas(ctx context.Context, input *ReorderInterestAreasInput) (*ReorderInterestAreasOutput, error) {
+	account, err := programAccount(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if h == nil || h.service == nil || input == nil || strings.TrimSpace(input.SchoolYearID) == "" || strings.TrimSpace(input.ProgramID) == "" {
+		return nil, problems.New(http.StatusBadRequest, problems.ProgramConflict, "interest-area order is required")
+	}
+	ordered := make([]ids.XID, 0, len(input.Body.IDs))
+	for _, id := range input.Body.IDs {
+		ordered = append(ordered, ids.XID(strings.TrimSpace(id)))
+	}
+	rows, err := h.service.ReorderInterestAreas(ctx, string(account.OrganizationID), programActor(account), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), ordered)
+	if err != nil {
+		return nil, interestAreaProblem(err)
+	}
+	result := make([]InterestAreaResponse, 0, len(rows))
+	for _, row := range rows {
+		result = append(result, interestAreaResponse(row))
+	}
+	return &ReorderInterestAreasOutput{Body: result}, nil
 }
 
 func (h *ProgramHandler) UpdateInterestArea(ctx context.Context, input *UpdateInterestAreaInput) (*InterestAreaItemOutput, error) {

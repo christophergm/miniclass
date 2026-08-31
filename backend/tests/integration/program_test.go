@@ -95,12 +95,18 @@ func TestInterestAreaVocabularyPreservesIdentityAndAuditsChanges(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []ids.XID{first.ID, second.ID}, []ids.XID{listed[0].ID, listed[1].ID})
 
+	reordered, err := service.ReorderInterestAreas(ctx, string(organizationID), actor, year.ID, programRow.ID, []ids.XID{second.ID, first.ID})
+	require.NoError(t, err)
+	require.Equal(t, []ids.XID{second.ID, first.ID}, []ids.XID{reordered[0].ID, reordered[1].ID})
+	require.Equal(t, 1, reordered[0].Ordinal)
+	require.Equal(t, 2, reordered[1].Ordinal)
+
 	newLabel := "Arts & crafts"
 	updated, err := service.UpdateInterestArea(ctx, string(organizationID), actor, year.ID, programRow.ID, first.ID, program.InterestAreaUpdate{Label: &newLabel})
 	require.NoError(t, err)
 	require.Equal(t, first.ID, updated.ID)
 	require.Equal(t, newLabel, updated.Label)
-	require.Equal(t, first.Ordinal, updated.Ordinal)
+	require.Equal(t, 2, updated.Ordinal)
 
 	retired := true
 	updated, err = service.UpdateInterestArea(ctx, string(organizationID), actor, year.ID, programRow.ID, first.ID, program.InterestAreaUpdate{Retired: &retired})
@@ -112,7 +118,7 @@ func TestInterestAreaVocabularyPreservesIdentityAndAuditsChanges(t *testing.T) {
 	require.Equal(t, []ids.XID{second.ID}, []ids.XID{listed[0].ID}, "retired areas are excluded from selection lists")
 	listed, err = service.ListInterestAreas(ctx, string(organizationID), year.ID, programRow.ID, true)
 	require.NoError(t, err)
-	require.Equal(t, []ids.XID{first.ID, second.ID}, []ids.XID{listed[0].ID, listed[1].ID})
+	require.Equal(t, []ids.XID{second.ID, first.ID}, []ids.XID{listed[0].ID, listed[1].ID})
 
 	retired = false
 	updated, err = service.UpdateInterestArea(ctx, string(organizationID), actor, year.ID, programRow.ID, first.ID, program.InterestAreaUpdate{Retired: &retired})
@@ -120,16 +126,19 @@ func TestInterestAreaVocabularyPreservesIdentityAndAuditsChanges(t *testing.T) {
 	require.Nil(t, updated.RetiredAt)
 	listed, err = service.ListInterestAreas(ctx, string(organizationID), year.ID, programRow.ID, false)
 	require.NoError(t, err)
-	require.Equal(t, []ids.XID{first.ID, second.ID}, []ids.XID{listed[0].ID, listed[1].ID})
+	require.Equal(t, []ids.XID{second.ID, first.ID}, []ids.XID{listed[0].ID, listed[1].ID})
 
 	objectType := "interest_area"
 	entries, err := harness.Database.ListAuditLog(ctx, string(organizationID), data.AuditLogFilter{ObjectType: &objectType, PageSize: 100})
 	require.NoError(t, err)
-	require.Len(t, entries, 5, "each vocabulary create, edit, retirement, and reactivation is audited")
-	firstChanges, secondChanges := 0, 0
+	require.Len(t, entries, 6, "each vocabulary create, reorder, edit, retirement, and reactivation is audited")
+	firstChanges, secondChanges, reorderChanges := 0, 0, 0
 	for _, entry := range entries {
 		require.Equal(t, string(audit.ActionVocabularyChange), entry.Action)
-		require.NotNil(t, entry.ObjectID)
+		if entry.ObjectID == nil {
+			reorderChanges++
+			continue
+		}
 		switch string(*entry.ObjectID) {
 		case string(first.ID):
 			firstChanges++
@@ -141,6 +150,7 @@ func TestInterestAreaVocabularyPreservesIdentityAndAuditsChanges(t *testing.T) {
 	}
 	require.Equal(t, 4, firstChanges)
 	require.Equal(t, 1, secondChanges)
+	require.Equal(t, 1, reorderChanges)
 }
 
 func TestClosedYearInterestAreaMutationIsRejected(t *testing.T) {

@@ -32,6 +32,11 @@ export function useCreateInterestArea(schoolYearID: string, programID: string) {
   return useMutation({ mutationFn: (label: string) => resourceApi.createInterestArea(schoolYearID, programID, label), onSuccess: () => queryClient.invalidateQueries({ queryKey: interestAreasKey(schoolYearID, programID) }) })
 }
 
+export function useReorderInterestAreas(schoolYearID: string, programID: string) {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: (ids: string[]) => resourceApi.reorderInterestAreas(schoolYearID, programID, ids), onSuccess: () => queryClient.invalidateQueries({ queryKey: interestAreasKey(schoolYearID, programID) }) })
+}
+
 export function useUpdateInterestArea(schoolYearID: string, programID: string) {
   const queryClient = useQueryClient()
   return useMutation({ mutationFn: ({ interestAreaID, value }: { interestAreaID: string; value: { label?: string; retired?: boolean } }) => resourceApi.updateInterestArea(schoolYearID, programID, interestAreaID, value), onSuccess: () => queryClient.invalidateQueries({ queryKey: interestAreasKey(schoolYearID, programID) }) })

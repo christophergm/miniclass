@@ -171,6 +171,48 @@ func (tx *Tx) SetInterestAreaRetired(ctx context.Context, schoolYearID, programI
 	return interestArea(row)
 }
 
+// ReorderInterestAreas assigns ordinals in the supplied order. The caller must
+// provide every interest-area ID in the program exactly once.
+func (tx *Tx) ReorderInterestAreas(ctx context.Context, schoolYearID, programID ids.XID, orderedIDs []ids.XID) ([]InterestArea, error) {
+	if len(orderedIDs) == 0 {
+		return nil, errors.New("reorder interest areas: at least one interest area is required")
+	}
+	current, err := tx.ListInterestAreas(ctx, schoolYearID, programID, true)
+	if err != nil {
+		return nil, err
+	}
+	if len(current) != len(orderedIDs) {
+		return nil, errors.New("reorder interest areas: all interest areas must be included")
+	}
+	known := make(map[ids.XID]struct{}, len(current))
+	for _, row := range current {
+		known[row.ID] = struct{}{}
+	}
+	seen := make(map[ids.XID]struct{}, len(orderedIDs))
+	for _, id := range orderedIDs {
+		if _, ok := known[id]; !ok {
+			return nil, fmt.Errorf("reorder interest areas: interest area %q is not in this program", id)
+		}
+		if _, ok := seen[id]; ok {
+			return nil, fmt.Errorf("reorder interest areas: interest area %q is repeated", id)
+		}
+		seen[id] = struct{}{}
+	}
+	if err := tx.queries.ShiftInterestAreaOrdinals(ctx, db.ShiftInterestAreaOrdinalsParams{
+		OrganizationID: tx.organizationID, Ordinal: int32(len(current) + 1), SchoolYearID: schoolYearID, ProgramID: programID,
+	}); err != nil {
+		return nil, wrapProgramMutationError("reorder interest areas: clear existing ordinals", err)
+	}
+	for index, id := range orderedIDs {
+		if err := tx.queries.UpdateInterestAreaOrdinal(ctx, db.UpdateInterestAreaOrdinalParams{
+			ID: id, Ordinal: int32(index + 1), OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID,
+		}); err != nil {
+			return nil, wrapProgramMutationError("reorder interest areas: assign ordinal", err)
+		}
+	}
+	return tx.ListInterestAreas(ctx, schoolYearID, programID, true)
+}
+
 func (tx *Tx) CreateProgramMembership(ctx context.Context, schoolYearID, programID, studentID ids.XID) (ProgramMembership, error) {
 	row, err := tx.queries.CreateProgramMembership(ctx, db.CreateProgramMembershipParams{
 		OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID, StudentID: studentID,

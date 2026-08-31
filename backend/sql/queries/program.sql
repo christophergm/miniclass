@@ -44,6 +44,16 @@ set retired_at = case when $2::boolean then coalesce(retired_at, now()) else nul
 where id = $1 and organization_id = $3 and school_year_id = $4 and program_id = $5
 returning id, organization_id, school_year_id, program_id, label, ordinal, retired_at, created_at, updated_at;
 
+-- name: ShiftInterestAreaOrdinals :exec
+update interest_areas
+set ordinal = ordinal + $2
+where organization_id = $1 and school_year_id = $3 and program_id = $4;
+
+-- name: UpdateInterestAreaOrdinal :exec
+update interest_areas
+set ordinal = $2
+where id = $1 and organization_id = $3 and school_year_id = $4 and program_id = $5;
+
 -- name: CreateProgramMembership :one
 insert into program_memberships (organization_id, school_year_id, program_id, student_id)
 values ($1, $2, $3, $4)

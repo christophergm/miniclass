@@ -676,6 +676,29 @@ func (q *Queries) SetInterestAreaRetired(ctx context.Context, arg SetInterestAre
 	return i, err
 }
 
+const shiftInterestAreaOrdinals = `-- name: ShiftInterestAreaOrdinals :exec
+update interest_areas
+set ordinal = ordinal + $2
+where organization_id = $1 and school_year_id = $3 and program_id = $4
+`
+
+type ShiftInterestAreaOrdinalsParams struct {
+	OrganizationID ids.XID `json:"organization_id"`
+	Ordinal        int32   `json:"ordinal"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+	ProgramID      ids.XID `json:"program_id"`
+}
+
+func (q *Queries) ShiftInterestAreaOrdinals(ctx context.Context, arg ShiftInterestAreaOrdinalsParams) error {
+	_, err := q.db.Exec(ctx, shiftInterestAreaOrdinals,
+		arg.OrganizationID,
+		arg.Ordinal,
+		arg.SchoolYearID,
+		arg.ProgramID,
+	)
+	return err
+}
+
 const touchProgramMembershipForRegistry = `-- name: TouchProgramMembershipForRegistry :execrows
 update program_memberships set updated_at = now() where id = $1 and organization_id = $2
 `
@@ -747,6 +770,31 @@ func (q *Queries) UpdateInterestAreaForRegistry(ctx context.Context, arg UpdateI
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const updateInterestAreaOrdinal = `-- name: UpdateInterestAreaOrdinal :exec
+update interest_areas
+set ordinal = $2
+where id = $1 and organization_id = $3 and school_year_id = $4 and program_id = $5
+`
+
+type UpdateInterestAreaOrdinalParams struct {
+	ID             ids.XID `json:"id"`
+	Ordinal        int32   `json:"ordinal"`
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+	ProgramID      ids.XID `json:"program_id"`
+}
+
+func (q *Queries) UpdateInterestAreaOrdinal(ctx context.Context, arg UpdateInterestAreaOrdinalParams) error {
+	_, err := q.db.Exec(ctx, updateInterestAreaOrdinal,
+		arg.ID,
+		arg.Ordinal,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+		arg.ProgramID,
+	)
+	return err
 }
 
 const updateProgramForRegistry = `-- name: UpdateProgramForRegistry :execrows

@@ -130,6 +130,28 @@ func (s *Service) CreateInterestArea(ctx context.Context, organizationID string,
 	return result, nil
 }
 
+func (s *Service) ReorderInterestAreas(ctx context.Context, organizationID string, actor audit.Actor, schoolYearID, programID ids.XID, orderedIDs []ids.XID) ([]data.InterestArea, error) {
+	if s == nil || s.database == nil {
+		return nil, errors.New("reorder interest areas: data service is nil")
+	}
+	var result []data.InterestArea
+	err := s.database.InTenant(ctx, organizationID, actor, func(ctx context.Context, tx *data.Tx) error {
+		if _, err := tx.GetProgram(ctx, schoolYearID, programID); err != nil {
+			return err
+		}
+		var err error
+		result, err = tx.ReorderInterestAreas(ctx, schoolYearID, programID, orderedIDs)
+		if err != nil {
+			return err
+		}
+		return tx.Record(ctx, audit.Entry{Action: audit.ActionVocabularyChange, ObjectType: "interest_area", SchoolYearID: &schoolYearID, ChangeSummary: reorderedInterestAreaSummary(orderedIDs)})
+	})
+	if err != nil {
+		return nil, fmt.Errorf("reorder interest areas: %w", err)
+	}
+	return result, nil
+}
+
 func (s *Service) UpdateInterestArea(ctx context.Context, organizationID string, actor audit.Actor, schoolYearID, programID, id ids.XID, input InterestAreaUpdate) (data.InterestArea, error) {
 	if s == nil || s.database == nil {
 		return data.InterestArea{}, errors.New("update interest area: data service is nil")
@@ -279,6 +301,11 @@ func programSummary(row data.Program) json.RawMessage {
 func membershipSummary(row data.ProgramMembership) json.RawMessage {
 	value, _ := json.Marshal(map[string]any{"program_id": row.ProgramID, "student_id": row.StudentID})
 	return value
+}
+
+func reorderedInterestAreaSummary(orderedIDs []ids.XID) json.RawMessage {
+	encoded, _ := json.Marshal(map[string]any{"reordered_ids": orderedIDs})
+	return encoded
 }
 
 func interestAreaSummary(before *data.InterestArea, after data.InterestArea) json.RawMessage {
