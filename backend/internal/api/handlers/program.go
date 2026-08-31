@@ -28,6 +28,16 @@ type ProgramService interface {
 	AddMembership(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID) (data.ProgramMembership, error)
 	DeleteMembership(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID) error
 	CountStudentsWithoutGrade(context.Context, string, ids.XID) (int64, error)
+	CreateSession(context.Context, string, audit.Actor, ids.XID, ids.XID, string, int, []time.Time) (data.Session, error)
+	ListSessions(context.Context, string, ids.XID, ids.XID) ([]data.Session, error)
+	GetSession(context.Context, string, ids.XID, ids.XID, ids.XID) (data.Session, error)
+	UpdateSession(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, programservice.SessionUpdate) (data.Session, error)
+	DeleteSession(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID) error
+	ListMeetingDates(context.Context, string, ids.XID, ids.XID, ids.XID) ([]data.MeetingDate, error)
+	GetMeetingDate(context.Context, string, ids.XID, ids.XID, ids.XID, ids.XID) (data.MeetingDate, error)
+	CreateMeetingDate(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, time.Time) (data.MeetingDate, error)
+	UpdateMeetingDate(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, ids.XID, time.Time) (data.MeetingDate, error)
+	DeleteMeetingDate(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, ids.XID) error
 }
 
 type ProgramResponse struct {

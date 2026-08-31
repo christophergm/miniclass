@@ -29,3 +29,11 @@
 - Validation: PR #151 head `4061ab0` is green on all ten required CI checks: Backend tests, Backend lint, Backend format, Generated code drift, Migration round-trip, Frontend tests, Frontend build, Frontend lint, Repository formatting, and Developer tooling. `git diff --check` passes locally; local `make check` remains blocked at the existing `/miniclass-postgres` name conflict before the gates.
 - Open items: Detent owns the completion-lane transition; no actionable PR comments or reviews remain.
 - Skill draft: no — this was a focused frontend split and exposed no broadly reusable procedure beyond existing skills.
+
+## Current work — issue #143
+
+- Scope: Add year-scoped programme sessions and meeting dates per SPEC §§8.5, 14.1, 11.1, 20.1; dependency #142 is closed and the branch is at origin/main `a530eff`.
+- Workpad: issue comment `5476900037` contains the persistent plan and `detent-status: in_progress`.
+- Skills read: `.detent/skills/add-tenant-scoped-entity.md` and `.detent/skills/postgres-tenant-isolation-harness.md`.
+- Open items: implementation, generated artifacts, validation, PR, and final Workpad handoff remain.
+- Skill draft: undecided until implementation exposes a reusable method.

@@ -6,6 +6,7 @@ package factories
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/chrismott/miniclass/internal/audit"
 	"github.com/chrismott/miniclass/internal/data"
@@ -56,6 +57,22 @@ func (f *Factory) CreateInterestArea(ctx context.Context, schoolYearID, programI
 		return data.InterestArea{}, err
 	}
 	return f.programs.CreateInterestArea(ctx, f.organizationID, f.actor, schoolYearID, programID, label)
+}
+
+// CreateSession creates a planning session with its required meeting dates.
+func (f *Factory) CreateSession(ctx context.Context, schoolYearID, programID ids.XID, name string, ordinal int, dates []time.Time) (data.Session, error) {
+	if err := f.validate(); err != nil {
+		return data.Session{}, err
+	}
+	return f.programs.CreateSession(ctx, f.organizationID, f.actor, schoolYearID, programID, name, ordinal, dates)
+}
+
+// CreateMeetingDate adds one date to an existing session.
+func (f *Factory) CreateMeetingDate(ctx context.Context, schoolYearID, programID, sessionID ids.XID, date time.Time) (data.MeetingDate, error) {
+	if err := f.validate(); err != nil {
+		return data.MeetingDate{}, err
+	}
+	return f.programs.CreateMeetingDate(ctx, f.organizationID, f.actor, schoolYearID, programID, sessionID, date)
 }
 
 func (f *Factory) AddProgramMembership(ctx context.Context, schoolYearID, programID, studentID ids.XID) (data.ProgramMembership, error) {
