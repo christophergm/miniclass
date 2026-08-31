@@ -32,10 +32,11 @@
 
 ## Current work — issue #143
 
-- Scope: Add year-scoped programme sessions and meeting dates per SPEC §§8.5, 14.1, 11.1, 20.1; dependency #142 is closed and the branch is at origin/main `a530eff`.
+- Scope: Add year-scoped programme sessions and meeting dates per SPEC §§8.5, 14.1, 11.1, 20.1; dependency #142 is closed.
 - Workpad: issue comment `5476900037` contains the persistent plan and `detent-status: in_progress`.
 - Skills read: `.detent/skills/add-tenant-scoped-entity.md` and `.detent/skills/postgres-tenant-isolation-harness.md`.
 - Implementation: session/meeting-date migration, sqlc/OpenAPI generation, tenant data/service/audit/API paths, registry/factories, frontend resources/hooks, and integration coverage are complete. The final test correction makes meeting-date results explicitly chronological and supplies two dates to exercise closed-year deletion.
-- Validation: backend tests, lint, format, generated-code drift, and repository diff checks pass locally. Root `make test-backend` remains unavailable because the existing `/miniclass-postgres` container name is in use; `make test-migrations` lacks its configured database URL; `make smoke` lacks `.env`; frontend local commands lack `openapi-typescript`/Bun temp-cache access. CI is the final validation gate on PR #153.
-- Open items: commit and push the final test correction, then confirm all ten PR checks and complete the Workpad handoff.
+- Repository state: commits `47bc421`, `7764c4a`, `2584a3a`, and `0002860` are pushed to PR [#153](https://github.com/christophergm/miniclass/pull/153).
+- Validation: backend tests, lint, format, generated-code drift, and repository diff checks pass locally. Root `make test-backend` remains unavailable because the existing `/miniclass-postgres` container name is in use; `make test-migrations` lacks its configured database URL; `make smoke` lacks `.env`; frontend local commands lack `openapi-typescript`/Bun temp-cache access. All ten required CI checks pass on PR #153 head `0002860`.
+- Open items: none; PR #153 is open and non-draft with no actionable review comments. Detent owns the completion-lane transition.
 - Skill draft: no — existing tenant-entity and isolation-harness skills cover the reusable procedure; no new broadly reusable method was discovered.
