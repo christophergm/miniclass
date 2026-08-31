@@ -34,6 +34,7 @@ type ProgramService interface {
 	GetSession(context.Context, string, ids.XID, ids.XID, ids.XID) (data.Session, error)
 	UpdateSession(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, programservice.SessionUpdate) (data.Session, error)
 	DeleteSession(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID) error
+	GetCatalogFeasibility(context.Context, string, ids.XID, ids.XID, ids.XID) (programservice.CatalogFeasibility, error)
 	TransitionSession(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, programservice.SessionTransitionInput) (programservice.SessionTransitionResult, error)
 	ListMeetingDates(context.Context, string, ids.XID, ids.XID, ids.XID) ([]data.MeetingDate, error)
 	GetMeetingDate(context.Context, string, ids.XID, ids.XID, ids.XID, ids.XID) (data.MeetingDate, error)

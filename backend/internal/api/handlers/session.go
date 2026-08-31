@@ -16,17 +16,18 @@ import (
 )
 
 type SessionResponse struct {
-	ID                    string    `json:"id" doc:"Opaque session identifier."`
-	OrganizationID        string    `json:"organization_id" doc:"Opaque organization identifier."`
-	SchoolYearID          string    `json:"school_year_id" doc:"Opaque school-year identifier."`
-	ProgramID             string    `json:"program_id" doc:"Opaque program identifier."`
-	Name                  string    `json:"name"`
-	Ordinal               int       `json:"ordinal" doc:"Explicit session order; never inferred from dates."`
-	State                 string    `json:"state" enum:"planning,catalog_published,voting_open,voting_closed,assigning,published,complete"`
-	DraftAssignmentsStale bool      `json:"draft_assignments_stale" doc:"True when retained draft assignments were computed from superseded inputs."`
-	MeetingDates          []string  `json:"meeting_dates" format:"date"`
-	CreatedAt             time.Time `json:"created_at"`
-	UpdatedAt             time.Time `json:"updated_at"`
+	ID                    string                              `json:"id" doc:"Opaque session identifier."`
+	OrganizationID        string                              `json:"organization_id" doc:"Opaque organization identifier."`
+	SchoolYearID          string                              `json:"school_year_id" doc:"Opaque school-year identifier."`
+	ProgramID             string                              `json:"program_id" doc:"Opaque program identifier."`
+	Name                  string                              `json:"name"`
+	Ordinal               int                                 `json:"ordinal" doc:"Explicit session order; never inferred from dates."`
+	State                 string                              `json:"state" enum:"planning,catalog_published,voting_open,voting_closed,assigning,published,complete"`
+	DraftAssignmentsStale bool                                `json:"draft_assignments_stale" doc:"True when retained draft assignments were computed from superseded inputs."`
+	MeetingDates          []string                            `json:"meeting_dates" format:"date"`
+	FeasibilityWarnings   []CatalogFeasibilityWarningResponse `json:"feasibility_warnings" doc:"Non-blocking catalog warnings for authoring."`
+	CreatedAt             time.Time                           `json:"created_at"`
+	UpdatedAt             time.Time                           `json:"updated_at"`
 }
 
 type MeetingDateResponse struct {
@@ -121,7 +122,11 @@ func (h *ProgramHandler) ListSessions(ctx context.Context, input *SessionCollect
 	}
 	result := make([]SessionResponse, 0, len(rows))
 	for _, row := range rows {
-		result = append(result, sessionResponse(row))
+		response, err := h.sessionResponseWithFeasibility(ctx, string(account.OrganizationID), row)
+		if err != nil {
+			return nil, sessionProblem(err)
+		}
+		result = append(result, response)
 	}
 	return &SessionListOutput{Body: result}, nil
 }
@@ -142,7 +147,11 @@ func (h *ProgramHandler) CreateSession(ctx context.Context, input *CreateSession
 	if err != nil {
 		return nil, sessionProblem(err)
 	}
-	return &SessionOutput{Body: sessionResponse(row)}, nil
+	response, err := h.sessionResponseWithFeasibility(ctx, string(account.OrganizationID), row)
+	if err != nil {
+		return nil, sessionProblem(err)
+	}
+	return &SessionOutput{Body: response}, nil
 }
 
 func (h *ProgramHandler) GetSession(ctx context.Context, input *SessionPathInput) (*SessionOutput, error) {
@@ -157,7 +166,11 @@ func (h *ProgramHandler) GetSession(ctx context.Context, input *SessionPathInput
 	if err != nil {
 		return nil, sessionProblem(err)
 	}
-	return &SessionOutput{Body: sessionResponse(row)}, nil
+	response, err := h.sessionResponseWithFeasibility(ctx, string(account.OrganizationID), row)
+	if err != nil {
+		return nil, sessionProblem(err)
+	}
+	return &SessionOutput{Body: response}, nil
 }
 
 func (h *ProgramHandler) UpdateSession(ctx context.Context, input *UpdateSessionInput) (*SessionOutput, error) {
@@ -172,7 +185,11 @@ func (h *ProgramHandler) UpdateSession(ctx context.Context, input *UpdateSession
 	if err != nil {
 		return nil, sessionProblem(err)
 	}
-	return &SessionOutput{Body: sessionResponse(row)}, nil
+	response, err := h.sessionResponseWithFeasibility(ctx, string(account.OrganizationID), row)
+	if err != nil {
+		return nil, sessionProblem(err)
+	}
+	return &SessionOutput{Body: response}, nil
 }
 
 func (h *ProgramHandler) DeleteSession(ctx context.Context, input *SessionPathInput) (*ProgramDeleteOutput, error) {
@@ -304,7 +321,7 @@ func sessionResponse(row data.Session) SessionResponse {
 	for _, date := range row.MeetingDates {
 		dates = append(dates, date.Format("2006-01-02"))
 	}
-	return SessionResponse{ID: string(row.ID), OrganizationID: string(row.OrganizationID), SchoolYearID: string(row.SchoolYearID), ProgramID: string(row.ProgramID), Name: row.Name, Ordinal: row.Ordinal, State: string(row.State), DraftAssignmentsStale: row.DraftAssignmentsStale, MeetingDates: dates, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+	return SessionResponse{ID: string(row.ID), OrganizationID: string(row.OrganizationID), SchoolYearID: string(row.SchoolYearID), ProgramID: string(row.ProgramID), Name: row.Name, Ordinal: row.Ordinal, State: string(row.State), DraftAssignmentsStale: row.DraftAssignmentsStale, MeetingDates: dates, FeasibilityWarnings: []CatalogFeasibilityWarningResponse{}, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
 }
 
 func meetingDateResponse(row data.MeetingDate) MeetingDateResponse {
