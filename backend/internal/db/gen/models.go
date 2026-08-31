@@ -516,7 +516,6 @@ type Session struct {
 	SchoolYearID          ids.XID            `json:"school_year_id"`
 	ProgramID             ids.XID            `json:"program_id"`
 	Name                  string             `json:"name"`
-	Ordinal               int32              `json:"ordinal"`
 	State                 SessionState       `json:"state"`
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`

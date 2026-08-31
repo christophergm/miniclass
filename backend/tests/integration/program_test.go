@@ -16,7 +16,6 @@ import (
 	testharness "github.com/chrismott/miniclass/internal/testing"
 	"github.com/chrismott/miniclass/internal/testing/factories"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/require"
 )
 
@@ -187,7 +186,7 @@ func TestClosedYearInterestAreaMutationIsRejected(t *testing.T) {
 	require.True(t, data.IsSchoolYearClosed(err), "closed-year area create = %v", err)
 }
 
-func TestSessionsUseExplicitOrdinalsAndOwnMeetingDates(t *testing.T) {
+func TestSessionsOrderByFirstMeetingDateAndOwnMeetingDates(t *testing.T) {
 	harness := testharness.Open(t)
 	ctx := harness.Context
 	organizationID := harness.MintOrganization(t)
@@ -205,30 +204,28 @@ func TestSessionsUseExplicitOrdinalsAndOwnMeetingDates(t *testing.T) {
 
 	firstDate := time.Date(2026, 10, 16, 0, 0, 0, 0, time.UTC)
 	secondDate := time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC)
-	first, err := service.CreateSession(ctx, string(organizationID), actor, year.ID, programRow.ID, "First synthetic session", 7, []time.Time{firstDate, secondDate})
+	first, err := service.CreateSession(ctx, string(organizationID), actor, year.ID, programRow.ID, "First synthetic session", []time.Time{firstDate, secondDate})
 	require.NoError(t, err)
 	require.Equal(t, data.SessionPlanning, first.State)
-	require.Equal(t, 7, first.Ordinal)
 	require.Equal(t, []time.Time{secondDate, firstDate}, first.MeetingDates)
 
-	second, err := service.CreateSession(ctx, string(organizationID), actor, year.ID, programRow.ID, "Second synthetic session", 2, []time.Time{time.Date(2026, 11, 6, 0, 0, 0, 0, time.UTC)})
+	second, err := service.CreateSession(ctx, string(organizationID), actor, year.ID, programRow.ID, "Second synthetic session", []time.Time{time.Date(2026, 11, 6, 0, 0, 0, 0, time.UTC)})
 	require.NoError(t, err)
-	_, err = service.CreateSession(ctx, string(organizationID), actor, year.ID, programRow.ID, "Duplicate ordinal", 2, []time.Time{time.Date(2026, 11, 13, 0, 0, 0, 0, time.UTC)})
-	var duplicate *pgconn.PgError
-	require.ErrorAs(t, err, &duplicate)
-	require.Equal(t, "23505", duplicate.Code)
+	alpha, err := service.CreateSession(ctx, string(organizationID), actor, year.ID, programRow.ID, "Alpha synthetic session", []time.Time{time.Date(2026, 10, 30, 0, 0, 0, 0, time.UTC)})
+	require.NoError(t, err)
+	beta, err := service.CreateSession(ctx, string(organizationID), actor, year.ID, programRow.ID, "beta synthetic session", []time.Time{time.Date(2026, 10, 30, 0, 0, 0, 0, time.UTC)})
+	require.NoError(t, err)
 
 	listed, err := service.ListSessions(ctx, string(organizationID), year.ID, programRow.ID)
 	require.NoError(t, err)
-	require.Equal(t, []ids.XID{second.ID, first.ID}, []ids.XID{listed[0].ID, listed[1].ID})
-	require.Equal(t, []string{"2026-11-06"}, []string{listed[0].MeetingDates[0].Format("2006-01-02")})
-	require.Equal(t, []string{"2026-10-02", "2026-10-16"}, []string{listed[1].MeetingDates[0].Format("2006-01-02"), listed[1].MeetingDates[1].Format("2006-01-02")})
+	require.Equal(t, []ids.XID{first.ID, alpha.ID, beta.ID, second.ID}, []ids.XID{listed[0].ID, listed[1].ID, listed[2].ID, listed[3].ID})
 
-	newName, newOrdinal := "Renamed synthetic session", 1
-	updated, err := service.UpdateSession(ctx, string(organizationID), actor, year.ID, programRow.ID, first.ID, program.SessionUpdate{Name: &newName, Ordinal: &newOrdinal})
+	newName := "Renamed synthetic session"
+	updatedDates := []time.Time{time.Date(2026, 10, 9, 0, 0, 0, 0, time.UTC), time.Date(2026, 10, 23, 0, 0, 0, 0, time.UTC)}
+	updated, err := service.UpdateSession(ctx, string(organizationID), actor, year.ID, programRow.ID, first.ID, program.SessionUpdate{Name: &newName, Dates: &updatedDates})
 	require.NoError(t, err)
 	require.Equal(t, newName, updated.Name)
-	require.Equal(t, newOrdinal, updated.Ordinal)
+	require.Equal(t, updatedDates, updated.MeetingDates)
 
 	dates, err := service.ListMeetingDates(ctx, string(organizationID), year.ID, programRow.ID, first.ID)
 	require.NoError(t, err)
@@ -260,7 +257,7 @@ func TestSessionLifecycleTransitionsWarnPreserveDraftsAndAudit(t *testing.T) {
 	require.NoError(t, err)
 	programRow, err := factory.CreateProgram(ctx, year.ID, "Synthetic lifecycle programme")
 	require.NoError(t, err)
-	session, err := factory.CreateSession(ctx, year.ID, programRow.ID, "Synthetic lifecycle session", 1, []time.Time{time.Date(2026, 10, 23, 0, 0, 0, 0, time.UTC)})
+	session, err := factory.CreateSession(ctx, year.ID, programRow.ID, "Synthetic lifecycle session", []time.Time{time.Date(2026, 10, 23, 0, 0, 0, 0, time.UTC)})
 	require.NoError(t, err)
 	service := program.New(harness.Database)
 
@@ -333,7 +330,7 @@ func TestSessionLifecycleTransitionsWarnPreserveDraftsAndAudit(t *testing.T) {
 	}
 	require.True(t, foundTransition, "confirmed backward transition was not audited")
 
-	completeSession, err := factory.CreateSession(ctx, year.ID, programRow.ID, "Synthetic complete session", 2, []time.Time{time.Date(2026, 10, 30, 0, 0, 0, 0, time.UTC)})
+	completeSession, err := factory.CreateSession(ctx, year.ID, programRow.ID, "Synthetic complete session", []time.Time{time.Date(2026, 10, 30, 0, 0, 0, 0, time.UTC)})
 	require.NoError(t, err)
 	completeTransition := func(next data.SessionState) {
 		result, err := service.TransitionSession(ctx, string(organizationID), actor, year.ID, programRow.ID, completeSession.ID, program.SessionTransitionInput{NextState: next})
@@ -370,7 +367,7 @@ func TestClosedYearSessionAndMeetingDateMutationsAreRejected(t *testing.T) {
 	programRow, err := factory.CreateProgram(ctx, year.ID, "Synthetic closed session programme")
 	require.NoError(t, err)
 	date := time.Date(2026, 12, 4, 0, 0, 0, 0, time.UTC)
-	session, err := factory.CreateSession(ctx, year.ID, programRow.ID, "Synthetic closed session", 1, []time.Time{date})
+	session, err := factory.CreateSession(ctx, year.ID, programRow.ID, "Synthetic closed session", []time.Time{date})
 	require.NoError(t, err)
 	_, err = factory.CreateMeetingDate(ctx, year.ID, programRow.ID, session.ID, date.AddDate(0, 0, 7))
 	require.NoError(t, err)
@@ -388,7 +385,7 @@ func TestClosedYearSessionAndMeetingDateMutationsAreRejected(t *testing.T) {
 	_, err = service.UpdateSession(ctx, string(organizationID), actor, year.ID, programRow.ID, session.ID, program.SessionUpdate{Name: &newName})
 	require.Error(t, err)
 	require.True(t, data.IsSchoolYearClosed(err), "closed-year session edit = %v", err)
-	_, err = service.CreateSession(ctx, string(organizationID), actor, year.ID, programRow.ID, "Closed create", 2, []time.Time{date.AddDate(0, 0, 7)})
+	_, err = service.CreateSession(ctx, string(organizationID), actor, year.ID, programRow.ID, "Closed create", []time.Time{date.AddDate(0, 0, 7)})
 	require.Error(t, err)
 	require.True(t, data.IsSchoolYearClosed(err), "closed-year session create = %v", err)
 	_, err = service.UpdateMeetingDate(ctx, string(organizationID), actor, year.ID, programRow.ID, session.ID, meetingDates[0].ID, date.AddDate(0, 0, 7))
@@ -423,7 +420,7 @@ func TestOfferingsSupportGradeWindowsAndOptionalInterestAreas(t *testing.T) {
 	require.NoError(t, err)
 	programRow, err := factory.CreateProgram(ctx, year.ID, "Synthetic offering programme")
 	require.NoError(t, err)
-	session, err := factory.CreateSession(ctx, year.ID, programRow.ID, "Synthetic offering session", 1, []time.Time{time.Date(2026, 10, 23, 0, 0, 0, 0, time.UTC)})
+	session, err := factory.CreateSession(ctx, year.ID, programRow.ID, "Synthetic offering session", []time.Time{time.Date(2026, 10, 23, 0, 0, 0, 0, time.UTC)})
 	require.NoError(t, err)
 	area, err := factory.CreateInterestArea(ctx, year.ID, programRow.ID, "Synthetic making")
 	require.NoError(t, err)
@@ -485,7 +482,7 @@ func TestClosedYearOfferingMutationsAreRejected(t *testing.T) {
 	require.NoError(t, err)
 	programRow, err := factory.CreateProgram(ctx, year.ID, "Synthetic closed offering programme")
 	require.NoError(t, err)
-	session, err := factory.CreateSession(ctx, year.ID, programRow.ID, "Synthetic closed offering session", 1, []time.Time{time.Date(2026, 11, 13, 0, 0, 0, 0, time.UTC)})
+	session, err := factory.CreateSession(ctx, year.ID, programRow.ID, "Synthetic closed offering session", []time.Time{time.Date(2026, 11, 13, 0, 0, 0, 0, time.UTC)})
 	require.NoError(t, err)
 	offering, err := factory.CreateOffering(ctx, year.ID, programRow.ID, session.ID, "Synthetic closed offering", "Description", nil, 10, minimumGrade.ID, minimumGrade.ID, "", "", "", nil)
 	require.NoError(t, err)
@@ -520,7 +517,7 @@ func TestObjectiveWeightsDefaultOverrideAndClearFallback(t *testing.T) {
 	require.NoError(t, err)
 	programRow, err := factory.CreateProgram(ctx, year.ID, "Synthetic objective weights program")
 	require.NoError(t, err)
-	session, err := factory.CreateSession(ctx, year.ID, programRow.ID, "Synthetic objective weights session", 1, []time.Time{time.Date(2026, 9, 4, 0, 0, 0, 0, time.UTC)})
+	session, err := factory.CreateSession(ctx, year.ID, programRow.ID, "Synthetic objective weights session", []time.Time{time.Date(2026, 9, 4, 0, 0, 0, 0, time.UTC)})
 	require.NoError(t, err)
 	service := program.New(harness.Database)
 

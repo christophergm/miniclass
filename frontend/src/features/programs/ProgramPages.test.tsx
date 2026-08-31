@@ -23,7 +23,7 @@ vi.mock('./usePrograms', () => {
   const mutation = (mutate = vi.fn()) => vi.fn(() => ({ mutate, isPending: false, isError: false, error: null }))
   const defaults = { rank_high_max: 3, deficit_unwanted_increment: 4, deficit_neutral_increment: 3, deficit_acceptable_increment: 2, deficit_influence: 0.5, repeat_offering_penalty: 10, repeat_interest_area_penalty: 5, tag_prefers_weight: 5, tag_discourages_weight: 5, pairing_prefers_weight: 8, pairing_discourages_weight: 8, below_minimum_enrollment_penalty: 2, tag_balance_penalty: 2 }
   return {
-    useSession: vi.fn(() => ({ data: { id: 'session-1', organization_id: 'org-1', school_year_id: 'year-1', program_id: 'program-1', name: 'Autumn session', ordinal: 1, state: mocks.sessionState, draft_assignments_stale: false, meeting_dates: ['2026-10-02'], feasibility_warnings: [], created_at: '', updated_at: '' }, isLoading: false, isError: false, error: null })),
+    useSession: vi.fn(() => ({ data: { id: 'session-1', organization_id: 'org-1', school_year_id: 'year-1', program_id: 'program-1', name: 'Autumn session', state: mocks.sessionState, draft_assignments_stale: false, meeting_dates: ['2026-10-02'], feasibility_warnings: [], created_at: '', updated_at: '' }, isLoading: false, isError: false, error: null })),
     useOffering: vi.fn(() => ({ data: mocks.offering, isLoading: false, isError: false, error: null })),
     usePrograms: query([{ id: 'program-1', organization_id: 'org-1', school_year_id: 'year-1', name: 'Enrichment', created_at: '', updated_at: '' }]),
     useSessions: query([{ id: 'session-1', organization_id: 'org-1', school_year_id: 'year-1', program_id: 'program-1', name: 'Autumn session', ordinal: 1, state: 'planning', draft_assignments_stale: false, meeting_dates: ['2026-10-02'], feasibility_warnings: [], created_at: '', updated_at: '' }]),
@@ -83,6 +83,7 @@ describe('SessionPage', () => {
     renderSession()
 
     expect(screen.getByRole('heading', { name: 'Autumn session' })).toBeInTheDocument()
+    expect(screen.queryByLabelText('Edit session ordinal')).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Meeting dates' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Offerings' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Create offering' })).toHaveAttribute('href', '/y/year-1/programs/program-1/sessions/session-1/offerings/new')

@@ -35,7 +35,7 @@ func createSession(ctx context.Context, harness *testharness.Harness, organizati
 	if err != nil {
 		return "", err
 	}
-	row, err := factory.CreateSession(ctx, year.ID, program.ID, "Synthetic Session", 1, []time.Time{time.Date(2026, 9, 4, 0, 0, 0, 0, time.UTC)})
+	row, err := factory.CreateSession(ctx, year.ID, program.ID, "Synthetic Session", []time.Time{time.Date(2026, 9, 4, 0, 0, 0, 0, time.UTC)})
 	if err != nil {
 		return "", err
 	}
@@ -55,7 +55,7 @@ func createMeetingDate(ctx context.Context, harness *testharness.Harness, organi
 	if err != nil {
 		return "", err
 	}
-	session, err := factory.CreateSession(ctx, year.ID, program.ID, "Synthetic Meeting Date Session", 1, []time.Time{time.Date(2026, 9, 11, 0, 0, 0, 0, time.UTC)})
+	session, err := factory.CreateSession(ctx, year.ID, program.ID, "Synthetic Meeting Date Session", []time.Time{time.Date(2026, 9, 11, 0, 0, 0, 0, time.UTC)})
 	if err != nil {
 		return "", err
 	}
@@ -145,7 +145,7 @@ func insertSessionWithForeignParent(ctx context.Context, harness *testharness.Ha
 	if _, err := tx.Exec(ctx, "select set_config('app.organization_id', $1, true)", string(tenantID)); err != nil {
 		return err
 	}
-	_, err = tx.Exec(ctx, "insert into sessions (organization_id, school_year_id, program_id, name, ordinal) values ($1, $2, $3, $4, $5)", string(foreignOrganizationID), string(year.ID), string(program.ID), "Foreign Session", 1)
+	_, err = tx.Exec(ctx, "insert into sessions (organization_id, school_year_id, program_id, name) values ($1, $2, $3, $4)", string(foreignOrganizationID), string(year.ID), string(program.ID), "Foreign Session")
 	return err
 }
 
@@ -162,7 +162,7 @@ func insertMeetingDateWithForeignParent(ctx context.Context, harness *testharnes
 	if err != nil {
 		return err
 	}
-	session, err := foreignFactory.CreateSession(ctx, year.ID, program.ID, "Synthetic Foreign Meeting Date Session", 1, []time.Time{time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC)})
+	session, err := foreignFactory.CreateSession(ctx, year.ID, program.ID, "Synthetic Foreign Meeting Date Session", []time.Time{time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC)})
 	if err != nil {
 		return err
 	}

@@ -21,7 +21,6 @@ type SessionResponse struct {
 	SchoolYearID          string                              `json:"school_year_id" doc:"Opaque school-year identifier."`
 	ProgramID             string                              `json:"program_id" doc:"Opaque program identifier."`
 	Name                  string                              `json:"name"`
-	Ordinal               int                                 `json:"ordinal" doc:"Explicit session order; never inferred from dates."`
 	State                 string                              `json:"state" enum:"planning,catalog_published,voting_open,voting_closed,assigning,published,complete"`
 	DraftAssignmentsStale bool                                `json:"draft_assignments_stale" doc:"True when retained draft assignments were computed from superseded inputs."`
 	MeetingDates          []string                            `json:"meeting_dates" format:"date"`
@@ -72,15 +71,14 @@ type CreateSessionInput struct {
 	SessionCollectionInput
 	Body struct {
 		Name         string   `json:"name" minLength:"1"`
-		Ordinal      int      `json:"ordinal" minimum:"1"`
 		MeetingDates []string `json:"meeting_dates" minItems:"1" format:"date"`
 	}
 }
 type UpdateSessionInput struct {
 	SessionPathInput
 	Body struct {
-		Name    *string `json:"name,omitempty" minLength:"1"`
-		Ordinal *int    `json:"ordinal,omitempty" minimum:"1"`
+		Name         *string   `json:"name,omitempty" minLength:"1"`
+		MeetingDates *[]string `json:"meeting_dates,omitempty" minItems:"1" format:"date"`
 	}
 }
 type TransitionSessionInput struct {
@@ -143,7 +141,7 @@ func (h *ProgramHandler) CreateSession(ctx context.Context, input *CreateSession
 	if err != nil {
 		return nil, sessionProblem(err)
 	}
-	row, err := h.service.CreateSession(ctx, string(account.OrganizationID), programActor(account), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), input.Body.Name, input.Body.Ordinal, dates)
+	row, err := h.service.CreateSession(ctx, string(account.OrganizationID), programActor(account), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), input.Body.Name, dates)
 	if err != nil {
 		return nil, sessionProblem(err)
 	}
@@ -181,7 +179,15 @@ func (h *ProgramHandler) UpdateSession(ctx context.Context, input *UpdateSession
 	if h == nil || h.service == nil || input == nil {
 		return nil, sessionNotFound()
 	}
-	row, err := h.service.UpdateSession(ctx, string(account.OrganizationID), programActor(account), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), ids.XID(input.SessionID), programservice.SessionUpdate{Name: input.Body.Name, Ordinal: input.Body.Ordinal})
+	var dates *[]time.Time
+	if input.Body.MeetingDates != nil {
+		parsed, err := parseMeetingDates(*input.Body.MeetingDates)
+		if err != nil {
+			return nil, sessionProblem(err)
+		}
+		dates = &parsed
+	}
+	row, err := h.service.UpdateSession(ctx, string(account.OrganizationID), programActor(account), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), ids.XID(input.SessionID), programservice.SessionUpdate{Name: input.Body.Name, Dates: dates})
 	if err != nil {
 		return nil, sessionProblem(err)
 	}
@@ -321,7 +327,7 @@ func sessionResponse(row data.Session) SessionResponse {
 	for _, date := range row.MeetingDates {
 		dates = append(dates, date.Format("2006-01-02"))
 	}
-	return SessionResponse{ID: string(row.ID), OrganizationID: string(row.OrganizationID), SchoolYearID: string(row.SchoolYearID), ProgramID: string(row.ProgramID), Name: row.Name, Ordinal: row.Ordinal, State: string(row.State), DraftAssignmentsStale: row.DraftAssignmentsStale, MeetingDates: dates, FeasibilityWarnings: []CatalogFeasibilityWarningResponse{}, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+	return SessionResponse{ID: string(row.ID), OrganizationID: string(row.OrganizationID), SchoolYearID: string(row.SchoolYearID), ProgramID: string(row.ProgramID), Name: row.Name, State: string(row.State), DraftAssignmentsStale: row.DraftAssignmentsStale, MeetingDates: dates, FeasibilityWarnings: []CatalogFeasibilityWarningResponse{}, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
 }
 
 func meetingDateResponse(row data.MeetingDate) MeetingDateResponse {
@@ -378,7 +384,7 @@ func sessionProblem(err error) error {
 		return problems.New(http.StatusConflict, problems.SessionReadOnly, err.Error())
 	case errors.As(err, &pgErr) && pgErr.Code == "23505":
 		return problems.New(http.StatusConflict, problems.ProgramConflict, "the session or meeting date already exists in this program")
-	case errors.Is(err, programservice.ErrSessionNoChanges), errors.Is(err, programservice.ErrMeetingDateNoChanges), errors.Is(err, programservice.ErrSessionRequiresMeetingDate), strings.Contains(err.Error(), "name is required"), strings.Contains(err.Error(), "ordinal must be positive"), strings.Contains(err.Error(), "valid date"):
+	case errors.Is(err, programservice.ErrSessionNoChanges), errors.Is(err, programservice.ErrMeetingDateNoChanges), errors.Is(err, programservice.ErrSessionRequiresMeetingDate), strings.Contains(err.Error(), "name is required"), strings.Contains(err.Error(), "valid date"):
 		return problems.New(http.StatusBadRequest, problems.ProgramConflict, err.Error())
 	default:
 		return problems.New(http.StatusInternalServerError, problems.InternalError, "unable to change session data")

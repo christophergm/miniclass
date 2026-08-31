@@ -29,7 +29,7 @@ type ProgramService interface {
 	AddMembership(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID) (data.ProgramMembership, error)
 	DeleteMembership(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID) error
 	CountStudentsWithoutGrade(context.Context, string, ids.XID) (int64, error)
-	CreateSession(context.Context, string, audit.Actor, ids.XID, ids.XID, string, int, []time.Time) (data.Session, error)
+	CreateSession(context.Context, string, audit.Actor, ids.XID, ids.XID, string, []time.Time) (data.Session, error)
 	ListSessions(context.Context, string, ids.XID, ids.XID) ([]data.Session, error)
 	GetSession(context.Context, string, ids.XID, ids.XID, ids.XID) (data.Session, error)
 	UpdateSession(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, programservice.SessionUpdate) (data.Session, error)

@@ -351,7 +351,7 @@ two-phase mechanism in Phase 4.*
 - Interest areas with **stable identity separate from display label** (§12.3). Appendix B.4 shows
   label churn silently corrupting variety history — `Knitting Club` tagged `knitting` in some
   sessions and `fabric_arts` in others.
-- Session with an **explicit ordinal** (not inferred from dates), and real meeting dates. The
+- Session ordered by its first meeting date, with real meeting dates. The
   predecessor stored no dates at all, which is why years of availability data were unusable.
 - Class offerings: name, description, capacity, grade window, minimum viable enrolment, location,
   meeting point, meeting instructions, optional interest area. A grade window references the **school
@@ -377,7 +377,7 @@ known-grade gate and missing-grade flagging.
 |---|---|---|---|
 | **P3-1 — Programme core and explicit membership** *(landed)* | Programme create/list, explicit membership add/remove/list, missing-grade summary, tenancy/audit coverage. | §8.3, §12.1, §10.1, §20.1 | high |
 | **P3-2 — Interest-area vocabulary for programmes** | Per-programme managed vocabulary with ordered display, stable identity vs mutable label, retirement semantics preserving history. | §12.1, §12.3, §12.4 | high |
-| **P3-3 — Session entity and meeting dates** | Session model with explicit ordinal and one-or-more meeting dates; schema constraints for uniqueness and year/programme scope. | §8.5, §14.1 | high |
+| **P3-3 — Session entity and meeting dates** | Session model ordered by first meeting date and one-or-more meeting dates; schema constraints for year/programme scope. | §8.5, §14.1 | high |
 | **P3-4 — Offerings model and CRUD** | Offering create/edit/list/delete with name, description, capacity, grade window, minimum viable enrolment, location, meeting point/instructions, optional interest area. | §8.4, §12.4, §14.2 | high |
 | **P3-5 — Session lifecycle state machine** | Seven-state lifecycle with legal transitions only, gates from §14.4, transition audit entries, and backward-transition invalidation summaries with stale-draft marking (no discard). | §14.3, §14.4, §14.5, §20.1 | xhigh |
 | **P3-6 — Session non-participation records** | First-class per-session non-participation with required reason; never encoded as programme-membership removal. | §8.3, §5.2 | high |

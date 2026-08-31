@@ -20,11 +20,11 @@ var (
 )
 
 type SessionUpdate struct {
-	Name    *string
-	Ordinal *int
+	Name  *string
+	Dates *[]time.Time
 }
 
-func (s *Service) CreateSession(ctx context.Context, organizationID string, actor audit.Actor, schoolYearID, programID ids.XID, name string, ordinal int, dates []time.Time) (data.Session, error) {
+func (s *Service) CreateSession(ctx context.Context, organizationID string, actor audit.Actor, schoolYearID, programID ids.XID, name string, dates []time.Time) (data.Session, error) {
 	if s == nil || s.database == nil {
 		return data.Session{}, errors.New("create session: data service is nil")
 	}
@@ -36,7 +36,7 @@ func (s *Service) CreateSession(ctx context.Context, organizationID string, acto
 		if _, err := tx.GetProgram(ctx, schoolYearID, programID); err != nil {
 			return err
 		}
-		created, err := tx.CreateSession(ctx, schoolYearID, programID, name, ordinal)
+		created, err := tx.CreateSession(ctx, schoolYearID, programID, name)
 		if err != nil {
 			return err
 		}
@@ -130,21 +130,54 @@ func (s *Service) UpdateSession(ctx context.Context, organizationID string, acto
 		if err := ensureSessionMutable(current); err != nil {
 			return err
 		}
-		name, ordinal := current.Name, current.Ordinal
+		name := current.Name
 		changed := false
 		if input.Name != nil && strings.TrimSpace(*input.Name) != current.Name {
 			name, changed = *input.Name, true
 		}
-		if input.Ordinal != nil && *input.Ordinal != current.Ordinal {
-			ordinal, changed = *input.Ordinal, true
+		currentDates, err := tx.ListMeetingDates(ctx, schoolYearID, programID, sessionID)
+		if err != nil {
+			return err
+		}
+		if input.Dates != nil {
+			if len(*input.Dates) == 0 {
+				return ErrSessionRequiresMeetingDate
+			}
+			changed = !sameMeetingDates(currentDates, *input.Dates) || changed
 		}
 		if !changed {
 			return ErrSessionNoChanges
 		}
-		result, err = tx.UpdateSession(ctx, schoolYearID, programID, sessionID, name, ordinal)
+		result, err = tx.UpdateSession(ctx, schoolYearID, programID, sessionID, name)
 		if err != nil {
 			return err
 		}
+		if input.Dates != nil && !sameMeetingDates(currentDates, *input.Dates) {
+			for _, date := range currentDates {
+				if _, err := tx.DeleteMeetingDate(ctx, schoolYearID, programID, sessionID, date.ID); err != nil {
+					return err
+				}
+				dateID, year := date.ID, result.SchoolYearID
+				if err := tx.Record(ctx, audit.Entry{Action: audit.ActionMeetingDateChange, ObjectType: "meeting_date", ObjectID: &dateID, SchoolYearID: &year, ChangeSummary: meetingDateSummary(&date, data.MeetingDate{})}); err != nil {
+					return err
+				}
+			}
+			for _, date := range *input.Dates {
+				createdDate, err := tx.CreateMeetingDate(ctx, schoolYearID, programID, sessionID, date)
+				if err != nil {
+					return err
+				}
+				dateID := createdDate.ID
+				if err := tx.Record(ctx, audit.Entry{Action: audit.ActionMeetingDateChange, ObjectType: "meeting_date", ObjectID: &dateID, SchoolYearID: &result.SchoolYearID, ChangeSummary: meetingDateSummary(nil, createdDate)}); err != nil {
+					return err
+				}
+			}
+		}
+		storedDates, err := tx.ListMeetingDates(ctx, schoolYearID, programID, sessionID)
+		if err != nil {
+			return err
+		}
+		result.MeetingDates = meetingDateTimes(storedDates)
 		id, year := result.ID, result.SchoolYearID
 		return tx.Record(ctx, audit.Entry{Action: audit.ActionSessionChange, ObjectType: "session", ObjectID: &id, SchoolYearID: &year, ChangeSummary: sessionSummary(&current, result)})
 	})
@@ -334,18 +367,35 @@ func meetingDateTimes(rows []data.MeetingDate) []time.Time {
 	return result
 }
 
+func sameMeetingDates(current []data.MeetingDate, requested []time.Time) bool {
+	if len(current) != len(requested) {
+		return false
+	}
+	counts := make(map[string]int, len(current))
+	for _, date := range current {
+		counts[date.Date.UTC().Format("2006-01-02")]++
+	}
+	for _, date := range requested {
+		key := date.UTC().Format("2006-01-02")
+		if counts[key] == 0 {
+			return false
+		}
+		counts[key]--
+	}
+	return true
+}
+
 func sessionSummary(before *data.Session, after data.Session) json.RawMessage {
 	value := map[string]any{}
 	if after.ID != "" {
 		value["name"] = after.Name
-		value["ordinal"] = after.Ordinal
 		value["state"] = after.State
 		value["draft_assignments_stale"] = after.DraftAssignmentsStale
 	} else {
 		value["deleted"] = true
 	}
 	if before != nil {
-		value["before"] = map[string]any{"name": before.Name, "ordinal": before.Ordinal, "state": before.State, "draft_assignments_stale": before.DraftAssignmentsStale}
+		value["before"] = map[string]any{"name": before.Name, "state": before.State, "draft_assignments_stale": before.DraftAssignmentsStale}
 	}
 	return mustJSON(value)
 }

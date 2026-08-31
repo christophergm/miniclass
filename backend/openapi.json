@@ -842,16 +842,10 @@
           "name": {
             "minLength": 1,
             "type": "string"
-          },
-          "ordinal": {
-            "format": "int64",
-            "minimum": 1,
-            "type": "integer"
           }
         },
         "required": [
           "name",
-          "ordinal",
           "meeting_dates"
         ],
         "type": "object"
@@ -2630,11 +2624,6 @@
           "name": {
             "type": "string"
           },
-          "ordinal": {
-            "description": "Explicit session order; never inferred from dates.",
-            "format": "int64",
-            "type": "integer"
-          },
           "organization_id": {
             "description": "Opaque organization identifier.",
             "type": "string"
@@ -2670,7 +2659,6 @@
           "school_year_id",
           "program_id",
           "name",
-          "ordinal",
           "state",
           "draft_assignments_stale",
           "meeting_dates",
@@ -3197,14 +3185,17 @@
             "readOnly": true,
             "type": "string"
           },
+          "meeting_dates": {
+            "items": {
+              "format": "date",
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
           "name": {
             "minLength": 1,
             "type": "string"
-          },
-          "ordinal": {
-            "format": "int64",
-            "minimum": 1,
-            "type": "integer"
           }
         },
         "type": "object"
