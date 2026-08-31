@@ -44,8 +44,11 @@
 
 - Scope: Add year-scoped class offerings beneath sessions with Phase 3 catalog fields, composite grade-window and optional interest-area references, audited CRUD/API, closed-year protection, frontend client wiring, and Layer 2 isolation coverage. Governing contract: SPEC §§8.4, 10.1, 12.4, 14.2, 20.1; ADRs 0007, 0008, 0010, 0015.
 - Dependency: #143 is merged on current origin/main; worktree is clean and based on b33a8a8.
-- Workpad: issue comment 5477388223 contains the persistent plan and in_progress status.
+- Workpad: issue comment 5477388223 contains the persistent plan, validation evidence, and complete status.
 - Skills read: `.detent/skills/add-tenant-scoped-entity.md` and `.detent/skills/postgres-tenant-isolation-harness.md`.
-- Implementation in progress: dedicated offerings migration, data/service/API/frontend paths, generated artifacts, registry/factory, and isolation/closed-year tests.
-- Open items: focused tests, all ten quality gates, PR/CI/review handoff, and explicit skill-draft decision.
-- Skill draft: no — existing tenant-entity and isolation-harness skills cover the reusable procedure; no new broadly reusable method was discovered.
+- Implementation: dedicated offerings migration, data/service/API/frontend paths, generated artifacts, registry/factory, and isolation/closed-year tests. The migration includes the parent-compatible interest-area key required by the composite FK.
+- Repository state: commits `0fa59aa` and `959c100` are pushed to PR #154, based on b33a8a8.
+- Validation: local backend tests including race, lint, format, generation/drift after commit, focused Offering/Layer 2 tests, and `git diff --check` pass. Root `make check` stops at the existing `/miniclass-postgres` container-name conflict; local frontend gates lack `openapi-typescript`/Bun temp-cache access, migration round-trip lacks its URL, and smoke lacks `.env`.
+- CI: all ten required checks pass on PR #154 head `959c100` in run 33386375617. PR CI duration was 1m53s; slow checks were Backend tests 1m51s, Generated code drift 1m48s, and Backend lint 1m15s. No post-merge main CI applies because the PR is not merged.
+- Open items: none; PR #154 is open, non-draft, references `Fixes #144`, and has no actionable review comments.
+- Skill draft: no — the existing tenant-entity and isolation-harness skills cover the reusable procedure; no new broadly reusable method was discovered.
