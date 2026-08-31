@@ -24,6 +24,10 @@ export function useSessions(schoolYearID: string | undefined, programID: string 
   return useQuery({ enabled: Boolean(schoolYearID && programID), queryKey: sessionsKey(schoolYearID, programID), queryFn: () => resourceApi.listSessions(schoolYearID as string, programID as string), retry: false })
 }
 
+export function useSession(schoolYearID: string | undefined, programID: string | undefined, sessionID: string | undefined) {
+  return useQuery({ enabled: Boolean(schoolYearID && programID && sessionID), queryKey: [...sessionsKey(schoolYearID, programID), sessionID], queryFn: () => resourceApi.getSession(schoolYearID as string, programID as string, sessionID as string), retry: false })
+}
+
 export function useMeetingDates(schoolYearID: string | undefined, programID: string | undefined, sessionID: string | undefined) {
   return useQuery({ enabled: Boolean(schoolYearID && programID && sessionID), queryKey: [...sessionsKey(schoolYearID, programID), sessionID, 'meeting-dates'], queryFn: () => resourceApi.listMeetingDates(schoolYearID as string, programID as string, sessionID as string), retry: false })
 }
@@ -112,6 +116,32 @@ export function useUpdateOffering(schoolYearID: string, programID: string, sessi
 export function useDeleteOffering(schoolYearID: string, programID: string, sessionID: string) {
   const queryClient = useQueryClient()
   return useMutation({ mutationFn: (offeringID: string) => resourceApi.deleteOffering(schoolYearID, programID, sessionID, offeringID), onSuccess: () => { queryClient.invalidateQueries({ queryKey: offeringsKey(schoolYearID, programID, sessionID) }); queryClient.invalidateQueries({ queryKey: catalogFeasibilityKey(schoolYearID, programID, sessionID) }) } })
+}
+
+export const nonParticipationsKey = (schoolYearID: string | undefined, programID: string | undefined, sessionID: string | undefined) => [...sessionsKey(schoolYearID, programID), sessionID, 'non-participations'] as const
+
+export function useSessionNonParticipations(schoolYearID: string | undefined, programID: string | undefined, sessionID: string | undefined) {
+  return useQuery({ enabled: Boolean(schoolYearID && programID && sessionID), queryKey: nonParticipationsKey(schoolYearID, programID, sessionID), queryFn: () => resourceApi.listSessionNonParticipations(schoolYearID as string, programID as string, sessionID as string), retry: false })
+}
+
+export function useCreateSessionNonParticipation(schoolYearID: string, programID: string, sessionID: string) {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: (value: { student_id: string; reason: string }) => resourceApi.createSessionNonParticipation(schoolYearID, programID, sessionID, value), onSuccess: () => { queryClient.invalidateQueries({ queryKey: nonParticipationsKey(schoolYearID, programID, sessionID) }); queryClient.invalidateQueries({ queryKey: catalogFeasibilityKey(schoolYearID, programID, sessionID) }) } })
+}
+
+export function useDeleteSessionNonParticipation(schoolYearID: string, programID: string, sessionID: string) {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: (nonParticipationID: string) => resourceApi.deleteSessionNonParticipation(schoolYearID, programID, sessionID, nonParticipationID), onSuccess: () => { queryClient.invalidateQueries({ queryKey: nonParticipationsKey(schoolYearID, programID, sessionID) }); queryClient.invalidateQueries({ queryKey: catalogFeasibilityKey(schoolYearID, programID, sessionID) }) } })
+}
+
+export function useUpdateSessionNonParticipation(schoolYearID: string, programID: string, sessionID: string) {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: ({ nonParticipationID, reason }: { nonParticipationID: string; reason: string }) => resourceApi.updateSessionNonParticipation(schoolYearID, programID, sessionID, nonParticipationID, { reason }), onSuccess: () => queryClient.invalidateQueries({ queryKey: nonParticipationsKey(schoolYearID, programID, sessionID) }) })
+}
+
+export function useTransitionSession(schoolYearID: string, programID: string, sessionID: string) {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: (value: Parameters<typeof resourceApi.transitionSession>[3]) => resourceApi.transitionSession(schoolYearID, programID, sessionID, value), onSuccess: () => { queryClient.invalidateQueries({ queryKey: sessionsKey(schoolYearID, programID) }); queryClient.invalidateQueries({ queryKey: [...sessionsKey(schoolYearID, programID), sessionID] }) } })
 }
 
 export function useUpdateProgramObjectiveWeights(schoolYearID: string, programID: string) {
