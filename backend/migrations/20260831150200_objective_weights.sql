@@ -83,8 +83,13 @@ create index session_objective_weight_overrides_program_idx on session_objective
 
 -- Backfill before RLS and the closed-year trigger are installed so an upgrade
 -- remains valid for existing programmes, including closed school years.
+-- The referenced programs table is FORCE RLS. Temporarily remove the owner
+-- exception while the migrator validates the composite foreign key; the
+-- migration session has no tenant setting and must see every existing row.
+alter table programs no force row level security;
 insert into program_objective_weights (organization_id, school_year_id, program_id)
 select organization_id, school_year_id, id from programs;
+alter table programs force row level security;
 
 alter table program_objective_weights enable row level security;
 alter table program_objective_weights force row level security;
