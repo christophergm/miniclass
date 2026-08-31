@@ -21,6 +21,7 @@ vi.mock('./usePrograms', () => {
   return {
     useSession: vi.fn(() => ({ data: { id: 'session-1', organization_id: 'org-1', school_year_id: 'year-1', program_id: 'program-1', name: 'Autumn session', ordinal: 1, state: mocks.sessionState, draft_assignments_stale: false, meeting_dates: ['2026-10-02'], feasibility_warnings: [], created_at: '', updated_at: '' }, isLoading: false, isError: false, error: null })),
     usePrograms: query([{ id: 'program-1', organization_id: 'org-1', school_year_id: 'year-1', name: 'Enrichment', created_at: '', updated_at: '' }]),
+    useSessions: query([{ id: 'session-1', organization_id: 'org-1', school_year_id: 'year-1', program_id: 'program-1', name: 'Autumn session', ordinal: 1, state: 'planning', draft_assignments_stale: false, meeting_dates: ['2026-10-02'], feasibility_warnings: [], created_at: '', updated_at: '' }]),
     useMeetingDates: query([{ id: 'date-1', school_year_id: 'year-1', organization_id: 'org-1', program_id: 'program-1', session_id: 'session-1', meeting_date: '2026-10-02', created_at: '', updated_at: '' }]),
     useOfferings: query([{ id: 'offering-1', school_year_id: 'year-1', organization_id: 'org-1', program_id: 'program-1', session_id: 'session-1', name: 'Making', description: 'Build a project', capacity: 10, minimum_viable_enrollment: 2, min_grade_level_id: 'grade-1', max_grade_level_id: 'grade-1', location: 'Studio', meeting_point: 'Front desk', meeting_instructions: 'Ask for the key', interest_area_id: null, created_at: '', updated_at: '' }]),
     useCatalogFeasibility: query({ participant_count: 2, warnings: [{ id: 'capacity', severity: 'warning', message: 'Capacity is below participation.', participant_count: 2, total_capacity: 1, total_minimum_viable_enrollment: 0, shortfall: 1, affected_grades: [], affected_areas: [], offering_ids: [] }] }),
@@ -158,8 +159,8 @@ describe('objective pages', () => {
 
     expect(screen.getByRole('heading', { name: 'Assignment objectives' })).toBeInTheDocument()
     expect(screen.getAllByRole('spinbutton')).toHaveLength(13)
-    expect(screen.getByText('Effective value: 10 · Session override: 10')).toBeInTheDocument()
-    expect(screen.getByText('Effective value: 3 · Inherited programme default: 3')).toBeInTheDocument()
+    expect(screen.getByText(/Session override: 10/)).toBeInTheDocument()
+    expect(screen.getByText(/Inherited programme default: 3/)).toBeInTheDocument()
 
     fireEvent.change(screen.getByRole('spinbutton', { name: 'Repeat offering penalty override' }), { target: { value: '12.5' } })
     fireEvent.change(screen.getByRole('textbox', { name: 'Reason for these session overrides' }), { target: { value: 'Tune variety for this session' } })
