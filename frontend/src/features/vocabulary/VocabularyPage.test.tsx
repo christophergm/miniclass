@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Outlet, Route, Routes } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -46,12 +46,12 @@ describe('VocabularyPage', () => {
 
     expect(screen.getByRole('heading', { name: 'Read-only history' })).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Add' }).every((button) => (button as HTMLButtonElement).disabled)).toBe(true)
-    expect((screen.getByRole('button', { name: 'Edit' }) as HTMLButtonElement).disabled).toBe(true)
-    expect((screen.getByRole('button', { name: 'Retire' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getAllByRole('button', { name: 'Edit' }).every((button) => (button as HTMLButtonElement).disabled)).toBe(true)
+    expect(screen.getAllByRole('button', { name: 'Retire' }).every((button) => (button as HTMLButtonElement).disabled)).toBe(true)
   })
 
   it('explains how to finish setup when a year has no vocabulary', () => {
-    vi.mocked(useVocabulary).mockReturnValue({ data: { ...vocabulary, grade_levels: [], homerooms: [] }, isLoading: false, isError: false, error: null } as ReturnType<typeof useVocabulary>)
+    vi.mocked(useVocabulary).mockReturnValue({ data: { ...vocabulary, grade_levels: [], homerooms: [] }, isLoading: false, isError: false, error: null } as unknown as ReturnType<typeof useVocabulary>)
 
     renderVocabulary()
 
