@@ -29,12 +29,12 @@ var (
 	familyNameFields = []string{"lastName", "family_name", "last_name"}
 	classFields      = []string{"_class", "class", "type", "kind", "reference"}
 	labelFields      = []string{"name", "label"}
-	bandFields       = []string{"grade", "band", "band_string"}
 )
 
 // Student is the canonical student record emitted by the roster source. The
-// classroom label and band are display metadata only; neither is interpreted
-// as a grade (ADR 0014).
+// classroom label is display metadata only; it is never interpreted as a grade
+// (ADR 0014). The source's own band field — exported as `grade` — is read by
+// nothing and deliberately not carried here.
 type Student struct {
 	SourceExternalIdentifier    string `json:"source_external_identifier"`
 	ExternalIdentifier          string `json:"external_identifier"`
@@ -43,9 +43,7 @@ type Student struct {
 	LegalGivenName              string `json:"legal_given_name"`
 	LegalFamilyName             string `json:"legal_family_name"`
 	ClassroomExternalIdentifier string `json:"classroom_external_identifier"`
-	ClassroomID                 string `json:"classroom_id"`
 	ClassroomLabel              string `json:"classroom_label"`
-	ClassroomBand               string `json:"classroom_band"`
 }
 
 // Adult is the canonical adult record. Status is retained as source metadata,
@@ -260,9 +258,7 @@ func parseRecords(records []json.RawMessage) (Result, error) {
 				}
 				if !existing.seenClassroom && hasClassroom {
 					existing.ClassroomExternalIdentifier = classroom.ID
-					existing.ClassroomID = classroom.ID
 					existing.ClassroomLabel = classroom.Label
-					existing.ClassroomBand = classroom.Band
 					existing.seenClassroom = true
 				}
 			} else {
@@ -275,9 +271,7 @@ func parseRecords(records []json.RawMessage) (Result, error) {
 				child.LegalGivenName, child.LegalFamilyName = givenName, familyName
 				if hasClassroom {
 					child.ClassroomExternalIdentifier = classroom.ID
-					child.ClassroomID = classroom.ID
 					child.ClassroomLabel = classroom.Label
-					child.ClassroomBand = classroom.Band
 					child.seenClassroom = true
 				}
 				children[childID] = child
@@ -370,7 +364,7 @@ func parseRecords(records []json.RawMessage) (Result, error) {
 	return result, nil
 }
 
-type classroom struct{ ID, Label, Band string }
+type classroom struct{ ID, Label string }
 
 func classroomFromGroups(groups []json.RawMessage) (classroom, bool) {
 	for _, raw := range groups {
@@ -401,7 +395,7 @@ func classroomFromGroups(groups []json.RawMessage) (classroom, bool) {
 			isReference = isReference || value
 		}
 		if isReference {
-			return classroom{ID: id, Label: stringField(object, labelFields...), Band: stringField(object, bandFields...)}, true
+			return classroom{ID: id, Label: stringField(object, labelFields...)}, true
 		}
 	}
 	return classroom{}, false
