@@ -23,6 +23,21 @@ type Program struct {
 	UpdatedAt      time.Time
 }
 
+// InterestArea is an ordered, programme-owned vocabulary entry. Its ID is
+// stable across label edits and retirement so later profile and placement
+// records can continue to refer to the same area.
+type InterestArea struct {
+	ID             ids.XID
+	OrganizationID ids.XID
+	SchoolYearID   ids.XID
+	ProgramID      ids.XID
+	Label          string
+	Ordinal        int
+	RetiredAt      *time.Time
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
 // ProgramMembership is an explicit annual membership. GradeMissing is
 // derived from the current roster row so clearing a grade flags the member
 // without silently removing the membership.
@@ -76,6 +91,84 @@ func (tx *Tx) GetProgram(ctx context.Context, schoolYearID, id ids.XID) (Program
 		return Program{}, fmt.Errorf("get program: %w", err)
 	}
 	return program(row)
+}
+
+func (tx *Tx) CreateInterestArea(ctx context.Context, schoolYearID, programID ids.XID, label string, ordinal int) (InterestArea, error) {
+	label = strings.TrimSpace(label)
+	if label == "" {
+		return InterestArea{}, errors.New("create interest area: label is required")
+	}
+	if ordinal < 1 {
+		return InterestArea{}, errors.New("create interest area: ordinal must be positive")
+	}
+	row, err := tx.queries.CreateInterestArea(ctx, db.CreateInterestAreaParams{
+		OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID, Label: label, Ordinal: int32(ordinal),
+	})
+	if err != nil {
+		return InterestArea{}, wrapProgramMutationError("create interest area", err)
+	}
+	return interestArea(row)
+}
+
+func (tx *Tx) NextInterestAreaOrdinal(ctx context.Context, schoolYearID, programID ids.XID) (int, error) {
+	ordinal, err := tx.queries.ListInterestAreasForProgramOrdinal(ctx, db.ListInterestAreasForProgramOrdinalParams{
+		OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("next interest area ordinal: %w", err)
+	}
+	return int(ordinal), nil
+}
+
+func (tx *Tx) ListInterestAreas(ctx context.Context, schoolYearID, programID ids.XID, includeRetired bool) ([]InterestArea, error) {
+	var rows []db.InterestArea
+	var err error
+	params := db.ListInterestAreasParams{OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID}
+	if includeRetired {
+		rows, err = tx.queries.ListAllInterestAreas(ctx, db.ListAllInterestAreasParams(params))
+	} else {
+		rows, err = tx.queries.ListInterestAreas(ctx, params)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("list interest areas: %w", err)
+	}
+	result := make([]InterestArea, 0, len(rows))
+	for _, row := range rows {
+		value, err := interestArea(row)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, value)
+	}
+	return result, nil
+}
+
+func (tx *Tx) GetInterestArea(ctx context.Context, schoolYearID, programID, id ids.XID) (InterestArea, error) {
+	row, err := tx.queries.GetInterestArea(ctx, db.GetInterestAreaParams{ID: id, OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID})
+	if err != nil {
+		return InterestArea{}, fmt.Errorf("get interest area: %w", err)
+	}
+	return interestArea(row)
+}
+
+func (tx *Tx) UpdateInterestArea(ctx context.Context, schoolYearID, programID, id ids.XID, label string) (InterestArea, error) {
+	label = strings.TrimSpace(label)
+	if label == "" {
+		return InterestArea{}, errors.New("update interest area: label is required")
+	}
+	row, err := tx.queries.UpdateInterestArea(ctx, db.UpdateInterestAreaParams{ID: id, Label: label, OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID})
+	if err != nil {
+		return InterestArea{}, wrapProgramMutationError("update interest area", err)
+	}
+	return interestArea(row)
+}
+
+func (tx *Tx) SetInterestAreaRetired(ctx context.Context, schoolYearID, programID, id ids.XID, retired bool) (InterestArea, error) {
+	row, err := tx.queries.SetInterestAreaRetired(ctx, db.SetInterestAreaRetiredParams{ID: id, Column2: retired, OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID})
+	if err != nil {
+		return InterestArea{}, wrapProgramMutationError("set interest area retirement", err)
+	}
+	return interestArea(row)
 }
 
 func (tx *Tx) CreateProgramMembership(ctx context.Context, schoolYearID, programID, studentID ids.XID) (ProgramMembership, error) {
@@ -180,6 +273,49 @@ func (tx *Tx) ListAllProgramMembershipsForRegistry(ctx context.Context) ([]Progr
 	return result, nil
 }
 
+func (tx *Tx) ListAllInterestAreasForRegistry(ctx context.Context) ([]InterestArea, error) {
+	rows, err := tx.queries.ListAllInterestAreasForRegistry(ctx, tx.organizationID)
+	if err != nil {
+		return nil, fmt.Errorf("list interest areas for registry: %w", err)
+	}
+	result := make([]InterestArea, 0, len(rows))
+	for _, row := range rows {
+		value, err := interestArea(row)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, value)
+	}
+	return result, nil
+}
+
+func (tx *Tx) FindInterestAreaForRegistry(ctx context.Context, id ids.XID) (InterestArea, error) {
+	row, err := tx.queries.FindInterestAreaForRegistry(ctx, db.FindInterestAreaForRegistryParams{ID: id, OrganizationID: tx.organizationID})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return InterestArea{}, nil
+		}
+		return InterestArea{}, fmt.Errorf("find interest area for registry: %w", err)
+	}
+	return interestArea(row)
+}
+
+func (tx *Tx) UpdateInterestAreaForRegistry(ctx context.Context, id ids.XID, label string) (bool, error) {
+	rows, err := tx.queries.UpdateInterestAreaForRegistry(ctx, db.UpdateInterestAreaForRegistryParams{ID: id, OrganizationID: tx.organizationID, Label: label})
+	if err != nil {
+		return false, wrapProgramMutationError("update interest area for registry", err)
+	}
+	return rows == 1, nil
+}
+
+func (tx *Tx) RetireInterestAreaForRegistry(ctx context.Context, id ids.XID) (bool, error) {
+	rows, err := tx.queries.RetireInterestAreaForRegistry(ctx, db.RetireInterestAreaForRegistryParams{ID: id, OrganizationID: tx.organizationID})
+	if err != nil {
+		return false, wrapProgramMutationError("retire interest area for registry", err)
+	}
+	return rows == 1, nil
+}
+
 func (tx *Tx) FindProgramMembershipForRegistry(ctx context.Context, id ids.XID) (ProgramMembership, error) {
 	row, err := tx.queries.FindProgramMembershipForRegistry(ctx, db.FindProgramMembershipForRegistryParams{ID: id, OrganizationID: tx.organizationID})
 	if err != nil {
@@ -217,6 +353,22 @@ func program(row db.Program) (Program, error) {
 		return Program{}, err
 	}
 	return Program{ID: row.ID, OrganizationID: row.OrganizationID, SchoolYearID: row.SchoolYearID, Name: row.Name, CreatedAt: createdAt, UpdatedAt: updatedAt}, nil
+}
+
+func interestArea(row db.InterestArea) (InterestArea, error) {
+	createdAt, err := programTime(row.CreatedAt, "created_at")
+	if err != nil {
+		return InterestArea{}, err
+	}
+	updatedAt, err := programTime(row.UpdatedAt, "updated_at")
+	if err != nil {
+		return InterestArea{}, err
+	}
+	var retiredAt *time.Time
+	if row.RetiredAt.Valid {
+		retiredAt = &row.RetiredAt.Time
+	}
+	return InterestArea{ID: row.ID, OrganizationID: row.OrganizationID, SchoolYearID: row.SchoolYearID, ProgramID: row.ProgramID, Label: row.Label, Ordinal: int(row.Ordinal), RetiredAt: retiredAt, CreatedAt: createdAt, UpdatedAt: updatedAt}, nil
 }
 
 func programMembershipFromCreate(row db.ProgramMembership) (ProgramMembership, error) {

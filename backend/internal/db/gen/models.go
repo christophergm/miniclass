@@ -351,6 +351,18 @@ type Homeroom struct {
 	SchoolYearID       ids.XID            `json:"school_year_id"`
 }
 
+type InterestArea struct {
+	ID             ids.XID            `json:"id"`
+	OrganizationID ids.XID            `json:"organization_id"`
+	SchoolYearID   ids.XID            `json:"school_year_id"`
+	ProgramID      ids.XID            `json:"program_id"`
+	Label          string             `json:"label"`
+	Ordinal        int32              `json:"ordinal"`
+	RetiredAt      pgtype.Timestamptz `json:"retired_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Organization struct {
 	ID            ids.XID            `json:"id"`
 	Name          string             `json:"name"`

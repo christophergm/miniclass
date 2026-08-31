@@ -9,6 +9,16 @@
 - Open items: human review of PR #150; the PR is open, non-draft, references `Fixes #139`, and has no actionable review comments.
 - Skill draft: no — existing tenant-entity and isolation-harness skills cover the reusable procedure; no new broadly reusable method was discovered.
 
+## Current handoff — issue #142
+
+- Scope: Programme-scoped, year-scoped `interest_areas` vocabulary with stable xid identity, mutable labels, ordinal ordering, soft retirement/reactivation, audited service/API mutations, closed-year trigger protection, Layer 2 registry coverage, and frontend management wiring. Governing contract: SPEC §§8.7, 9.1–9.2, 12.1, 12.3–12.4, 20.1; ADRs 0007, 0008, 0010.
+- Key files: `backend/migrations/20260831110000_interest_areas.sql`, `backend/sql/queries/program.sql`, `backend/internal/data/program.go`, `backend/internal/program/service.go`, `backend/internal/api/handlers/program.go`, `backend/internal/testing/registry/interest_area.go`, `backend/tests/integration/program_test.go`, and frontend program resource/page files.
+- Repository state: PR #152 is open from commit `a6dcedf`, rebased onto `origin/main` at `df361d3`.
+- Validation: `go test ./internal/...`, focused integration compile/registry test, `make lint-backend`, `make format`, and `make generate` pass. Database-backed integration cases skip locally because `TEST_DATABASE_URL` and `TEST_APP_DATABASE_URL` are unset. Frontend tests/build fail because `openapi-typescript` is unavailable; frontend lint fails because Bun cannot write its temp cache.
+- Validation: all ten required CI checks pass on PR #152 head `a6dcedf`; no actionable review comments remain. Local root backend/smoke gates remain environment-blocked by the existing `/miniclass-postgres` name conflict or missing `.env`, while migration round-trip lacks its configured URL.
+- Open items: Detent owns the completion-lane transition after this handoff; no dependency blocker or human action is declared.
+- Skill draft: no — the existing tenant-entity and isolation-harness skills cover the reusable procedure; no new broadly reusable method was discovered.
+
 ## Current handoff — issue #140
 
 - Scope: Split the year-scoped grade/homeroom vocabulary into `/y/:schoolYearId/vocabulary` and keep the organisation label plus owner-only administrators at top-level `/settings`, including closed-year read-only treatment and setup guidance.

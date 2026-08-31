@@ -23,6 +23,7 @@ export type ImportKind = 'roster_json' | 'grades_csv'
 export type Program = Schemas['ProgramResponse']
 export type ProgramMembership = Schemas['ProgramMembershipResponse']
 export type ProgramRosterSummary = Schemas['ProgramRosterSummaryResponse']
+export type InterestArea = Schemas['InterestAreaResponse']
 
 export const resourceApi = {
   getHealth: () => unwrap(api.GET('/api/health')),
@@ -44,6 +45,9 @@ export const resourceApi = {
 
   listPrograms: (schoolYearID: string) => unwrapList(api.GET('/api/school-years/{schoolYearID}/programs', { params: { path: { schoolYearID } } })),
   createProgram: (schoolYearID: string, name: string) => unwrap(api.POST('/api/school-years/{schoolYearID}/programs', { params: { path: { schoolYearID } }, body: { name } })),
+  listInterestAreas: (schoolYearID: string, programID: string, includeRetired = true) => unwrapList(api.GET('/api/school-years/{schoolYearID}/programs/{programID}/interest-areas', { params: { path: { schoolYearID, programID }, query: { include_retired: includeRetired } } })),
+  createInterestArea: (schoolYearID: string, programID: string, label: string) => unwrap(api.POST('/api/school-years/{schoolYearID}/programs/{programID}/interest-areas', { params: { path: { schoolYearID, programID } }, body: { label } })),
+  updateInterestArea: (schoolYearID: string, programID: string, interestAreaID: string, value: Schemas['UpdateInterestAreaInputBody']) => unwrap(api.PATCH('/api/school-years/{schoolYearID}/programs/{programID}/interest-areas/{interestAreaID}', { params: { path: { schoolYearID, programID, interestAreaID } }, body: value })),
   listProgramMemberships: (schoolYearID: string, programID: string) => unwrapList(api.GET('/api/school-years/{schoolYearID}/programs/{programID}/memberships', { params: { path: { schoolYearID, programID } } })),
   addProgramMembership: (schoolYearID: string, programID: string, studentID: string) => unwrap(api.POST('/api/school-years/{schoolYearID}/programs/{programID}/memberships', { params: { path: { schoolYearID, programID } }, body: { student_id: studentID } })),
   removeProgramMembership: (schoolYearID: string, programID: string, membershipID: string) => unwrapNoContent(api.DELETE('/api/school-years/{schoolYearID}/programs/{programID}/memberships/{membershipID}', { params: { path: { schoolYearID, programID, membershipID } } })),

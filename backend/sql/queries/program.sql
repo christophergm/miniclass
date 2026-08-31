@@ -10,6 +10,40 @@ from programs where organization_id = $1 and school_year_id = $2 order by name, 
 select id, organization_id, school_year_id, name, created_at, updated_at
 from programs where id = $1 and organization_id = $2 and school_year_id = $3;
 
+-- name: CreateInterestArea :one
+insert into interest_areas (organization_id, school_year_id, program_id, label, ordinal)
+values ($1, $2, $3, $4, $5)
+returning id, organization_id, school_year_id, program_id, label, ordinal, retired_at, created_at, updated_at;
+
+-- name: ListInterestAreas :many
+select id, organization_id, school_year_id, program_id, label, ordinal, retired_at, created_at, updated_at
+from interest_areas
+where organization_id = $1 and school_year_id = $2 and program_id = $3 and retired_at is null
+order by ordinal, id;
+
+-- name: ListAllInterestAreas :many
+select id, organization_id, school_year_id, program_id, label, ordinal, retired_at, created_at, updated_at
+from interest_areas
+where organization_id = $1 and school_year_id = $2 and program_id = $3
+order by ordinal, id;
+
+-- name: GetInterestArea :one
+select id, organization_id, school_year_id, program_id, label, ordinal, retired_at, created_at, updated_at
+from interest_areas
+where id = $1 and organization_id = $2 and school_year_id = $3 and program_id = $4;
+
+-- name: UpdateInterestArea :one
+update interest_areas
+set label = $2
+where id = $1 and organization_id = $3 and school_year_id = $4 and program_id = $5
+returning id, organization_id, school_year_id, program_id, label, ordinal, retired_at, created_at, updated_at;
+
+-- name: SetInterestAreaRetired :one
+update interest_areas
+set retired_at = case when $2::boolean then coalesce(retired_at, now()) else null end
+where id = $1 and organization_id = $3 and school_year_id = $4 and program_id = $5
+returning id, organization_id, school_year_id, program_id, label, ordinal, retired_at, created_at, updated_at;
+
 -- name: CreateProgramMembership :one
 insert into program_memberships (organization_id, school_year_id, program_id, student_id)
 values ($1, $2, $3, $4)
@@ -49,6 +83,25 @@ delete from programs where id = $1 and organization_id = $2;
 -- name: ListAllProgramMembershipsForRegistry :many
 select id, organization_id, school_year_id, program_id, student_id, created_at, updated_at
 from program_memberships where organization_id = $1 order by id;
+
+-- name: ListAllInterestAreasForRegistry :many
+select id, organization_id, school_year_id, program_id, label, ordinal, retired_at, created_at, updated_at
+from interest_areas where organization_id = $1 order by school_year_id, program_id, ordinal, id;
+
+-- name: FindInterestAreaForRegistry :one
+select id, organization_id, school_year_id, program_id, label, ordinal, retired_at, created_at, updated_at
+from interest_areas where id = $1 and organization_id = $2;
+
+-- name: UpdateInterestAreaForRegistry :execrows
+update interest_areas set label = $3 where id = $1 and organization_id = $2;
+
+-- name: RetireInterestAreaForRegistry :execrows
+update interest_areas set retired_at = coalesce(retired_at, now()) where id = $1 and organization_id = $2;
+
+-- name: ListInterestAreasForProgramOrdinal :one
+select coalesce(max(ordinal), 0)::integer + 1
+from interest_areas
+where organization_id = $1 and school_year_id = $2 and program_id = $3;
 
 -- name: FindProgramMembershipForRegistry :one
 select id, organization_id, school_year_id, program_id, student_id, created_at, updated_at
