@@ -40,10 +40,10 @@
 ## Current work — issue #162
 
 - Scope: Move assignment objective tuning from programme/session authoring into dedicated pages per SPEC §§5.2, 12.1, 14.1, 17.4, 17.7, 20.2, 22.4.
-- Implementation in progress: `frontend/src/features/programs/ProgramPages.tsx` now has dedicated programme and session objective pages with all 13 parameters, explanations, effective/inherited display, explicit session audit reason, and closed-year read-only behavior; `frontend/src/App.tsx` adds both routes; authoring pages link to them and no longer render objective inputs.
-- Tests added for discoverability, route presentation, all parameters, edits, inherited/effective values, and closed-year disabling.
-- Validation: local `make generate`, backend lint/format, backend generated-code drift, and `git diff --check` pass. Local frontend commands are unavailable because dependencies are not installed. PR #167 workflow-dispatch validation for head `7d19911` passes all ten required checks; GitHub's PR-specific check view is not populated by workflow-dispatch.
-- Open items: none; PR #167 is open, non-draft, references `Fixes #162`, and has no actionable review comments. Detent owns the completion-lane transition.
+- Rework: rebased the objective-page implementation onto `origin/main` at `c9dc70b`; resolved the `ProgramPages.test.tsx` conflict by retaining both the #161 lifecycle assertions and #162 objective assertions.
+- Implementation: `frontend/src/features/programs/ProgramPages.tsx` has dedicated programme and session objective pages with all 13 parameters, explanations, effective/inherited display, explicit session audit reason, and closed-year read-only behavior; `frontend/src/App.tsx` adds both routes; authoring pages link to them and no longer render objective inputs.
+- Validation: `make lint-backend`, `make format`, `make generate && git diff --exit-code`, and `git diff --check` pass. `make check` and `make test-backend` stop at Docker address-pool exhaustion; migration round-trip lacks its URL; frontend test/build lack `openapi-typescript`; frontend lint cannot write Bun's temp cache; smoke lacks `.env`.
+- Open items: push the rebased branch, verify current-head CI and PR comments/state, then complete the Workpad handoff. No skill draft; this is a focused frontend conflict resolution with no reusable procedure discovered.
 - Skill draft: no — this is a focused frontend relocation using existing objective API/hooks; no broadly reusable procedure was discovered.
 
 ## Current work — issue #149
