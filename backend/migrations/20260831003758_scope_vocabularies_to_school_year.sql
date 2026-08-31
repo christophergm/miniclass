@@ -39,6 +39,16 @@ alter table homerooms
         foreign key (school_year_id, organization_id)
         references school_years (id, organization_id) on delete cascade;
 
+-- The existing indexes enforce uniqueness across the entire organization. They
+-- must be removed before fan-out, because each source row is copied once per
+-- school year and therefore intentionally duplicates its code/name/ordinal.
+drop index grade_levels_code_idx;
+drop index grade_levels_ordinal_idx;
+drop index grade_levels_picker_idx;
+drop index homerooms_name_idx;
+drop index homerooms_external_identifier_idx;
+drop index homerooms_picker_idx;
+
 insert into grade_levels (
     id, organization_id, school_year_id, code, label, ordinal, retired_at, created_at, updated_at
 )
@@ -59,6 +69,11 @@ from homerooms
 join school_years on school_years.organization_id = homerooms.organization_id
 where homerooms.school_year_id is null;
 
+-- Repointing existing students is part of the atomic schema transformation,
+-- including students in closed years. It is not an organizer mutation and must
+-- not require a per-year reopen reason.
+alter table students disable trigger students_closed_year_guard;
+
 update students
 set grade_level_id = copied.id
 from grade_levels original, grade_levels copied
@@ -78,6 +93,8 @@ where original.id = students.homeroom_id
   and copied.organization_id = students.organization_id
   and copied.school_year_id = students.school_year_id
   and lower(copied.name) = lower(original.name);
+
+alter table students enable trigger students_closed_year_guard;
 
 -- The old organization-scoped rows are intentionally retained until every
 -- student reference has been reconstructed against its year's copy.
@@ -107,6 +124,19 @@ begin
         raise exception 'unable to backfill student homeroom references';
     end if;
 
+end;
+$$;
+-- +goose StatementEnd
+
+delete from grade_levels where school_year_id is null;
+delete from homerooms where school_year_id is null;
+
+-- Every original row has now been replaced by copies assigned to a year.
+-- Keep these checks after deleting the source rows; before that point the
+-- intentionally retained originals still have NULL school_year_id.
+-- +goose StatementBegin
+do $$
+begin
     if exists (
         select 1 from grade_levels where school_year_id is null
     ) then
@@ -122,18 +152,12 @@ end;
 $$;
 -- +goose StatementEnd
 
-delete from grade_levels where school_year_id is null;
-delete from homerooms where school_year_id is null;
-
 alter table grade_levels
     alter column school_year_id set not null;
 
 alter table homerooms
     alter column school_year_id set not null;
 
-drop index grade_levels_code_idx;
-drop index grade_levels_ordinal_idx;
-drop index grade_levels_picker_idx;
 create unique index grade_levels_code_idx
     on grade_levels (organization_id, school_year_id, lower(code));
 create unique index grade_levels_ordinal_idx
@@ -142,9 +166,6 @@ create index grade_levels_picker_idx
     on grade_levels (organization_id, school_year_id, ordinal, id)
     where retired_at is null;
 
-drop index homerooms_name_idx;
-drop index homerooms_external_identifier_idx;
-drop index homerooms_picker_idx;
 create unique index homerooms_name_idx
     on homerooms (organization_id, school_year_id, lower(name));
 create unique index homerooms_external_identifier_idx
@@ -193,6 +214,10 @@ alter table grade_levels
 alter table homerooms
     drop constraint homerooms_school_year_fk;
 
+-- Down also repoints students across closed years as part of the schema
+-- reversal, not as an organizer mutation.
+alter table students disable trigger students_closed_year_guard;
+
 with ranked as (
     select id,
            first_value(id) over (
@@ -218,6 +243,8 @@ update students
 set homeroom_id = ranked.keep_id
 from ranked
 where ranked.id = students.homeroom_id;
+
+alter table students enable trigger students_closed_year_guard;
 
 delete from grade_levels duplicate
 using (
