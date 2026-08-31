@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ApiError } from '@/lib/api'
-import type { CatalogFeasibilityWarning, InterestArea, ObjectiveWeights, Offering, SchoolYear, Session, SessionNonParticipation } from '@/lib/apiResources'
+import type { CatalogFeasibilityWarning, InterestArea, ObjectiveWeightOverrides, ObjectiveWeights, Offering, SchoolYear, Session, SessionNonParticipation } from '@/lib/apiResources'
 import { activeGradeLevels } from '@/lib/apiResources'
 import { usePeople } from '@/features/people/roster-queries'
 import { useVocabulary } from '@/lib/hooks/useVocabulary'
@@ -69,20 +69,17 @@ export function ProgramMembershipPage() {
   const addMembership = useAddProgramMembership(schoolYearId ?? '', programId ?? '')
   const removeMembership = useRemoveProgramMembership(schoolYearId ?? '', programId ?? '')
   const createSession = useCreateSession(schoolYearId ?? '', programId ?? '')
-  const weights = useProgramObjectiveWeights(schoolYearId, programId)
-  const updateWeights = useUpdateProgramObjectiveWeights(schoolYearId ?? '', programId ?? '')
   const [areaLabel, setAreaLabel] = useState('')
   const [studentId, setStudentId] = useState('')
   const [sessionName, setSessionName] = useState('')
   const [sessionOrdinal, setSessionOrdinal] = useState('1')
   const [sessionDates, setSessionDates] = useState('')
-  const [weightDraft, setWeightDraft] = useState<ObjectiveWeights | null>(null)
   const orderedAreas = [...(areas.data ?? [])].sort((a, b) => a.ordinal - b.ordinal)
   if (!schoolYearId || !programId) return <PageFrame><p>Program is required.</p></PageFrame>
   const submitSession = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); createSession.mutate({ name: sessionName, ordinal: Number(sessionOrdinal), meeting_dates: sessionDates.split(',').map((date) => date.trim()).filter(Boolean) }, { onSuccess: () => { setSessionName(''); setSessionDates('') } }) }
   return <PageFrame>
     <p className="text-sm font-medium text-primary"><Link className="hover:underline" to={`/y/${schoolYearId}/programs`}>Programs</Link> / authoring</p>
-    <div className="mt-2 flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-3xl font-semibold tracking-tight">{selected?.name ?? 'Program'}</h1><p className="mt-2 text-sm text-muted-foreground">Programme membership is annual; session non-participation is recorded separately.</p></div><Button asChild variant="outline"><Link to={`/y/${schoolYearId}/programs`}>All programs</Link></Button></div>
+    <div className="mt-2 flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-3xl font-semibold tracking-tight">{selected?.name ?? 'Program'}</h1><p className="mt-2 text-sm text-muted-foreground">Programme membership is annual; session non-participation is recorded separately.</p></div><div className="flex gap-2"><Button asChild variant="outline"><Link to={`/y/${schoolYearId}/programs/${programId}/objectives`}>Assignment objectives</Link></Button><Button asChild variant="outline"><Link to={`/y/${schoolYearId}/programs`}>All programs</Link></Button></div></div>
     {readOnly && <ReadOnlyNotice />}
     <Card title="Interest areas" description="Stable area identities keep historical offering labels intact. Retire an area instead of deleting it.">
       <form className="mt-4 flex gap-3" onSubmit={(event) => { event.preventDefault(); if (areaLabel.trim()) createArea.mutate(areaLabel.trim(), { onSuccess: () => setAreaLabel('') }) }}><Input aria-label="Interest-area label" disabled={readOnly} onChange={(event) => setAreaLabel(event.target.value)} placeholder="Interest-area label" value={areaLabel} /><Button disabled={readOnly || createArea.isPending || !areaLabel.trim()} type="submit">Add area</Button></form>{createArea.isError && <Problem error={createArea.error} fallback="Unable to add the interest area." />}
@@ -96,13 +93,86 @@ export function ProgramMembershipPage() {
       <form className="mt-4 grid gap-3 sm:grid-cols-[1fr_7rem_2fr_auto]" onSubmit={submitSession}><Input aria-label="Session name" disabled={readOnly} onChange={(event) => setSessionName(event.target.value)} placeholder="Session name" value={sessionName} /><Input aria-label="Session ordinal" disabled={readOnly} min="1" onChange={(event) => setSessionOrdinal(event.target.value)} type="number" value={sessionOrdinal} /><Input aria-label="Meeting dates" disabled={readOnly} onChange={(event) => setSessionDates(event.target.value)} placeholder="2026-10-02, 2026-10-09" value={sessionDates} /><Button disabled={readOnly || createSession.isPending || !sessionName.trim() || !sessionDates.trim()} type="submit">Create session</Button></form>{createSession.isError && <Problem error={createSession.error} fallback="Unable to create the session." />}
       <div className="mt-5 grid gap-3 sm:grid-cols-2">{(sessions.data ?? []).map((session) => <Link className="rounded-md border p-4 hover:border-primary/50" key={session.id} to={`/y/${schoolYearId}/programs/${programId}/sessions/${session.id}`}><div className="flex items-center justify-between gap-3"><h3 className="font-medium">{session.ordinal}. {session.name}</h3><span className="rounded-full bg-secondary px-2 py-1 text-xs">{stateLabel(session.state)}</span></div><p className="mt-2 text-sm text-muted-foreground">{session.meeting_dates?.length ?? 0} meeting dates · {(session.feasibility_warnings ?? []).length} warning{session.feasibility_warnings?.length === 1 ? '' : 's'}</p></Link>)}</div>
     </Card>
-    {weights.data && <Card title="Assignment objective defaults" description="Defaults are configuration for later assignment phases, not a gate on authoring."><form className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" onSubmit={(event) => { event.preventDefault(); if (weightDraft) updateWeights.mutate(weightDraft) }}>{weightFields.map(({ key, label }) => <label className="text-sm" key={key}>{label}<Input className="mt-1" disabled={readOnly} min={key === 'rank_high_max' ? 2 : 0} onChange={(event) => setWeightDraft({ ...(weightDraft ?? weights.data.defaults), [key]: Number(event.target.value) })} type="number" step="0.01" value={String((weightDraft ?? weights.data.defaults)[key])} /></label>)}<Button className="sm:col-span-2 lg:col-span-3" disabled={readOnly || updateWeights.isPending} type="submit">Save objective defaults</Button></form>{updateWeights.isError && <Problem error={updateWeights.error} fallback="Unable to save objective defaults." />}</Card>}
   </PageFrame>
 }
 
-const weightFields: { key: keyof ObjectiveWeights; label: string }[] = [
-  { key: 'rank_high_max', label: 'Highest ranked choice' }, { key: 'deficit_unwanted_increment', label: 'Unwanted deficit increment' }, { key: 'deficit_neutral_increment', label: 'Neutral deficit increment' }, { key: 'deficit_acceptable_increment', label: 'Acceptable deficit increment' }, { key: 'deficit_influence', label: 'Deficit influence' }, { key: 'repeat_offering_penalty', label: 'Repeat offering penalty' }, { key: 'repeat_interest_area_penalty', label: 'Repeat interest-area penalty' }, { key: 'tag_prefers_weight', label: 'Preferred tag weight' }, { key: 'tag_discourages_weight', label: 'Discouraged tag weight' }, { key: 'pairing_prefers_weight', label: 'Preferred pairing weight' }, { key: 'pairing_discourages_weight', label: 'Discouraged pairing weight' }, { key: 'below_minimum_enrollment_penalty', label: 'Below minimum penalty' }, { key: 'tag_balance_penalty', label: 'Tag balance penalty' },
+type WeightKey = keyof ObjectiveWeights
+type WeightField = { key: WeightKey; label: string; explanation: string }
+
+const weightFields: WeightField[] = [
+  { key: 'rank_high_max', label: 'Highest ranked choice', explanation: 'Sets the top of the quality scale used when ranked choices are evaluated.' },
+  { key: 'deficit_unwanted_increment', label: 'Unwanted deficit increment', explanation: 'Controls how quickly an Unwanted outcome increases a student’s fairness deficit.' },
+  { key: 'deficit_neutral_increment', label: 'Neutral deficit increment', explanation: 'Controls how quickly a Neutral outcome increases a student’s fairness deficit.' },
+  { key: 'deficit_acceptable_increment', label: 'Acceptable deficit increment', explanation: 'Controls how quickly an Acceptable outcome increases a student’s fairness deficit.' },
+  { key: 'deficit_influence', label: 'Deficit influence', explanation: 'Sets how strongly past unfairness influences this session’s placements.' },
+  { key: 'repeat_offering_penalty', label: 'Repeat offering penalty', explanation: 'Discourages placing a student in an offering they have already received.' },
+  { key: 'repeat_interest_area_penalty', label: 'Repeat interest-area penalty', explanation: 'Discourages repeating an interest area across a student’s placements.' },
+  { key: 'tag_prefers_weight', label: 'Preferred tag weight', explanation: 'Controls how much a preferred tag contributes to the assignment objective.' },
+  { key: 'tag_discourages_weight', label: 'Discouraged tag weight', explanation: 'Controls how much a discouraged tag contributes to the assignment objective.' },
+  { key: 'pairing_prefers_weight', label: 'Preferred pairing weight', explanation: 'Controls the strength of a preferred student pairing.' },
+  { key: 'pairing_discourages_weight', label: 'Discouraged pairing weight', explanation: 'Controls the strength of a discouraged student pairing.' },
+  { key: 'below_minimum_enrollment_penalty', label: 'Below minimum penalty', explanation: 'Discourages creating offerings below their minimum viable enrollment.' },
+  { key: 'tag_balance_penalty', label: 'Tag balance penalty', explanation: 'Discourages imbalance in tag distribution across offerings.' },
 ]
+
+const objectiveDescription = 'These settings tune how the automated placement engine weighs competing outcomes when generating assignments. They do not restrict catalogue authoring or prevent a session from proceeding.'
+
+function WeightInput({ field, value, disabled, onChange, override = false }: { field: WeightField; value: number | null | undefined; disabled: boolean; onChange: (value: number | null) => void; override?: boolean }) {
+  return <div className="grid gap-3 border-b py-4 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_12rem]"><div><label className="font-medium" htmlFor={`objective-${field.key}-${override ? 'override' : 'default'}`}>{field.label}</label><p className="mt-1 text-sm text-muted-foreground">{field.explanation}</p></div><Input aria-label={`${field.label}${override ? ' override' : ''}`} disabled={disabled} id={`objective-${field.key}-${override ? 'override' : 'default'}`} min={field.key === 'rank_high_max' ? 2 : 0} onChange={(event) => onChange(event.target.value === '' ? null : Number(event.target.value))} placeholder={value == null ? undefined : String(value)} step={field.key === 'rank_high_max' ? '1' : '0.01'} type="number" value={value == null ? '' : String(value)} /></div>
+}
+
+function ObjectiveHeader({ breadcrumb, title, description, backTo }: { breadcrumb: ReactNode; title: string; description: string; backTo: string }) {
+  return <><p className="text-sm font-medium text-primary">{breadcrumb}</p><div className="mt-2 flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-3xl font-semibold tracking-tight">{title}</h1><p className="mt-2 max-w-3xl text-sm text-muted-foreground">{description}</p></div><Link className="text-sm font-medium text-primary hover:underline" to={backTo}>Back to authoring</Link></div></>
+}
+
+export function ProgramObjectiveWeightsPage() {
+  const { schoolYearId, programId } = useParams<{ schoolYearId: string; programId: string }>()
+  const year = useOutletContext<SchoolYear>()
+  const programs = usePrograms(schoolYearId)
+  const weights = useProgramObjectiveWeights(schoolYearId, programId)
+  const update = useUpdateProgramObjectiveWeights(schoolYearId ?? '', programId ?? '')
+  const [draft, setDraft] = useState<ObjectiveWeights | null>(null)
+  const readOnly = year.state === 'closed'
+  const program = programs.data?.find((item) => item.id === programId)
+  if (!schoolYearId || !programId) return <PageFrame><p>Programme is required.</p></PageFrame>
+  if (weights.isLoading) return <PageFrame><p role="status">Loading assignment objectives…</p></PageFrame>
+  if (weights.isError || !weights.data) return <PageFrame><Problem error={weights.error} fallback="Unable to load assignment objectives." /></PageFrame>
+  const values = draft ?? weights.data.defaults
+  return <PageFrame>
+    <ObjectiveHeader breadcrumb={<><Link className="hover:underline" to={`/y/${schoolYearId}/programs`}>Programs</Link> / <Link className="hover:underline" to={`/y/${schoolYearId}/programs/${programId}`}>{program?.name ?? 'Program'}</Link></>} title="Assignment objectives" description={objectiveDescription} backTo={`/y/${schoolYearId}/programs/${programId}`} />
+    {readOnly && <ReadOnlyNotice />}
+    <Card title="Programme defaults" description="These defaults apply to every session unless a session has an explicit override."><form onSubmit={(event) => { event.preventDefault(); update.mutate(values, { onSuccess: () => setDraft(null) }) }}><div className="mt-2">{weightFields.map((field) => <WeightInput field={field} key={field.key} value={values[field.key]} disabled={readOnly} onChange={(value) => setDraft({ ...values, [field.key]: value ?? 0 })} />)}</div><Button className="mt-5" disabled={readOnly || update.isPending} type="submit">Save programme defaults</Button></form>{update.isError && <Problem error={update.error} fallback="Unable to save programme defaults." />}</Card>
+  </PageFrame>
+}
+
+export function SessionObjectiveWeightsPage() {
+  const { schoolYearId, programId, sessionId } = useParams<{ schoolYearId: string; programId: string; sessionId: string }>()
+  const year = useOutletContext<SchoolYear>()
+  const session = useSession(schoolYearId, programId, sessionId)
+  const programs = usePrograms(schoolYearId)
+  const weights = useSessionObjectiveWeights(schoolYearId, programId, sessionId)
+  const update = useUpdateSessionObjectiveWeights(schoolYearId ?? '', programId ?? '', sessionId ?? '')
+  const [draft, setDraft] = useState<ObjectiveWeightOverrides | null>(null)
+  const [reason, setReason] = useState('')
+  const readOnly = year.state === 'closed'
+  const program = programs.data?.find((item) => item.id === programId)
+  if (!schoolYearId || !programId || !sessionId) return <PageFrame><p>Session is required.</p></PageFrame>
+  if (session.isLoading || weights.isLoading) return <PageFrame><p role="status">Loading assignment objectives…</p></PageFrame>
+  if (session.isError || !session.data || weights.isError || !weights.data) return <PageFrame><Problem error={session.error || weights.error} fallback="Unable to load assignment objectives." /></PageFrame>
+  const current = session.data
+  const values = draft ?? weights.data.overrides
+  const overrideValue = (key: WeightKey) => values[key] === undefined ? null : values[key]
+  const save = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const overrides = weightFields.reduce((result, field) => ({ ...result, [field.key]: overrideValue(field.key) }), {} as ObjectiveWeightOverrides)
+    update.mutate({ overrides, reason: reason.trim() }, { onSuccess: () => { setDraft(null); setReason('') } })
+  }
+  return <PageFrame>
+    <ObjectiveHeader breadcrumb={<><Link className="hover:underline" to={`/y/${schoolYearId}/programs`}>Programs</Link> / <Link className="hover:underline" to={`/y/${schoolYearId}/programs/${programId}`}>{program?.name ?? 'Program'}</Link> / <Link className="hover:underline" to={`/y/${schoolYearId}/programs/${programId}/sessions/${sessionId}`}>{current.name}</Link></>} title="Assignment objectives" description={objectiveDescription} backTo={`/y/${schoolYearId}/programs/${programId}/sessions/${sessionId}`} />
+    {readOnly && <ReadOnlyNotice />}
+    <Card title="Session overrides" description="Leave a parameter blank to inherit the programme default. An explicit override is shown alongside its effective value."><form onSubmit={save}><div className="mt-2">{weightFields.map((field) => { const override = overrideValue(field.key); const effective = weights.data.effective[field.key]; const inherited = override == null; return <div key={field.key}><WeightInput field={field} override value={override} disabled={readOnly} onChange={(value) => setDraft({ ...(values as ObjectiveWeightOverrides), [field.key]: value })} /><p className="-mt-2 mb-2 text-sm text-muted-foreground">Effective value: <strong>{effective}</strong> · {inherited ? `Inherited programme default: ${weights.data.defaults[field.key]}` : `Session override: ${override}`}</p></div> })}</div><label className="mt-5 block text-sm font-medium" htmlFor="objective-reason">Reason for these session overrides<Input aria-label="Reason for these session overrides" className="mt-1" disabled={readOnly} id="objective-reason" onChange={(event) => setReason(event.target.value)} placeholder="Explain this tuning change" value={reason} /></label><Button className="mt-4" disabled={readOnly || update.isPending || !reason.trim()} type="submit">Save session overrides</Button></form>{update.isError && <Problem error={update.error} fallback="Unable to save session overrides." />}</Card>
+  </PageFrame>
+}
 
 const nextStates: Record<string, string[]> = { planning: ['catalog_published'], catalog_published: ['voting_open', 'assigning'], voting_open: ['voting_closed'], voting_closed: ['assigning', 'voting_open'], assigning: ['published', 'voting_closed'], published: ['complete', 'assigning'], complete: [] }
 const confirmationTransitions = new Set(['voting_closed:voting_open', 'assigning:voting_closed', 'published:assigning'])
@@ -123,7 +193,6 @@ export function SessionPage() {
   const vocabulary = useVocabulary(schoolYearId)
   const memberships = useProgramMemberships(schoolYearId, programId)
   const exclusions = useSessionNonParticipations(schoolYearId, programId, sessionId)
-  const objectiveWeights = useSessionObjectiveWeights(schoolYearId, programId, sessionId)
   const createDate = useCreateMeetingDate(schoolYearId ?? '', programId ?? '', sessionId ?? '')
   const updateDate = useUpdateMeetingDate(schoolYearId ?? '', programId ?? '', sessionId ?? '')
   const deleteDate = useDeleteMeetingDate(schoolYearId ?? '', programId ?? '', sessionId ?? '')
@@ -135,7 +204,6 @@ export function SessionPage() {
   const updateExclusion = useUpdateSessionNonParticipation(schoolYearId ?? '', programId ?? '', sessionId ?? '')
   const deleteExclusion = useDeleteSessionNonParticipation(schoolYearId ?? '', programId ?? '', sessionId ?? '')
   const updateSession = useUpdateSession(schoolYearId ?? '', programId ?? '')
-  const updateObjectiveWeights = useUpdateSessionObjectiveWeights(schoolYearId ?? '', programId ?? '', sessionId ?? '')
   const [newDate, setNewDate] = useState('')
   const [transitionState, setTransitionState] = useState('')
   const [transitionReason, setTransitionReason] = useState('')
@@ -144,7 +212,6 @@ export function SessionPage() {
   const [sessionOrdinal, setSessionOrdinal] = useState('')
   const [studentId, setStudentId] = useState('')
   const [reason, setReason] = useState('')
-  const [override, setOverride] = useState('')
   const [editingOffering, setEditingOffering] = useState<string | null>(null)
   const gradeLevels = vocabulary.data ? activeGradeLevels(vocabulary.data) : []
   const excludedIds = useMemo(() => new Set((exclusions.data ?? []).map((item) => item.student_id)), [exclusions.data])
@@ -165,7 +232,6 @@ export function SessionPage() {
     <Warnings warnings={currentWarnings} participantCount={feasibility.data?.participant_count} />
     <OfferingSection readOnly={readOnly} offerings={offerings.data ?? []} grades={gradeLevels} areas={areas.data ?? []} create={createOffering} update={updateOffering} remove={deleteOffering} editingOffering={editingOffering} setEditingOffering={setEditingOffering} />
     <Card title="Session non-participation" description="This does not remove annual programme membership. Each exclusion requires an auditable reason."><form className="mt-4 grid gap-3 sm:grid-cols-[1fr_2fr_auto]" onSubmit={(event) => { event.preventDefault(); if (studentId && reason.trim()) createExclusion.mutate({ student_id: studentId, reason: reason.trim() }, { onSuccess: () => { setStudentId(''); setReason('') } }) }}><select aria-label="Non-participating student" className="h-9 rounded-md border bg-transparent px-3 text-sm" disabled={readOnly} onChange={(event) => setStudentId(event.target.value)} value={studentId}><option value="">Choose a programme member</option>{(memberships.data ?? []).filter((member) => !excludedIds.has(member.student_id)).map((member) => <option key={member.student_id} value={member.student_id}>{member.legal_given_name} {member.legal_family_name}</option>)}</select><Input aria-label="Non-participation reason" disabled={readOnly} onChange={(event) => setReason(event.target.value)} placeholder="Reason (required)" value={reason} /><Button disabled={readOnly || !studentId || !reason.trim() || createExclusion.isPending} type="submit">Mark not participating</Button></form><Table className="mt-6" aria-label="Session non-participation"><TableHeader><TableRow><TableHead>Student</TableHead><TableHead>Reason</TableHead><TableHead>Actions</TableHead></TableRow></TableHeader><TableBody>{(exclusions.data ?? []).map((item) => <NonParticipationRow item={item} key={item.id} readOnly={readOnly} update={updateExclusion} remove={deleteExclusion} studentName={(memberships.data ?? []).find((member) => member.student_id === item.student_id)?.legal_given_name ?? item.student_id} />)}</TableBody></Table>{createExclusion.isError && <Problem error={createExclusion.error} fallback="Unable to record non-participation." />}</Card>
-    {objectiveWeights.data && <Card title="Session objective overrides" description="The effective values combine programme defaults with optional overrides. The API records the authoring reason."><p className="mt-3 text-sm text-muted-foreground">Effective repeat-offering penalty: <strong>{objectiveWeights.data.effective.repeat_offering_penalty}</strong> · programme default: {objectiveWeights.data.defaults.repeat_offering_penalty}</p><form className="mt-4 flex flex-wrap items-end gap-3" onSubmit={(event) => { event.preventDefault(); updateObjectiveWeights.mutate({ overrides: { repeat_offering_penalty: override === '' ? null : Number(override) }, reason: 'Updated from session authoring' }) }}><label className="text-sm">Repeat offering penalty override<Input aria-label="Repeat offering penalty override" className="mt-1" disabled={readOnly} min="0" onChange={(event) => setOverride(event.target.value)} placeholder="Use programme default" type="number" step="0.01" value={override} /></label><Button disabled={readOnly || updateObjectiveWeights.isPending} type="submit">Save override</Button></form>{updateObjectiveWeights.isError && <Problem error={updateObjectiveWeights.error} fallback="Unable to save session objective overrides." />}</Card>}
   </PageFrame>
 }
 

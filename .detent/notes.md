@@ -37,6 +37,15 @@
 - Open items: Detent owns the completion-lane transition after this handoff; no dependency blocker or human action is declared.
 - Skill draft: no — the existing tenant-entity and isolation-harness skills cover the reusable procedure; no new broadly reusable method was discovered.
 
+## Current work — issue #162
+
+- Scope: Move assignment objective tuning from programme/session authoring into dedicated pages per SPEC §§5.2, 12.1, 14.1, 17.4, 17.7, 20.2, 22.4.
+- Implementation in progress: `frontend/src/features/programs/ProgramPages.tsx` now has dedicated programme and session objective pages with all 13 parameters, explanations, effective/inherited display, explicit session audit reason, and closed-year read-only behavior; `frontend/src/App.tsx` adds both routes; authoring pages link to them and no longer render objective inputs.
+- Tests added for discoverability, route presentation, all parameters, edits, inherited/effective values, and closed-year disabling.
+- Validation so far: `git diff --check` passes. Focused frontend tests could not start because the worktree has no installed `vitest`/frontend dependencies; CI or a dependency-enabled environment must run the frontend gates.
+- Open items: run available validation, inspect generated/type compatibility, commit/push, open PR with `Fixes #162`, verify CI/review comments, and update the issue Workpad completion status.
+- Skill draft: no — this is a focused frontend relocation using existing objective API/hooks; no broadly reusable procedure was discovered.
+
 ## Current work — issue #149
 
 - Scope: consolidate the Phase 3 programme/session/catalog authoring flow per SPEC §§12, 14, 8.3–8.5, and 22.4; dependencies #142–#148 are closed.

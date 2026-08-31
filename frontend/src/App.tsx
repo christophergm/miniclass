@@ -15,7 +15,7 @@ import { VocabularyPage } from '@/features/vocabulary/VocabularyPage'
 import { AdultDetailPage, AdultListPage, StudentDetailPage, StudentListPage } from '@/features/people/PeoplePages'
 import { AuditLog } from '@/features/audit/AuditLog'
 import { ImportPage } from '@/features/imports/ImportPage'
-import { ProgramListPage, ProgramMembershipPage, SessionPage } from '@/features/programs/ProgramPages'
+import { ProgramListPage, ProgramMembershipPage, ProgramObjectiveWeightsPage, SessionObjectiveWeightsPage, SessionPage } from '@/features/programs/ProgramPages'
 
 function App() {
   return (
@@ -52,7 +52,9 @@ function AppRoutes() {
             <Route path="vocabulary" element={<VocabularyPage />} />
             <Route path="programs" element={<ProgramListPage />} />
             <Route path="programs/:programId" element={<ProgramMembershipPage />} />
+            <Route path="programs/:programId/objectives" element={<ProgramObjectiveWeightsPage />} />
             <Route path="programs/:programId/sessions/:sessionId" element={<SessionPage />} />
+            <Route path="programs/:programId/sessions/:sessionId/objectives" element={<SessionObjectiveWeightsPage />} />
 
             {/* Students scoped to a school year */}
             <Route path="students" element={<StudentListPage />} />
