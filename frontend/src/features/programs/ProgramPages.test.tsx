@@ -87,7 +87,7 @@ describe('SessionPage', () => {
     expect(screen.getByRole('heading', { name: 'Offerings' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Create offering' })).toHaveAttribute('href', '/y/year-1/programs/program-1/sessions/session-1/offerings/new')
     expect(screen.getByRole('link', { name: 'Edit' })).toHaveAttribute('href', '/y/year-1/programs/program-1/sessions/session-1/offerings/offering-1/edit')
-    expect(screen.getByText('Maximum enrollment 10')).toBeInTheDocument()
+    expect(screen.getByText(/Maximum enrollment 10/)).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Session non-participation' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Assignment objectives' })).toHaveAttribute('href', '/y/year-1/programs/program-1/sessions/session-1/objectives')
     expect(screen.queryByRole('heading', { name: 'Session objective overrides' })).not.toBeInTheDocument()

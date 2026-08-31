@@ -189,7 +189,6 @@ export function SessionPage() {
   const selectedProgram = programs.data?.find((program) => program.id === programId)
   const dates = useMeetingDates(schoolYearId, programId, sessionId)
   const feasibility = useCatalogFeasibility(schoolYearId, programId, sessionId)
-  const areas = useProgramInterestAreas(schoolYearId, programId)
   const vocabulary = useVocabulary(schoolYearId)
   const memberships = useProgramMemberships(schoolYearId, programId)
   const exclusions = useSessionNonParticipations(schoolYearId, programId, sessionId)
