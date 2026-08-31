@@ -1,9 +1,8 @@
-## Current handoff — issue #127
+## Current handoff — issue #138
 
-- Scope: Gate annual program membership on a known student grade; governing contract SPEC §§5.2, 8.3, 10.1, 12.1, 14.2 and ADR 0014.
-- Key files: `backend/migrations/20260830200000_programmes.sql`, `backend/internal/data/program.go`, `backend/internal/program/service.go`, `backend/internal/api/handlers/program.go`, `frontend/src/features/programs/ProgramPages.tsx`.
-- Implementation: year-scoped `programs` and `program_memberships` tables with composite FKs, forced RLS and closed-year triggers; audited program/membership services; known-grade refusal names the student; later grade clearing retains and flags membership; missing-grade count links to the roster; generated sqlc/OpenAPI and frontend client/page are included.
-- Isolation: Layer 2 registry entries and integration coverage exercise both new tables, cross-tenant invisibility/mutation/foreign-parent rejection, and the grade gate/flag behavior with organization-scoped fixtures.
-- Validation: direct `go test -race -v ./...`, `make lint-backend`, `make format`, `make generate`, and `git diff --check` pass. `make test-backend` is blocked before tests by the existing `/miniclass-postgres` container-name conflict. Frontend test/build cannot start because `openapi-typescript` is not installed; frontend lint cannot write Bun temp files. Migration round-trip lacks `MIGRATION_ROUNDTRIP_DATABASE_URL`. Smoke requires `.env`.
-- Open items: stage, run cached whitespace/generated checks, commit/push, open/update PR with `Fixes #127` and SPEC/ADR citations, then verify CI/review state.
-- Skill draft: no — the reusable tenant-entity and backend procedures already exist and this change did not expose a new broadly reusable method.
+- Scope: Make the Layer 1 schema meta-test require year-scoped composite uniqueness and composite foreign keys; governed by SPEC §9.2 and ADR 0007 §5 (with ADR 0015 context).
+- Key file: `backend/tests/integration/isolation_test.go`.
+- Implementation: live `school_year_id` detection now gates `unique(id, organization_id, school_year_id)`; FK inspection checks both source and target year columns when the target has a live year column. Named exceptions are `audit_log` and `students.students_prior_year_fk`.
+- Validation: focused integration invocation, `go test -race -v ./...`, `make lint-backend`, `make format`, `make generate && git diff --exit-code`, and `git diff --check` pass. Local database-backed gates are limited by the existing `/miniclass-postgres` name conflict and missing environment prerequisites. PR #141 current head passed all ten required CI checks.
+- Open items: verify final PR/review state and leave the issue for Detent's completion-lane transition.
+- Skill draft: no — the reusable tenant-isolation harness guidance already covers this method; no new broadly reusable procedure was discovered.

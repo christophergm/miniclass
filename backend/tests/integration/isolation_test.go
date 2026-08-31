@@ -111,6 +111,15 @@ func verifySchemaContract(t *testing.T, harness *testharness.Harness) {
 	for _, table := range nonTenantTables {
 		allowlist[table] = struct{}{}
 	}
+	// These literals are the deliberate exceptions to the year-scoped schema
+	// contract. Adding a name here must be a visible, spec-cited change.
+	yearScopedUniqueKeyExceptions := map[string]struct{}{
+		"audit_log": {},
+	}
+	yearScopedForeignKeyExceptions := map[string]struct{}{
+		"audit_log":                      {},
+		"students.prior_year_student_id": {},
+	}
 
 	rows, err := harness.Migrator.Query(harness.Context, `
 		select c.relname
@@ -134,7 +143,7 @@ func verifySchemaContract(t *testing.T, harness *testharness.Harness) {
 		}
 		tenantTables[table] = struct{}{}
 
-		var hasOrganizationID, rlsEnabled, rlsForced, hasPolicy, hasUnique bool
+		var hasOrganizationID, hasSchoolYearID, rlsEnabled, rlsForced, hasPolicy, hasUnique, hasYearScopedUnique bool
 		err := harness.Migrator.QueryRow(harness.Context, `
 			select
 				exists (
@@ -147,6 +156,13 @@ func verifySchemaContract(t *testing.T, harness *testharness.Harness) {
 					  and typ.typnamespace = 'public'::regnamespace
 					  and typ.typname = 'xid20'
 				),
+				exists (
+					select 1
+					from pg_attribute year_attr
+					where year_attr.attrelid = c.oid
+					  and year_attr.attname = 'school_year_id'
+					  and not year_attr.attisdropped
+				),
 				c.relrowsecurity,
 				c.relforcerowsecurity,
 				exists (
@@ -155,32 +171,36 @@ func verifySchemaContract(t *testing.T, harness *testharness.Harness) {
 					  and p.tablename = c.relname
 					  and (coalesce(p.qual, '') || coalesce(p.with_check, '')) like '%app.organization_id%'
 				),
+					exists (
+						select 1
+						from pg_constraint con
+						where con.conrelid = c.oid
+						  and con.contype = 'u'
+						  and (
+							  (select array_agg(att.attname order by cols.ordinality)
+							   from unnest(con.conkey) with ordinality cols(attnum, ordinality)
+							   join pg_attribute att on att.attrelid = con.conrelid and att.attnum = cols.attnum)
+							      = array['id', 'organization_id']::name[]
+							  or (select array_agg(att.attname order by cols.ordinality)
+							      from unnest(con.conkey) with ordinality cols(attnum, ordinality)
+							      join pg_attribute att on att.attrelid = con.conrelid and att.attnum = cols.attnum)
+							      = array['id', 'organization_id', 'school_year_id']::name[]
+						  )
+				),
 				exists (
 					select 1
 					from pg_constraint con
 					where con.conrelid = c.oid
 					  and con.contype = 'u'
-					  and (
-						  (select array_agg(att.attname order by cols.ordinality)
-						   from unnest(con.conkey) with ordinality cols(attnum, ordinality)
-						   join pg_attribute att on att.attrelid = con.conrelid and att.attnum = cols.attnum)
-						      = array['id', 'organization_id']::name[]
-						  or (exists (
-							  select 1
-							  from pg_attribute year_attr
-							  where year_attr.attrelid = c.oid
-							    and year_attr.attname = 'school_year_id'
-							    and not year_attr.attisdropped
-						  ) and (select array_agg(att.attname order by cols.ordinality)
-						      from unnest(con.conkey) with ordinality cols(attnum, ordinality)
-						      join pg_attribute att on att.attrelid = con.conrelid and att.attnum = cols.attnum)
-						      = array['id', 'organization_id', 'school_year_id']::name[])
-					  )
+					  and (select array_agg(att.attname order by cols.ordinality)
+					       from unnest(con.conkey) with ordinality cols(attnum, ordinality)
+					       join pg_attribute att on att.attrelid = con.conrelid and att.attnum = cols.attnum)
+					      = array['id', 'organization_id', 'school_year_id']::name[]
 				)
 			from pg_class c
 			join pg_namespace n on n.oid = c.relnamespace
 			where n.nspname = current_schema() and c.relname = $1`, table).Scan(
-			&hasOrganizationID, &rlsEnabled, &rlsForced, &hasPolicy, &hasUnique,
+			&hasOrganizationID, &hasSchoolYearID, &rlsEnabled, &rlsForced, &hasPolicy, &hasUnique, &hasYearScopedUnique,
 		)
 		require.NoError(t, err)
 		require.True(t, hasOrganizationID, table+" lacks organization_id")
@@ -188,6 +208,10 @@ func verifySchemaContract(t *testing.T, harness *testharness.Harness) {
 		require.True(t, rlsForced, table+" does not force RLS")
 		require.True(t, hasPolicy, table+" lacks an app.organization_id policy")
 		require.True(t, hasUnique, table+" lacks unique(id, organization_id)")
+		if _, exempt := yearScopedUniqueKeyExceptions[table]; !exempt && hasSchoolYearID {
+			require.True(t, hasYearScopedUnique,
+				table+" lacks unique constraint (id, organization_id, school_year_id); missing column: school_year_id")
+		}
 
 		var queryCount int64
 		err = harness.App.QueryRow(harness.Context, `select count(*) from `+quoteIdentifier(harness.Schema)+`.`+quoteIdentifier(table)).Scan(&queryCount)
@@ -232,6 +256,7 @@ func verifySchemaContract(t *testing.T, harness *testharness.Harness) {
 	foreignKeys, err := harness.Migrator.Query(harness.Context, `
 		select con.conrelid::regclass::text,
 		       con.confrelid::regclass::text,
+		       con.conname,
 		       array(select a.attname
 		             from unnest(con.conkey) with ordinality cols(attnum, ordinality)
 		             join pg_attribute a on a.attrelid = con.conrelid and a.attnum = cols.attnum
@@ -239,16 +264,24 @@ func verifySchemaContract(t *testing.T, harness *testharness.Harness) {
 		       array(select a.attname
 		             from unnest(con.confkey) with ordinality cols(attnum, ordinality)
 		             join pg_attribute a on a.attrelid = con.confrelid and a.attnum = cols.attnum
-		             order by cols.ordinality)
+		             order by cols.ordinality),
+		       exists (
+			       select 1
+			       from pg_attribute target_year_attr
+			       where target_year_attr.attrelid = con.confrelid
+			         and target_year_attr.attname = 'school_year_id'
+			         and not target_year_attr.attisdropped
+		       )
 		from pg_constraint con
 		join pg_namespace src on src.oid = con.connamespace
 		where con.contype = 'f' and src.nspname = current_schema()`)
 	require.NoError(t, err)
 	defer foreignKeys.Close()
 	for foreignKeys.Next() {
-		var source, target string
+		var source, target, constraint string
 		var sourceColumns, targetColumns []string
-		require.NoError(t, foreignKeys.Scan(&source, &target, &sourceColumns, &targetColumns))
+		var targetYearScoped bool
+		require.NoError(t, foreignKeys.Scan(&source, &target, &constraint, &sourceColumns, &targetColumns, &targetYearScoped))
 		if _, sourceTenant := tenantTables[strings.TrimPrefix(source, harness.Schema+".")]; !sourceTenant {
 			continue
 		}
@@ -257,6 +290,27 @@ func verifySchemaContract(t *testing.T, harness *testharness.Harness) {
 		}
 		require.Contains(t, sourceColumns, "organization_id", source+" FK lacks organization_id")
 		require.Contains(t, targetColumns, "organization_id", target+" FK target lacks organization_id")
+		if !targetYearScoped {
+			continue
+		}
+		sourceTable := strings.TrimPrefix(source, harness.Schema+".")
+		if _, exempt := yearScopedForeignKeyExceptions[sourceTable]; exempt {
+			continue
+		}
+		foreignKeyExcepted := false
+		for _, sourceColumn := range sourceColumns {
+			if _, exempt := yearScopedForeignKeyExceptions[sourceTable+"."+sourceColumn]; exempt {
+				foreignKeyExcepted = true
+				break
+			}
+		}
+		if foreignKeyExcepted {
+			continue
+		}
+		require.Contains(t, sourceColumns, "school_year_id",
+			fmt.Sprintf("%s constraint %s FK to %s lacks source column school_year_id", source, constraint, target))
+		require.Contains(t, targetColumns, "school_year_id",
+			fmt.Sprintf("%s constraint %s FK to %s lacks target column school_year_id", source, constraint, target))
 	}
 	require.NoError(t, foreignKeys.Err())
 }
