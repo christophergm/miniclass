@@ -208,7 +208,7 @@ func TestSessionsUseExplicitOrdinalsAndOwnMeetingDates(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, data.SessionPlanning, first.State)
 	require.Equal(t, 7, first.Ordinal)
-	require.Equal(t, []time.Time{firstDate, secondDate}, first.MeetingDates)
+	require.Equal(t, []time.Time{secondDate, firstDate}, first.MeetingDates)
 
 	second, err := service.CreateSession(ctx, string(organizationID), actor, year.ID, programRow.ID, "Second synthetic session", 2, []time.Time{time.Date(2026, 11, 6, 0, 0, 0, 0, time.UTC)})
 	require.NoError(t, err)
@@ -261,6 +261,8 @@ func TestClosedYearSessionAndMeetingDateMutationsAreRejected(t *testing.T) {
 	require.NoError(t, err)
 	date := time.Date(2026, 12, 4, 0, 0, 0, 0, time.UTC)
 	session, err := factory.CreateSession(ctx, year.ID, programRow.ID, "Synthetic closed session", 1, []time.Time{date})
+	require.NoError(t, err)
+	_, err = factory.CreateMeetingDate(ctx, year.ID, programRow.ID, session.ID, date.AddDate(0, 0, 7))
 	require.NoError(t, err)
 	meetingDates, err := serviceMeetingDates(ctx, harness.Database, organizationID, year.ID, programRow.ID, session.ID)
 	require.NoError(t, err)
