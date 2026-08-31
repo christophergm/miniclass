@@ -30,9 +30,10 @@ Each phase carries two tracks:
   needs. Platform work is deliberately distributed rather than front-loaded, so each investment is
   paid for by the phase that consumes it.
 
-Only Phase 0 and Phase 1 are broken down to task level. Later phases are scoped and sequenced but
-not decomposed; each is decomposed at the point it starts, when the preceding phase's learnings are
-available. This document is expected to be revised at every phase boundary.
+Phases 0–2 are decomposed to task level, and Phase 3 decomposition starts here. Later phases remain
+scoped and sequenced but not yet decomposed; each is decomposed at the point it starts, when the
+preceding phase's learnings are available. This document is expected to be revised at every phase
+boundary.
 
 Every phase lists **exit criteria**. A phase is not complete until they hold.
 
@@ -366,6 +367,30 @@ two-phase mechanism in Phase 4.*
 **Note on `Complete`.** Entering `Complete` is the transition that commits placements to programme
 history, and it is what later feeds fairness (§17.5) and variety (§17.6). Its semantics must be
 right in this phase even though nothing consumes them until Phase 8.
+
+**Task breakdown (start)**
+
+The first slice landed at the Phase 2/3 boundary: programme and explicit membership, including the
+known-grade gate and missing-grade flagging.
+
+| Task | Scope | Spec | Effort |
+|---|---|---|---|
+| **P3-1 — Programme core and explicit membership** *(landed)* | Programme create/list, explicit membership add/remove/list, missing-grade summary, tenancy/audit coverage. | §8.3, §12.1, §10.1, §20.1 | high |
+| **P3-2 — Interest-area vocabulary for programmes** | Per-programme managed vocabulary with ordered display, stable identity vs mutable label, retirement semantics preserving history. | §12.1, §12.3, §12.4 | high |
+| **P3-3 — Session entity and meeting dates** | Session model with explicit ordinal and one-or-more meeting dates; schema constraints for uniqueness and year/programme scope. | §8.5, §14.1 | high |
+| **P3-4 — Offerings model and CRUD** | Offering create/edit/list/delete with name, description, capacity, grade window, minimum viable enrolment, location, meeting point/instructions, optional interest area. | §8.4, §12.4, §14.2 | high |
+| **P3-5 — Session lifecycle state machine** | Seven-state lifecycle with legal transitions only, gates from §14.4, transition audit entries, and backward-transition invalidation summaries with stale-draft marking (no discard). | §14.3, §14.4, §14.5, §20.1 | xhigh |
+| **P3-6 — Session non-participation records** | First-class per-session non-participation with required reason; never encoded as programme-membership removal. | §8.3, §5.2 | high |
+| **P3-7 — Catalog feasibility warnings** | Non-blocking checks: aggregate capacity, grade coverage, minimum viability, area coverage, unmatched offerings. Exposed in authoring surface and APIs as warnings only. | §14.2, §5.2 | xhigh |
+| **P3-8 — Objective defaults surface** | Programme-level objective weights with session override surface and persistence; wiring only (consumed by solve phases later). | §12.1, §14.1, §17.7 | high |
+| **P3-9 — Frontend and integration consolidation** | Programmes/sessions/catalog authoring UI flows, generated client wiring, and integration/e2e coverage for key happy paths and refusal semantics. | §12, §14, §22.4 | high |
+
+**Recommended dependency order**
+
+`P3-2 → P3-3 → P3-4 → P3-5 → P3-6 → P3-7 → P3-8 → P3-9`
+
+`P3-6` may start once `P3-3` exists. `P3-9` should be split where possible to follow backend seams
+rather than landing as one large frontend bundle.
 
 **Platform track**
 
