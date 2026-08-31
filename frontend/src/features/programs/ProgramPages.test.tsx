@@ -6,9 +6,13 @@ import type { SchoolYear } from '@/lib/apiResources'
 import { renderWithQueryClient } from '@/test/queryClient'
 
 import { ProgramMembershipPage, ProgramObjectiveWeightsPage, SessionObjectiveWeightsPage, SessionPage } from './ProgramPages'
+import { OfferingPage } from './OfferingPages'
 
 const mocks = vi.hoisted(() => ({
   transition: vi.fn(),
+  createOffering: vi.fn(),
+  updateOffering: vi.fn(),
+  offering: null as unknown,
   sessionState: 'planning',
   programUpdate: vi.fn(),
   sessionUpdate: vi.fn(),
@@ -20,6 +24,7 @@ vi.mock('./usePrograms', () => {
   const defaults = { rank_high_max: 3, deficit_unwanted_increment: 4, deficit_neutral_increment: 3, deficit_acceptable_increment: 2, deficit_influence: 0.5, repeat_offering_penalty: 10, repeat_interest_area_penalty: 5, tag_prefers_weight: 5, tag_discourages_weight: 5, pairing_prefers_weight: 8, pairing_discourages_weight: 8, below_minimum_enrollment_penalty: 2, tag_balance_penalty: 2 }
   return {
     useSession: vi.fn(() => ({ data: { id: 'session-1', organization_id: 'org-1', school_year_id: 'year-1', program_id: 'program-1', name: 'Autumn session', ordinal: 1, state: mocks.sessionState, draft_assignments_stale: false, meeting_dates: ['2026-10-02'], feasibility_warnings: [], created_at: '', updated_at: '' }, isLoading: false, isError: false, error: null })),
+    useOffering: vi.fn(() => ({ data: mocks.offering, isLoading: false, isError: false, error: null })),
     usePrograms: query([{ id: 'program-1', organization_id: 'org-1', school_year_id: 'year-1', name: 'Enrichment', created_at: '', updated_at: '' }]),
     useSessions: query([{ id: 'session-1', organization_id: 'org-1', school_year_id: 'year-1', program_id: 'program-1', name: 'Autumn session', ordinal: 1, state: 'planning', draft_assignments_stale: false, meeting_dates: ['2026-10-02'], feasibility_warnings: [], created_at: '', updated_at: '' }]),
     useMeetingDates: query([{ id: 'date-1', school_year_id: 'year-1', organization_id: 'org-1', program_id: 'program-1', session_id: 'session-1', meeting_date: '2026-10-02', created_at: '', updated_at: '' }]),
@@ -31,7 +36,7 @@ vi.mock('./usePrograms', () => {
     useSessionNonParticipations: query([]),
     useSessionObjectiveWeights: query({ defaults, effective: defaults, overrides: { repeat_offering_penalty: 10 } }),
     useCreateMeetingDate: mutation(), useUpdateMeetingDate: mutation(), useDeleteMeetingDate: mutation(),
-    useCreateOffering: mutation(), useUpdateOffering: mutation(), useDeleteOffering: mutation(),
+    useCreateOffering: vi.fn(() => ({ mutate: mocks.createOffering, isPending: false, isError: false, error: null })), useUpdateOffering: vi.fn(() => ({ mutate: mocks.updateOffering, isPending: false, isError: false, error: null })), useDeleteOffering: mutation(),
     useTransitionSession: mutation(mocks.transition), useCreateSessionNonParticipation: mutation(),
     useUpdateSessionNonParticipation: mutation(), useDeleteSessionNonParticipation: mutation(),
     useUpdateSession: mutation(), useUpdateSessionObjectiveWeights: mutation(mocks.sessionUpdate),
@@ -51,6 +56,11 @@ function renderSession(currentYear = year('active')) {
   return renderWithQueryClient(<MemoryRouter initialEntries={['/y/year-1/programs/program-1/sessions/session-1']}><Routes><Route element={<ContextRoute />} path="/y/:schoolYearId"><Route element={<SessionPage />} path="programs/:programId/sessions/:sessionId" /></Route></Routes></MemoryRouter>)
 }
 
+function renderOffering(path: string, currentYear = year('active')) {
+  function ContextRoute() { return <Outlet context={currentYear} /> }
+  return renderWithQueryClient(<MemoryRouter initialEntries={[path]}><Routes><Route element={<ContextRoute />} path="/y/:schoolYearId"><Route element={<OfferingPage />} path="programs/:programId/sessions/:sessionId/offerings/new" /><Route element={<OfferingPage />} path="programs/:programId/sessions/:sessionId/offerings/:offeringId/edit" /></Route></Routes></MemoryRouter>)
+}
+
 function renderProgram(currentYear = year('active')) {
   function ContextRoute() { return <Outlet context={currentYear} /> }
   return renderWithQueryClient(<MemoryRouter initialEntries={['/y/year-1/programs/program-1']}><Routes><Route element={<ContextRoute />} path="/y/:schoolYearId"><Route element={<ProgramMembershipPage />} path="programs/:programId" /></Route></Routes></MemoryRouter>)
@@ -67,7 +77,7 @@ function renderSessionObjectives(currentYear = year('active')) {
 }
 
 describe('SessionPage', () => {
-  beforeEach(() => { mocks.transition.mockReset(); mocks.sessionState = 'planning'; mocks.programUpdate.mockReset(); mocks.sessionUpdate.mockReset() })
+  beforeEach(() => { mocks.transition.mockReset(); mocks.createOffering.mockReset(); mocks.updateOffering.mockReset(); mocks.offering = null; mocks.sessionState = 'planning'; mocks.programUpdate.mockReset(); mocks.sessionUpdate.mockReset() })
 
   it('consolidates the authoring surfaces and makes feasibility warnings visibly non-blocking', () => {
     renderSession()
@@ -75,6 +85,9 @@ describe('SessionPage', () => {
     expect(screen.getByRole('heading', { name: 'Autumn session' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Meeting dates' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Offerings' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Create offering' })).toHaveAttribute('href', '/y/year-1/programs/program-1/sessions/session-1/offerings/new')
+    expect(screen.getByRole('link', { name: 'Edit' })).toHaveAttribute('href', '/y/year-1/programs/program-1/sessions/session-1/offerings/offering-1/edit')
+    expect(screen.getByText('Maximum enrollment 10')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Session non-participation' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Assignment objectives' })).toHaveAttribute('href', '/y/year-1/programs/program-1/sessions/session-1/objectives')
     expect(screen.queryByRole('heading', { name: 'Session objective overrides' })).not.toBeInTheDocument()
@@ -124,10 +137,47 @@ describe('SessionPage', () => {
     renderSession(year('closed'))
 
     expect(screen.getByRole('heading', { name: 'Read-only history' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Create offering' })).toBeDisabled()
+    expect(screen.getByText('Create offering')).toHaveAttribute('aria-disabled', 'true')
     expect(screen.getByRole('button', { name: 'Add date' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Transition' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Mark not participating' })).toBeDisabled()
+  })
+
+  it('renders a labeled create page and maps Maximum enrollment to capacity', () => {
+    mocks.createOffering.mockImplementation((_value, options) => options.onSuccess())
+    renderOffering('/y/year-1/programs/program-1/sessions/session-1/offerings/new')
+
+    expect(screen.getByRole('heading', { name: 'Create offering' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Cancel' })).toHaveAttribute('href', '/y/year-1/programs/program-1/sessions/session-1')
+    for (const label of ['Offering name', 'Offering description', 'Maximum enrollment', 'Minimum viable enrollment', 'Minimum grade', 'Maximum grade', 'Location', 'Meeting point', 'Meeting instructions', 'Interest area']) expect(screen.getByLabelText(label)).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Offering name'), { target: { value: 'Making' } })
+    fireEvent.change(screen.getByLabelText('Maximum enrollment'), { target: { value: '12' } })
+    fireEvent.change(screen.getByLabelText('Minimum grade'), { target: { value: 'grade-1' } })
+    fireEvent.change(screen.getByLabelText('Maximum grade'), { target: { value: 'grade-1' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Create offering' }))
+
+    expect(mocks.createOffering).toHaveBeenCalledWith(expect.objectContaining({ name: 'Making', capacity: 12, min_grade_level_id: 'grade-1', max_grade_level_id: 'grade-1' }), expect.any(Object))
+  })
+
+  it('loads and saves the dedicated edit page before returning to the session', () => {
+    mocks.offering = { id: 'offering-1', school_year_id: 'year-1', organization_id: 'org-1', program_id: 'program-1', session_id: 'session-1', name: 'Making', description: 'Build a project', capacity: 10, minimum_viable_enrollment: 2, min_grade_level_id: 'grade-1', max_grade_level_id: 'grade-1', location: 'Studio', meeting_point: 'Front desk', meeting_instructions: 'Ask for the key', interest_area_id: null, created_at: '', updated_at: '' }
+    mocks.updateOffering.mockImplementation((_value, options) => options.onSuccess())
+    renderOffering('/y/year-1/programs/program-1/sessions/session-1/offerings/offering-1/edit')
+
+    expect(screen.getByRole('heading', { name: 'Edit offering' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Maximum enrollment')).toHaveValue(10)
+    fireEvent.change(screen.getByLabelText('Maximum enrollment'), { target: { value: '14' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save offering' }))
+
+    expect(mocks.updateOffering).toHaveBeenCalledWith(expect.objectContaining({ offeringID: 'offering-1', value: expect.objectContaining({ capacity: 14 }) }), expect.any(Object))
+  })
+
+  it('keeps the dedicated form read-only for a closed year', () => {
+    renderOffering('/y/year-1/programs/program-1/sessions/session-1/offerings/new', year('closed'))
+
+    expect(screen.getByRole('heading', { name: 'Read-only history' })).toBeInTheDocument()
+    expect(screen.getByText('Create offering')).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByLabelText('Maximum enrollment')).toBeDisabled()
   })
 })
 

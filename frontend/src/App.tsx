@@ -15,6 +15,7 @@ import { VocabularyPage } from '@/features/vocabulary/VocabularyPage'
 import { AdultDetailPage, AdultListPage, StudentDetailPage, StudentListPage } from '@/features/people/PeoplePages'
 import { AuditLog } from '@/features/audit/AuditLog'
 import { ImportPage } from '@/features/imports/ImportPage'
+import { OfferingPage } from '@/features/programs/OfferingPages'
 import { ProgramListPage, ProgramMembershipPage, ProgramObjectiveWeightsPage, SessionObjectiveWeightsPage, SessionPage } from '@/features/programs/ProgramPages'
 
 function App() {
@@ -54,6 +55,8 @@ function AppRoutes() {
             <Route path="programs/:programId" element={<ProgramMembershipPage />} />
             <Route path="programs/:programId/objectives" element={<ProgramObjectiveWeightsPage />} />
             <Route path="programs/:programId/sessions/:sessionId" element={<SessionPage />} />
+            <Route path="programs/:programId/sessions/:sessionId/offerings/new" element={<OfferingPage />} />
+            <Route path="programs/:programId/sessions/:sessionId/offerings/:offeringId/edit" element={<OfferingPage />} />
             <Route path="programs/:programId/sessions/:sessionId/objectives" element={<SessionObjectiveWeightsPage />} />
 
             {/* Students scoped to a school year */}
