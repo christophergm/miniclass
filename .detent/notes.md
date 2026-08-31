@@ -132,5 +132,7 @@
 - Scope: Remove session ordinal storage and public exposure; order sessions by earliest meeting date, case-insensitive name, and opaque ID per SPEC §§8.5, 14.1, and 17.8. Keep session create/edit date changes atomic and preserve the one-or-more date invariant.
 - Repository state: clean worktree based on origin/main; no PR exists yet. Persistent Workpad comment: https://github.com/christophergm/miniclass/issues/164#issuecomment-5483864210.
 - Key files: `backend/migrations/20260831130000_sessions.sql`, `backend/sql/queries/session.sql`, `backend/internal/data/session.go`, `backend/internal/program/session.go`, `backend/internal/api/handlers/session.go`, `frontend/src/features/programs/ProgramPages.tsx`, `frontend/src/features/programs/usePrograms.ts`, and session integration/frontend tests.
-- Open items: implement migration/model/API/frontend/test changes, regenerate sqlc/OpenAPI, run required gates, commit/push, open non-draft PR referencing `Fixes #164`, verify current-head CI/comments, and update Workpad telemetry.
+- Repository state: implementation is committed through `2709d41` and pushed to PR #169, which is open, non-draft, references `Fixes #164`, and has no actionable comments.
+- Validation: local full backend tests, vet, lint, generated-code drift, and repository diff checks pass. All ten required PR checks pass on head `2709d41`; local root check is blocked before gates by exhausted Docker address pools, and local frontend/migration/smoke commands are environment-limited as recorded in the Workpad.
+- Open items: none; Detent owns the completion-lane transition.
 - Blockers: none.
