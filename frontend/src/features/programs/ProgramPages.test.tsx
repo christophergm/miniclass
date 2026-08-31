@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SchoolYear } from '@/lib/apiResources'
 import { renderWithQueryClient } from '@/test/queryClient'
 
-import { ProgramMembershipPage, ProgramObjectiveWeightsPage, SessionObjectiveWeightsPage, SessionPage } from './ProgramPages'
+import { ProgramListPage, ProgramMembershipPage, ProgramObjectiveWeightsPage, SessionObjectiveWeightsPage, SessionPage } from './ProgramPages'
 import { OfferingPage } from './OfferingPages'
 
 const mocks = vi.hoisted(() => ({
@@ -67,6 +67,11 @@ function renderProgram(currentYear = year('active')) {
   return renderWithQueryClient(<MemoryRouter initialEntries={['/y/year-1/programs/program-1']}><Routes><Route element={<ContextRoute />} path="/y/:schoolYearId"><Route element={<ProgramMembershipPage />} path="programs/:programId" /></Route></Routes></MemoryRouter>)
 }
 
+function renderProgramList(currentYear = year('active')) {
+  function ContextRoute() { return <Outlet context={currentYear} /> }
+  return renderWithQueryClient(<MemoryRouter initialEntries={['/y/year-1/programs']}><Routes><Route element={<ContextRoute />} path="/y/:schoolYearId"><Route element={<ProgramListPage />} path="programs" /></Route></Routes></MemoryRouter>)
+}
+
 function renderProgramObjectives(currentYear = year('active')) {
   function ContextRoute() { return <Outlet context={currentYear} /> }
   return renderWithQueryClient(<MemoryRouter initialEntries={['/y/year-1/programs/program-1/objectives']}><Routes><Route element={<ContextRoute />} path="/y/:schoolYearId"><Route element={<ProgramObjectiveWeightsPage />} path="programs/:programId/objectives" /></Route></Routes></MemoryRouter>)
@@ -76,6 +81,23 @@ function renderSessionObjectives(currentYear = year('active')) {
   function ContextRoute() { return <Outlet context={currentYear} /> }
   return renderWithQueryClient(<MemoryRouter initialEntries={['/y/year-1/programs/program-1/sessions/session-1/objectives']}><Routes><Route element={<ContextRoute />} path="/y/:schoolYearId"><Route element={<SessionObjectiveWeightsPage />} path="programs/:programId/sessions/:sessionId/objectives" /></Route></Routes></MemoryRouter>)
 }
+
+describe('ProgramListPage', () => {
+  it('keeps Create program in the header and renders each program in its own row', () => {
+    renderProgramList()
+
+    expect(screen.getByRole('button', { name: 'Create program' })).toBeInTheDocument()
+    const programs = screen.getByRole('link', { name: /Enrichment/ })
+    expect(programs).toHaveAttribute('href', '/y/year-1/programs/program-1')
+    expect(programs).toHaveClass('flex')
+  })
+
+  it('keeps the create action unavailable for a closed year', () => {
+    renderProgramList(year('closed'))
+
+    expect(screen.getByRole('button', { name: 'Create program' })).toBeDisabled()
+  })
+})
 
 describe('SessionPage', () => {
   beforeEach(() => { mocks.transition.mockReset(); mocks.createOffering.mockReset(); mocks.updateOffering.mockReset(); mocks.offering = null; mocks.sessionState = 'planning'; mocks.programUpdate.mockReset(); mocks.sessionUpdate.mockReset() })

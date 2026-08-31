@@ -9,7 +9,7 @@ import { ClaimInvitationPage } from '@/features/auth/ClaimInvitationPage'
 import { ResetPasswordPage } from '@/features/auth/ResetPasswordPage'
 import { SignInPage } from '@/features/auth/SignInPage'
 import { NotFoundPage } from '@/features/errors/NotFoundPage'
-import { SchoolYearGuard, SchoolYearListPage, SchoolYearWorkspace } from '@/features/school-years/SchoolYearPages'
+import { SchoolYearGuard, SchoolYearLayout, SchoolYearListPage, SchoolYearSettingsPage } from '@/features/school-years/SchoolYearPages'
 import { SettingsPage } from '@/features/settings/SettingsPage'
 import { VocabularyPage } from '@/features/vocabulary/VocabularyPage'
 import { AdultDetailPage, AdultListPage, StudentDetailPage, StudentListPage } from '@/features/people/PeoplePages'
@@ -49,34 +49,37 @@ function AppRoutes() {
           <Route path="/years" element={<SchoolYearListPage />} />
 
           <Route path="/y/:schoolYearId" element={<SchoolYearGuard />}>
-            <Route index element={<SchoolYearWorkspace />} />
-            <Route path="vocabulary" element={<VocabularyPage />} />
-            <Route path="programs" element={<ProgramListPage />} />
-            <Route path="programs/:programId" element={<ProgramMembershipPage />} />
-            <Route path="programs/:programId/objectives" element={<ProgramObjectiveWeightsPage />} />
-            <Route path="programs/:programId/sessions/:sessionId" element={<SessionPage />} />
-            <Route path="programs/:programId/sessions/:sessionId/offerings/new" element={<OfferingPage />} />
-            <Route path="programs/:programId/sessions/:sessionId/offerings/:offeringId/edit" element={<OfferingPage />} />
-            <Route path="programs/:programId/sessions/:sessionId/objectives" element={<SessionObjectiveWeightsPage />} />
+            <Route element={<SchoolYearLayout />}>
+              <Route index element={<Navigate replace to="settings" />} />
+              <Route path="settings" element={<SchoolYearSettingsPage />} />
+              <Route path="vocabulary" element={<VocabularyPage />} />
+              <Route path="programs" element={<ProgramListPage />} />
+              <Route path="programs/:programId" element={<ProgramMembershipPage />} />
+              <Route path="programs/:programId/objectives" element={<ProgramObjectiveWeightsPage />} />
+              <Route path="programs/:programId/sessions/:sessionId" element={<SessionPage />} />
+              <Route path="programs/:programId/sessions/:sessionId/offerings/new" element={<OfferingPage />} />
+              <Route path="programs/:programId/sessions/:sessionId/offerings/:offeringId/edit" element={<OfferingPage />} />
+              <Route path="programs/:programId/sessions/:sessionId/objectives" element={<SessionObjectiveWeightsPage />} />
 
-            {/* Students scoped to a school year */}
-            <Route path="students" element={<StudentListPage />} />
-            <Route path="students/new" element={<StudentDetailPage />} />
-            <Route path="students/:personId" element={<StudentDetailPage />} />
+              {/* Students scoped to a school year */}
+              <Route path="students" element={<StudentListPage />} />
+              <Route path="students/new" element={<StudentDetailPage />} />
+              <Route path="students/:personId" element={<StudentDetailPage />} />
 
-            {/* Adults scoped to a school year */}
-            <Route path="adults" element={<AdultListPage />} />
-            <Route path="adults/new" element={<AdultDetailPage />} />
-            <Route path="adults/:personId" element={<AdultDetailPage />} />
-            <Route path="imports" element={<ImportPage />} />
+              {/* Adults scoped to a school year */}
+              <Route path="adults" element={<AdultListPage />} />
+              <Route path="adults/new" element={<AdultDetailPage />} />
+              <Route path="adults/:personId" element={<AdultDetailPage />} />
+              <Route path="imports" element={<ImportPage />} />
 
-            {/* An unknown address inside a resolved school year reports itself.
-                It used to fall back to the workspace, which renders the year's
-                lifecycle controls — Activate, Close and the owner-only reopen —
-                so a mistyped in-year URL offered destructive actions it was
-                never asked for. NotFoundPage rather than SchoolYearNotFound:
-                the year resolved, so the year is not the cause. */}
-            <Route path="*" element={<NotFoundPage />} />
+              {/* An unknown address inside a resolved school year reports itself.
+                  It used to fall back to the workspace, which renders the year's
+                  lifecycle controls — Activate, Close and the owner-only reopen —
+                  so a mistyped in-year URL offered destructive actions it was
+                  never asked for. NotFoundPage rather than SchoolYearNotFound:
+                  the year resolved, so the year is not the cause. */}
+              <Route path="*" element={<NotFoundPage />} />
+            </Route>
           </Route>
 
           {/* Global people routes (no school year in path) */}

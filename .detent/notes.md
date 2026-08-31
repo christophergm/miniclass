@@ -153,3 +153,11 @@
 - Validation: focused Bun test cannot start locally because frontend dependencies are absent (`react/jsx-dev-runtime`); CI should run the provisioned frontend gates. Workpad comment `5484747880` is the persistent tracker comment.
 - Open items: run available checks, commit/push, open PR with `Fixes #165`, verify current-head CI/reviews, then complete the Workpad handoff.
 - Skill draft: no — this is a small, one-off frontend reorder correction with no broadly reusable procedure.
+
+## Current work — issue #172
+
+- Scope: shared year-scoped navigation and breadcrumb for Programs, Adults, Students, and Settings; year Settings actions for vocabulary/import; one-program-per-row list; closed-year read-only navigation per SPEC §§8.7 and 11.1.
+- Repository: clean worktree at `d221551`, based on `origin/main`; no PR yet. Persistent Workpad comment: `5485800266`.
+- Planned files: `frontend/src/App.tsx`, `frontend/src/features/school-years/SchoolYearPages.tsx`, `frontend/src/features/programs/ProgramPages.tsx`, and focused route/year tests.
+- Open items: implement, validate, commit/push, open PR with `Fixes #172`, verify current-head CI/reviews, then update Workpad completion status.
+- Blockers: none.
