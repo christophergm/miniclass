@@ -57,7 +57,7 @@ func (tx *Tx) CreateGradeLevel(ctx context.Context, schoolYearID ids.XID, code, 
 		OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, Code: code, Label: label, Ordinal: int32(ordinal),
 	})
 	if err != nil {
-		return GradeLevel{}, fmt.Errorf("create grade level: %w", err)
+		return GradeLevel{}, wrapSchoolYearError("create grade level", err)
 	}
 	return gradeLevelValues(row.ID, row.OrganizationID, row.SchoolYearID, row.Code, row.Label, row.Ordinal, row.RetiredAt, row.CreatedAt, row.UpdatedAt)
 }
@@ -113,7 +113,7 @@ func (tx *Tx) UpdateGradeLevel(ctx context.Context, schoolYearID, id ids.XID, co
 	}
 	row, err := tx.queries.UpdateGradeLevel(ctx, db.UpdateGradeLevelParams{ID: id, Code: code, Label: label, OrganizationID: tx.organizationID, SchoolYearID: schoolYearID})
 	if err != nil {
-		return GradeLevel{}, fmt.Errorf("update grade level: %w", err)
+		return GradeLevel{}, wrapSchoolYearError("update grade level", err)
 	}
 	return gradeLevelValues(row.ID, row.OrganizationID, row.SchoolYearID, row.Code, row.Label, row.Ordinal, row.RetiredAt, row.CreatedAt, row.UpdatedAt)
 }
