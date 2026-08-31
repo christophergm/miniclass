@@ -28,6 +28,15 @@
 - Open items: Detent owns the completion-lane transition after this handoff; no dependency blocker or human action is declared.
 - Skill draft: no — the existing tenant-entity and isolation-harness skills cover the reusable procedure; no new broadly reusable method was discovered.
 
+## Current work — issue #145
+
+- Scope: Implement the seven-state session lifecycle from SPEC §§14.3–14.5, §5.2, and §20.1; dependency issues #143 and #144 are merged on current `origin/main`.
+- Key files: `backend/migrations/20260831160000_session_lifecycle.sql`, `backend/internal/program/session_lifecycle.go`, session/offering data and service files, session API handler/routes, generated sqlc/OpenAPI, and `backend/tests/integration/program_test.go`.
+- Implementation: legal transition planner and row-locked audited transition service; empty-catalog and stale-draft publication gates; backward preview/confirmation with non-blocking invalidation warnings; retained stale-draft marker; Complete read-only protections; API problem mappings and frontend resource wrapper.
+- Validation: focused tests, full `GOTOOLCHAIN=local go test -race ./... -count=1`, `make lint-backend`, `make format`, `make generate` execution, and `git diff --check` pass. Exact local backend/migration/frontend/smoke commands are environment-limited by Docker network exhaustion, missing migration URL, missing `openapi-typescript`/Bun temp permissions, and missing `.env`; PR CI must verify all ten required checks.
+- Open items: commit/push, open a non-draft PR with `Fixes #145`, verify current-head checks and review comments, then update the Workpad completion status.
+- Skill draft: no — this was a focused lifecycle implementation covered by existing backend and tenant-data guidance; no broadly reusable procedure was discovered.
+
 ## Current handoff — issue #140
 
 - Scope: Split the year-scoped grade/homeroom vocabulary into `/y/:schoolYearId/vocabulary` and keep the organisation label plus owner-only administrators at top-level `/settings`, including closed-year read-only treatment and setup guidance.

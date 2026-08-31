@@ -97,6 +97,13 @@ func (s *Service) UpdateOffering(ctx context.Context, organizationID string, act
 		if err != nil {
 			return err
 		}
+		session, err := tx.GetSession(ctx, schoolYearID, programID, sessionID)
+		if err != nil {
+			return err
+		}
+		if err := ensureSessionMutable(session); err != nil {
+			return err
+		}
 		name, description := current.Name, current.Description
 		minimum, capacity := current.MinimumViableEnrollment, current.Capacity
 		minGrade, maxGrade := current.MinGradeLevelID, current.MaxGradeLevelID
@@ -160,6 +167,13 @@ func (s *Service) DeleteOffering(ctx context.Context, organizationID string, act
 		if err != nil {
 			return err
 		}
+		session, err := tx.GetSession(ctx, schoolYearID, programID, sessionID)
+		if err != nil {
+			return err
+		}
+		if err := ensureSessionMutable(session); err != nil {
+			return err
+		}
 		deleted, err := tx.DeleteOffering(ctx, schoolYearID, programID, sessionID, offeringID)
 		if err != nil {
 			return err
@@ -176,7 +190,11 @@ func (s *Service) DeleteOffering(ctx context.Context, organizationID string, act
 }
 
 func validateOfferingReferences(ctx context.Context, tx *data.Tx, schoolYearID, programID, sessionID, minGradeLevelID, maxGradeLevelID ids.XID, interestAreaID *ids.XID) error {
-	if _, err := tx.GetSession(ctx, schoolYearID, programID, sessionID); err != nil {
+	session, err := tx.GetSession(ctx, schoolYearID, programID, sessionID)
+	if err != nil {
+		return err
+	}
+	if err := ensureSessionMutable(session); err != nil {
 		return err
 	}
 	minimum, err := tx.GetGradeLevelByID(ctx, schoolYearID, minGradeLevelID)

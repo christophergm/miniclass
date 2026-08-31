@@ -16,16 +16,17 @@ import (
 )
 
 type SessionResponse struct {
-	ID             string    `json:"id" doc:"Opaque session identifier."`
-	OrganizationID string    `json:"organization_id" doc:"Opaque organization identifier."`
-	SchoolYearID   string    `json:"school_year_id" doc:"Opaque school-year identifier."`
-	ProgramID      string    `json:"program_id" doc:"Opaque program identifier."`
-	Name           string    `json:"name"`
-	Ordinal        int       `json:"ordinal" doc:"Explicit session order; never inferred from dates."`
-	State          string    `json:"state" enum:"planning,catalog_published,voting_open,voting_closed,assigning,published,complete"`
-	MeetingDates   []string  `json:"meeting_dates" format:"date"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	ID                    string    `json:"id" doc:"Opaque session identifier."`
+	OrganizationID        string    `json:"organization_id" doc:"Opaque organization identifier."`
+	SchoolYearID          string    `json:"school_year_id" doc:"Opaque school-year identifier."`
+	ProgramID             string    `json:"program_id" doc:"Opaque program identifier."`
+	Name                  string    `json:"name"`
+	Ordinal               int       `json:"ordinal" doc:"Explicit session order; never inferred from dates."`
+	State                 string    `json:"state" enum:"planning,catalog_published,voting_open,voting_closed,assigning,published,complete"`
+	DraftAssignmentsStale bool      `json:"draft_assignments_stale" doc:"True when retained draft assignments were computed from superseded inputs."`
+	MeetingDates          []string  `json:"meeting_dates" format:"date"`
+	CreatedAt             time.Time `json:"created_at"`
+	UpdatedAt             time.Time `json:"updated_at"`
 }
 
 type MeetingDateResponse struct {
@@ -41,6 +42,20 @@ type MeetingDateResponse struct {
 
 type SessionListOutput struct{ Body []SessionResponse }
 type SessionOutput struct{ Body SessionResponse }
+type SessionTransitionWarningResponse struct {
+	Code                string   `json:"code"`
+	Message             string   `json:"message"`
+	InvalidationSummary []string `json:"invalidation_summary"`
+}
+type SessionTransitionResponse struct {
+	Session              SessionResponse                    `json:"session"`
+	FromState            string                             `json:"from_state" enum:"planning,catalog_published,voting_open,voting_closed,assigning,published,complete"`
+	ToState              string                             `json:"to_state" enum:"planning,catalog_published,voting_open,voting_closed,assigning,published,complete"`
+	Applied              bool                               `json:"applied"`
+	RequiresConfirmation bool                               `json:"requires_confirmation"`
+	Warnings             []SessionTransitionWarningResponse `json:"warnings"`
+}
+type SessionTransitionOutput struct{ Body SessionTransitionResponse }
 type MeetingDateListOutput struct{ Body []MeetingDateResponse }
 type MeetingDateOutput struct{ Body MeetingDateResponse }
 type SessionPathInput struct {
@@ -65,6 +80,14 @@ type UpdateSessionInput struct {
 	Body struct {
 		Name    *string `json:"name,omitempty" minLength:"1"`
 		Ordinal *int    `json:"ordinal,omitempty" minimum:"1"`
+	}
+}
+type TransitionSessionInput struct {
+	SessionPathInput
+	Body struct {
+		State   string `json:"state" enum:"planning,catalog_published,voting_open,voting_closed,assigning,published,complete" minLength:"1"`
+		Reason  string `json:"reason,omitempty" doc:"Required when confirming a backward transition."`
+		Confirm bool   `json:"confirm,omitempty" doc:"Apply a backward transition after reviewing its warnings."`
 	}
 }
 type MeetingDatePathInput struct {
@@ -166,6 +189,30 @@ func (h *ProgramHandler) DeleteSession(ctx context.Context, input *SessionPathIn
 	return &ProgramDeleteOutput{}, nil
 }
 
+func (h *ProgramHandler) TransitionSession(ctx context.Context, input *TransitionSessionInput) (*SessionTransitionOutput, error) {
+	account, err := programAccount(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if h == nil || h.service == nil || input == nil {
+		return nil, sessionNotFound()
+	}
+	result, err := h.service.TransitionSession(ctx, string(account.OrganizationID), programActor(account), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), ids.XID(input.SessionID), programservice.SessionTransitionInput{
+		NextState: data.SessionState(input.Body.State), Reason: input.Body.Reason, Confirm: input.Body.Confirm,
+	})
+	if err != nil {
+		return nil, sessionProblem(err)
+	}
+	warnings := make([]SessionTransitionWarningResponse, 0, len(result.Warnings))
+	for _, warning := range result.Warnings {
+		warnings = append(warnings, SessionTransitionWarningResponse{Code: warning.Code, Message: warning.Message, InvalidationSummary: warning.InvalidationSummary})
+	}
+	return &SessionTransitionOutput{Body: SessionTransitionResponse{
+		Session: sessionResponse(result.Session), FromState: string(result.FromState), ToState: string(result.ToState),
+		Applied: result.Applied, RequiresConfirmation: result.RequiresConfirmation, Warnings: warnings,
+	}}, nil
+}
+
 func (h *ProgramHandler) ListMeetingDates(ctx context.Context, input *SessionPathInput) (*MeetingDateListOutput, error) {
 	account, err := programAccount(ctx)
 	if err != nil {
@@ -257,7 +304,7 @@ func sessionResponse(row data.Session) SessionResponse {
 	for _, date := range row.MeetingDates {
 		dates = append(dates, date.Format("2006-01-02"))
 	}
-	return SessionResponse{ID: string(row.ID), OrganizationID: string(row.OrganizationID), SchoolYearID: string(row.SchoolYearID), ProgramID: string(row.ProgramID), Name: row.Name, Ordinal: row.Ordinal, State: string(row.State), MeetingDates: dates, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+	return SessionResponse{ID: string(row.ID), OrganizationID: string(row.OrganizationID), SchoolYearID: string(row.SchoolYearID), ProgramID: string(row.ProgramID), Name: row.Name, Ordinal: row.Ordinal, State: string(row.State), DraftAssignmentsStale: row.DraftAssignmentsStale, MeetingDates: dates, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
 }
 
 func meetingDateResponse(row data.MeetingDate) MeetingDateResponse {
@@ -304,6 +351,14 @@ func sessionProblem(err error) error {
 		return meetingDateNotFound()
 	case data.IsSchoolYearClosed(err):
 		return problems.New(http.StatusConflict, problems.SchoolYearClosed, "the school year is closed and cannot be changed")
+	case errors.Is(err, programservice.ErrSessionTransitionInvalid):
+		return problems.New(http.StatusConflict, problems.SessionTransitionInvalid, err.Error())
+	case errors.Is(err, programservice.ErrSessionTransitionGate):
+		return problems.New(http.StatusConflict, problems.SessionTransitionGate, err.Error())
+	case errors.Is(err, programservice.ErrSessionTransitionReasonRequired):
+		return problems.New(http.StatusBadRequest, problems.SessionTransitionReasonRequired, err.Error())
+	case errors.Is(err, programservice.ErrSessionReadOnly):
+		return problems.New(http.StatusConflict, problems.SessionReadOnly, err.Error())
 	case errors.As(err, &pgErr) && pgErr.Code == "23505":
 		return problems.New(http.StatusConflict, problems.ProgramConflict, "the session or meeting date already exists in this program")
 	case errors.Is(err, programservice.ErrSessionNoChanges), errors.Is(err, programservice.ErrMeetingDateNoChanges), errors.Is(err, programservice.ErrSessionRequiresMeetingDate), strings.Contains(err.Error(), "name is required"), strings.Contains(err.Error(), "ordinal must be positive"), strings.Contains(err.Error(), "valid date"):

@@ -36,6 +36,16 @@ type Offering struct {
 	UpdatedAt               time.Time
 }
 
+func (tx *Tx) CountOfferings(ctx context.Context, schoolYearID, programID, sessionID ids.XID) (int, error) {
+	count, err := tx.queries.CountOfferings(ctx, db.CountOfferingsParams{
+		OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID, SessionID: sessionID,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("count offerings: %w", err)
+	}
+	return int(count), nil
+}
+
 // CreateOffering writes a fully validated row within the caller's tenant
 // transaction. Parent and vocabulary checks remain explicit so a foreign
 // parent cannot be smuggled through a composite identifier.

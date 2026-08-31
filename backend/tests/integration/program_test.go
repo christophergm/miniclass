@@ -2,6 +2,7 @@ package integration
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
@@ -249,6 +250,115 @@ func TestSessionsUseExplicitOrdinalsAndOwnMeetingDates(t *testing.T) {
 	require.GreaterOrEqual(t, len(entries), 4)
 }
 
+func TestSessionLifecycleTransitionsWarnPreserveDraftsAndAudit(t *testing.T) {
+	harness := testharness.Open(t)
+	ctx := harness.Context
+	organizationID := harness.MintOrganization(t)
+	actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "session lifecycle integration test"}
+	factory := factories.New(harness.Database, string(organizationID), actor)
+	year, err := factory.CreateSchoolYear(ctx, "Synthetic lifecycle year")
+	require.NoError(t, err)
+	programRow, err := factory.CreateProgram(ctx, year.ID, "Synthetic lifecycle programme")
+	require.NoError(t, err)
+	session, err := factory.CreateSession(ctx, year.ID, programRow.ID, "Synthetic lifecycle session", 1, []time.Time{time.Date(2026, 10, 23, 0, 0, 0, 0, time.UTC)})
+	require.NoError(t, err)
+	service := program.New(harness.Database)
+
+	transition := func(next data.SessionState, confirm bool, reason string) program.SessionTransitionResult {
+		result, err := service.TransitionSession(ctx, string(organizationID), actor, year.ID, programRow.ID, session.ID, program.SessionTransitionInput{NextState: next, Confirm: confirm, Reason: reason})
+		require.NoError(t, err)
+		return result
+	}
+
+	result := transition(data.SessionCatalogPublished, false, "")
+	require.True(t, result.Applied)
+	_, err = service.TransitionSession(ctx, string(organizationID), actor, year.ID, programRow.ID, session.ID, program.SessionTransitionInput{NextState: data.SessionVotingOpen})
+	require.ErrorIs(t, err, program.ErrSessionTransitionGate)
+
+	minimumGrade, err := factory.CreateGradeLevel(ctx, year.ID, "1", "Synthetic Grade One")
+	require.NoError(t, err)
+	maximumGrade, err := factory.CreateGradeLevel(ctx, year.ID, "6", "Synthetic Grade Six")
+	require.NoError(t, err)
+	_, err = factory.CreateOffering(ctx, year.ID, programRow.ID, session.ID, "Synthetic offering", "Synthetic description", nil, 12, minimumGrade.ID, maximumGrade.ID, "Synthetic room", "Synthetic entrance", "Synthetic directions", nil)
+	require.NoError(t, err)
+
+	for _, next := range []data.SessionState{data.SessionVotingOpen, data.SessionVotingClosed, data.SessionAssigning, data.SessionPublished} {
+		result = transition(next, false, "")
+		require.True(t, result.Applied)
+	}
+
+	preview := transition(data.SessionAssigning, false, "")
+	require.False(t, preview.Applied)
+	require.True(t, preview.RequiresConfirmation)
+	require.Equal(t, data.SessionPublished, preview.Session.State)
+	require.Contains(t, transitionWarningCodes(preview.Warnings), "stale-draft")
+	require.Contains(t, transitionWarningCodes(preview.Warnings), "published-links-invalidated")
+
+	_, err = service.TransitionSession(ctx, string(organizationID), actor, year.ID, programRow.ID, session.ID, program.SessionTransitionInput{NextState: data.SessionAssigning, Confirm: true})
+	require.ErrorIs(t, err, program.ErrSessionTransitionReasonRequired)
+	unchanged, err := service.GetSession(ctx, string(organizationID), year.ID, programRow.ID, session.ID)
+	require.NoError(t, err)
+	require.Equal(t, data.SessionPublished, unchanged.State)
+
+	result = transition(data.SessionAssigning, true, "late family correction")
+	require.True(t, result.Applied)
+	require.True(t, result.Session.DraftAssignmentsStale)
+	_, err = service.TransitionSession(ctx, string(organizationID), actor, year.ID, programRow.ID, session.ID, program.SessionTransitionInput{NextState: data.SessionPublished, Confirm: true})
+	require.ErrorIs(t, err, program.ErrSessionTransitionGate)
+
+	stored, err := service.GetSession(ctx, string(organizationID), year.ID, programRow.ID, session.ID)
+	require.NoError(t, err)
+	require.Equal(t, data.SessionAssigning, stored.State)
+	require.True(t, stored.DraftAssignmentsStale)
+
+	objectType := "session"
+	entries, err := harness.Database.ListAuditLog(ctx, string(organizationID), data.AuditLogFilter{ObjectType: &objectType, PageSize: 100})
+	require.NoError(t, err)
+	var foundTransition bool
+	for _, entry := range entries {
+		if entry.Action != string(audit.ActionSessionStateTransition) || entry.ObjectID == nil || *entry.ObjectID != session.ID || entry.Reason.String != "late family correction" {
+			continue
+		}
+		foundTransition = true
+		require.True(t, entry.OccurredAt.Valid)
+		var summary struct {
+			FromState string `json:"from_state"`
+			ToState   string `json:"to_state"`
+			Backward  bool   `json:"backward"`
+		}
+		require.NoError(t, json.Unmarshal(entry.ChangeSummary, &summary))
+		require.Equal(t, string(data.SessionPublished), summary.FromState)
+		require.Equal(t, string(data.SessionAssigning), summary.ToState)
+		require.True(t, summary.Backward)
+	}
+	require.True(t, foundTransition, "confirmed backward transition was not audited")
+
+	completeSession, err := factory.CreateSession(ctx, year.ID, programRow.ID, "Synthetic complete session", 2, []time.Time{time.Date(2026, 10, 30, 0, 0, 0, 0, time.UTC)})
+	require.NoError(t, err)
+	completeTransition := func(next data.SessionState) {
+		result, err := service.TransitionSession(ctx, string(organizationID), actor, year.ID, programRow.ID, completeSession.ID, program.SessionTransitionInput{NextState: next})
+		require.NoError(t, err)
+		require.True(t, result.Applied)
+	}
+	for _, next := range []data.SessionState{data.SessionCatalogPublished, data.SessionAssigning, data.SessionPublished, data.SessionComplete} {
+		completeTransition(next)
+	}
+	_, err = service.UpdateSession(ctx, string(organizationID), actor, year.ID, programRow.ID, completeSession.ID, program.SessionUpdate{Name: stringPtr("not allowed")})
+	require.ErrorIs(t, err, program.ErrSessionReadOnly)
+	_, err = service.TransitionSession(ctx, string(organizationID), actor, year.ID, programRow.ID, completeSession.ID, program.SessionTransitionInput{NextState: data.SessionPlanning})
+	require.ErrorIs(t, err, program.ErrSessionTransitionInvalid)
+}
+
+func stringPtr(value string) *string { return &value }
+
+func transitionWarningCodes(warnings []program.SessionTransitionWarning) []string {
+	result := make([]string, 0, len(warnings))
+	for _, warning := range warnings {
+		result = append(result, warning.Code)
+	}
+	return result
+}
+
 func TestClosedYearSessionAndMeetingDateMutationsAreRejected(t *testing.T) {
 	harness := testharness.Open(t)
 	ctx := harness.Context
@@ -287,6 +397,9 @@ func TestClosedYearSessionAndMeetingDateMutationsAreRejected(t *testing.T) {
 	err = service.DeleteMeetingDate(ctx, string(organizationID), actor, year.ID, programRow.ID, session.ID, meetingDates[0].ID)
 	require.Error(t, err)
 	require.True(t, data.IsSchoolYearClosed(err), "closed-year meeting date delete = %v", err)
+	_, err = service.TransitionSession(ctx, string(organizationID), actor, year.ID, programRow.ID, session.ID, program.SessionTransitionInput{NextState: data.SessionCatalogPublished})
+	require.Error(t, err)
+	require.True(t, data.IsSchoolYearClosed(err), "closed-year session transition = %v", err)
 	err = service.DeleteSession(ctx, string(organizationID), actor, year.ID, programRow.ID, session.ID)
 	require.Error(t, err)
 	require.True(t, data.IsSchoolYearClosed(err), "closed-year session delete = %v", err)

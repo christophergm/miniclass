@@ -127,6 +127,9 @@ func (s *Service) UpdateSession(ctx context.Context, organizationID string, acto
 		if err != nil {
 			return err
 		}
+		if err := ensureSessionMutable(current); err != nil {
+			return err
+		}
 		name, ordinal := current.Name, current.Ordinal
 		changed := false
 		if input.Name != nil && strings.TrimSpace(*input.Name) != current.Name {
@@ -158,6 +161,9 @@ func (s *Service) DeleteSession(ctx context.Context, organizationID string, acto
 	err := s.database.InTenant(ctx, organizationID, actor, func(ctx context.Context, tx *data.Tx) error {
 		current, err := tx.GetSession(ctx, schoolYearID, programID, sessionID)
 		if err != nil {
+			return err
+		}
+		if err := ensureSessionMutable(current); err != nil {
 			return err
 		}
 		deleted, err := tx.DeleteSession(ctx, schoolYearID, programID, sessionID)
@@ -217,10 +223,13 @@ func (s *Service) CreateMeetingDate(ctx context.Context, organizationID string, 
 	}
 	var result data.MeetingDate
 	err := s.database.InTenant(ctx, organizationID, actor, func(ctx context.Context, tx *data.Tx) error {
-		if _, err := tx.GetSession(ctx, schoolYearID, programID, sessionID); err != nil {
+		session, err := tx.GetSession(ctx, schoolYearID, programID, sessionID)
+		if err != nil {
 			return err
 		}
-		var err error
+		if err := ensureSessionMutable(session); err != nil {
+			return err
+		}
 		result, err = tx.CreateMeetingDate(ctx, schoolYearID, programID, sessionID, date)
 		if err != nil {
 			return err
@@ -240,6 +249,13 @@ func (s *Service) UpdateMeetingDate(ctx context.Context, organizationID string, 
 	}
 	var result data.MeetingDate
 	err := s.database.InTenant(ctx, organizationID, actor, func(ctx context.Context, tx *data.Tx) error {
+		session, err := tx.GetSession(ctx, schoolYearID, programID, sessionID)
+		if err != nil {
+			return err
+		}
+		if err := ensureSessionMutable(session); err != nil {
+			return err
+		}
 		current, err := tx.GetMeetingDate(ctx, schoolYearID, programID, sessionID, meetingDateID)
 		if err != nil {
 			return err
@@ -265,6 +281,13 @@ func (s *Service) DeleteMeetingDate(ctx context.Context, organizationID string, 
 		return errors.New("delete meeting date: data service is nil")
 	}
 	err := s.database.InTenant(ctx, organizationID, actor, func(ctx context.Context, tx *data.Tx) error {
+		session, err := tx.GetSession(ctx, schoolYearID, programID, sessionID)
+		if err != nil {
+			return err
+		}
+		if err := ensureSessionMutable(session); err != nil {
+			return err
+		}
 		current, err := tx.GetMeetingDate(ctx, schoolYearID, programID, sessionID, meetingDateID)
 		if err != nil {
 			return err
@@ -317,11 +340,12 @@ func sessionSummary(before *data.Session, after data.Session) json.RawMessage {
 		value["name"] = after.Name
 		value["ordinal"] = after.Ordinal
 		value["state"] = after.State
+		value["draft_assignments_stale"] = after.DraftAssignmentsStale
 	} else {
 		value["deleted"] = true
 	}
 	if before != nil {
-		value["before"] = map[string]any{"name": before.Name, "ordinal": before.Ordinal, "state": before.State}
+		value["before"] = map[string]any{"name": before.Name, "ordinal": before.Ordinal, "state": before.State, "draft_assignments_stale": before.DraftAssignmentsStale}
 	}
 	return mustJSON(value)
 }

@@ -17,6 +17,11 @@ from offerings
 where organization_id = $1 and school_year_id = $2 and program_id = $3 and session_id = $4
 order by name, id;
 
+-- name: CountOfferings :one
+select count(*)
+from offerings
+where organization_id = $1 and school_year_id = $2 and program_id = $3 and session_id = $4;
+
 -- name: GetOffering :one
 select id, organization_id, school_year_id, program_id, session_id, name, description,
     minimum_viable_enrollment, capacity, min_grade_level_id, max_grade_level_id,
