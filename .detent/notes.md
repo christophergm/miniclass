@@ -37,6 +37,16 @@
 - Open items: Detent owns the completion-lane transition after this handoff; no dependency blocker or human action is declared.
 - Skill draft: no — the existing tenant-entity and isolation-harness skills cover the reusable procedure; no new broadly reusable method was discovered.
 
+## Current work — issue #162
+
+- Scope: Move assignment objective tuning from programme/session authoring into dedicated pages per SPEC §§5.2, 12.1, 14.1, 17.4, 17.7, 20.2, 22.4.
+- Rework: rebased the objective-page implementation onto `origin/main` at `c9dc70b`; resolved the `ProgramPages.test.tsx` conflict by retaining both the #161 lifecycle assertions and #162 objective assertions.
+- Implementation: `frontend/src/features/programs/ProgramPages.tsx` has dedicated programme and session objective pages with all 13 parameters, explanations, effective/inherited display, explicit session audit reason, and closed-year read-only behavior; `frontend/src/App.tsx` adds both routes; authoring pages link to them and no longer render objective inputs.
+- Validation: `make lint-backend`, `make format`, `make generate && git diff --exit-code`, and `git diff --check` pass. `make check` and `make test-backend` stop at Docker address-pool exhaustion; migration round-trip lacks its URL; frontend test/build lack `openapi-typescript`; frontend lint cannot write Bun's temp cache; smoke lacks `.env`.
+- Validation after rebase: PR #167 head `09edf36` passes all ten required checks; CI duration was 1m56s, with Generated code drift (1m55s), Backend tests (1m44s), and Developer tooling (1m13s) the slowest. Local `git diff --check` passes; no source changes were made after the green run.
+- Open items: none; PR #167 is open, non-draft, references `Fixes #162`, has clean merge state, and has no review or inline comments requiring action. No skill draft; this is a focused frontend conflict resolution with no reusable procedure discovered.
+- Skill draft: no — this is a focused frontend relocation using existing objective API/hooks; no broadly reusable procedure was discovered.
+
 ## Current work — issue #149
 
 - Scope: consolidate the Phase 3 programme/session/catalog authoring flow per SPEC §§12, 14, 8.3–8.5, and 22.4; dependencies #142–#148 are closed.

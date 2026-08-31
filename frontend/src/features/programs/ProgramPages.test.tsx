@@ -5,19 +5,23 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SchoolYear } from '@/lib/apiResources'
 import { renderWithQueryClient } from '@/test/queryClient'
 
-import { SessionPage } from './ProgramPages'
+import { ProgramMembershipPage, ProgramObjectiveWeightsPage, SessionObjectiveWeightsPage, SessionPage } from './ProgramPages'
 
 const mocks = vi.hoisted(() => ({
   transition: vi.fn(),
   sessionState: 'planning',
+  programUpdate: vi.fn(),
+  sessionUpdate: vi.fn(),
 }))
 
 vi.mock('./usePrograms', () => {
   const query = (data: unknown) => vi.fn(() => ({ data, isLoading: false, isError: false, error: null }))
   const mutation = (mutate = vi.fn()) => vi.fn(() => ({ mutate, isPending: false, isError: false, error: null }))
+  const defaults = { rank_high_max: 3, deficit_unwanted_increment: 4, deficit_neutral_increment: 3, deficit_acceptable_increment: 2, deficit_influence: 0.5, repeat_offering_penalty: 10, repeat_interest_area_penalty: 5, tag_prefers_weight: 5, tag_discourages_weight: 5, pairing_prefers_weight: 8, pairing_discourages_weight: 8, below_minimum_enrollment_penalty: 2, tag_balance_penalty: 2 }
   return {
     useSession: vi.fn(() => ({ data: { id: 'session-1', organization_id: 'org-1', school_year_id: 'year-1', program_id: 'program-1', name: 'Autumn session', ordinal: 1, state: mocks.sessionState, draft_assignments_stale: false, meeting_dates: ['2026-10-02'], feasibility_warnings: [], created_at: '', updated_at: '' }, isLoading: false, isError: false, error: null })),
     usePrograms: query([{ id: 'program-1', organization_id: 'org-1', school_year_id: 'year-1', name: 'Enrichment', created_at: '', updated_at: '' }]),
+    useSessions: query([{ id: 'session-1', organization_id: 'org-1', school_year_id: 'year-1', program_id: 'program-1', name: 'Autumn session', ordinal: 1, state: 'planning', draft_assignments_stale: false, meeting_dates: ['2026-10-02'], feasibility_warnings: [], created_at: '', updated_at: '' }]),
     useMeetingDates: query([{ id: 'date-1', school_year_id: 'year-1', organization_id: 'org-1', program_id: 'program-1', session_id: 'session-1', meeting_date: '2026-10-02', created_at: '', updated_at: '' }]),
     useOfferings: query([{ id: 'offering-1', school_year_id: 'year-1', organization_id: 'org-1', program_id: 'program-1', session_id: 'session-1', name: 'Making', description: 'Build a project', capacity: 10, minimum_viable_enrollment: 2, min_grade_level_id: 'grade-1', max_grade_level_id: 'grade-1', location: 'Studio', meeting_point: 'Front desk', meeting_instructions: 'Ask for the key', interest_area_id: null, created_at: '', updated_at: '' }]),
     useCatalogFeasibility: query({ participant_count: 2, warnings: [{ id: 'capacity', severity: 'warning', message: 'Capacity is below participation.', participant_count: 2, total_capacity: 1, total_minimum_viable_enrollment: 0, shortfall: 1, affected_grades: [], affected_areas: [], offering_ids: [] }] }),
@@ -25,15 +29,15 @@ vi.mock('./usePrograms', () => {
     useVocabulary: query({ school_year_id: 'year-1', grade_levels: [{ id: 'grade-1', school_year_id: 'year-1', code: '1', label: 'Grade 1', ordinal: 1, created_at: '', updated_at: '' }], homerooms: [] }),
     useProgramMemberships: query([{ id: 'membership-1', student_id: 'student-1', legal_given_name: 'Riley', legal_family_name: 'Synthetic', grade_missing: false }]),
     useSessionNonParticipations: query([]),
-    useSessionObjectiveWeights: query({ defaults: { repeat_offering_penalty: 10 }, effective: { repeat_offering_penalty: 10 }, overrides: {} }),
+    useSessionObjectiveWeights: query({ defaults, effective: defaults, overrides: { repeat_offering_penalty: 10 } }),
     useCreateMeetingDate: mutation(), useUpdateMeetingDate: mutation(), useDeleteMeetingDate: mutation(),
     useCreateOffering: mutation(), useUpdateOffering: mutation(), useDeleteOffering: mutation(),
     useTransitionSession: mutation(mocks.transition), useCreateSessionNonParticipation: mutation(),
     useUpdateSessionNonParticipation: mutation(), useDeleteSessionNonParticipation: mutation(),
-    useUpdateSession: mutation(), useUpdateSessionObjectiveWeights: mutation(),
+    useUpdateSession: mutation(), useUpdateSessionObjectiveWeights: mutation(mocks.sessionUpdate),
     useCreateProgram: mutation(), useMissingGradeCount: query({ missing_grade_count: 0 }), useCreateInterestArea: mutation(),
     useAddProgramMembership: mutation(), useRemoveProgramMembership: mutation(), useCreateSession: mutation(),
-    useProgramObjectiveWeights: query(undefined), useUpdateProgramObjectiveWeights: mutation(), useReorderInterestAreas: mutation(),
+    useProgramObjectiveWeights: query({ defaults, effective: defaults }), useUpdateProgramObjectiveWeights: mutation(mocks.programUpdate), useReorderInterestAreas: mutation(), useUpdateInterestArea: mutation(),
   }
 })
 
@@ -47,8 +51,23 @@ function renderSession(currentYear = year('active')) {
   return renderWithQueryClient(<MemoryRouter initialEntries={['/y/year-1/programs/program-1/sessions/session-1']}><Routes><Route element={<ContextRoute />} path="/y/:schoolYearId"><Route element={<SessionPage />} path="programs/:programId/sessions/:sessionId" /></Route></Routes></MemoryRouter>)
 }
 
+function renderProgram(currentYear = year('active')) {
+  function ContextRoute() { return <Outlet context={currentYear} /> }
+  return renderWithQueryClient(<MemoryRouter initialEntries={['/y/year-1/programs/program-1']}><Routes><Route element={<ContextRoute />} path="/y/:schoolYearId"><Route element={<ProgramMembershipPage />} path="programs/:programId" /></Route></Routes></MemoryRouter>)
+}
+
+function renderProgramObjectives(currentYear = year('active')) {
+  function ContextRoute() { return <Outlet context={currentYear} /> }
+  return renderWithQueryClient(<MemoryRouter initialEntries={['/y/year-1/programs/program-1/objectives']}><Routes><Route element={<ContextRoute />} path="/y/:schoolYearId"><Route element={<ProgramObjectiveWeightsPage />} path="programs/:programId/objectives" /></Route></Routes></MemoryRouter>)
+}
+
+function renderSessionObjectives(currentYear = year('active')) {
+  function ContextRoute() { return <Outlet context={currentYear} /> }
+  return renderWithQueryClient(<MemoryRouter initialEntries={['/y/year-1/programs/program-1/sessions/session-1/objectives']}><Routes><Route element={<ContextRoute />} path="/y/:schoolYearId"><Route element={<SessionObjectiveWeightsPage />} path="programs/:programId/sessions/:sessionId/objectives" /></Route></Routes></MemoryRouter>)
+}
+
 describe('SessionPage', () => {
-  beforeEach(() => { mocks.transition.mockReset(); mocks.sessionState = 'planning' })
+  beforeEach(() => { mocks.transition.mockReset(); mocks.sessionState = 'planning'; mocks.programUpdate.mockReset(); mocks.sessionUpdate.mockReset() })
 
   it('consolidates the authoring surfaces and makes feasibility warnings visibly non-blocking', () => {
     renderSession()
@@ -57,6 +76,8 @@ describe('SessionPage', () => {
     expect(screen.getByRole('heading', { name: 'Meeting dates' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Offerings' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Session non-participation' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Assignment objectives' })).toHaveAttribute('href', '/y/year-1/programs/program-1/sessions/session-1/objectives')
+    expect(screen.queryByRole('heading', { name: 'Session objective overrides' })).not.toBeInTheDocument()
     expect(screen.getByText('Advisory only — you can continue authoring.')).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Choose allowed state' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Catalog Published' })).toBeInTheDocument()
@@ -107,5 +128,60 @@ describe('SessionPage', () => {
     expect(screen.getByRole('button', { name: 'Add date' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Transition' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Mark not participating' })).toBeDisabled()
+  })
+})
+
+describe('objective pages', () => {
+  beforeEach(() => { mocks.programUpdate.mockReset(); mocks.sessionUpdate.mockReset() })
+
+  it('makes programme objective tuning discoverable without putting controls on programme authoring', () => {
+    renderProgram()
+
+    expect(screen.getByRole('link', { name: 'Assignment objectives' })).toHaveAttribute('href', '/y/year-1/programs/program-1/objectives')
+    expect(screen.queryByRole('heading', { name: 'Assignment objective defaults' })).not.toBeInTheDocument()
+  })
+
+  it('presents one editable row per programme default and saves edits', () => {
+    renderProgramObjectives()
+
+    expect(screen.getByRole('heading', { name: 'Assignment objectives' })).toBeInTheDocument()
+    expect(screen.getByText('These settings tune how the automated placement engine weighs competing outcomes when generating assignments. They do not restrict catalogue authoring or prevent a session from proceeding.')).toBeInTheDocument()
+    expect(screen.getAllByRole('spinbutton')).toHaveLength(13)
+
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Deficit influence' }), { target: { value: '0.75' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save programme defaults' }))
+
+    expect(mocks.programUpdate).toHaveBeenCalledWith(expect.objectContaining({ deficit_influence: 0.75 }), expect.any(Object))
+  })
+
+  it('shows inherited defaults and effective overrides for every session parameter', () => {
+    renderSessionObjectives()
+
+    expect(screen.getByRole('heading', { name: 'Assignment objectives' })).toBeInTheDocument()
+    expect(screen.getAllByRole('spinbutton')).toHaveLength(13)
+    expect(screen.getByText(/Session override: 10/)).toBeInTheDocument()
+    expect(screen.getAllByText(/Inherited programme default: 3/).length).toBeGreaterThan(0)
+
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Repeat offering penalty override' }), { target: { value: '12.5' } })
+    fireEvent.change(screen.getByRole('textbox', { name: 'Reason for these session overrides' }), { target: { value: 'Tune variety for this session' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save session overrides' }))
+
+    expect(mocks.sessionUpdate).toHaveBeenCalledWith(expect.objectContaining({ reason: 'Tune variety for this session', overrides: expect.objectContaining({ repeat_offering_penalty: 12.5 }) }), expect.any(Object))
+  })
+
+  it('keeps dedicated objective pages read-only for a closed year', () => {
+    renderSessionObjectives(year('closed'))
+
+    expect(screen.getByRole('heading', { name: 'Read-only history' })).toBeInTheDocument()
+    expect(screen.getAllByRole('spinbutton').every((input) => (input as HTMLInputElement).disabled)).toBe(true)
+    expect(screen.getByRole('button', { name: 'Save session overrides' })).toBeDisabled()
+  })
+
+  it('keeps programme defaults read-only for a closed year', () => {
+    renderProgramObjectives(year('closed'))
+
+    expect(screen.getByRole('heading', { name: 'Read-only history' })).toBeInTheDocument()
+    expect(screen.getAllByRole('spinbutton').every((input) => (input as HTMLInputElement).disabled)).toBe(true)
+    expect(screen.getByRole('button', { name: 'Save programme defaults' })).toBeDisabled()
   })
 })
