@@ -24,6 +24,8 @@ export type Program = Schemas['ProgramResponse']
 export type ProgramMembership = Schemas['ProgramMembershipResponse']
 export type ProgramRosterSummary = Schemas['ProgramRosterSummaryResponse']
 export type InterestArea = Schemas['InterestAreaResponse']
+export type Session = Schemas['SessionResponse']
+export type MeetingDate = Schemas['MeetingDateResponse']
 
 export const resourceApi = {
   getHealth: () => unwrap(api.GET('/api/health')),
@@ -53,6 +55,17 @@ export const resourceApi = {
   addProgramMembership: (schoolYearID: string, programID: string, studentID: string) => unwrap(api.POST('/api/school-years/{schoolYearID}/programs/{programID}/memberships', { params: { path: { schoolYearID, programID } }, body: { student_id: studentID } })),
   removeProgramMembership: (schoolYearID: string, programID: string, membershipID: string) => unwrapNoContent(api.DELETE('/api/school-years/{schoolYearID}/programs/{programID}/memberships/{membershipID}', { params: { path: { schoolYearID, programID, membershipID } } })),
   countStudentsWithoutGrade: (schoolYearID: string) => unwrap(api.GET('/api/school-years/{schoolYearID}/students/missing-grade-count', { params: { path: { schoolYearID } } })),
+
+  listSessions: (schoolYearID: string, programID: string) => unwrapList(api.GET('/api/school-years/{schoolYearID}/programs/{programID}/sessions', { params: { path: { schoolYearID, programID } } })),
+  createSession: (schoolYearID: string, programID: string, value: Schemas['CreateSessionInputBody']) => unwrap(api.POST('/api/school-years/{schoolYearID}/programs/{programID}/sessions', { params: { path: { schoolYearID, programID } }, body: value })),
+  getSession: (schoolYearID: string, programID: string, sessionID: string) => unwrap(api.GET('/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}', { params: { path: { schoolYearID, programID, sessionID } } })),
+  updateSession: (schoolYearID: string, programID: string, sessionID: string, value: Schemas['UpdateSessionInputBody']) => unwrap(api.PATCH('/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}', { params: { path: { schoolYearID, programID, sessionID } }, body: value })),
+  deleteSession: (schoolYearID: string, programID: string, sessionID: string) => unwrapNoContent(api.DELETE('/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}', { params: { path: { schoolYearID, programID, sessionID } } })),
+  listMeetingDates: (schoolYearID: string, programID: string, sessionID: string) => unwrapList(api.GET('/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/meeting-dates', { params: { path: { schoolYearID, programID, sessionID } } })),
+  createMeetingDate: (schoolYearID: string, programID: string, sessionID: string, date: string) => unwrap(api.POST('/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/meeting-dates', { params: { path: { schoolYearID, programID, sessionID } }, body: { meeting_date: date } })),
+  getMeetingDate: (schoolYearID: string, programID: string, sessionID: string, meetingDateID: string) => unwrap(api.GET('/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/meeting-dates/{meetingDateID}', { params: { path: { schoolYearID, programID, sessionID, meetingDateID } } })),
+  updateMeetingDate: (schoolYearID: string, programID: string, sessionID: string, meetingDateID: string, date: string) => unwrap(api.PATCH('/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/meeting-dates/{meetingDateID}', { params: { path: { schoolYearID, programID, sessionID, meetingDateID }, body: { meeting_date: date } } })),
+  deleteMeetingDate: (schoolYearID: string, programID: string, sessionID: string, meetingDateID: string) => unwrapNoContent(api.DELETE('/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/meeting-dates/{meetingDateID}', { params: { path: { schoolYearID, programID, sessionID, meetingDateID } } })),
 
   getVocabulary: (schoolYearID: string, includeRetired = true) =>
     unwrap(api.GET('/api/school-years/{schoolYearID}/vocabularies', { params: { path: { schoolYearID }, query: { include_retired: includeRetired } } })),

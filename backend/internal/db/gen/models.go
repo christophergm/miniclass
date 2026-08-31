@@ -273,6 +273,53 @@ func (ns NullSchoolYearState) Value() (driver.Value, error) {
 	return string(ns.SchoolYearState), nil
 }
 
+type SessionState string
+
+const (
+	SessionStatePlanning         SessionState = "planning"
+	SessionStateCatalogPublished SessionState = "catalog_published"
+	SessionStateVotingOpen       SessionState = "voting_open"
+	SessionStateVotingClosed     SessionState = "voting_closed"
+	SessionStateAssigning        SessionState = "assigning"
+	SessionStatePublished        SessionState = "published"
+	SessionStateComplete         SessionState = "complete"
+)
+
+func (e *SessionState) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = SessionState(s)
+	case string:
+		*e = SessionState(s)
+	default:
+		return fmt.Errorf("unsupported scan type for SessionState: %T", src)
+	}
+	return nil
+}
+
+type NullSessionState struct {
+	SessionState SessionState `json:"session_state"`
+	Valid        bool         `json:"valid"` // Valid is true if SessionState is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullSessionState) Scan(value interface{}) error {
+	if value == nil {
+		ns.SessionState, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.SessionState.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullSessionState) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.SessionState), nil
+}
+
 type AccessToken struct {
 	ID         ids.XID            `json:"id"`
 	TokenHash  []byte             `json:"token_hash"`
@@ -363,6 +410,17 @@ type InterestArea struct {
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
+type MeetingDate struct {
+	ID             ids.XID            `json:"id"`
+	OrganizationID ids.XID            `json:"organization_id"`
+	SchoolYearID   ids.XID            `json:"school_year_id"`
+	ProgramID      ids.XID            `json:"program_id"`
+	SessionID      ids.XID            `json:"session_id"`
+	MeetingDate    pgtype.Date        `json:"meeting_date"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Organization struct {
 	ID            ids.XID            `json:"id"`
 	Name          string             `json:"name"`
@@ -406,6 +464,18 @@ type SchoolYear struct {
 	OrganizationID ids.XID            `json:"organization_id"`
 	Label          string             `json:"label"`
 	State          SchoolYearState    `json:"state"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type Session struct {
+	ID             ids.XID            `json:"id"`
+	OrganizationID ids.XID            `json:"organization_id"`
+	SchoolYearID   ids.XID            `json:"school_year_id"`
+	ProgramID      ids.XID            `json:"program_id"`
+	Name           string             `json:"name"`
+	Ordinal        int32              `json:"ordinal"`
+	State          SessionState       `json:"state"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }

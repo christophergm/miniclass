@@ -36,6 +36,9 @@ const (
 	ActionSchoolYearStateTransition Action = "school_year_state_transition"
 	ActionProgramCreate             Action = "program_create"
 	ActionMembershipChange          Action = "membership_change"
+	ActionSessionCreate             Action = "session_create"
+	ActionSessionChange             Action = "session_change"
+	ActionMeetingDateChange         Action = "meeting_date_change"
 	ActionSessionNonParticipation   Action = "session_non_participation"
 	ActionSessionStateTransition    Action = "session_state_transition"
 	ActionOfferingEdit              Action = "offering_edit_after_publish"
@@ -75,6 +78,9 @@ var actions = []Action{
 	ActionSchoolYearStateTransition,
 	ActionProgramCreate,
 	ActionMembershipChange,
+	ActionSessionCreate,
+	ActionSessionChange,
+	ActionMeetingDateChange,
 	ActionSessionNonParticipation,
 	ActionSessionStateTransition,
 	ActionOfferingEdit,
