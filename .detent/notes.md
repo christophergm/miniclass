@@ -34,7 +34,8 @@
 - Key files: `backend/migrations/20260831160000_session_lifecycle.sql`, `backend/internal/program/session_lifecycle.go`, session/offering data and service files, session API handler/routes, generated sqlc/OpenAPI, and `backend/tests/integration/program_test.go`.
 - Implementation: legal transition planner and row-locked audited transition service; empty-catalog and stale-draft publication gates; backward preview/confirmation with non-blocking invalidation warnings; retained stale-draft marker; Complete read-only protections; API problem mappings and frontend resource wrapper.
 - Validation: focused tests, full `GOTOOLCHAIN=local go test -race ./... -count=1`, `make lint-backend`, `make format`, `make generate` execution, and `git diff --check` pass. Exact local backend/migration/frontend/smoke commands are environment-limited by Docker network exhaustion, missing migration URL, missing `openapi-typescript`/Bun temp permissions, and missing `.env`; PR CI must verify all ten required checks.
-- Open items: commit/push, open a non-draft PR with `Fixes #145`, verify current-head checks and review comments, then update the Workpad completion status.
+- Repository state: commit `4b93c3c` is pushed to PR [#157](https://github.com/christophergm/miniclass/pull/157), based on current `origin/main`.
+- Open items: none; PR #157 is open and non-draft, references `Fixes #145`, all ten required CI checks pass, and no actionable review comments remain. Detent owns the completion-lane transition.
 - Skill draft: no — this was a focused lifecycle implementation covered by existing backend and tenant-data guidance; no broadly reusable procedure was discovered.
 
 ## Current handoff — issue #140
