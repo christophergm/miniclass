@@ -145,3 +145,11 @@
 - Validation: `make format`, `make lint-backend`, `make generate`, and `git diff --check` pass. `make check`/`make test-backend` cannot create Docker networks because predefined address pools are exhausted; `make test-migrations` lacks its configured URL; frontend tests/build lack `openapi-typescript`; frontend lint cannot write Bun's temp cache; smoke lacks `.env`.
 - Open items: commit/push, open PR referencing `Fixes #160`, verify current-head CI/review state, then update this Workpad to complete if the review gate is green.
 - Skill draft: no — this is a focused UI pattern and no broadly reusable project procedure was discovered.
+## Current work — issue #165
+
+- Scope: Fix frontend interest-area up-arrow reordering per SPEC §§12.1, 12.3, 12.4, and 22.4.
+- Key files: `frontend/src/features/programs/ProgramPages.tsx` and `frontend/src/features/programs/ProgramPages.test.tsx`.
+- Implementation: up-arrow now submits the full list with only the selected area and immediate predecessor swapped; regression covers three areas, up/down payloads, and first/last disabled boundaries.
+- Validation: focused Bun test cannot start locally because frontend dependencies are absent (`react/jsx-dev-runtime`); CI should run the provisioned frontend gates. Workpad comment `5484747880` is the persistent tracker comment.
+- Open items: run available checks, commit/push, open PR with `Fixes #165`, verify current-head CI/reviews, then complete the Workpad handoff.
+- Skill draft: no — this is a small, one-off frontend reorder correction with no broadly reusable procedure.
