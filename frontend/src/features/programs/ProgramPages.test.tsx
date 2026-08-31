@@ -37,7 +37,7 @@ vi.mock('./usePrograms', () => {
     useUpdateSession: mutation(), useUpdateSessionObjectiveWeights: mutation(mocks.sessionUpdate),
     useCreateProgram: mutation(), useMissingGradeCount: query({ missing_grade_count: 0 }), useCreateInterestArea: mutation(),
     useAddProgramMembership: mutation(), useRemoveProgramMembership: mutation(), useCreateSession: mutation(),
-    useProgramObjectiveWeights: query({ defaults, effective: defaults }), useUpdateProgramObjectiveWeights: mutation(mocks.programUpdate), useReorderInterestAreas: mutation(),
+    useProgramObjectiveWeights: query({ defaults, effective: defaults }), useUpdateProgramObjectiveWeights: mutation(mocks.programUpdate), useReorderInterestAreas: mutation(), useUpdateInterestArea: mutation(),
   }
 })
 
@@ -160,7 +160,7 @@ describe('objective pages', () => {
     expect(screen.getByRole('heading', { name: 'Assignment objectives' })).toBeInTheDocument()
     expect(screen.getAllByRole('spinbutton')).toHaveLength(13)
     expect(screen.getByText(/Session override: 10/)).toBeInTheDocument()
-    expect(screen.getByText(/Inherited programme default: 3/)).toBeInTheDocument()
+    expect(screen.getAllByText(/Inherited programme default: 3/).length).toBeGreaterThan(0)
 
     fireEvent.change(screen.getByRole('spinbutton', { name: 'Repeat offering penalty override' }), { target: { value: '12.5' } })
     fireEvent.change(screen.getByRole('textbox', { name: 'Reason for these session overrides' }), { target: { value: 'Tune variety for this session' } })

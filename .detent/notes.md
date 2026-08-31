@@ -43,7 +43,7 @@
 - Implementation in progress: `frontend/src/features/programs/ProgramPages.tsx` now has dedicated programme and session objective pages with all 13 parameters, explanations, effective/inherited display, explicit session audit reason, and closed-year read-only behavior; `frontend/src/App.tsx` adds both routes; authoring pages link to them and no longer render objective inputs.
 - Tests added for discoverability, route presentation, all parameters, edits, inherited/effective values, and closed-year disabling.
 - Validation so far: `git diff --check` passes. Focused frontend tests could not start because the worktree has no installed `vitest`/frontend dependencies; CI or a dependency-enabled environment must run the frontend gates.
-- Open items: run available validation, inspect generated/type compatibility, commit/push, open PR with `Fixes #162`, verify CI/review comments, and update the issue Workpad completion status.
+- Open items: verify the fresh PR CI after the fixture correction, inspect review comments, and update the issue Workpad completion status.
 - Skill draft: no — this is a focused frontend relocation using existing objective API/hooks; no broadly reusable procedure was discovered.
 
 ## Current work — issue #149
