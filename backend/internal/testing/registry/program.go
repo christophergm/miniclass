@@ -140,7 +140,7 @@ func insertProgramWithForeignParent(ctx context.Context, harness *testharness.Ha
 		return err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if _, err := tx.Exec(ctx, "set local app.organization_id = $1", string(tenantID)); err != nil {
+	if _, err := tx.Exec(ctx, "select set_config('app.organization_id', $1, true)", string(tenantID)); err != nil {
 		return err
 	}
 	_, err = tx.Exec(ctx, "insert into programs (organization_id, school_year_id, name) values ($1, $2, $3)", string(foreignOrganizationID), string(year.ID), "Cross Parent Program")
@@ -177,7 +177,7 @@ func insertProgramMembershipWithForeignParent(ctx context.Context, harness *test
 		return err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if _, err := tx.Exec(ctx, "set local app.organization_id = $1", string(tenantID)); err != nil {
+	if _, err := tx.Exec(ctx, "select set_config('app.organization_id', $1, true)", string(tenantID)); err != nil {
 		return err
 	}
 	_, err = tx.Exec(ctx, `insert into program_memberships (organization_id, school_year_id, program_id, student_id) values ($1, $2, $3, $4)`, string(foreignOrganizationID), string(year.ID), string(program.ID), string(student.ID))
