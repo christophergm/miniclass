@@ -28,6 +28,12 @@ export function useMeetingDates(schoolYearID: string | undefined, programID: str
   return useQuery({ enabled: Boolean(schoolYearID && programID && sessionID), queryKey: [...sessionsKey(schoolYearID, programID), sessionID, 'meeting-dates'], queryFn: () => resourceApi.listMeetingDates(schoolYearID as string, programID as string, sessionID as string), retry: false })
 }
 
+export const catalogFeasibilityKey = (schoolYearID: string | undefined, programID: string | undefined, sessionID: string | undefined) => [...sessionsKey(schoolYearID, programID), sessionID, 'catalog-feasibility'] as const
+
+export function useCatalogFeasibility(schoolYearID: string | undefined, programID: string | undefined, sessionID: string | undefined) {
+  return useQuery({ enabled: Boolean(schoolYearID && programID && sessionID), queryKey: catalogFeasibilityKey(schoolYearID, programID, sessionID), queryFn: () => resourceApi.getCatalogFeasibility(schoolYearID as string, programID as string, sessionID as string), retry: false })
+}
+
 export const offeringsKey = (schoolYearID: string | undefined, programID: string | undefined, sessionID: string | undefined) => [...sessionsKey(schoolYearID, programID), sessionID, 'offerings'] as const
 
 export function useOfferings(schoolYearID: string | undefined, programID: string | undefined, sessionID: string | undefined) {
@@ -55,17 +61,17 @@ export function useCreateProgram(schoolYearID: string) {
 
 export function useCreateInterestArea(schoolYearID: string, programID: string) {
   const queryClient = useQueryClient()
-  return useMutation({ mutationFn: (label: string) => resourceApi.createInterestArea(schoolYearID, programID, label), onSuccess: () => queryClient.invalidateQueries({ queryKey: interestAreasKey(schoolYearID, programID) }) })
+  return useMutation({ mutationFn: (label: string) => resourceApi.createInterestArea(schoolYearID, programID, label), onSuccess: () => { queryClient.invalidateQueries({ queryKey: interestAreasKey(schoolYearID, programID) }); queryClient.invalidateQueries({ queryKey: sessionsKey(schoolYearID, programID) }) } })
 }
 
 export function useReorderInterestAreas(schoolYearID: string, programID: string) {
   const queryClient = useQueryClient()
-  return useMutation({ mutationFn: (ids: string[]) => resourceApi.reorderInterestAreas(schoolYearID, programID, ids), onSuccess: () => queryClient.invalidateQueries({ queryKey: interestAreasKey(schoolYearID, programID) }) })
+  return useMutation({ mutationFn: (ids: string[]) => resourceApi.reorderInterestAreas(schoolYearID, programID, ids), onSuccess: () => { queryClient.invalidateQueries({ queryKey: interestAreasKey(schoolYearID, programID) }); queryClient.invalidateQueries({ queryKey: sessionsKey(schoolYearID, programID) }) } })
 }
 
 export function useUpdateInterestArea(schoolYearID: string, programID: string) {
   const queryClient = useQueryClient()
-  return useMutation({ mutationFn: ({ interestAreaID, value }: { interestAreaID: string; value: { label?: string; retired?: boolean } }) => resourceApi.updateInterestArea(schoolYearID, programID, interestAreaID, value), onSuccess: () => queryClient.invalidateQueries({ queryKey: interestAreasKey(schoolYearID, programID) }) })
+  return useMutation({ mutationFn: ({ interestAreaID, value }: { interestAreaID: string; value: { label?: string; retired?: boolean } }) => resourceApi.updateInterestArea(schoolYearID, programID, interestAreaID, value), onSuccess: () => { queryClient.invalidateQueries({ queryKey: interestAreasKey(schoolYearID, programID) }); queryClient.invalidateQueries({ queryKey: sessionsKey(schoolYearID, programID) }) } })
 }
 
 export function useCreateSession(schoolYearID: string, programID: string) {
@@ -95,17 +101,17 @@ export function useDeleteMeetingDate(schoolYearID: string, programID: string, se
 
 export function useCreateOffering(schoolYearID: string, programID: string, sessionID: string) {
   const queryClient = useQueryClient()
-  return useMutation({ mutationFn: (value: { name: string; description?: string; minimum_viable_enrollment?: number | null; capacity: number; min_grade_level_id: string; max_grade_level_id: string; location?: string; meeting_point?: string; meeting_instructions?: string; interest_area_id?: string | null }) => resourceApi.createOffering(schoolYearID, programID, sessionID, value), onSuccess: () => queryClient.invalidateQueries({ queryKey: offeringsKey(schoolYearID, programID, sessionID) }) })
+  return useMutation({ mutationFn: (value: { name: string; description?: string; minimum_viable_enrollment?: number | null; capacity: number; min_grade_level_id: string; max_grade_level_id: string; location?: string; meeting_point?: string; meeting_instructions?: string; interest_area_id?: string | null }) => resourceApi.createOffering(schoolYearID, programID, sessionID, value), onSuccess: () => { queryClient.invalidateQueries({ queryKey: offeringsKey(schoolYearID, programID, sessionID) }); queryClient.invalidateQueries({ queryKey: catalogFeasibilityKey(schoolYearID, programID, sessionID) }) } })
 }
 
 export function useUpdateOffering(schoolYearID: string, programID: string, sessionID: string) {
   const queryClient = useQueryClient()
-  return useMutation({ mutationFn: ({ offeringID, value }: { offeringID: string; value: { name?: string; description?: string; minimum_viable_enrollment?: number | null; capacity?: number; min_grade_level_id?: string; max_grade_level_id?: string; location?: string; meeting_point?: string; meeting_instructions?: string; interest_area_id?: string | null } }) => resourceApi.updateOffering(schoolYearID, programID, sessionID, offeringID, value), onSuccess: () => queryClient.invalidateQueries({ queryKey: offeringsKey(schoolYearID, programID, sessionID) }) })
+  return useMutation({ mutationFn: ({ offeringID, value }: { offeringID: string; value: { name?: string; description?: string; minimum_viable_enrollment?: number | null; capacity?: number; min_grade_level_id?: string; max_grade_level_id?: string; location?: string; meeting_point?: string; meeting_instructions?: string; interest_area_id?: string | null } }) => resourceApi.updateOffering(schoolYearID, programID, sessionID, offeringID, value), onSuccess: () => { queryClient.invalidateQueries({ queryKey: offeringsKey(schoolYearID, programID, sessionID) }); queryClient.invalidateQueries({ queryKey: catalogFeasibilityKey(schoolYearID, programID, sessionID) }) } })
 }
 
 export function useDeleteOffering(schoolYearID: string, programID: string, sessionID: string) {
   const queryClient = useQueryClient()
-  return useMutation({ mutationFn: (offeringID: string) => resourceApi.deleteOffering(schoolYearID, programID, sessionID, offeringID), onSuccess: () => queryClient.invalidateQueries({ queryKey: offeringsKey(schoolYearID, programID, sessionID) }) })
+  return useMutation({ mutationFn: (offeringID: string) => resourceApi.deleteOffering(schoolYearID, programID, sessionID, offeringID), onSuccess: () => { queryClient.invalidateQueries({ queryKey: offeringsKey(schoolYearID, programID, sessionID) }); queryClient.invalidateQueries({ queryKey: catalogFeasibilityKey(schoolYearID, programID, sessionID) }) } })
 }
 
 export function useUpdateProgramObjectiveWeights(schoolYearID: string, programID: string) {
@@ -125,10 +131,10 @@ export function useClearSessionObjectiveWeights(schoolYearID: string, programID:
 
 export function useAddProgramMembership(schoolYearID: string, programID: string) {
   const queryClient = useQueryClient()
-  return useMutation({ mutationFn: (studentID: string) => resourceApi.addProgramMembership(schoolYearID, programID, studentID), onSuccess: () => queryClient.invalidateQueries({ queryKey: [...programsKey(schoolYearID), programID, 'memberships'] }) })
+  return useMutation({ mutationFn: (studentID: string) => resourceApi.addProgramMembership(schoolYearID, programID, studentID), onSuccess: () => { queryClient.invalidateQueries({ queryKey: [...programsKey(schoolYearID), programID, 'memberships'] }); queryClient.invalidateQueries({ queryKey: sessionsKey(schoolYearID, programID) }) } })
 }
 
 export function useRemoveProgramMembership(schoolYearID: string, programID: string) {
   const queryClient = useQueryClient()
-  return useMutation({ mutationFn: (membershipID: string) => resourceApi.removeProgramMembership(schoolYearID, programID, membershipID), onSuccess: () => queryClient.invalidateQueries({ queryKey: [...programsKey(schoolYearID), programID, 'memberships'] }) })
+  return useMutation({ mutationFn: (membershipID: string) => resourceApi.removeProgramMembership(schoolYearID, programID, membershipID), onSuccess: () => { queryClient.invalidateQueries({ queryKey: [...programsKey(schoolYearID), programID, 'memberships'] }); queryClient.invalidateQueries({ queryKey: sessionsKey(schoolYearID, programID) }) } })
 }

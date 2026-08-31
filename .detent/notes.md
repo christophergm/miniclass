@@ -49,6 +49,16 @@
 - Open items: Detent owns the completion-lane transition; no actionable PR comments or reviews remain.
 - Skill draft: no — this was a focused frontend split and exposed no broadly reusable procedure beyond existing skills.
 
+## Current work — issue #147
+
+- Scope: deterministic, non-blocking catalog feasibility warnings for aggregate capacity, grade coverage, minimum viability, area coverage, and unmatched offerings. Governing contract: SPEC §§14.2, 5.2, 16.5, 19.4; ADR 0008.
+- Implementation: `backend/internal/program/feasibility.go` evaluates a read snapshot; the service reads memberships, session non-participation, offerings, year grades, and active programme areas under `InTenantRead`. API exposes `GET .../catalog-feasibility` and adds `feasibility_warnings` to session responses; frontend has generated-client resource/type/hook wiring and cache invalidation.
+- Area-signal note: interest profiles/ranked choices are not persisted in current Phase 3, so live area demand is empty. The pure evaluator accepts explicit aggregate high-rating signals and tests area gaps against the current vocabulary.
+- Validation: focused Go tests, race-enabled `GOTOOLCHAIN=local go test -race ./... -count=1`, backend lint/format, generated-code drift, and `git diff --check` pass. The exact ten required PR checks also pass. Local `make test-backend` cannot create a Docker network because address pools are exhausted; `make test-migrations` lacks its configured URL; frontend tests/build lack `openapi-typescript`; frontend lint cannot write Bun temp files; smoke lacks `.env`.
+- Repository state: PR #158 is open, non-draft, references `Fixes #147`, and has no actionable review comments. PR CI took 1m57s; slow checks were Backend tests (1m55s), Generated code drift (1m51s), and Developer tooling (1m25s). Quiet-window wait was 0s; local merge-gate execution was approximately 30s. No post-merge main CI applies while the PR is open.
+- Open items: none; Detent owns the completion-lane transition.
+- Skill draft: no — this is a focused warning evaluator/API wiring change; no new reusable procedure beyond existing guidance was discovered.
+
 ## Current work — issue #146
 
 - Scope: Add session-scoped non-participation records with required reasons, audited CRUD/list API, unchanged programme membership, participating-membership projection, closed-year refusal, and tenant isolation. Governing contract: SPEC §§5.2, 8.3, 20.1; ADRs 0007, 0008, 0010.

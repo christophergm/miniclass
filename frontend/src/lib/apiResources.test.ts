@@ -75,3 +75,22 @@ describe('import uploads', () => {
     await expect(requests[0].text()).resolves.toBe(source)
   })
 })
+
+describe('catalog feasibility', () => {
+  afterEach(() => { vi.unstubAllGlobals() })
+
+  it('uses the generated catalog-feasibility session resource', async () => {
+    const requests: Request[] = []
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = input instanceof Request ? input : new Request(input, init)
+      requests.push(request)
+      return new Response(JSON.stringify({ participant_count: 2, warnings: [] }), {
+        status: 200, headers: { 'Content-Type': 'application/json' },
+      })
+    }))
+
+    await resourceApi.getCatalogFeasibility('year-1', 'program-1', 'session-1')
+
+    expect(requests[0].url).toContain('/api/school-years/year-1/programs/program-1/sessions/session-1/catalog-feasibility')
+  })
+})
