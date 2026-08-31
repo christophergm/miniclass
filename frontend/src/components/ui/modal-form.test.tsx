@@ -13,6 +13,7 @@ describe('ModalForm', () => {
     }
     render(<Harness />)
     const opener = screen.getByRole('button', { name: 'Open' })
+    opener.focus()
     fireEvent.click(opener)
     expect(screen.getByLabelText('Session name')).toHaveFocus()
 
