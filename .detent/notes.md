@@ -42,8 +42,8 @@
 - Scope: Move assignment objective tuning from programme/session authoring into dedicated pages per SPEC §§5.2, 12.1, 14.1, 17.4, 17.7, 20.2, 22.4.
 - Implementation in progress: `frontend/src/features/programs/ProgramPages.tsx` now has dedicated programme and session objective pages with all 13 parameters, explanations, effective/inherited display, explicit session audit reason, and closed-year read-only behavior; `frontend/src/App.tsx` adds both routes; authoring pages link to them and no longer render objective inputs.
 - Tests added for discoverability, route presentation, all parameters, edits, inherited/effective values, and closed-year disabling.
-- Validation: local `make generate`, backend lint/format, backend generated-code drift, and `git diff --check` pass. Local frontend commands are unavailable because dependencies are not installed. PR #167 workflow-dispatch validation for head `4619aec` in run `33430195023` passes all ten required checks; GitHub's PR-specific check view is not populated by workflow-dispatch, and no new pull-request run appeared for the notes-only push.
-- Open items: keep the current-head check evidence in the Workpad, inspect review comments, and update the issue Workpad completion status.
+- Validation: local `make generate`, backend lint/format, backend generated-code drift, and `git diff --check` pass. Local frontend commands are unavailable because dependencies are not installed. PR #167 workflow-dispatch validation for head `7d19911` passes all ten required checks; GitHub's PR-specific check view is not populated by workflow-dispatch.
+- Open items: none; PR #167 is open, non-draft, references `Fixes #162`, and has no actionable review comments. Detent owns the completion-lane transition.
 - Skill draft: no — this is a focused frontend relocation using existing objective API/hooks; no broadly reusable procedure was discovered.
 
 ## Current work — issue #149
