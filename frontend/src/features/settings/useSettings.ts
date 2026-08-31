@@ -12,7 +12,7 @@ export const administratorsKey = ['administrators'] as const
 
 function useInvalidateVocabulary(schoolYearId: string | undefined) {
   const queryClient = useQueryClient()
-  return () => schoolYearId ? queryClient.invalidateQueries({ queryKey: vocabularyKey(schoolYearId) }) : undefined
+  return () => schoolYearId ? queryClient.invalidateQueries({ queryKey: vocabularyKey(schoolYearId) }) : queryClient.invalidateQueries({ queryKey: ['vocabulary'] })
 }
 
 export function useVocabularyMutation<T>(schoolYearId: string | undefined, mutationFn: (value: T) => Promise<unknown>) {

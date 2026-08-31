@@ -104,6 +104,14 @@ describe('SchoolYearWorkspace', () => {
     expect(screen.queryByLabelText('Reason for reopening')).not.toBeInTheDocument()
   })
 
+  it('links the year workspace to its vocabulary and the top-level organization settings', () => {
+    mockQuery(useSchoolYear, { data: year({ state: 'active' }), isLoading: false, isError: false, error: null })
+    renderWorkspace()
+
+    expect(screen.getByRole('link', { name: 'Manage grades and homerooms' })).toHaveAttribute('href', '/y/year-test/vocabulary')
+    expect(screen.getByRole('link', { name: 'Organisation settings' })).toHaveAttribute('href', '/settings')
+  })
+
   it('renders the not-found page instead of the workspace for a foreign year', () => {
     mockQuery(useSchoolYear, { data: undefined, isLoading: false, isError: true, error: new ApiError('http', 'school year not found', 404, 'resource-not-found') })
     renderWorkspace()

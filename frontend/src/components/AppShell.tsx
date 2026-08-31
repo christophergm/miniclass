@@ -30,6 +30,7 @@ export function AppShell() {
           <Link className="font-semibold tracking-tight text-foreground" to="/years">MiniClass</Link>
           <div className="flex items-center gap-4">
             <Link className="text-sm font-medium text-muted-foreground hover:text-foreground" to="/years">School years</Link>
+            <Link className="text-sm font-medium text-muted-foreground hover:text-foreground" to="/settings">Settings</Link>
             <details className="relative">
               <summary className="cursor-pointer list-none rounded-md border px-3 py-2 text-sm font-medium hover:bg-accent">{email}</summary>
               <div className="absolute right-0 z-10 mt-2 w-64 rounded-lg border bg-card p-3 shadow-lg">
@@ -47,4 +48,3 @@ export function AppShell() {
     </div>
   )
 }
-

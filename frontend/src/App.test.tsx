@@ -54,8 +54,8 @@ afterEach(() => {
 })
 
 // The school-year pages are deliberately not mocked: these tests assert what
-// the routed module actually renders. An earlier mock named a `SchoolYearPage`
-// export that the routed module never had, so it silently did nothing.
+// the routed module actually renders. The top-level settings route is mocked
+// by its actual export so routing tests do not duplicate settings behavior.
 vi.mock('./features/settings/SettingsPage', () => ({
   SettingsPage: () => <div data-testid="settings">Settings</div>,
 }))
@@ -91,6 +91,12 @@ describe('App routing', () => {
     expect(await screen.findByRole('heading', { name: 'School years' })).toBeInTheDocument()
     expect(await screen.findByText('No school years yet')).toBeInTheDocument()
     expect(screen.queryByText(/statistics|dashboard/i)).not.toBeInTheDocument()
+  })
+
+  it('routes organization settings without requiring a school-year URL', async () => {
+    renderApp('/settings', authenticatedClient())
+
+    expect(await screen.findByTestId('settings')).toBeInTheDocument()
   })
 
   it('renders a clean not-found page for a foreign school-year URL', async () => {

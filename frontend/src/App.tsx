@@ -11,6 +11,7 @@ import { SignInPage } from '@/features/auth/SignInPage'
 import { NotFoundPage } from '@/features/errors/NotFoundPage'
 import { SchoolYearGuard, SchoolYearListPage, SchoolYearWorkspace } from '@/features/school-years/SchoolYearPages'
 import { SettingsPage } from '@/features/settings/SettingsPage'
+import { VocabularyPage } from '@/features/vocabulary/VocabularyPage'
 import { AdultDetailPage, AdultListPage, StudentDetailPage, StudentListPage } from '@/features/people/PeoplePages'
 import { AuditLog } from '@/features/audit/AuditLog'
 import { ImportPage } from '@/features/imports/ImportPage'
@@ -48,7 +49,7 @@ function AppRoutes() {
 
           <Route path="/y/:schoolYearId" element={<SchoolYearGuard />}>
             <Route index element={<SchoolYearWorkspace />} />
-            <Route path="settings" element={<SettingsPage />} />
+            <Route path="vocabulary" element={<VocabularyPage />} />
             <Route path="programs" element={<ProgramListPage />} />
             <Route path="programs/:programId" element={<ProgramMembershipPage />} />
 
@@ -80,6 +81,7 @@ function AppRoutes() {
           <Route path="/adults/new" element={<AdultDetailPage />} />
           <Route path="/adults/:personId" element={<AdultDetailPage />} />
           <Route path="/audit-log" element={<AuditLog />} />
+          <Route path="/settings" element={<SettingsPage />} />
         </Route>
       </Route>
       <Route path="*" element={<NotFoundPage />} />

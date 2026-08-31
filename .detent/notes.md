@@ -14,5 +14,7 @@
 - Scope: Split the year-scoped grade/homeroom vocabulary into `/y/:schoolYearId/vocabulary` and keep the organisation label plus owner-only administrators at top-level `/settings`, including closed-year read-only treatment and setup guidance.
 - Dependency: issue #139 is now closed and PR #150 is merged; this worktree was three commits behind `origin/main` before the dependency update.
 - Key files after dependency lands: `frontend/src/App.tsx`, `frontend/src/features/settings/SettingsPage.tsx`, `frontend/src/features/settings/useSettings.ts`, `frontend/src/features/school-years/SchoolYearPages.tsx`, `frontend/src/features/people/PeoplePages.tsx`, and frontend tests.
-- Open items: rebase onto the merged #139 base, then implement and validate #140. No code changes or validation run for #140 yet.
-- Skill draft: no — this run was blocked before exposing a reusable implementation method.
+- Implementation: added the guarded `/y/:schoolYearId/vocabulary` page with configured-label headings, empty setup guidance, closed-year read-only controls, and shared vocabulary sections; moved organization label and administrators to top-level `/settings`; added workspace/app-shell navigation; preserved year-keyed roster vocabulary caching and invalidation.
+- Validation: `git diff --check` and backend `make format` pass; backend generation completed without drift. Frontend tests/build/lint cannot run locally because `openapi-typescript` is missing and `bunx` cannot write its temp cache. Full `make check` stops at the existing `/miniclass-postgres` container-name conflict before CI gates run.
+- Open items: commit and push the implementation, open a non-draft PR with `Fixes #140`, and verify current-head CI and review state.
+- Skill draft: no — this was a focused frontend split and exposed no broadly reusable procedure beyond existing skills.
