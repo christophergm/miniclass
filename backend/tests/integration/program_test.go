@@ -230,7 +230,7 @@ func TestSessionsOrderByFirstMeetingDateAndOwnMeetingDates(t *testing.T) {
 	dates, err := service.ListMeetingDates(ctx, string(organizationID), year.ID, programRow.ID, first.ID)
 	require.NoError(t, err)
 	require.Len(t, dates, 2)
-	changedDate := time.Date(2026, 10, 9, 0, 0, 0, 0, time.UTC)
+	changedDate := time.Date(2026, 10, 12, 0, 0, 0, 0, time.UTC)
 	_, err = service.UpdateMeetingDate(ctx, string(organizationID), actor, year.ID, programRow.ID, first.ID, dates[0].ID, changedDate)
 	require.NoError(t, err)
 	require.NoError(t, service.DeleteMeetingDate(ctx, string(organizationID), actor, year.ID, programRow.ID, first.ID, dates[1].ID))
