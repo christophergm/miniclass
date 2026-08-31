@@ -22,7 +22,7 @@ export function VocabularyPage() {
 
   return (
     <main className="mx-auto w-full max-w-6xl px-6 py-10">
-      <Link className="text-sm font-medium text-primary hover:underline" to={`/y/${year.id}`}>← Back to {year.label}</Link>
+      <Link className="text-sm font-medium text-primary hover:underline" to={`/y/${year.id}/settings`}>← Back to Settings</Link>
       <p className="mt-6 text-sm font-medium text-primary">School-year setup</p>
       <h1 className="mt-2 text-3xl font-semibold tracking-tight">Grades and {noun}</h1>
       <p className="mt-2 max-w-2xl text-sm text-muted-foreground">Manage the vocabulary used by roster records in {year.label}.</p>

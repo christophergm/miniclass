@@ -6,7 +6,7 @@ import { ApiError } from '@/lib/api'
 import type { MeResponse, SchoolYear } from '@/lib/apiResources'
 import { renderWithQueryClient } from '@/test/queryClient'
 
-import { SchoolYearGuard, SchoolYearListPage, SchoolYearWorkspace } from './SchoolYearPages'
+import { SchoolYearGuard, SchoolYearLayout, SchoolYearListPage, SchoolYearWorkspace } from './SchoolYearPages'
 import { useCreateSchoolYear, useSchoolYear, useSchoolYears, useUpdateSchoolYear } from './useSchoolYears'
 
 vi.mock('./useSchoolYears', () => ({
@@ -60,6 +60,23 @@ function renderList() {
   return renderWithQueryClient(<MemoryRouter><SchoolYearListPage /></MemoryRouter>)
 }
 
+function renderLayout(path = '/y/year-test/programs') {
+  return renderWithQueryClient(
+    <MemoryRouter initialEntries={[path]}>
+      <Routes>
+        <Route element={<SchoolYearGuard />} path="/y/:schoolYearId">
+          <Route element={<SchoolYearLayout />}>
+            <Route element={<p>Programs page</p>} path="programs" />
+            <Route element={<p>Adults page</p>} path="adults" />
+            <Route element={<p>Students page</p>} path="students" />
+            <Route element={<p>Settings page</p>} path="settings" />
+          </Route>
+        </Route>
+      </Routes>
+    </MemoryRouter>,
+  )
+}
+
 beforeEach(() => {
   mockQuery(useSchoolYears, { data: [], isLoading: false, isError: false, error: null })
   mockQuery(useSchoolYear, { data: closedYear, isLoading: false, isError: false, error: null })
@@ -109,6 +126,7 @@ describe('SchoolYearWorkspace', () => {
     renderWorkspace()
 
     expect(screen.getByRole('link', { name: 'Manage grades and homerooms' })).toHaveAttribute('href', '/y/year-test/vocabulary')
+    expect(screen.getByRole('link', { name: 'Import roster or grades' })).toHaveAttribute('href', '/y/year-test/imports')
     expect(screen.queryByRole('link', { name: 'Organisation settings' })).not.toBeInTheDocument()
   })
 
@@ -118,6 +136,24 @@ describe('SchoolYearWorkspace', () => {
 
     expect(screen.getByRole('heading', { name: 'School year not found' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Year details' })).not.toBeInTheDocument()
+  })
+})
+
+describe('SchoolYearLayout', () => {
+  it('keeps year context in the breadcrumb and primary navigation', async () => {
+    renderLayout()
+
+    expect(screen.getByRole('link', { name: 'School years' })).toHaveAttribute('href', '/years')
+    expect(screen.getByRole('link', { name: '2025–26' })).toHaveAttribute('href', '/y/year-test/programs')
+    expect(screen.getByRole('link', { name: 'Programs' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('link', { name: 'Adults' })).toHaveAttribute('href', '/y/year-test/adults')
+    expect(screen.getByRole('link', { name: 'Students' })).toHaveAttribute('href', '/y/year-test/students')
+    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/y/year-test/settings')
+  })
+
+  it('marks year settings active for its vocabulary and import subpages', () => {
+    renderLayout('/y/year-test/settings')
+    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('aria-current', 'page')
   })
 })
 

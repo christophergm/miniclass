@@ -153,3 +153,13 @@
 - Validation: focused Bun test cannot start locally because frontend dependencies are absent (`react/jsx-dev-runtime`); CI should run the provisioned frontend gates. Workpad comment `5484747880` is the persistent tracker comment.
 - Open items: run available checks, commit/push, open PR with `Fixes #165`, verify current-head CI/reviews, then complete the Workpad handoff.
 - Skill draft: no — this is a small, one-off frontend reorder correction with no broadly reusable procedure.
+
+## Current handoff — issue #172
+
+- Scope: shared year-scoped navigation and breadcrumb for Programs, Adults, Students, and Settings; year Settings actions for vocabulary/import; one-program-per-row list; closed-year read-only navigation per SPEC §§8.7 and 11.1.
+- Implementation: `SchoolYearLayout` wraps every resolved `/y/:schoolYearId/*` route; the year root redirects to Settings; Settings retains vocabulary/import destinations in closed years; imports disable mutations for closed years; Programs has a header create action and one program per row.
+- Repository: commits `494793a` and `124e797` are pushed to PR [#176](https://github.com/christophergm/miniclass/pull/176), which references `Fixes #172` and is open/non-draft.
+- Validation: final PR run `33448480472` passes all ten required checks. Backend lint/format, generation, and `git diff --check` pass locally. Local frontend tests/build are unavailable because `openapi-typescript` is absent; frontend lint cannot write Bun's temp cache; local full check stops at exhausted Docker address pools; migration round-trip lacks its configured URL; smoke lacks `.env`.
+- Telemetry: quiet-window wait 0s; local merge-gate duration 0.011s; PR CI duration 1m56s; slow checks were Backend tests (111s), Generated code drift (108s), and Backend lint (85s); no post-merge main CI applies while the PR is open.
+- Open items: none. No PR reviews, inline comments, or issue blockers. Detent owns the completion-lane transition.
+- Skill draft: no — this was a focused frontend routing/presentation change and exposed no broadly reusable procedure.

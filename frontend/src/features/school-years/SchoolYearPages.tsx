@@ -1,5 +1,5 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
-import { Link, Outlet, useOutletContext, useParams } from 'react-router-dom'
+import { Link, Outlet, useLocation, useOutletContext, useParams } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -117,7 +117,46 @@ export function SchoolYearGuard() {
   return <Outlet context={result.data} />
 }
 
-export function SchoolYearWorkspace() {
+const yearNavigation = [
+  { label: 'Programs', path: 'programs' },
+  { label: 'Adults', path: 'adults' },
+  { label: 'Students', path: 'students' },
+] as const
+
+function navigationClass(active: boolean) {
+  return active
+    ? 'rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground'
+    : 'rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground'
+}
+
+export function SchoolYearLayout() {
+  const year = useOutletContext<SchoolYear>()
+  const location = useLocation()
+  const basePath = `/y/${year.id}`
+  const isAt = (path: string) => location.pathname === `${basePath}/${path}` || location.pathname.startsWith(`${basePath}/${path}/`)
+  const settingsActive = isAt('settings') || isAt('vocabulary') || isAt('imports')
+
+  return <>
+    <div className="border-b bg-card">
+      <div className="mx-auto w-full max-w-6xl px-6">
+        <nav aria-label="Breadcrumb" className="flex items-center gap-2 py-4 text-sm">
+          <Link className="text-muted-foreground hover:text-foreground hover:underline" to="/years">School years</Link>
+          <span aria-hidden="true" className="text-muted-foreground">/</span>
+          <Link className="font-medium text-foreground hover:underline" to={`${basePath}/programs`}>{year.label}</Link>
+        </nav>
+        <div className="flex flex-wrap items-end justify-between gap-4 pb-4">
+          <nav aria-label="School year navigation" className="flex flex-wrap gap-1">
+            {yearNavigation.map(({ label, path }) => <Link aria-current={isAt(path) ? 'page' : undefined} className={navigationClass(isAt(path))} key={path} to={`${basePath}/${path}`}>{label}</Link>)}
+          </nav>
+          <Link aria-current={settingsActive ? 'page' : undefined} className={navigationClass(settingsActive)} to={`${basePath}/settings`}>Settings</Link>
+        </div>
+      </div>
+    </div>
+    <Outlet context={year} />
+  </>
+}
+
+export function SchoolYearSettingsPage() {
   const year = useOutletContext<SchoolYear>()
   // The role decides whether the owner-only reopen control is offered (SPEC
   // §11.1). The server decides whether it succeeds; this only avoids showing an
@@ -137,11 +176,11 @@ export function SchoolYearWorkspace() {
 
   return (
     <PageFrame>
-      <p className="text-sm font-medium text-primary">School-year workspace</p>
+      <p className="text-sm font-medium text-primary">School-year settings</p>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">{year.label}</h1>
-          <p className="mt-2 text-sm text-muted-foreground">This workspace is scoped by the school-year URL.</p>
+          <h1 className="text-3xl font-semibold tracking-tight">Settings</h1>
+          <p className="mt-2 text-sm text-muted-foreground">Manage {year.label} and its year-scoped tools.</p>
         </div>
         <StateBadge className="rounded-full bg-secondary px-3 py-1 text-sm font-medium capitalize text-secondary-foreground" state={year.state} />
       </div>
@@ -188,11 +227,22 @@ export function SchoolYearWorkspace() {
       </section>
 
       <p className="mt-4 text-sm text-muted-foreground">Created {formatDate(year.created_at)} · Updated {formatDate(year.updated_at)}</p>
-      {!readOnly && <Button asChild className="mt-6 mr-3" variant="outline"><Link to={`/y/${year.id}/imports`}>Import roster or grades</Link></Button>}
-      <Button asChild className="mt-6 mr-3" variant="outline"><Link to={`/y/${year.id}/vocabulary`}>Manage grades and homerooms</Link></Button>
-      <Button asChild className="mt-6 mr-3" variant="outline"><Link to={`/y/${year.id}/programs`}>Manage programs</Link></Button>
+      <section aria-labelledby="year-tools-heading" className="mt-6 rounded-lg border bg-card p-5 shadow-sm">
+        <h2 className="font-semibold" id="year-tools-heading">Year tools</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Open the tools associated with this school year.</p>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <Button asChild variant="outline"><Link to={`/y/${year.id}/vocabulary`}>Manage grades and homerooms</Link></Button>
+          <Button asChild variant="outline"><Link to={`/y/${year.id}/imports`}>Import roster or grades</Link></Button>
+        </div>
+      </section>
     </PageFrame>
   )
+}
+
+// Keep the old export for focused callers that still refer to the pre-settings
+// name; the routed destination is now explicitly the year Settings page.
+export function SchoolYearWorkspace() {
+  return <SchoolYearSettingsPage />
 }
 
 export function SchoolYearNotFound() {
