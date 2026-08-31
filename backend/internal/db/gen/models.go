@@ -500,6 +500,18 @@ type Session struct {
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
+type SessionNonParticipation struct {
+	ID             ids.XID            `json:"id"`
+	OrganizationID ids.XID            `json:"organization_id"`
+	SchoolYearID   ids.XID            `json:"school_year_id"`
+	ProgramID      ids.XID            `json:"program_id"`
+	SessionID      ids.XID            `json:"session_id"`
+	StudentID      ids.XID            `json:"student_id"`
+	Reason         string             `json:"reason"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Student struct {
 	ID                 ids.XID            `json:"id"`
 	OrganizationID     ids.XID            `json:"organization_id"`

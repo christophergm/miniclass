@@ -44,6 +44,12 @@ type ProgramService interface {
 	CreateOffering(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, string, string, *int, int, ids.XID, ids.XID, string, string, string, *ids.XID) (data.Offering, error)
 	UpdateOffering(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, ids.XID, programservice.OfferingUpdate) (data.Offering, error)
 	DeleteOffering(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, ids.XID) error
+	CreateSessionNonParticipation(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, ids.XID, string) (data.SessionNonParticipation, error)
+	ListSessionNonParticipations(context.Context, string, ids.XID, ids.XID, ids.XID) ([]data.SessionNonParticipation, error)
+	GetSessionNonParticipation(context.Context, string, ids.XID, ids.XID, ids.XID, ids.XID) (data.SessionNonParticipation, error)
+	UpdateSessionNonParticipation(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, ids.XID, programservice.SessionNonParticipationUpdate) (data.SessionNonParticipation, error)
+	DeleteSessionNonParticipation(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, ids.XID) error
+	ListParticipatingMemberships(context.Context, string, ids.XID, ids.XID, ids.XID) ([]data.ProgramMembership, error)
 }
 
 type ProgramResponse struct {

@@ -30,6 +30,15 @@
 - Open items: Detent owns the completion-lane transition; no actionable PR comments or reviews remain.
 - Skill draft: no — this was a focused frontend split and exposed no broadly reusable procedure beyond existing skills.
 
+## Current work — issue #146
+
+- Scope: Add session-scoped non-participation records with required reasons, audited CRUD/list API, unchanged programme membership, participating-membership projection, closed-year refusal, and tenant isolation. Governing contract: SPEC §§5.2, 8.3, 20.1; ADRs 0007, 0008, 0010.
+- Key files: `backend/migrations/20260831150000_session_non_participations.sql`, `backend/sql/queries/session_non_participation.sql`, `backend/internal/data/session_non_participation.go`, `backend/internal/program/non_participation.go`, `backend/internal/api/handlers/non_participation.go`, `backend/internal/testing/registry/session_non_participation.go`, and `backend/tests/integration/session_non_participation_test.go`.
+- Dependency: #143 is closed and PR #153 is merged; this worktree is based on `origin/main` at `b33a8a8`.
+- Validation: `make generate`, `make lint-backend`, `make format`, `make -C backend generated-code-drift`, focused `GOTOOLCHAIN=local go test ./internal/api/... ./internal/program ./internal/data ./internal/testing/... ./tests/integration -run 'Test(SessionNonParticipation|LayerTwoRegistry|OpenAPI)'`, full `GOTOOLCHAIN=local go test ./internal/... ./tests/integration`, and `git diff --check` pass. Root `make test-backend` is blocked by the existing `/miniclass-postgres` container-name conflict; migration round-trip lacks its configured URL; frontend tests/build lack `openapi-typescript`; frontend lint cannot write Bun's temp cache; smoke lacks `.env`.
+- Open items: commit/push, open PR referencing `Fixes #146`, verify current-head CI and review comments, then update the Workpad completion status.
+- Skill draft: no — the existing tenant-entity and isolation-harness skills cover the reusable procedure; no new broadly reusable method was discovered.
+
 ## Current work — issue #143
 
 - Scope: Add year-scoped programme sessions and meeting dates per SPEC §§8.5, 14.1, 11.1, 20.1; dependency #142 is closed.
