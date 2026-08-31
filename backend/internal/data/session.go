@@ -13,9 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-// SessionState is the persisted lifecycle vocabulary from SPEC §14.3. The
-// transition rules are owned by the later lifecycle feature; this entity
-// starts every session in planning.
+// SessionState is the persisted lifecycle vocabulary from SPEC §14.3.
 type SessionState string
 
 const (
@@ -32,16 +30,17 @@ const (
 // MeetingDates is populated by the programme service for API responses; dates
 // remain a separate table so each date can later carry availability data.
 type Session struct {
-	ID             ids.XID
-	OrganizationID ids.XID
-	SchoolYearID   ids.XID
-	ProgramID      ids.XID
-	Name           string
-	Ordinal        int
-	State          SessionState
-	MeetingDates   []time.Time
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ID                    ids.XID
+	OrganizationID        ids.XID
+	SchoolYearID          ids.XID
+	ProgramID             ids.XID
+	Name                  string
+	Ordinal               int
+	State                 SessionState
+	DraftAssignmentsStale bool
+	MeetingDates          []time.Time
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
 }
 
 // MeetingDate is a date on which every offering in its session meets.
@@ -70,7 +69,7 @@ func (tx *Tx) CreateSession(ctx context.Context, schoolYearID, programID ids.XID
 	if err != nil {
 		return Session{}, wrapProgramMutationError("create session", err)
 	}
-	return session(row)
+	return session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.Ordinal, row.State, row.DraftAssignmentsStale, row.CreatedAt, row.UpdatedAt)
 }
 
 func (tx *Tx) ListSessions(ctx context.Context, schoolYearID, programID ids.XID) ([]Session, error) {
@@ -80,7 +79,7 @@ func (tx *Tx) ListSessions(ctx context.Context, schoolYearID, programID ids.XID)
 	}
 	result := make([]Session, 0, len(rows))
 	for _, row := range rows {
-		value, err := session(row)
+		value, err := session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.Ordinal, row.State, row.DraftAssignmentsStale, row.CreatedAt, row.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -94,7 +93,17 @@ func (tx *Tx) GetSession(ctx context.Context, schoolYearID, programID, id ids.XI
 	if err != nil {
 		return Session{}, fmt.Errorf("get session: %w", err)
 	}
-	return session(row)
+	return session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.Ordinal, row.State, row.DraftAssignmentsStale, row.CreatedAt, row.UpdatedAt)
+}
+
+// GetSessionForUpdate serializes lifecycle changes so two organizers cannot
+// validate the same old state and then apply conflicting transitions.
+func (tx *Tx) GetSessionForUpdate(ctx context.Context, schoolYearID, programID, id ids.XID) (Session, error) {
+	row, err := tx.queries.GetSessionForUpdate(ctx, db.GetSessionForUpdateParams{ID: id, OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID})
+	if err != nil {
+		return Session{}, fmt.Errorf("get session for update: %w", err)
+	}
+	return session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.Ordinal, row.State, row.DraftAssignmentsStale, row.CreatedAt, row.UpdatedAt)
 }
 
 func (tx *Tx) UpdateSession(ctx context.Context, schoolYearID, programID, id ids.XID, name string, ordinal int) (Session, error) {
@@ -109,7 +118,18 @@ func (tx *Tx) UpdateSession(ctx context.Context, schoolYearID, programID, id ids
 	if err != nil {
 		return Session{}, wrapProgramMutationError("update session", err)
 	}
-	return session(row)
+	return session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.Ordinal, row.State, row.DraftAssignmentsStale, row.CreatedAt, row.UpdatedAt)
+}
+
+func (tx *Tx) UpdateSessionLifecycle(ctx context.Context, schoolYearID, programID, id ids.XID, state SessionState, draftAssignmentsStale bool) (Session, error) {
+	row, err := tx.queries.UpdateSessionLifecycle(ctx, db.UpdateSessionLifecycleParams{
+		ID: id, State: db.SessionState(state), DraftAssignmentsStale: draftAssignmentsStale,
+		OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID,
+	})
+	if err != nil {
+		return Session{}, wrapProgramMutationError("update session lifecycle", err)
+	}
+	return session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.Ordinal, row.State, row.DraftAssignmentsStale, row.CreatedAt, row.UpdatedAt)
 }
 
 func (tx *Tx) DeleteSession(ctx context.Context, schoolYearID, programID, id ids.XID) (bool, error) {
@@ -184,7 +204,7 @@ func (tx *Tx) ListAllSessionsForRegistry(ctx context.Context) ([]Session, error)
 	}
 	result := make([]Session, 0, len(rows))
 	for _, row := range rows {
-		value, err := session(row)
+		value, err := session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.Ordinal, row.State, row.DraftAssignmentsStale, row.CreatedAt, row.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -201,7 +221,7 @@ func (tx *Tx) FindSessionForRegistry(ctx context.Context, id ids.XID) (Session, 
 		}
 		return Session{}, fmt.Errorf("find session for registry: %w", err)
 	}
-	return session(row)
+	return session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.Ordinal, row.State, row.DraftAssignmentsStale, row.CreatedAt, row.UpdatedAt)
 }
 
 func (tx *Tx) UpdateSessionForRegistry(ctx context.Context, id ids.XID, name string) (bool, error) {
@@ -263,16 +283,16 @@ func (tx *Tx) DeleteMeetingDateForRegistry(ctx context.Context, id ids.XID) (boo
 	return rows == 1, nil
 }
 
-func session(row db.Session) (Session, error) {
-	createdAt, err := programTime(row.CreatedAt, "created_at")
+func session(id ids.XID, organizationID, schoolYearID, programID ids.XID, name string, ordinal int32, state db.SessionState, draftAssignmentsStale bool, createdAtValue, updatedAtValue pgtype.Timestamptz) (Session, error) {
+	createdAt, err := programTime(createdAtValue, "created_at")
 	if err != nil {
 		return Session{}, err
 	}
-	updatedAt, err := programTime(row.UpdatedAt, "updated_at")
+	updatedAt, err := programTime(updatedAtValue, "updated_at")
 	if err != nil {
 		return Session{}, err
 	}
-	return Session{ID: row.ID, OrganizationID: row.OrganizationID, SchoolYearID: row.SchoolYearID, ProgramID: row.ProgramID, Name: row.Name, Ordinal: int(row.Ordinal), State: SessionState(row.State), CreatedAt: createdAt, UpdatedAt: updatedAt}, nil
+	return Session{ID: id, OrganizationID: organizationID, SchoolYearID: schoolYearID, ProgramID: programID, Name: name, Ordinal: int(ordinal), State: SessionState(state), DraftAssignmentsStale: draftAssignmentsStale, CreatedAt: createdAt, UpdatedAt: updatedAt}, nil
 }
 
 func meetingDate(row db.MeetingDate) (MeetingDate, error) {

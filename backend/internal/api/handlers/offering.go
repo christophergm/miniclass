@@ -195,6 +195,8 @@ func offeringProblem(err error) error {
 		return offeringNotFound()
 	case data.IsSchoolYearClosed(err):
 		return problems.New(http.StatusConflict, problems.SchoolYearClosed, "the school year is closed and cannot be changed")
+	case errors.Is(err, programservice.ErrSessionReadOnly):
+		return problems.New(http.StatusConflict, problems.SessionReadOnly, err.Error())
 	case errors.As(err, &pgErr) && pgErr.Code == "23505":
 		return problems.New(http.StatusConflict, problems.ProgramConflict, "the offering already exists in this session")
 	case errors.Is(err, programservice.ErrOfferingGradeOrder), errors.Is(err, programservice.ErrOfferingNoChanges), strings.Contains(err.Error(), "name is required"), strings.Contains(err.Error(), "capacity must be positive"), strings.Contains(err.Error(), "minimum viable enrollment"):

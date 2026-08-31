@@ -1954,6 +1954,10 @@
           "school-year-closed",
           "school-year-reason-required",
           "school-year-transition-invalid",
+          "session-read-only",
+          "session-transition-gate-failed",
+          "session-transition-invalid",
+          "session-transition-reason-required",
           "student-external-identifier-conflict"
         ],
         "type": "string"
@@ -2443,6 +2447,10 @@
             "format": "date-time",
             "type": "string"
           },
+          "draft_assignments_stale": {
+            "description": "True when retained draft assignments were computed from superseded inputs.",
+            "type": "boolean"
+          },
           "id": {
             "description": "Opaque session identifier.",
             "type": "string"
@@ -2502,9 +2510,101 @@
           "name",
           "ordinal",
           "state",
+          "draft_assignments_stale",
           "meeting_dates",
           "created_at",
           "updated_at"
+        ],
+        "type": "object"
+      },
+      "SessionTransitionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/SessionTransitionResponse.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "applied": {
+            "type": "boolean"
+          },
+          "from_state": {
+            "enum": [
+              "planning",
+              "catalog_published",
+              "voting_open",
+              "voting_closed",
+              "assigning",
+              "published",
+              "complete"
+            ],
+            "type": "string"
+          },
+          "requires_confirmation": {
+            "type": "boolean"
+          },
+          "session": {
+            "$ref": "#/components/schemas/SessionResponse"
+          },
+          "to_state": {
+            "enum": [
+              "planning",
+              "catalog_published",
+              "voting_open",
+              "voting_closed",
+              "assigning",
+              "published",
+              "complete"
+            ],
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/SessionTransitionWarningResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "session",
+          "from_state",
+          "to_state",
+          "applied",
+          "requires_confirmation",
+          "warnings"
+        ],
+        "type": "object"
+      },
+      "SessionTransitionWarningResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "invalidation_summary": {
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "invalidation_summary"
         ],
         "type": "object"
       },
@@ -2617,6 +2717,45 @@
           "display_name",
           "created_at",
           "updated_at"
+        ],
+        "type": "object"
+      },
+      "TransitionSessionInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/TransitionSessionInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "confirm": {
+            "description": "Apply a backward transition after reviewing its warnings.",
+            "type": "boolean"
+          },
+          "reason": {
+            "description": "Required when confirming a backward transition.",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "planning",
+              "catalog_published",
+              "voting_open",
+              "voting_closed",
+              "assigning",
+              "published",
+              "complete"
+            ],
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
         ],
         "type": "object"
       },
@@ -9718,6 +9857,125 @@
         "x-required-capability": "manage_catalog"
       }
     },
+    "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/transition": {
+      "post": {
+        "operationId": "transition-session",
+        "parameters": [
+          {
+            "description": "Opaque school-year identifier.",
+            "in": "path",
+            "name": "schoolYearID",
+            "required": true,
+            "schema": {
+              "description": "Opaque school-year identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque program identifier.",
+            "in": "path",
+            "name": "programID",
+            "required": true,
+            "schema": {
+              "description": "Opaque program identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque session identifier.",
+            "in": "path",
+            "name": "sessionID",
+            "required": true,
+            "schema": {
+              "description": "Opaque session identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionSessionInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionTransitionResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Transition a programme session lifecycle state",
+        "x-required-capability": "manage_catalog"
+      }
+    },
     "/api/school-years/{schoolYearID}/students": {
       "get": {
         "operationId": "list-students",
@@ -10494,6 +10752,10 @@
     "school-year-closed",
     "school-year-reason-required",
     "school-year-transition-invalid",
+    "session-read-only",
+    "session-transition-gate-failed",
+    "session-transition-invalid",
+    "session-transition-reason-required",
     "student-external-identifier-conflict"
   ]
 }

@@ -44,6 +44,10 @@ const (
 	GuardianRelationshipConflict       Slug = "guardian-relationship-conflict"
 	ProgramConflict                    Slug = "program-conflict"
 	ProgramStudentGradeRequired        Slug = "program-student-grade-required"
+	SessionTransitionInvalid           Slug = "session-transition-invalid"
+	SessionTransitionGate              Slug = "session-transition-gate-failed"
+	SessionTransitionReasonRequired    Slug = "session-transition-reason-required"
+	SessionReadOnly                    Slug = "session-read-only"
 	ImportInvalid                      Slug = "import-invalid"
 	RestoreReasonRequired              Slug = "restore-reason-required"
 	RosterRecordNotDeleted             Slug = "roster-record-not-deleted"
@@ -85,6 +89,10 @@ var registry = map[Slug]Definition{
 	GuardianRelationshipConflict:       {Slug: GuardianRelationshipConflict, Title: "Guardian relationship conflict"},
 	ProgramConflict:                    {Slug: ProgramConflict, Title: "Program conflict"},
 	ProgramStudentGradeRequired:        {Slug: ProgramStudentGradeRequired, Title: "Student grade required for program membership"},
+	SessionTransitionInvalid:           {Slug: SessionTransitionInvalid, Title: "Invalid session transition"},
+	SessionTransitionGate:              {Slug: SessionTransitionGate, Title: "Session transition gate failed"},
+	SessionTransitionReasonRequired:    {Slug: SessionTransitionReasonRequired, Title: "Session transition reason required"},
+	SessionReadOnly:                    {Slug: SessionReadOnly, Title: "Session is read-only"},
 	ImportInvalid:                      {Slug: ImportInvalid, Title: "Invalid import"},
 }
 

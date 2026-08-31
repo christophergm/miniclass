@@ -511,15 +511,16 @@ type SchoolYear struct {
 }
 
 type Session struct {
-	ID             ids.XID            `json:"id"`
-	OrganizationID ids.XID            `json:"organization_id"`
-	SchoolYearID   ids.XID            `json:"school_year_id"`
-	ProgramID      ids.XID            `json:"program_id"`
-	Name           string             `json:"name"`
-	Ordinal        int32              `json:"ordinal"`
-	State          SessionState       `json:"state"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	ID                    ids.XID            `json:"id"`
+	OrganizationID        ids.XID            `json:"organization_id"`
+	SchoolYearID          ids.XID            `json:"school_year_id"`
+	ProgramID             ids.XID            `json:"program_id"`
+	Name                  string             `json:"name"`
+	Ordinal               int32              `json:"ordinal"`
+	State                 SessionState       `json:"state"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+	DraftAssignmentsStale bool               `json:"draft_assignments_stale"`
 }
 
 type SessionNonParticipation struct {

@@ -12,6 +12,31 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countOfferings = `-- name: CountOfferings :one
+select count(*)
+from offerings
+where organization_id = $1 and school_year_id = $2 and program_id = $3 and session_id = $4
+`
+
+type CountOfferingsParams struct {
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+	ProgramID      ids.XID `json:"program_id"`
+	SessionID      ids.XID `json:"session_id"`
+}
+
+func (q *Queries) CountOfferings(ctx context.Context, arg CountOfferingsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countOfferings,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+		arg.ProgramID,
+		arg.SessionID,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createOffering = `-- name: CreateOffering :one
 insert into offerings (
     organization_id, school_year_id, program_id, session_id, name, description,

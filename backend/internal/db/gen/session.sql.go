@@ -51,7 +51,7 @@ func (q *Queries) CreateMeetingDate(ctx context.Context, arg CreateMeetingDatePa
 const createSession = `-- name: CreateSession :one
 insert into sessions (organization_id, school_year_id, program_id, name, ordinal)
 values ($1, $2, $3, $4, $5)
-returning id, organization_id, school_year_id, program_id, name, ordinal, state, created_at, updated_at
+returning id, organization_id, school_year_id, program_id, name, ordinal, state, draft_assignments_stale, created_at, updated_at
 `
 
 type CreateSessionParams struct {
@@ -62,7 +62,20 @@ type CreateSessionParams struct {
 	Ordinal        int32   `json:"ordinal"`
 }
 
-func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error) {
+type CreateSessionRow struct {
+	ID                    ids.XID            `json:"id"`
+	OrganizationID        ids.XID            `json:"organization_id"`
+	SchoolYearID          ids.XID            `json:"school_year_id"`
+	ProgramID             ids.XID            `json:"program_id"`
+	Name                  string             `json:"name"`
+	Ordinal               int32              `json:"ordinal"`
+	State                 SessionState       `json:"state"`
+	DraftAssignmentsStale bool               `json:"draft_assignments_stale"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (CreateSessionRow, error) {
 	row := q.db.QueryRow(ctx, createSession,
 		arg.OrganizationID,
 		arg.SchoolYearID,
@@ -70,7 +83,7 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (S
 		arg.Name,
 		arg.Ordinal,
 	)
-	var i Session
+	var i CreateSessionRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
@@ -79,6 +92,7 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (S
 		&i.Name,
 		&i.Ordinal,
 		&i.State,
+		&i.DraftAssignmentsStale,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -198,7 +212,7 @@ func (q *Queries) FindMeetingDateForRegistry(ctx context.Context, arg FindMeetin
 }
 
 const findSessionForRegistry = `-- name: FindSessionForRegistry :one
-select id, organization_id, school_year_id, program_id, name, ordinal, state, created_at, updated_at
+select id, organization_id, school_year_id, program_id, name, ordinal, state, draft_assignments_stale, created_at, updated_at
 from sessions where id = $1 and organization_id = $2
 `
 
@@ -207,9 +221,22 @@ type FindSessionForRegistryParams struct {
 	OrganizationID ids.XID `json:"organization_id"`
 }
 
-func (q *Queries) FindSessionForRegistry(ctx context.Context, arg FindSessionForRegistryParams) (Session, error) {
+type FindSessionForRegistryRow struct {
+	ID                    ids.XID            `json:"id"`
+	OrganizationID        ids.XID            `json:"organization_id"`
+	SchoolYearID          ids.XID            `json:"school_year_id"`
+	ProgramID             ids.XID            `json:"program_id"`
+	Name                  string             `json:"name"`
+	Ordinal               int32              `json:"ordinal"`
+	State                 SessionState       `json:"state"`
+	DraftAssignmentsStale bool               `json:"draft_assignments_stale"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) FindSessionForRegistry(ctx context.Context, arg FindSessionForRegistryParams) (FindSessionForRegistryRow, error) {
 	row := q.db.QueryRow(ctx, findSessionForRegistry, arg.ID, arg.OrganizationID)
-	var i Session
+	var i FindSessionForRegistryRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
@@ -218,6 +245,7 @@ func (q *Queries) FindSessionForRegistry(ctx context.Context, arg FindSessionFor
 		&i.Name,
 		&i.Ordinal,
 		&i.State,
+		&i.DraftAssignmentsStale,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -261,7 +289,7 @@ func (q *Queries) GetMeetingDate(ctx context.Context, arg GetMeetingDateParams) 
 }
 
 const getSession = `-- name: GetSession :one
-select id, organization_id, school_year_id, program_id, name, ordinal, state, created_at, updated_at
+select id, organization_id, school_year_id, program_id, name, ordinal, state, draft_assignments_stale, created_at, updated_at
 from sessions
 where id = $1 and organization_id = $2 and school_year_id = $3 and program_id = $4
 `
@@ -273,14 +301,27 @@ type GetSessionParams struct {
 	ProgramID      ids.XID `json:"program_id"`
 }
 
-func (q *Queries) GetSession(ctx context.Context, arg GetSessionParams) (Session, error) {
+type GetSessionRow struct {
+	ID                    ids.XID            `json:"id"`
+	OrganizationID        ids.XID            `json:"organization_id"`
+	SchoolYearID          ids.XID            `json:"school_year_id"`
+	ProgramID             ids.XID            `json:"program_id"`
+	Name                  string             `json:"name"`
+	Ordinal               int32              `json:"ordinal"`
+	State                 SessionState       `json:"state"`
+	DraftAssignmentsStale bool               `json:"draft_assignments_stale"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetSession(ctx context.Context, arg GetSessionParams) (GetSessionRow, error) {
 	row := q.db.QueryRow(ctx, getSession,
 		arg.ID,
 		arg.OrganizationID,
 		arg.SchoolYearID,
 		arg.ProgramID,
 	)
-	var i Session
+	var i GetSessionRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
@@ -289,6 +330,57 @@ func (q *Queries) GetSession(ctx context.Context, arg GetSessionParams) (Session
 		&i.Name,
 		&i.Ordinal,
 		&i.State,
+		&i.DraftAssignmentsStale,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getSessionForUpdate = `-- name: GetSessionForUpdate :one
+select id, organization_id, school_year_id, program_id, name, ordinal, state, draft_assignments_stale, created_at, updated_at
+from sessions
+where id = $1 and organization_id = $2 and school_year_id = $3 and program_id = $4
+for update
+`
+
+type GetSessionForUpdateParams struct {
+	ID             ids.XID `json:"id"`
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+	ProgramID      ids.XID `json:"program_id"`
+}
+
+type GetSessionForUpdateRow struct {
+	ID                    ids.XID            `json:"id"`
+	OrganizationID        ids.XID            `json:"organization_id"`
+	SchoolYearID          ids.XID            `json:"school_year_id"`
+	ProgramID             ids.XID            `json:"program_id"`
+	Name                  string             `json:"name"`
+	Ordinal               int32              `json:"ordinal"`
+	State                 SessionState       `json:"state"`
+	DraftAssignmentsStale bool               `json:"draft_assignments_stale"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetSessionForUpdate(ctx context.Context, arg GetSessionForUpdateParams) (GetSessionForUpdateRow, error) {
+	row := q.db.QueryRow(ctx, getSessionForUpdate,
+		arg.ID,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+		arg.ProgramID,
+	)
+	var i GetSessionForUpdateRow
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.SchoolYearID,
+		&i.ProgramID,
+		&i.Name,
+		&i.Ordinal,
+		&i.State,
+		&i.DraftAssignmentsStale,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -330,19 +422,32 @@ func (q *Queries) ListAllMeetingDatesForRegistry(ctx context.Context, organizati
 }
 
 const listAllSessionsForRegistry = `-- name: ListAllSessionsForRegistry :many
-select id, organization_id, school_year_id, program_id, name, ordinal, state, created_at, updated_at
+select id, organization_id, school_year_id, program_id, name, ordinal, state, draft_assignments_stale, created_at, updated_at
 from sessions where organization_id = $1 order by school_year_id, program_id, ordinal, id
 `
 
-func (q *Queries) ListAllSessionsForRegistry(ctx context.Context, organizationID ids.XID) ([]Session, error) {
+type ListAllSessionsForRegistryRow struct {
+	ID                    ids.XID            `json:"id"`
+	OrganizationID        ids.XID            `json:"organization_id"`
+	SchoolYearID          ids.XID            `json:"school_year_id"`
+	ProgramID             ids.XID            `json:"program_id"`
+	Name                  string             `json:"name"`
+	Ordinal               int32              `json:"ordinal"`
+	State                 SessionState       `json:"state"`
+	DraftAssignmentsStale bool               `json:"draft_assignments_stale"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) ListAllSessionsForRegistry(ctx context.Context, organizationID ids.XID) ([]ListAllSessionsForRegistryRow, error) {
 	rows, err := q.db.Query(ctx, listAllSessionsForRegistry, organizationID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Session{}
+	items := []ListAllSessionsForRegistryRow{}
 	for rows.Next() {
-		var i Session
+		var i ListAllSessionsForRegistryRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrganizationID,
@@ -351,6 +456,7 @@ func (q *Queries) ListAllSessionsForRegistry(ctx context.Context, organizationID
 			&i.Name,
 			&i.Ordinal,
 			&i.State,
+			&i.DraftAssignmentsStale,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -413,7 +519,7 @@ func (q *Queries) ListMeetingDates(ctx context.Context, arg ListMeetingDatesPara
 }
 
 const listSessions = `-- name: ListSessions :many
-select id, organization_id, school_year_id, program_id, name, ordinal, state, created_at, updated_at
+select id, organization_id, school_year_id, program_id, name, ordinal, state, draft_assignments_stale, created_at, updated_at
 from sessions
 where organization_id = $1 and school_year_id = $2 and program_id = $3
 order by ordinal, id
@@ -425,15 +531,28 @@ type ListSessionsParams struct {
 	ProgramID      ids.XID `json:"program_id"`
 }
 
-func (q *Queries) ListSessions(ctx context.Context, arg ListSessionsParams) ([]Session, error) {
+type ListSessionsRow struct {
+	ID                    ids.XID            `json:"id"`
+	OrganizationID        ids.XID            `json:"organization_id"`
+	SchoolYearID          ids.XID            `json:"school_year_id"`
+	ProgramID             ids.XID            `json:"program_id"`
+	Name                  string             `json:"name"`
+	Ordinal               int32              `json:"ordinal"`
+	State                 SessionState       `json:"state"`
+	DraftAssignmentsStale bool               `json:"draft_assignments_stale"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) ListSessions(ctx context.Context, arg ListSessionsParams) ([]ListSessionsRow, error) {
 	rows, err := q.db.Query(ctx, listSessions, arg.OrganizationID, arg.SchoolYearID, arg.ProgramID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Session{}
+	items := []ListSessionsRow{}
 	for rows.Next() {
-		var i Session
+		var i ListSessionsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrganizationID,
@@ -442,6 +561,7 @@ func (q *Queries) ListSessions(ctx context.Context, arg ListSessionsParams) ([]S
 			&i.Name,
 			&i.Ordinal,
 			&i.State,
+			&i.DraftAssignmentsStale,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -516,7 +636,7 @@ const updateSession = `-- name: UpdateSession :one
 update sessions
 set name = $2, ordinal = $3
 where id = $1 and organization_id = $4 and school_year_id = $5 and program_id = $6
-returning id, organization_id, school_year_id, program_id, name, ordinal, state, created_at, updated_at
+returning id, organization_id, school_year_id, program_id, name, ordinal, state, draft_assignments_stale, created_at, updated_at
 `
 
 type UpdateSessionParams struct {
@@ -528,7 +648,20 @@ type UpdateSessionParams struct {
 	ProgramID      ids.XID `json:"program_id"`
 }
 
-func (q *Queries) UpdateSession(ctx context.Context, arg UpdateSessionParams) (Session, error) {
+type UpdateSessionRow struct {
+	ID                    ids.XID            `json:"id"`
+	OrganizationID        ids.XID            `json:"organization_id"`
+	SchoolYearID          ids.XID            `json:"school_year_id"`
+	ProgramID             ids.XID            `json:"program_id"`
+	Name                  string             `json:"name"`
+	Ordinal               int32              `json:"ordinal"`
+	State                 SessionState       `json:"state"`
+	DraftAssignmentsStale bool               `json:"draft_assignments_stale"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) UpdateSession(ctx context.Context, arg UpdateSessionParams) (UpdateSessionRow, error) {
 	row := q.db.QueryRow(ctx, updateSession,
 		arg.ID,
 		arg.Name,
@@ -537,7 +670,7 @@ func (q *Queries) UpdateSession(ctx context.Context, arg UpdateSessionParams) (S
 		arg.SchoolYearID,
 		arg.ProgramID,
 	)
-	var i Session
+	var i UpdateSessionRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
@@ -546,6 +679,7 @@ func (q *Queries) UpdateSession(ctx context.Context, arg UpdateSessionParams) (S
 		&i.Name,
 		&i.Ordinal,
 		&i.State,
+		&i.DraftAssignmentsStale,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -568,4 +702,58 @@ func (q *Queries) UpdateSessionForRegistry(ctx context.Context, arg UpdateSessio
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const updateSessionLifecycle = `-- name: UpdateSessionLifecycle :one
+update sessions
+set state = $2, draft_assignments_stale = $3
+where id = $1 and organization_id = $4 and school_year_id = $5 and program_id = $6
+returning id, organization_id, school_year_id, program_id, name, ordinal, state, draft_assignments_stale, created_at, updated_at
+`
+
+type UpdateSessionLifecycleParams struct {
+	ID                    ids.XID      `json:"id"`
+	State                 SessionState `json:"state"`
+	DraftAssignmentsStale bool         `json:"draft_assignments_stale"`
+	OrganizationID        ids.XID      `json:"organization_id"`
+	SchoolYearID          ids.XID      `json:"school_year_id"`
+	ProgramID             ids.XID      `json:"program_id"`
+}
+
+type UpdateSessionLifecycleRow struct {
+	ID                    ids.XID            `json:"id"`
+	OrganizationID        ids.XID            `json:"organization_id"`
+	SchoolYearID          ids.XID            `json:"school_year_id"`
+	ProgramID             ids.XID            `json:"program_id"`
+	Name                  string             `json:"name"`
+	Ordinal               int32              `json:"ordinal"`
+	State                 SessionState       `json:"state"`
+	DraftAssignmentsStale bool               `json:"draft_assignments_stale"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) UpdateSessionLifecycle(ctx context.Context, arg UpdateSessionLifecycleParams) (UpdateSessionLifecycleRow, error) {
+	row := q.db.QueryRow(ctx, updateSessionLifecycle,
+		arg.ID,
+		arg.State,
+		arg.DraftAssignmentsStale,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+		arg.ProgramID,
+	)
+	var i UpdateSessionLifecycleRow
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.SchoolYearID,
+		&i.ProgramID,
+		&i.Name,
+		&i.Ordinal,
+		&i.State,
+		&i.DraftAssignmentsStale,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
