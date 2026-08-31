@@ -3,8 +3,8 @@
 - Scope: Clarify session lifecycle control labels and direct transitions per SPEC §§5.2, 5.4, 14.3–14.5, 20.1, 22.4.
 - Key files: `frontend/src/features/programs/ProgramPages.tsx` and `frontend/src/features/programs/ProgramPages.test.tsx`.
 - Implementation: exact `Choose allowed state` placeholder; forward legal transitions show `Transition` and call the existing direct API path; backward legal transitions show `Preview Transition…` and retain reason/confirmation safeguards; tests cover legal targets, direct payload, and preview confirmation flow.
-- Validation: `make format`, `make generate && git diff --exit-code`, and `git diff --check` pass. Frontend test/build cannot run locally because `openapi-typescript` and the installed Vitest binary are unavailable; frontend lint is blocked by Bun temp-cache permissions. Full CI remains to be run on the PR.
-- Open items: run backend and frontend required gates as available, commit/push, open PR referencing `Fixes #161`, verify current-head CI/review comments, and update Workpad to completion when eligible.
+- Validation: commit `c65c242` is pushed to PR #166. `make lint-backend`, `make format`, `make generate && git diff --exit-code`, and `git diff --check` pass. `make check` stops at backend container setup because Docker reports all predefined address pools are exhausted; migration round-trip lacks its URL; frontend test/build lack `openapi-typescript`/Vitest; frontend lint lacks Bun temp-cache access; smoke lacks `.env`. All ten PR checks pass on the current head; CI duration was 1m49s, with Generated code drift (1m49s), Backend tests (1m41s), and Backend lint (1m21s) the slowest.
+- Open items: none; PR #166 is open, non-draft, references `Fixes #161`, and has no actionable review comments. Detent owns the completion-lane transition.
 - Skill draft: no — this is a focused presentation/interaction change and exposed no broadly reusable procedure.
 
 ## Current handoff — issue #139
