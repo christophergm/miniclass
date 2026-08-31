@@ -46,7 +46,7 @@ func (s *Service) Commit(ctx context.Context, organizationID string, schoolYearI
 
 		parsed, err := kind.Parser(document)
 		if err != nil {
-			return fmt.Errorf("parse %s: %w: %v", kind.Name, ErrInvalidSource, err)
+			return invalidSource(kind.Name, err)
 		}
 		state, err := loadCurrentState(ctx, tx, year)
 		if err != nil {

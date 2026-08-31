@@ -69,13 +69,34 @@ export const resourceApi = {
   previewImport: async (kind: ImportKind, schoolYearID: string, document: File) =>
     unwrap(api.POST('/api/imports/{kind}/preview', {
       params: { path: { kind }, query: { school_year_id: schoolYearID } },
-      body: await document.text(),
+      ...(await importBody(kind, document)),
     })),
   commitImport: async (kind: ImportKind, schoolYearID: string, document: File, contentHash: string) =>
     unwrap(api.POST('/api/imports/{kind}/commit', {
       params: { path: { kind }, query: { school_year_id: schoolYearID, content_hash: contentHash } },
-      body: await document.text(),
+      ...(await importBody(kind, document)),
     })),
+}
+
+const importContentTypes: Record<ImportKind, string> = {
+  roster_json: 'application/json',
+  grades_csv: 'text/csv',
+}
+
+// An import endpoint takes the organiser's file byte for byte: the content
+// hash in the preview must cover the reviewed document, and the registered
+// parser is the only thing entitled to interpret it. The client's default
+// serializer would JSON.stringify the text, which turns a roster array into a
+// JSON string literal and a CSV into a quoted blob, so it is replaced here
+// rather than worked around in the caller.
+async function importBody(kind: ImportKind, document: File) {
+  return {
+    body: await document.text(),
+    // The parameter type is the union of the operation's declared content
+    // types; only the string arm is ever passed, and it is passed through.
+    bodySerializer: (body: string | Record<string, never>[]) => body as string,
+    headers: { 'Content-Type': importContentTypes[kind] },
+  }
 }
 
 export function activeGradeLevels(vocabulary: VocabularyResponse): GradeLevel[] {

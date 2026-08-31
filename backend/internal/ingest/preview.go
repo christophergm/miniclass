@@ -21,6 +21,27 @@ var ErrSchoolYearClosed = errors.New("school year is closed")
 // registered source kind.
 var ErrInvalidSource = errors.New("import source is invalid")
 
+// InvalidSourceError carries the parser's own reason for refusing a document.
+// A rejected upload is the organiser's to fix, so the reason has to survive as
+// far as the response: "the submitted import document is invalid" alone leaves
+// them with a file, a refusal, and nothing to change.
+type InvalidSourceError struct {
+	Kind   string
+	Reason string
+}
+
+func (e *InvalidSourceError) Error() string {
+	return fmt.Sprintf("parse %s: %s: %s", e.Kind, ErrInvalidSource, e.Reason)
+}
+
+// Unwrap keeps errors.Is(err, ErrInvalidSource) true for every caller that
+// only classifies the failure.
+func (e *InvalidSourceError) Unwrap() error { return ErrInvalidSource }
+
+func invalidSource(kindName string, err error) error {
+	return &InvalidSourceError{Kind: kindName, Reason: err.Error()}
+}
+
 // CurrentState is the tenant- and year-scoped snapshot consumed by a matcher.
 // It is deliberately an application-data shape, not generated SQL.
 type CurrentState struct {
@@ -87,7 +108,7 @@ func (s *Service) Preview(ctx context.Context, organizationID string, schoolYear
 
 		parsed, err := kind.Parser(document)
 		if err != nil {
-			return fmt.Errorf("parse %s: %w: %v", kind.Name, ErrInvalidSource, err)
+			return invalidSource(kind.Name, err)
 		}
 		state, err := loadCurrentState(ctx, tx, year)
 		if err != nil {

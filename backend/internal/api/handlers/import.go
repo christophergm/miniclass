@@ -3,6 +3,8 @@ package handlers
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -11,6 +13,7 @@ import (
 	"github.com/chrismott/miniclass/internal/auth"
 	"github.com/chrismott/miniclass/internal/ids"
 	"github.com/chrismott/miniclass/internal/ingest"
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -57,6 +60,7 @@ type ImportCommitOutput struct {
 type ImportHandler struct {
 	service ImportPreviewService
 	commit  ImportCommitService
+	logger  *slog.Logger
 }
 
 func NewImportHandler(service ImportPreviewService, commit ...ImportCommitService) *ImportHandler {
@@ -67,6 +71,16 @@ func NewImportHandler(service ImportPreviewService, commit ...ImportCommitServic
 		commitService = candidate
 	}
 	return &ImportHandler{service: service, commit: commitService}
+}
+
+// WithLogger supplies the destination for the causes behind a 500. An import
+// reads and writes the whole roster, so "unable to preview import" with no
+// recorded cause leaves an operator with a failing upload and no next step.
+func (h *ImportHandler) WithLogger(logger *slog.Logger) *ImportHandler {
+	if h != nil {
+		h.logger = logger
+	}
+	return h
 }
 
 func (h *ImportHandler) Preview(ctx context.Context, input *ImportPreviewInput) (*ImportPreviewOutput, error) {
@@ -82,7 +96,7 @@ func (h *ImportHandler) Preview(ctx context.Context, input *ImportPreviewInput) 
 	}
 	preview, err := h.service.Preview(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), strings.TrimSpace(input.Kind), input.RawBody)
 	if err != nil {
-		return nil, importPreviewProblem(err)
+		return nil, h.logged(ctx, "preview", input.Kind, err, importPreviewProblem(err))
 	}
 	return &ImportPreviewOutput{Body: preview}, nil
 }
@@ -107,9 +121,40 @@ func (h *ImportHandler) Commit(ctx context.Context, input *ImportCommitInput) (*
 	}
 	preview, err := h.commit.Commit(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), strings.TrimSpace(input.Kind), input.RawBody, contentHash, importActor(account))
 	if err != nil {
-		return nil, importCommitProblem(err)
+		return nil, h.logged(ctx, "commit", input.Kind, err, importCommitProblem(err))
 	}
 	return &ImportCommitOutput{Body: preview}, nil
+}
+
+// logged records the cause of an unclassified import failure and returns the
+// problem unchanged. Only the 500 case is logged: every other status already
+// carries an actionable reason in its own response.
+func (h *ImportHandler) logged(ctx context.Context, phase, kind string, cause error, problem error) error {
+	var model *huma.ErrorModel
+	if !errors.As(problem, &model) || model.Status != http.StatusInternalServerError {
+		return problem
+	}
+	logger := h.logger
+	if logger == nil {
+		logger = slog.Default()
+	}
+	logger.ErrorContext(ctx, "import failed",
+		slog.String("phase", phase),
+		slog.String("kind", strings.TrimSpace(kind)),
+		slog.Any("error", cause),
+	)
+	return problem
+}
+
+// invalidSourceDetail names the kind that refused the document and why. The
+// reason is the parser's own message about the document the caller just
+// uploaded, so it discloses nothing the caller did not send.
+func invalidSourceDetail(err *ingest.InvalidSourceError) string {
+	reason := strings.TrimSpace(err.Reason)
+	if reason == "" {
+		return "the submitted import document is invalid"
+	}
+	return fmt.Sprintf("the submitted %s document is invalid: %s", err.Kind, reason)
 }
 
 func importActor(account auth.AccountPrincipal) audit.Actor {
@@ -118,7 +163,10 @@ func importActor(account auth.AccountPrincipal) audit.Actor {
 }
 
 func importPreviewProblem(err error) error {
+	var invalid *ingest.InvalidSourceError
 	switch {
+	case errors.As(err, &invalid):
+		return problems.New(http.StatusBadRequest, problems.ImportInvalid, invalidSourceDetail(invalid))
 	case errors.Is(err, pgx.ErrNoRows):
 		return problems.New(http.StatusNotFound, problems.ResourceNotFound, "school year not found")
 	case errors.Is(err, ingest.ErrUnknownKind):
@@ -135,7 +183,10 @@ func importPreviewProblem(err error) error {
 }
 
 func importCommitProblem(err error) error {
+	var invalid *ingest.InvalidSourceError
 	switch {
+	case errors.As(err, &invalid):
+		return problems.New(http.StatusBadRequest, problems.ImportInvalid, invalidSourceDetail(invalid))
 	case errors.Is(err, pgx.ErrNoRows):
 		return problems.New(http.StatusNotFound, problems.ResourceNotFound, "school year not found")
 	case errors.Is(err, ingest.ErrUnknownKind):

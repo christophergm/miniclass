@@ -90,6 +90,52 @@ func TestParseResolvesFieldsByNameAndIgnoresUnknownFields(t *testing.T) {
 	require.Empty(t, result.Warnings)
 }
 
+// The community platform exports Mongo-shaped documents: `_id`, `firstName`,
+// and group membership discriminated by a fully qualified `_class`. This is
+// the shape the importer exists to consume, so it is pinned without needing
+// the real export on disk (SPEC §11.3).
+func TestParseReadsPlatformExportShape(t *testing.T) {
+	document := `[
+      {
+        "_id": "5f6b82f7dafa6f6540fd48e5", "email": "adult@example.test",
+        "firstName": "Given", "lastName": "Family", "status": "ACTIVE",
+        "isStaff": false, "thumbnailSequence": 100,
+        "roles": [{"_class": "models.ClassroomRole", "roleName": "MEMBER", "entity": {"_class": "models.embedded.reference.ClassroomReference", "_id": "room-1"}}],
+        "relationships": [
+          {"relationship": "MOM", "child": {"_id": "66ccb3df1b5ca469692d1b1b", "firstName": "Child", "lastName": "OfMine", "groups": [
+            {"_class": "models.embedded.reference.SchoolReference", "_id": "school-1", "name": "Program", "loc": [0.0, 0.0]},
+            {"_class": "models.embedded.reference.ClassroomReference", "_id": "room-1", "name": "Serena", "grade": "3rd-4th Grade"}
+          ]}},
+          {"relationship": "DAD", "child": {"_id": "unenrolled-1", "firstName": "Casual", "lastName": "Member", "groups": [
+            {"_class": "models.embedded.reference.SchoolReference", "_id": "school-1", "name": "Program"},
+            {"_class": "models.embedded.reference.CasualGroupReference", "_id": "news-1", "name": "All School News"}
+          ]}}
+        ]
+      }
+    ]`
+	result, err := ParseJSON([]byte(document))
+	require.NoError(t, err)
+
+	require.Len(t, result.Adults, 1)
+	require.Equal(t, "5f6b82f7dafa6f6540fd48e5", result.Adults[0].SourceExternalIdentifier)
+	require.Equal(t, "Given", result.Adults[0].GivenName)
+	require.Equal(t, "Family", result.Adults[0].FamilyName)
+
+	require.Len(t, result.Students, 1, "only the child in a ClassroomReference group is enrolled")
+	require.Equal(t, "66ccb3df1b5ca469692d1b1b", result.Students[0].SourceExternalIdentifier)
+	require.Equal(t, "Child", result.Students[0].GivenName)
+	require.Equal(t, "room-1", result.Students[0].ClassroomExternalIdentifier)
+	require.Equal(t, "Serena", result.Students[0].ClassroomLabel)
+	require.Equal(t, "3rd-4th Grade", result.Students[0].ClassroomBand)
+
+	require.Len(t, result.GuardianRelationships, 1)
+	require.Equal(t, "parent", result.GuardianRelationships[0].RelationshipType)
+	require.Len(t, result.ExcludedChildren, 1)
+	require.Equal(t, "unenrolled-1", result.ExcludedChildren[0].SourceExternalIdentifier)
+	require.Equal(t, "no_classroom", result.ExcludedChildren[0].Reason)
+	require.Empty(t, result.Warnings)
+}
+
 func TestParseFiltersAndReportsWithoutBlocking(t *testing.T) {
 	document := `[
       {"id":"named-no-children", "given_name":"No", "family_name":"Children", "relationships":[]},
