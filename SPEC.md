@@ -701,6 +701,7 @@ flowchart TD
 ```
 Organization                       tenant boundary
   School Year                      people are loaded here, fresh, each year
+    Grade and Homeroom vocabularies
     Student, Adult, Guardian Relationship
     Program                        a subset of the year's students
       Interest Area vocabulary
@@ -739,8 +740,8 @@ Two entities and one relationship, all scoped to a school year.
 |---|---|
 | Legal given name, legal family name | Required |
 | Preferred given name | Optional; displayed in preference to the legal name wherever a person is named |
-| Grade | Concrete ordinal attribute, per-organization vocabulary (§10.1) |
-| Homeroom | Concrete categorical attribute, single-valued (§10.1) |
+| Grade | Concrete ordinal attribute, drawn from the school year's vocabulary (§10.1) |
+| Homeroom | Concrete categorical attribute, single-valued, drawn from the school year's vocabulary (§10.1) |
 | External identifier | Optional; from the source system (§8.7) |
 | Prior-year link | Optional, nullable (§8.7) |
 | Tags | Multi-valued, each optionally with a note (§10.2) |
@@ -1010,13 +1011,38 @@ Two student properties are concrete fields rather than tags, because each has se
 carry.
 
 **Grade** is ordinal. `[Built]` The eligibility rule on every offering is a range — grades 3 to 6 —
-which requires the values to be ordered. Each organization defines its own ordered grade vocabulary
+which requires the values to be ordered. Each school year defines its own ordered grade vocabulary
 (`K, 1–12`, or `Reception, Y1–Y6`, or `1–6`); the ordering is the definition's, not the string's.
 `[New]`
 
 **Homeroom** is categorical and single-valued. `[Built]` The dismissal list pivots on it, one
-section per homeroom, which requires every student to have exactly one. Each organization configures
-the label (`homeroom`, `class`, `form`, `advisory`) and the value set. `[New]`
+section per homeroom, which requires every student to have exactly one. The **organization**
+configures the label (`homeroom`, `class`, `form`, `advisory`); each **school year** defines the
+value set. `[New]`
+
+**Both vocabularies belong to the school year, not to the organization.** `[New]` Homerooms change
+from year to year, and so may the grades a school runs. A student record describes a child in a
+given year (§8.1), so the values that record draws on must describe that year too — otherwise a
+changed homeroom name or a renumbered grade ladder retroactively alters what a closed year said,
+which §11.1 guarantees it cannot.
+
+Four consequences are normative:
+
+- A new school year starts with **no** grades and no homerooms, and they are entered for that year.
+  Nothing is copied, derived or inherited from a prior year (§5.6). Because every student MUST have
+  a homeroom, a year admits no roster — hand-entered or imported — until its homerooms exist. This
+  is a `Setup` condition (§11.1) and MUST be surfaced as guidance, never as an unexplained failure.
+- Values MUST be unique within a school year, and MUST NOT be constrained across years. The same
+  homeroom name, grade code, ordinal or external identifier MAY recur in a later year, and doing so
+  creates an unrelated record.
+- An entry MUST be retirable rather than deletable, because that year's students may reference it
+  after it ceases to be used mid-year. Retirement removes it from selection and is audited (§20.1).
+- A closed year's vocabulary is read-only, on the same terms as every other record in that year
+  (§11.1). Correcting one requires the Owner-only reopen, with a reason, recorded.
+
+A grade or homeroom in one year has **no relationship** to a similarly named one in another. Nothing
+in this specification compares them, and any future report that needs to MUST do so through an
+opaque link introduced for the purpose — never by matching a code or a name (§8.7).
 
 Everything else that describes a student is a tag. In particular, the reference program's *stream* —
 its two vertical cohorts — is a tag, not a field: it is unordered, carries no special semantics, and
@@ -1175,7 +1201,7 @@ A school year is created, loaded with people, run, and closed. There is no rollo
 
 | State | Meaning |
 |---|---|
-| `Setup` | People are being loaded and corrected. No programs are running. |
+| `Setup` | The year's vocabularies (§10.1) are defined; people are being loaded and corrected. No programs are running. |
 | `Active` | Programs and sessions are operating. People may still be added and corrected. |
 | `Closed` | The year is over. Records become read-only history. |
 
@@ -1186,6 +1212,11 @@ Records in a `Closed` year remain readable, and remain the target of prior-year 
 MUST NOT be edited. This is what makes historical placement data trustworthy — the predecessor's
 history was mutable files that were, in at least two demonstrable cases, edited by hand after the
 fact (§3.3).
+
+**A year's records include its grade and homeroom vocabularies** (§10.1). They are created during
+`Setup`, may be corrected while the year is `Active`, and are read-only once it is `Closed` — there
+is no path by which editing one year's vocabulary reaches another year, and no path by which a
+closed year's homeroom name changes without the reopen being recorded.
 
 ### 11.2 Ingest mechanisms
 
@@ -2668,7 +2699,7 @@ rather than be discovered during a review.
 | Data | Subject |
 |---|---|
 | Legal and preferred names | Students, adults |
-| Grade, homeroom | Students |
+| Grade, homeroom (per school year) | Students |
 | Email, phone | Adults |
 | Guardian relationships | Both |
 | Tags and tag notes | Students, adults |
@@ -2870,7 +2901,7 @@ these questions are currently unanswerable even in principle (§3.3).
 | **Share link** | An unauthenticated, session-scoped, expiring URL serving a published artifact (§9.5) |
 | **Guardian** | An adult with a recorded relationship to a student; the unit of submission scope and magic-link addressing (§8.2) |
 | **Class leader** | An adult assigned to run an offering (§15.4) |
-| **Homeroom** | A student's base class group in the school; the axis of the dismissal list (§10.1) |
+| **Homeroom** | A student's base class group in the school; the axis of the dismissal list. Defined per school year (§10.1) |
 | **Participation** | Whether a student takes part in a program, and in a given session (§8.3) |
 
 ### 23.2 Deprecated and colliding terms
@@ -2985,7 +3016,7 @@ be checked before or during implementation.
 | 10 | Should a share link expire at session end, or outlive it? | Session end (§9.5) |
 | 11 | Should ranked-choice depth vary by session, or be fixed for a program? | Per session (§14.1) |
 | 12 | Is tag balance (for example across streams) genuinely wanted, given it has never actually been enforced? | Specified as a low-weight soft term (§16.4) |
-| 13 | When a homeroom's staffing changes, is the homeroom **renamed** or **retired and replaced**? Homeroom vocabularies are organization-scoped (§10.1) while people are year-scoped (§8.1), so a rename retroactively changes the homeroom displayed for students in closed years — which §11.1 otherwise guarantees is immutable. | Retired and replaced, not renamed. Retirement is supported and audited; renaming is permitted but is a known limitation (§10.1, §11.1) |
+| 13 | When a homeroom's staffing changes, is the homeroom **renamed** or **retired and replaced**? Originally a real hazard: homeroom vocabularies were organization-scoped while people are year-scoped (§8.1), so a rename retroactively changed the homeroom displayed for students in closed years — which §11.1 otherwise guarantees is immutable. | **Dissolved rather than answered.** The vocabularies are now scoped to the school year (§10.1), so the premise is gone. Within an open year, a rename is a correction to that year's own facts — permitted and audited. Across years there is no rename, because next year's homeroom is a different record. A closed year's vocabulary cannot be edited at all, enforced rather than advised (§11.1). Retirement remains, for a homeroom that ceases to be used mid-year |
 | 14 | How many adults participate in a year? §22.1 expects ~60 while Appendix B.1 records 84 survey responses covering roughly 100 adults. Which figure describes the population the system must hold, and which describes active volunteers? | ~100 adults held per year, of whom ~60 are active volunteers. Sizing and test corpora use the larger figure (§22.1, B.1) |
 
 ---

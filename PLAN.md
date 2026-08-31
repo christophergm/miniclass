@@ -82,13 +82,15 @@ rather than left implicit in the task list:
 | D8 | Administrator sessions and provider | **Stay with Supabase**; local JWKS verification behind an interface with a test issuer, bearer tokens in the browser, invitation-based provisioning. Clerk evaluated and rejected. | [0009](./docs/adr/0009-administrator-sessions-and-identity-provider.md) |
 | D9 | Schema and generated-code conventions | UUIDv7 keys, closed sets single-sourced, timestamped migrations, and a fixed set of committed generated artifacts that are never hand-merged. | [0010](./docs/adr/0010-schema-generated-code-and-migration-conventions.md) |
 
-One further decision postdates Phase 1. It is listed separately rather than folded into the table
-above, because that table records what decomposition revealed and this one records what shipping
-revealed — the roster work established that no source for household data exists:
+Two further decisions postdate Phase 1. They are listed separately rather than folded into the table
+above, because that table records what decomposition revealed and these record what shipping
+revealed — the roster work established that no source for household data exists, and that the
+vocabularies the roster draws on were scoped one level too high:
 
 | ID | Decision | Resolution | ADR |
 |---|---|---|---|
 | D10 | Household as a domain entity | **Household removed from the domain model.** The guardian relationship is the sole family construct; scope is derived, not stored. | [0012](./docs/adr/0012-remove-the-household-entity.md) |
+| D11 | Scope of the grade and homeroom vocabularies | **Scoped to the school year, not the organization.** The organization still configures the homeroom *label*; each year defines its own value sets, entered by hand with no copy-forward. | [0015](./docs/adr/0015-year-scoped-attribute-vocabularies.md) |
 
 The historical wide survey format is one row per adult with their children named inline, so the
 adult→student edge is sourced and the adult→adult grouping into a household never was. There is no
@@ -101,6 +103,16 @@ tables and they have to come back out. That lands as a **new timestamped migrati
 recreates them exactly — never as an edit to the merged one — together with the API, frontend and
 seed surfaces built on top of them. The Phase 1 bullets below describe the model as it stands after
 that removal, not as it was first built.
+
+D11 is retrofit on the same terms, and lands at the Phase 2/3 boundary because Phase 3 is the point
+at which something other than `students` would start referencing these tables — offerings carry a
+grade window and program membership is typically a grade range. Phase 1 shipped `grade_levels` and
+`homerooms` keyed on the organization alone; they gain `school_year_id`, the `students` foreign keys
+become three-column per [ADR 0007](./docs/adr/0007-tenancy-enforcement-and-data-access.md) §5, and
+the closed-year trigger reaches them for the first time. The existing rows are fanned out per year
+by the migration rather than reassigned or discarded, because `students.homeroom_id` is `NOT NULL`
+and discarding the vocabulary would take the roster with it. The Phase 1 bullets below describe the
+model after that move.
 
 One spec-level question is carried deliberately unresolved:
 
@@ -226,8 +238,10 @@ cheap.
   of import, and it is how the roster is corrected all year.
 - **Grade and homeroom vocabularies** (§10.1), moved here from Phase 2. A roster cannot be built by
   hand without them, and text columns would admit precisely the defect §10.1 forbids — ordering taken
-  from the string, so grade `10` sorts before grade `9`. Homerooms are retirable rather than
-  deletable, so a closed year's students keep a valid reference.
+  from the string, so grade `10` sorts before grade `9`. Both are **scoped to the school year**
+  (D11): a new year starts with empty vocabularies, nothing is copied forward, and a year admits no
+  roster until its homerooms exist. Entries are retirable rather than deletable, for the homeroom
+  that stops being used partway through a year while that year's students still reference it.
 - School-year lifecycle: `Setup` / `Active` / `Closed`, with two years permitted `Active` at once.
   `Closed` immutability is enforced by a shared database trigger on every year-scoped table, so the
   refusal is loud and explanatory (409) rather than a silent zero-row update. `Closed → Active` is
@@ -339,7 +353,9 @@ two-phase mechanism in Phase 4.*
 - Session with an **explicit ordinal** (not inferred from dates), and real meeting dates. The
   predecessor stored no dates at all, which is why years of availability data were unusable.
 - Class offerings: name, description, capacity, grade window, minimum viable enrolment, location,
-  meeting point, meeting instructions, optional interest area.
+  meeting point, meeting instructions, optional interest area. A grade window references the **school
+  year's** grade vocabulary (D11), so its bounds carry the year like every other reference between
+  year-scoped entities ([ADR 0007](./docs/adr/0007-tenancy-enforcement-and-data-access.md) §5).
 - The seven-state session lifecycle as a real state machine, with the gates in §14.4.
 - Backward transitions that warn, state what they invalidate, mark draft assignments stale rather
   than discarding them, and are audit-logged (§14.5).
