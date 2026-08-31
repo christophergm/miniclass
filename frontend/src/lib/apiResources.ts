@@ -26,6 +26,7 @@ export type ProgramRosterSummary = Schemas['ProgramRosterSummaryResponse']
 export type InterestArea = Schemas['InterestAreaResponse']
 export type Session = Schemas['SessionResponse']
 export type MeetingDate = Schemas['MeetingDateResponse']
+export type Offering = Schemas['OfferingResponse']
 
 export const resourceApi = {
   getHealth: () => unwrap(api.GET('/api/health')),
@@ -66,6 +67,11 @@ export const resourceApi = {
   getMeetingDate: (schoolYearID: string, programID: string, sessionID: string, meetingDateID: string) => unwrap(api.GET('/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/meeting-dates/{meetingDateID}', { params: { path: { schoolYearID, programID, sessionID, meetingDateID } } })),
   updateMeetingDate: (schoolYearID: string, programID: string, sessionID: string, meetingDateID: string, date: string) => unwrap(api.PATCH('/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/meeting-dates/{meetingDateID}', { params: { path: { schoolYearID, programID, sessionID, meetingDateID } }, body: { meeting_date: date } })),
   deleteMeetingDate: (schoolYearID: string, programID: string, sessionID: string, meetingDateID: string) => unwrapNoContent(api.DELETE('/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/meeting-dates/{meetingDateID}', { params: { path: { schoolYearID, programID, sessionID, meetingDateID } } })),
+  listOfferings: (schoolYearID: string, programID: string, sessionID: string) => unwrapList(api.GET('/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/offerings', { params: { path: { schoolYearID, programID, sessionID } } })),
+  createOffering: (schoolYearID: string, programID: string, sessionID: string, value: Schemas['CreateOfferingInputBody']) => unwrap(api.POST('/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/offerings', { params: { path: { schoolYearID, programID, sessionID } }, body: value })),
+  getOffering: (schoolYearID: string, programID: string, sessionID: string, offeringID: string) => unwrap(api.GET('/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/offerings/{offeringID}', { params: { path: { schoolYearID, programID, sessionID, offeringID } } })),
+  updateOffering: (schoolYearID: string, programID: string, sessionID: string, offeringID: string, value: Schemas['UpdateOfferingInputBody']) => unwrap(api.PATCH('/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/offerings/{offeringID}', { params: { path: { schoolYearID, programID, sessionID, offeringID } }, body: value })),
+  deleteOffering: (schoolYearID: string, programID: string, sessionID: string, offeringID: string) => unwrapNoContent(api.DELETE('/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/offerings/{offeringID}', { params: { path: { schoolYearID, programID, sessionID, offeringID } } })),
 
   getVocabulary: (schoolYearID: string, includeRetired = true) =>
     unwrap(api.GET('/api/school-years/{schoolYearID}/vocabularies', { params: { path: { schoolYearID }, query: { include_retired: includeRetired } } })),
