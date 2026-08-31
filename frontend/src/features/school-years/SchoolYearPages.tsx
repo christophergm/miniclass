@@ -189,6 +189,7 @@ export function SchoolYearWorkspace() {
 
       <p className="mt-4 text-sm text-muted-foreground">Created {formatDate(year.created_at)} · Updated {formatDate(year.updated_at)}</p>
       {!readOnly && <Button asChild className="mt-6 mr-3" variant="outline"><Link to={`/y/${year.id}/imports`}>Import roster or grades</Link></Button>}
+      <Button asChild className="mt-6 mr-3" variant="outline"><Link to={`/y/${year.id}/programs`}>Manage programs</Link></Button>
       <Button asChild className="mt-6" variant="outline"><Link to={`/y/${year.id}/settings`}>Organisation settings</Link></Button>
     </PageFrame>
   )

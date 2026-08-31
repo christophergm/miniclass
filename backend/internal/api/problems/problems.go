@@ -42,6 +42,8 @@ const (
 	StudentExternalIdentifierConflict  Slug = "student-external-identifier-conflict"
 	HomeroomExternalIdentifierConflict Slug = "homeroom-external-identifier-conflict"
 	GuardianRelationshipConflict       Slug = "guardian-relationship-conflict"
+	ProgramConflict                    Slug = "program-conflict"
+	ProgramStudentGradeRequired        Slug = "program-student-grade-required"
 	ImportInvalid                      Slug = "import-invalid"
 	RestoreReasonRequired              Slug = "restore-reason-required"
 	RosterRecordNotDeleted             Slug = "roster-record-not-deleted"
@@ -81,6 +83,8 @@ var registry = map[Slug]Definition{
 	StudentExternalIdentifierConflict:  {Slug: StudentExternalIdentifierConflict, Title: "Student external identifier conflict"},
 	HomeroomExternalIdentifierConflict: {Slug: HomeroomExternalIdentifierConflict, Title: "Homeroom external identifier conflict"},
 	GuardianRelationshipConflict:       {Slug: GuardianRelationshipConflict, Title: "Guardian relationship conflict"},
+	ProgramConflict:                    {Slug: ProgramConflict, Title: "Program conflict"},
+	ProgramStudentGradeRequired:        {Slug: ProgramStudentGradeRequired, Title: "Student grade required for program membership"},
 	ImportInvalid:                      {Slug: ImportInvalid, Title: "Invalid import"},
 }
 

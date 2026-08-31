@@ -11,6 +11,7 @@ import (
 	"github.com/chrismott/miniclass/internal/data"
 	"github.com/chrismott/miniclass/internal/ids"
 	"github.com/chrismott/miniclass/internal/people"
+	"github.com/chrismott/miniclass/internal/program"
 	"github.com/chrismott/miniclass/internal/schoolyear"
 	"github.com/chrismott/miniclass/internal/vocabulary"
 )
@@ -23,6 +24,7 @@ type Factory struct {
 	people         *people.Service
 	schoolYears    *schoolyear.Service
 	vocabulary     *vocabulary.Service
+	programs       *program.Service
 }
 
 // New returns builders for one organization. A zero actor is replaced with a
@@ -37,11 +39,26 @@ func New(database *data.DB, organizationID string, actor audit.Actor) *Factory {
 		people:         people.New(database),
 		schoolYears:    schoolyear.New(database),
 		vocabulary:     vocabulary.New(database),
+		programs:       program.New(database),
 	}
 }
 
+func (f *Factory) CreateProgram(ctx context.Context, schoolYearID ids.XID, name string) (data.Program, error) {
+	if err := f.validate(); err != nil {
+		return data.Program{}, err
+	}
+	return f.programs.Create(ctx, f.organizationID, f.actor, schoolYearID, name)
+}
+
+func (f *Factory) AddProgramMembership(ctx context.Context, schoolYearID, programID, studentID ids.XID) (data.ProgramMembership, error) {
+	if err := f.validate(); err != nil {
+		return data.ProgramMembership{}, err
+	}
+	return f.programs.AddMembership(ctx, f.organizationID, f.actor, schoolYearID, programID, studentID)
+}
+
 func (f *Factory) validate() error {
-	if f == nil || f.people == nil || f.schoolYears == nil || f.vocabulary == nil {
+	if f == nil || f.people == nil || f.schoolYears == nil || f.vocabulary == nil || f.programs == nil {
 		return errors.New("factory is nil")
 	}
 	if f.organizationID == "" {
