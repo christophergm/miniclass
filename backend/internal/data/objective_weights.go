@@ -106,7 +106,7 @@ func (tx *Tx) UpdateProgramObjectiveWeights(ctx context.Context, schoolYearID, p
 		TagBalancePenalty: weights.TagBalancePenalty,
 	})
 	if err != nil {
-		return ProgramObjectiveWeights{}, fmt.Errorf("update program objective weights: %w", err)
+		return ProgramObjectiveWeights{}, wrapProgramMutationError("update program objective weights", err)
 	}
 	return programObjectiveWeights(row)
 }
@@ -131,14 +131,17 @@ func (tx *Tx) UpsertSessionObjectiveWeightOverrides(ctx context.Context, schoolY
 		TagBalancePenalty: float8Param(overrides.TagBalancePenalty),
 	})
 	if err != nil {
-		return SessionObjectiveWeightOverrides{}, fmt.Errorf("upsert session objective weight overrides: %w", err)
+		return SessionObjectiveWeightOverrides{}, wrapProgramMutationError("upsert session objective weight overrides", err)
 	}
 	return sessionObjectiveWeightOverrides(row)
 }
 
 func (tx *Tx) DeleteSessionObjectiveWeightOverrides(ctx context.Context, schoolYearID, programID, sessionID ids.XID) (bool, error) {
 	rows, err := tx.queries.DeleteSessionObjectiveWeightOverrides(ctx, db.DeleteSessionObjectiveWeightOverridesParams{OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID, SessionID: sessionID})
-	return rows == 1, err
+	if err != nil {
+		return false, wrapProgramMutationError("delete session objective weight overrides", err)
+	}
+	return rows == 1, nil
 }
 
 func programObjectiveWeights(row db.ProgramObjectiveWeight) (ProgramObjectiveWeights, error) {
