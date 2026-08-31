@@ -421,6 +421,26 @@ type MeetingDate struct {
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
+type Offering struct {
+	ID                      ids.XID            `json:"id"`
+	OrganizationID          ids.XID            `json:"organization_id"`
+	SchoolYearID            ids.XID            `json:"school_year_id"`
+	ProgramID               ids.XID            `json:"program_id"`
+	SessionID               ids.XID            `json:"session_id"`
+	Name                    string             `json:"name"`
+	Description             string             `json:"description"`
+	MinimumViableEnrollment pgtype.Int4        `json:"minimum_viable_enrollment"`
+	Capacity                int32              `json:"capacity"`
+	MinGradeLevelID         ids.XID            `json:"min_grade_level_id"`
+	MaxGradeLevelID         ids.XID            `json:"max_grade_level_id"`
+	Location                string             `json:"location"`
+	MeetingPoint            string             `json:"meeting_point"`
+	MeetingInstructions     string             `json:"meeting_instructions"`
+	InterestAreaID          *ids.XID           `json:"interest_area_id"`
+	CreatedAt               pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt               pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Organization struct {
 	ID            ids.XID            `json:"id"`
 	Name          string             `json:"name"`

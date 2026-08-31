@@ -39,6 +39,11 @@ type ProgramService interface {
 	CreateMeetingDate(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, time.Time) (data.MeetingDate, error)
 	UpdateMeetingDate(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, ids.XID, time.Time) (data.MeetingDate, error)
 	DeleteMeetingDate(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, ids.XID) error
+	ListOfferings(context.Context, string, ids.XID, ids.XID, ids.XID) ([]data.Offering, error)
+	GetOffering(context.Context, string, ids.XID, ids.XID, ids.XID, ids.XID) (data.Offering, error)
+	CreateOffering(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, string, string, *int, int, ids.XID, ids.XID, string, string, string, *ids.XID) (data.Offering, error)
+	UpdateOffering(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, ids.XID, programservice.OfferingUpdate) (data.Offering, error)
+	DeleteOffering(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, ids.XID) error
 }
 
 type ProgramResponse struct {

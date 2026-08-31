@@ -75,6 +75,14 @@ func (f *Factory) CreateMeetingDate(ctx context.Context, schoolYearID, programID
 	return f.programs.CreateMeetingDate(ctx, f.organizationID, f.actor, schoolYearID, programID, sessionID, date)
 }
 
+// CreateOffering creates a catalog offering in an existing session.
+func (f *Factory) CreateOffering(ctx context.Context, schoolYearID, programID, sessionID ids.XID, name, description string, minimumViableEnrollment *int, capacity int, minGradeLevelID, maxGradeLevelID ids.XID, location, meetingPoint, meetingInstructions string, interestAreaID *ids.XID) (data.Offering, error) {
+	if err := f.validate(); err != nil {
+		return data.Offering{}, err
+	}
+	return f.programs.CreateOffering(ctx, f.organizationID, f.actor, schoolYearID, programID, sessionID, name, description, minimumViableEnrollment, capacity, minGradeLevelID, maxGradeLevelID, location, meetingPoint, meetingInstructions, interestAreaID)
+}
+
 func (f *Factory) AddProgramMembership(ctx context.Context, schoolYearID, programID, studentID ids.XID) (data.ProgramMembership, error) {
 	if err := f.validate(); err != nil {
 		return data.ProgramMembership{}, err

@@ -39,4 +39,13 @@
 - Repository state: commits `47bc421`, `7764c4a`, `2584a3a`, and `0002860` are pushed to PR [#153](https://github.com/christophergm/miniclass/pull/153).
 - Validation: backend tests, lint, format, generated-code drift, and repository diff checks pass locally. Root `make test-backend` remains unavailable because the existing `/miniclass-postgres` container name is in use; `make test-migrations` lacks its configured database URL; `make smoke` lacks `.env`; frontend local commands lack `openapi-typescript`/Bun temp-cache access. All ten required CI checks pass on PR #153 head `0002860`.
 - Open items: none; PR #153 is open and non-draft with no actionable review comments. Detent owns the completion-lane transition.
+
+## Current work — issue #144
+
+- Scope: Add year-scoped class offerings beneath sessions with Phase 3 catalog fields, composite grade-window and optional interest-area references, audited CRUD/API, closed-year protection, frontend client wiring, and Layer 2 isolation coverage. Governing contract: SPEC §§8.4, 10.1, 12.4, 14.2, 20.1; ADRs 0007, 0008, 0010, 0015.
+- Dependency: #143 is merged on current origin/main; worktree is clean and based on b33a8a8.
+- Workpad: issue comment 5477388223 contains the persistent plan and in_progress status.
+- Skills read: `.detent/skills/add-tenant-scoped-entity.md` and `.detent/skills/postgres-tenant-isolation-harness.md`.
+- Implementation in progress: dedicated offerings migration, data/service/API/frontend paths, generated artifacts, registry/factory, and isolation/closed-year tests.
+- Open items: focused tests, all ten quality gates, PR/CI/review handoff, and explicit skill-draft decision.
 - Skill draft: no — existing tenant-entity and isolation-harness skills cover the reusable procedure; no new broadly reusable method was discovered.

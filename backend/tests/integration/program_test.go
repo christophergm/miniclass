@@ -295,3 +295,103 @@ func TestClosedYearSessionAndMeetingDateMutationsAreRejected(t *testing.T) {
 func serviceMeetingDates(ctx context.Context, database *data.DB, organizationID ids.XID, yearID, programID, sessionID ids.XID) ([]data.MeetingDate, error) {
 	return program.New(database).ListMeetingDates(ctx, string(organizationID), yearID, programID, sessionID)
 }
+
+func TestOfferingsSupportGradeWindowsAndOptionalInterestAreas(t *testing.T) {
+	harness := testharness.Open(t)
+	ctx := harness.Context
+	organizationID := harness.MintOrganization(t)
+	actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "offering integration test"}
+	factory := factories.New(harness.Database, string(organizationID), actor)
+	year, err := factory.CreateSchoolYear(ctx, "Synthetic offering year")
+	require.NoError(t, err)
+	minimumGrade, err := factory.CreateGradeLevel(ctx, year.ID, "g3", "Synthetic Grade Three")
+	require.NoError(t, err)
+	maximumGrade, err := factory.CreateGradeLevel(ctx, year.ID, "g6", "Synthetic Grade Six")
+	require.NoError(t, err)
+	programRow, err := factory.CreateProgram(ctx, year.ID, "Synthetic offering programme")
+	require.NoError(t, err)
+	session, err := factory.CreateSession(ctx, year.ID, programRow.ID, "Synthetic offering session", 1, []time.Time{time.Date(2026, 10, 23, 0, 0, 0, 0, time.UTC)})
+	require.NoError(t, err)
+	area, err := factory.CreateInterestArea(ctx, year.ID, programRow.ID, "Synthetic making")
+	require.NoError(t, err)
+	service := program.New(harness.Database)
+	minimum := 3
+	offering, err := service.CreateOffering(ctx, string(organizationID), actor, year.ID, programRow.ID, session.ID, "Synthetic Making", "Build a synthetic project", &minimum, 12, minimumGrade.ID, maximumGrade.ID, "Synthetic studio", "Synthetic foyer", "Synthetic instructions", nil)
+	require.NoError(t, err)
+	require.Equal(t, "Synthetic Making", offering.Name)
+	require.Equal(t, "Build a synthetic project", offering.Description)
+	require.Equal(t, &minimum, offering.MinimumViableEnrollment)
+	require.Nil(t, offering.InterestAreaID)
+
+	listed, err := service.ListOfferings(ctx, string(organizationID), year.ID, programRow.ID, session.ID)
+	require.NoError(t, err)
+	require.Len(t, listed, 1)
+	require.Equal(t, offering.ID, listed[0].ID)
+	fetched, err := service.GetOffering(ctx, string(organizationID), year.ID, programRow.ID, session.ID, offering.ID)
+	require.NoError(t, err)
+	require.Equal(t, offering.ID, fetched.ID)
+
+	newName := "Synthetic Making Updated"
+	newCapacity := 15
+	newMinimum := 4
+	updated, err := service.UpdateOffering(ctx, string(organizationID), actor, year.ID, programRow.ID, session.ID, offering.ID, program.OfferingUpdate{Name: &newName, Capacity: &newCapacity, MinimumViableEnrollment: &newMinimum, InterestAreaID: &area.ID})
+	require.NoError(t, err)
+	require.Equal(t, newName, updated.Name)
+	require.Equal(t, newCapacity, updated.Capacity)
+	require.Equal(t, &newMinimum, updated.MinimumViableEnrollment)
+	require.Equal(t, &area.ID, updated.InterestAreaID)
+
+	_, err = service.CreateOffering(ctx, string(organizationID), actor, year.ID, programRow.ID, session.ID, "Impossible synthetic window", "Description", nil, 10, maximumGrade.ID, minimumGrade.ID, "", "", "", nil)
+	require.ErrorIs(t, err, program.ErrOfferingGradeOrder)
+
+	objectType := "offering"
+	entries, err := harness.Database.ListAuditLog(ctx, string(organizationID), data.AuditLogFilter{ObjectType: &objectType, PageSize: 100})
+	require.NoError(t, err)
+	require.Len(t, entries, 2)
+	for _, entry := range entries {
+		require.Equal(t, string(audit.ActionOfferingEdit), entry.Action)
+		require.NotNil(t, entry.ObjectID)
+		require.Equal(t, offering.ID, *entry.ObjectID)
+		require.Equal(t, year.ID, *entry.SchoolYearID)
+	}
+
+	require.NoError(t, service.DeleteOffering(ctx, string(organizationID), actor, year.ID, programRow.ID, session.ID, offering.ID))
+	_, err = service.GetOffering(ctx, string(organizationID), year.ID, programRow.ID, session.ID, offering.ID)
+	require.ErrorIs(t, err, pgx.ErrNoRows)
+}
+
+func TestClosedYearOfferingMutationsAreRejected(t *testing.T) {
+	harness := testharness.Open(t)
+	ctx := harness.Context
+	organizationID := harness.MintOrganization(t)
+	actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "closed offering integration test"}
+	factory := factories.New(harness.Database, string(organizationID), actor)
+	year, err := factory.CreateSchoolYear(ctx, "Synthetic closed offering year")
+	require.NoError(t, err)
+	minimumGrade, err := factory.CreateGradeLevel(ctx, year.ID, "g1", "Synthetic Grade One")
+	require.NoError(t, err)
+	programRow, err := factory.CreateProgram(ctx, year.ID, "Synthetic closed offering programme")
+	require.NoError(t, err)
+	session, err := factory.CreateSession(ctx, year.ID, programRow.ID, "Synthetic closed offering session", 1, []time.Time{time.Date(2026, 11, 13, 0, 0, 0, 0, time.UTC)})
+	require.NoError(t, err)
+	offering, err := factory.CreateOffering(ctx, year.ID, programRow.ID, session.ID, "Synthetic closed offering", "Description", nil, 10, minimumGrade.ID, minimumGrade.ID, "", "", "", nil)
+	require.NoError(t, err)
+
+	yearService := schoolyear.New(harness.Database)
+	_, err = yearService.Update(ctx, string(organizationID), year.ID, authRoleOwner, actor, schoolyear.UpdateInput{State: statePtr(data.SchoolYearActive)})
+	require.NoError(t, err)
+	_, err = yearService.Update(ctx, string(organizationID), year.ID, authRoleAdministrator, actor, schoolyear.UpdateInput{State: statePtr(data.SchoolYearClosed)})
+	require.NoError(t, err)
+
+	service := program.New(harness.Database)
+	newName := "Closed offering edit"
+	_, err = service.UpdateOffering(ctx, string(organizationID), actor, year.ID, programRow.ID, session.ID, offering.ID, program.OfferingUpdate{Name: &newName})
+	require.Error(t, err)
+	require.True(t, data.IsSchoolYearClosed(err), "closed-year offering edit = %v", err)
+	_, err = service.CreateOffering(ctx, string(organizationID), actor, year.ID, programRow.ID, session.ID, "Closed offering create", "Description", nil, 10, minimumGrade.ID, minimumGrade.ID, "", "", "", nil)
+	require.Error(t, err)
+	require.True(t, data.IsSchoolYearClosed(err), "closed-year offering create = %v", err)
+	err = service.DeleteOffering(ctx, string(organizationID), actor, year.ID, programRow.ID, session.ID, offering.ID)
+	require.Error(t, err)
+	require.True(t, data.IsSchoolYearClosed(err), "closed-year offering delete = %v", err)
+}
