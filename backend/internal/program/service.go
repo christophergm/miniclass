@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/chrismott/miniclass/internal/audit"
 	"github.com/chrismott/miniclass/internal/data"
@@ -14,6 +15,12 @@ import (
 )
 
 var ErrStudentGradeRequired = errors.New("student grade is required for programme membership")
+var ErrInterestAreaNoChanges = errors.New("interest area update has no changes")
+
+type InterestAreaUpdate struct {
+	Label   *string
+	Retired *bool
+}
 
 type Service struct{ database *data.DB }
 
@@ -57,6 +64,108 @@ func (s *Service) List(ctx context.Context, organizationID string, schoolYearID 
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list programs: %w", err)
+	}
+	return result, nil
+}
+
+func (s *Service) ListInterestAreas(ctx context.Context, organizationID string, schoolYearID, programID ids.XID, includeRetired bool) ([]data.InterestArea, error) {
+	if s == nil || s.database == nil {
+		return nil, errors.New("list interest areas: data service is nil")
+	}
+	var result []data.InterestArea
+	err := s.database.InTenantRead(ctx, organizationID, func(ctx context.Context, tx *data.Tx) error {
+		if _, err := tx.GetProgram(ctx, schoolYearID, programID); err != nil {
+			return err
+		}
+		var err error
+		result, err = tx.ListInterestAreas(ctx, schoolYearID, programID, includeRetired)
+		return err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list interest areas: %w", err)
+	}
+	return result, nil
+}
+
+func (s *Service) GetInterestArea(ctx context.Context, organizationID string, schoolYearID, programID, id ids.XID) (data.InterestArea, error) {
+	if s == nil || s.database == nil {
+		return data.InterestArea{}, errors.New("get interest area: data service is nil")
+	}
+	var result data.InterestArea
+	err := s.database.InTenantRead(ctx, organizationID, func(ctx context.Context, tx *data.Tx) error {
+		var err error
+		result, err = tx.GetInterestArea(ctx, schoolYearID, programID, id)
+		return err
+	})
+	if err != nil {
+		return data.InterestArea{}, fmt.Errorf("get interest area: %w", err)
+	}
+	return result, nil
+}
+
+func (s *Service) CreateInterestArea(ctx context.Context, organizationID string, actor audit.Actor, schoolYearID, programID ids.XID, label string) (data.InterestArea, error) {
+	if s == nil || s.database == nil {
+		return data.InterestArea{}, errors.New("create interest area: data service is nil")
+	}
+	var result data.InterestArea
+	err := s.database.InTenant(ctx, organizationID, actor, func(ctx context.Context, tx *data.Tx) error {
+		if _, err := tx.GetProgram(ctx, schoolYearID, programID); err != nil {
+			return err
+		}
+		ordinal, err := tx.NextInterestAreaOrdinal(ctx, schoolYearID, programID)
+		if err != nil {
+			return err
+		}
+		result, err = tx.CreateInterestArea(ctx, schoolYearID, programID, label, ordinal)
+		if err != nil {
+			return err
+		}
+		id := result.ID
+		year := result.SchoolYearID
+		return tx.Record(ctx, audit.Entry{Action: audit.ActionVocabularyChange, ObjectType: "interest_area", ObjectID: &id, SchoolYearID: &year, ChangeSummary: interestAreaSummary(nil, result)})
+	})
+	if err != nil {
+		return data.InterestArea{}, fmt.Errorf("create interest area: %w", err)
+	}
+	return result, nil
+}
+
+func (s *Service) UpdateInterestArea(ctx context.Context, organizationID string, actor audit.Actor, schoolYearID, programID, id ids.XID, input InterestAreaUpdate) (data.InterestArea, error) {
+	if s == nil || s.database == nil {
+		return data.InterestArea{}, errors.New("update interest area: data service is nil")
+	}
+	var result data.InterestArea
+	err := s.database.InTenant(ctx, organizationID, actor, func(ctx context.Context, tx *data.Tx) error {
+		current, err := tx.GetInterestArea(ctx, schoolYearID, programID, id)
+		if err != nil {
+			return err
+		}
+		changed := false
+		if input.Label != nil && strings.TrimSpace(*input.Label) != current.Label {
+			result, err = tx.UpdateInterestArea(ctx, schoolYearID, programID, id, *input.Label)
+			if err != nil {
+				return err
+			}
+			changed = true
+		}
+		if input.Retired != nil && *input.Retired != (current.RetiredAt != nil) {
+			result, err = tx.SetInterestAreaRetired(ctx, schoolYearID, programID, id, *input.Retired)
+			if err != nil {
+				return err
+			}
+			changed = true
+		}
+		if !changed {
+			return ErrInterestAreaNoChanges
+		}
+		if result.ID == "" {
+			result = current
+		}
+		year := result.SchoolYearID
+		return tx.Record(ctx, audit.Entry{Action: audit.ActionVocabularyChange, ObjectType: "interest_area", ObjectID: &id, SchoolYearID: &year, ChangeSummary: interestAreaSummary(&current, result)})
+	})
+	if err != nil {
+		return data.InterestArea{}, fmt.Errorf("update interest area: %w", err)
 	}
 	return result, nil
 }
@@ -170,4 +279,13 @@ func programSummary(row data.Program) json.RawMessage {
 func membershipSummary(row data.ProgramMembership) json.RawMessage {
 	value, _ := json.Marshal(map[string]any{"program_id": row.ProgramID, "student_id": row.StudentID})
 	return value
+}
+
+func interestAreaSummary(before *data.InterestArea, after data.InterestArea) json.RawMessage {
+	value := map[string]any{"after": map[string]any{"label": after.Label, "ordinal": after.Ordinal, "retired": after.RetiredAt != nil}}
+	if before != nil {
+		value["before"] = map[string]any{"label": before.Label, "ordinal": before.Ordinal, "retired": before.RetiredAt != nil}
+	}
+	encoded, _ := json.Marshal(value)
+	return encoded
 }

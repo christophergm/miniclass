@@ -29,6 +29,43 @@ func (q *Queries) CountStudentsWithoutGrade(ctx context.Context, arg CountStuden
 	return count, err
 }
 
+const createInterestArea = `-- name: CreateInterestArea :one
+insert into interest_areas (organization_id, school_year_id, program_id, label, ordinal)
+values ($1, $2, $3, $4, $5)
+returning id, organization_id, school_year_id, program_id, label, ordinal, retired_at, created_at, updated_at
+`
+
+type CreateInterestAreaParams struct {
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+	ProgramID      ids.XID `json:"program_id"`
+	Label          string  `json:"label"`
+	Ordinal        int32   `json:"ordinal"`
+}
+
+func (q *Queries) CreateInterestArea(ctx context.Context, arg CreateInterestAreaParams) (InterestArea, error) {
+	row := q.db.QueryRow(ctx, createInterestArea,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+		arg.ProgramID,
+		arg.Label,
+		arg.Ordinal,
+	)
+	var i InterestArea
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.SchoolYearID,
+		&i.ProgramID,
+		&i.Label,
+		&i.Ordinal,
+		&i.RetiredAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createProgram = `-- name: CreateProgram :one
 insert into programs (organization_id, school_year_id, name) values ($1, $2, $3)
 returning id, organization_id, school_year_id, name, created_at, updated_at
@@ -145,6 +182,33 @@ func (q *Queries) DeleteProgramMembershipForRegistry(ctx context.Context, arg De
 	return result.RowsAffected(), nil
 }
 
+const findInterestAreaForRegistry = `-- name: FindInterestAreaForRegistry :one
+select id, organization_id, school_year_id, program_id, label, ordinal, retired_at, created_at, updated_at
+from interest_areas where id = $1 and organization_id = $2
+`
+
+type FindInterestAreaForRegistryParams struct {
+	ID             ids.XID `json:"id"`
+	OrganizationID ids.XID `json:"organization_id"`
+}
+
+func (q *Queries) FindInterestAreaForRegistry(ctx context.Context, arg FindInterestAreaForRegistryParams) (InterestArea, error) {
+	row := q.db.QueryRow(ctx, findInterestAreaForRegistry, arg.ID, arg.OrganizationID)
+	var i InterestArea
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.SchoolYearID,
+		&i.ProgramID,
+		&i.Label,
+		&i.Ordinal,
+		&i.RetiredAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const findProgramForRegistry = `-- name: FindProgramForRegistry :one
 select id, organization_id, school_year_id, name, created_at, updated_at
 from programs where id = $1 and organization_id = $2
@@ -194,6 +258,41 @@ func (q *Queries) FindProgramMembershipForRegistry(ctx context.Context, arg Find
 	return i, err
 }
 
+const getInterestArea = `-- name: GetInterestArea :one
+select id, organization_id, school_year_id, program_id, label, ordinal, retired_at, created_at, updated_at
+from interest_areas
+where id = $1 and organization_id = $2 and school_year_id = $3 and program_id = $4
+`
+
+type GetInterestAreaParams struct {
+	ID             ids.XID `json:"id"`
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+	ProgramID      ids.XID `json:"program_id"`
+}
+
+func (q *Queries) GetInterestArea(ctx context.Context, arg GetInterestAreaParams) (InterestArea, error) {
+	row := q.db.QueryRow(ctx, getInterestArea,
+		arg.ID,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+		arg.ProgramID,
+	)
+	var i InterestArea
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.SchoolYearID,
+		&i.ProgramID,
+		&i.Label,
+		&i.Ordinal,
+		&i.RetiredAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getProgram = `-- name: GetProgram :one
 select id, organization_id, school_year_id, name, created_at, updated_at
 from programs where id = $1 and organization_id = $2 and school_year_id = $3
@@ -217,6 +316,84 @@ func (q *Queries) GetProgram(ctx context.Context, arg GetProgramParams) (Program
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const listAllInterestAreas = `-- name: ListAllInterestAreas :many
+select id, organization_id, school_year_id, program_id, label, ordinal, retired_at, created_at, updated_at
+from interest_areas
+where organization_id = $1 and school_year_id = $2 and program_id = $3
+order by ordinal, id
+`
+
+type ListAllInterestAreasParams struct {
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+	ProgramID      ids.XID `json:"program_id"`
+}
+
+func (q *Queries) ListAllInterestAreas(ctx context.Context, arg ListAllInterestAreasParams) ([]InterestArea, error) {
+	rows, err := q.db.Query(ctx, listAllInterestAreas, arg.OrganizationID, arg.SchoolYearID, arg.ProgramID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []InterestArea{}
+	for rows.Next() {
+		var i InterestArea
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrganizationID,
+			&i.SchoolYearID,
+			&i.ProgramID,
+			&i.Label,
+			&i.Ordinal,
+			&i.RetiredAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAllInterestAreasForRegistry = `-- name: ListAllInterestAreasForRegistry :many
+select id, organization_id, school_year_id, program_id, label, ordinal, retired_at, created_at, updated_at
+from interest_areas where organization_id = $1 order by school_year_id, program_id, ordinal, id
+`
+
+func (q *Queries) ListAllInterestAreasForRegistry(ctx context.Context, organizationID ids.XID) ([]InterestArea, error) {
+	rows, err := q.db.Query(ctx, listAllInterestAreasForRegistry, organizationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []InterestArea{}
+	for rows.Next() {
+		var i InterestArea
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrganizationID,
+			&i.SchoolYearID,
+			&i.ProgramID,
+			&i.Label,
+			&i.Ordinal,
+			&i.RetiredAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listAllProgramMembershipsForRegistry = `-- name: ListAllProgramMembershipsForRegistry :many
@@ -282,6 +459,68 @@ func (q *Queries) ListAllProgramsForRegistry(ctx context.Context, organizationID
 		return nil, err
 	}
 	return items, nil
+}
+
+const listInterestAreas = `-- name: ListInterestAreas :many
+select id, organization_id, school_year_id, program_id, label, ordinal, retired_at, created_at, updated_at
+from interest_areas
+where organization_id = $1 and school_year_id = $2 and program_id = $3 and retired_at is null
+order by ordinal, id
+`
+
+type ListInterestAreasParams struct {
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+	ProgramID      ids.XID `json:"program_id"`
+}
+
+func (q *Queries) ListInterestAreas(ctx context.Context, arg ListInterestAreasParams) ([]InterestArea, error) {
+	rows, err := q.db.Query(ctx, listInterestAreas, arg.OrganizationID, arg.SchoolYearID, arg.ProgramID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []InterestArea{}
+	for rows.Next() {
+		var i InterestArea
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrganizationID,
+			&i.SchoolYearID,
+			&i.ProgramID,
+			&i.Label,
+			&i.Ordinal,
+			&i.RetiredAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listInterestAreasForProgramOrdinal = `-- name: ListInterestAreasForProgramOrdinal :one
+select coalesce(max(ordinal), 0)::integer + 1
+from interest_areas
+where organization_id = $1 and school_year_id = $2 and program_id = $3
+`
+
+type ListInterestAreasForProgramOrdinalParams struct {
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+	ProgramID      ids.XID `json:"program_id"`
+}
+
+func (q *Queries) ListInterestAreasForProgramOrdinal(ctx context.Context, arg ListInterestAreasForProgramOrdinalParams) (int32, error) {
+	row := q.db.QueryRow(ctx, listInterestAreasForProgramOrdinal, arg.OrganizationID, arg.SchoolYearID, arg.ProgramID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const listProgramMemberships = `-- name: ListProgramMemberships :many
@@ -382,6 +621,61 @@ func (q *Queries) ListPrograms(ctx context.Context, arg ListProgramsParams) ([]P
 	return items, nil
 }
 
+const retireInterestAreaForRegistry = `-- name: RetireInterestAreaForRegistry :execrows
+update interest_areas set retired_at = coalesce(retired_at, now()) where id = $1 and organization_id = $2
+`
+
+type RetireInterestAreaForRegistryParams struct {
+	ID             ids.XID `json:"id"`
+	OrganizationID ids.XID `json:"organization_id"`
+}
+
+func (q *Queries) RetireInterestAreaForRegistry(ctx context.Context, arg RetireInterestAreaForRegistryParams) (int64, error) {
+	result, err := q.db.Exec(ctx, retireInterestAreaForRegistry, arg.ID, arg.OrganizationID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const setInterestAreaRetired = `-- name: SetInterestAreaRetired :one
+update interest_areas
+set retired_at = case when $2::boolean then coalesce(retired_at, now()) else null end
+where id = $1 and organization_id = $3 and school_year_id = $4 and program_id = $5
+returning id, organization_id, school_year_id, program_id, label, ordinal, retired_at, created_at, updated_at
+`
+
+type SetInterestAreaRetiredParams struct {
+	ID             ids.XID `json:"id"`
+	Column2        bool    `json:"column_2"`
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+	ProgramID      ids.XID `json:"program_id"`
+}
+
+func (q *Queries) SetInterestAreaRetired(ctx context.Context, arg SetInterestAreaRetiredParams) (InterestArea, error) {
+	row := q.db.QueryRow(ctx, setInterestAreaRetired,
+		arg.ID,
+		arg.Column2,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+		arg.ProgramID,
+	)
+	var i InterestArea
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.SchoolYearID,
+		&i.ProgramID,
+		&i.Label,
+		&i.Ordinal,
+		&i.RetiredAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const touchProgramMembershipForRegistry = `-- name: TouchProgramMembershipForRegistry :execrows
 update program_memberships set updated_at = now() where id = $1 and organization_id = $2
 `
@@ -393,6 +687,62 @@ type TouchProgramMembershipForRegistryParams struct {
 
 func (q *Queries) TouchProgramMembershipForRegistry(ctx context.Context, arg TouchProgramMembershipForRegistryParams) (int64, error) {
 	result, err := q.db.Exec(ctx, touchProgramMembershipForRegistry, arg.ID, arg.OrganizationID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const updateInterestArea = `-- name: UpdateInterestArea :one
+update interest_areas
+set label = $2
+where id = $1 and organization_id = $3 and school_year_id = $4 and program_id = $5
+returning id, organization_id, school_year_id, program_id, label, ordinal, retired_at, created_at, updated_at
+`
+
+type UpdateInterestAreaParams struct {
+	ID             ids.XID `json:"id"`
+	Label          string  `json:"label"`
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+	ProgramID      ids.XID `json:"program_id"`
+}
+
+func (q *Queries) UpdateInterestArea(ctx context.Context, arg UpdateInterestAreaParams) (InterestArea, error) {
+	row := q.db.QueryRow(ctx, updateInterestArea,
+		arg.ID,
+		arg.Label,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+		arg.ProgramID,
+	)
+	var i InterestArea
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.SchoolYearID,
+		&i.ProgramID,
+		&i.Label,
+		&i.Ordinal,
+		&i.RetiredAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateInterestAreaForRegistry = `-- name: UpdateInterestAreaForRegistry :execrows
+update interest_areas set label = $3 where id = $1 and organization_id = $2
+`
+
+type UpdateInterestAreaForRegistryParams struct {
+	ID             ids.XID `json:"id"`
+	OrganizationID ids.XID `json:"organization_id"`
+	Label          string  `json:"label"`
+}
+
+func (q *Queries) UpdateInterestAreaForRegistry(ctx context.Context, arg UpdateInterestAreaForRegistryParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateInterestAreaForRegistry, arg.ID, arg.OrganizationID, arg.Label)
 	if err != nil {
 		return 0, err
 	}

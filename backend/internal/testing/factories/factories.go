@@ -50,6 +50,14 @@ func (f *Factory) CreateProgram(ctx context.Context, schoolYearID ids.XID, name 
 	return f.programs.Create(ctx, f.organizationID, f.actor, schoolYearID, name)
 }
 
+// CreateInterestArea creates one programme-owned interest-area vocabulary entry.
+func (f *Factory) CreateInterestArea(ctx context.Context, schoolYearID, programID ids.XID, label string) (data.InterestArea, error) {
+	if err := f.validate(); err != nil {
+		return data.InterestArea{}, err
+	}
+	return f.programs.CreateInterestArea(ctx, f.organizationID, f.actor, schoolYearID, programID, label)
+}
+
 func (f *Factory) AddProgramMembership(ctx context.Context, schoolYearID, programID, studentID ids.XID) (data.ProgramMembership, error) {
 	if err := f.validate(); err != nil {
 		return data.ProgramMembership{}, err
