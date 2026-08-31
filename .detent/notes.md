@@ -43,7 +43,8 @@
 - Rework: rebased the objective-page implementation onto `origin/main` at `c9dc70b`; resolved the `ProgramPages.test.tsx` conflict by retaining both the #161 lifecycle assertions and #162 objective assertions.
 - Implementation: `frontend/src/features/programs/ProgramPages.tsx` has dedicated programme and session objective pages with all 13 parameters, explanations, effective/inherited display, explicit session audit reason, and closed-year read-only behavior; `frontend/src/App.tsx` adds both routes; authoring pages link to them and no longer render objective inputs.
 - Validation: `make lint-backend`, `make format`, `make generate && git diff --exit-code`, and `git diff --check` pass. `make check` and `make test-backend` stop at Docker address-pool exhaustion; migration round-trip lacks its URL; frontend test/build lack `openapi-typescript`; frontend lint cannot write Bun's temp cache; smoke lacks `.env`.
-- Open items: push the rebased branch, verify current-head CI and PR comments/state, then complete the Workpad handoff. No skill draft; this is a focused frontend conflict resolution with no reusable procedure discovered.
+- Validation after rebase: PR #167 head `09edf36` passes all ten required checks; CI duration was 1m56s, with Generated code drift (1m55s), Backend tests (1m44s), and Developer tooling (1m13s) the slowest. Local `git diff --check` passes; no source changes were made after the green run.
+- Open items: none; PR #167 is open, non-draft, references `Fixes #162`, has clean merge state, and has no review or inline comments requiring action. No skill draft; this is a focused frontend conflict resolution with no reusable procedure discovered.
 - Skill draft: no — this is a focused frontend relocation using existing objective API/hooks; no broadly reusable procedure was discovered.
 
 ## Current work — issue #149
