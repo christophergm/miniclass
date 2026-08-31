@@ -326,6 +326,7 @@ type GradeLevel struct {
 	RetiredAt      pgtype.Timestamptz `json:"retired_at"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	SchoolYearID   ids.XID            `json:"school_year_id"`
 }
 
 type GuardianRelationship struct {
@@ -347,6 +348,7 @@ type Homeroom struct {
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 	ExternalIdentifier pgtype.Text        `json:"external_identifier"`
+	SchoolYearID       ids.XID            `json:"school_year_id"`
 }
 
 type Organization struct {

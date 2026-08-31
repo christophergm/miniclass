@@ -75,20 +75,20 @@ func (f *Factory) CreateSchoolYear(ctx context.Context, label string) (data.Scho
 	return f.schoolYears.Create(ctx, f.organizationID, f.actor, label)
 }
 
-// CreateGradeLevel creates one organization-scoped grade vocabulary entry.
-func (f *Factory) CreateGradeLevel(ctx context.Context, code, label string) (data.GradeLevel, error) {
+// CreateGradeLevel creates one school-year-scoped grade vocabulary entry.
+func (f *Factory) CreateGradeLevel(ctx context.Context, schoolYearID ids.XID, code, label string) (data.GradeLevel, error) {
 	if err := f.validate(); err != nil {
 		return data.GradeLevel{}, err
 	}
-	return f.vocabulary.CreateGrade(ctx, f.organizationID, f.actor, code, label)
+	return f.vocabulary.CreateGrade(ctx, f.organizationID, schoolYearID, f.actor, code, label)
 }
 
-// CreateHomeroom creates one organization-scoped homeroom vocabulary entry.
-func (f *Factory) CreateHomeroom(ctx context.Context, name string) (data.Homeroom, error) {
+// CreateHomeroom creates one school-year-scoped homeroom vocabulary entry.
+func (f *Factory) CreateHomeroom(ctx context.Context, schoolYearID ids.XID, name string) (data.Homeroom, error) {
 	if err := f.validate(); err != nil {
 		return data.Homeroom{}, err
 	}
-	return f.vocabulary.CreateHomeroom(ctx, f.organizationID, f.actor, name, nil)
+	return f.vocabulary.CreateHomeroom(ctx, f.organizationID, schoolYearID, f.actor, name, nil)
 }
 
 // CreateStudent creates one minimal-valid student in a school year.

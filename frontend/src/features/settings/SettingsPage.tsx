@@ -1,4 +1,5 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
+import { useParams } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,8 +24,9 @@ function Section({ title, description, children }: { title: string; description:
 }
 
 export function SettingsPage() {
+  const { schoolYearId } = useParams<{ schoolYearId: string }>()
   const isOwner = useIsOwner()
-  const vocabulary = useVocabulary()
+  const vocabulary = useVocabulary(schoolYearId)
   const administrators = useAdministrators(isOwner)
 
   return (
@@ -34,18 +36,18 @@ export function SettingsPage() {
       <p className="mt-2 max-w-2xl text-sm text-muted-foreground">Manage the vocabulary used by roster records and the people who can administer this organisation.</p>
       {vocabulary.isLoading && <p className="mt-8 text-sm text-muted-foreground" role="status">Loading settings…</p>}
       {vocabulary.isError && <Problem error={vocabulary.error} fallback="Unable to load organisation settings." />}
-      {vocabulary.data && <div className="mt-8 grid gap-6 lg:grid-cols-2"><GradeLevelsSection levels={vocabulary.data.grade_levels ?? []} /><HomeroomsSection homerooms={vocabulary.data.homerooms ?? []} /><HomeroomLabelSection label={vocabulary.data.homeroom_label} /><AdministratorSection enabled={isOwner} administrators={administrators.data?.members ?? []} isLoading={administrators.isLoading} /></div>}
+      {vocabulary.data && <div className="mt-8 grid gap-6 lg:grid-cols-2"><GradeLevelsSection schoolYearId={schoolYearId ?? ''} levels={vocabulary.data.grade_levels ?? []} /><HomeroomsSection schoolYearId={schoolYearId ?? ''} homerooms={vocabulary.data.homerooms ?? []} /><HomeroomLabelSection schoolYearId={schoolYearId ?? ''} label={vocabulary.data.homeroom_label} /><AdministratorSection enabled={isOwner} administrators={administrators.data?.members ?? []} isLoading={administrators.isLoading} /></div>}
     </main>
   )
 }
 
-function GradeLevelsSection({ levels }: { levels: GradeLevel[] }) {
-  const create = useVocabularyMutation((value: { code: string; label: string }) => resourceApi.createGradeLevel(value))
+function GradeLevelsSection({ schoolYearId, levels }: { schoolYearId: string; levels: GradeLevel[] }) {
+  const create = useVocabularyMutation(schoolYearId, (value: { code: string; label: string }) => resourceApi.createGradeLevel(schoolYearId, value))
   // The identifier travels in the path, so it is destructured out rather than
   // spread into the body: every generated request schema sets
   // additionalProperties false, and a stray `id` is rejected as 422.
-  const update = useVocabularyMutation(({ id, ...body }: { id: string; code?: string; label?: string; retired?: boolean }) => resourceApi.updateGradeLevel(id, body))
-  const reorder = useVocabularyMutation((ids: string[]) => resourceApi.reorderGradeLevels(ids))
+  const update = useVocabularyMutation(schoolYearId, ({ id, ...body }: { id: string; code?: string; label?: string; retired?: boolean }) => resourceApi.updateGradeLevel(schoolYearId, id, body))
+  const reorder = useVocabularyMutation(schoolYearId, (ids: string[]) => resourceApi.reorderGradeLevels(schoolYearId, ids))
   const [code, setCode] = useState('')
   const [label, setLabel] = useState('')
   const [editing, setEditing] = useState<string | null>(null)
@@ -71,15 +73,15 @@ function GradeLevelsSection({ levels }: { levels: GradeLevel[] }) {
   </Section>
 }
 
-function HomeroomsSection({ homerooms }: { homerooms: Homeroom[] }) {
-  const create = useVocabularyMutation((value: { name: string; external_identifier?: string }) => resourceApi.createHomeroom(value))
-  const update = useVocabularyMutation(({ id, ...body }: { id: string; name?: string; external_identifier?: string; retired?: boolean }) => resourceApi.updateHomeroom(id, body))
+function HomeroomsSection({ schoolYearId, homerooms }: { schoolYearId: string; homerooms: Homeroom[] }) {
+  const create = useVocabularyMutation(schoolYearId, (value: { name: string; external_identifier?: string }) => resourceApi.createHomeroom(schoolYearId, value))
+  const update = useVocabularyMutation(schoolYearId, ({ id, ...body }: { id: string; name?: string; external_identifier?: string; retired?: boolean }) => resourceApi.updateHomeroom(schoolYearId, id, body))
   const [name, setName] = useState('')
   const [externalIdentifier, setExternalIdentifier] = useState('')
   const [editing, setEditing] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [editExternalIdentifier, setEditExternalIdentifier] = useState('')
-  return <Section title="Homerooms" description="Organisation-scoped homerooms. Retire and replace a name when historical vocabulary should remain available.">
+  return <Section title="Homerooms" description="School-year-scoped homerooms. Retire and replace a name when historical vocabulary should remain available.">
     <form className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]" onSubmit={(event) => { event.preventDefault(); create.mutate({ name, ...(externalIdentifier.trim() ? { external_identifier: externalIdentifier } : {}) }) }}><div><label className="text-sm font-medium" htmlFor="homeroom-name">Name</label><Input id="homeroom-name" className="mt-1" value={name} onChange={(event) => setName(event.target.value)} /><FieldError error={create.error} field="name" /></div><div><label className="text-sm font-medium" htmlFor="homeroom-external-identifier">External identifier</label><Input id="homeroom-external-identifier" className="mt-1" value={externalIdentifier} onChange={(event) => setExternalIdentifier(event.target.value)} /><FieldError error={create.error} field="external_identifier" /></div><Button className="sm:mt-6" disabled={create.isPending} type="submit">Add</Button></form>
     {create.isError && <Problem error={create.error} fallback="Unable to add homeroom." />}
     <Table className="mt-6" aria-label="Homerooms"><TableHeader><TableRow><TableHead>Name</TableHead><TableHead>External ID</TableHead><TableHead>State</TableHead><TableHead><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader><TableBody>{homerooms.map((room) => <TableRow key={room.id}><TableCell>{editing === room.id ? <Input aria-label="Edit homeroom name" value={editName} onChange={(event) => setEditName(event.target.value)} /> : room.name}</TableCell><TableCell>{editing === room.id ? <Input aria-label="Edit homeroom external identifier" value={editExternalIdentifier} onChange={(event) => setEditExternalIdentifier(event.target.value)} /> : room.external_identifier ?? '—'}</TableCell><TableCell>{room.retired_at ? <span className="text-muted-foreground">Retired</span> : 'Active'}</TableCell><TableCell><div className="flex justify-end gap-1">{editing === room.id ? <><Button size="sm" onClick={() => { update.mutate({ id: room.id, name: editName, external_identifier: editExternalIdentifier }); setEditing(null) }}>Save</Button><Button size="sm" variant="outline" onClick={() => setEditing(null)}>Cancel</Button></> : <Button size="sm" variant="outline" onClick={() => { setEditing(room.id); setEditName(room.name); setEditExternalIdentifier(room.external_identifier ?? '') }}>Edit</Button>}<Button size="sm" variant="outline" onClick={() => update.mutate({ id: room.id, retired: !room.retired_at })}>{room.retired_at ? 'Restore' : 'Retire'}</Button></div></TableCell></TableRow>)}</TableBody></Table>
@@ -87,8 +89,8 @@ function HomeroomsSection({ homerooms }: { homerooms: Homeroom[] }) {
   </Section>
 }
 
-function HomeroomLabelSection({ label }: { label: string }) {
-  const update = useVocabularyMutation((value: string) => resourceApi.updateHomeroomLabel(value))
+function HomeroomLabelSection({ schoolYearId, label }: { schoolYearId: string; label: string }) {
+  const update = useVocabularyMutation(schoolYearId, (value: string) => resourceApi.updateHomeroomLabel(value))
   const [value, setValue] = useState(label)
   return <Section title="Homeroom label" description="Choose the term organisers see for this vocabulary: homeroom, class, form, or advisory.">
     <form className="flex gap-3" onSubmit={(event) => { event.preventDefault(); update.mutate(value) }}><div className="flex-1"><label className="text-sm font-medium" htmlFor="homeroom-label">Label</label><Input id="homeroom-label" className="mt-1" value={value} onChange={(event) => setValue(event.target.value)} /><FieldError error={update.error} field="homeroom_label" /></div><Button className="mt-6" disabled={update.isPending} type="submit">Save</Button></form>

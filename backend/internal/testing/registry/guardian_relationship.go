@@ -29,11 +29,11 @@ func createGuardianRelationship(ctx context.Context, harness *testharness.Harnes
 	if err != nil {
 		return "", err
 	}
-	grade, err := factory.CreateGradeLevel(ctx, "synthetic-relationship", "Synthetic Grade")
+	grade, err := factory.CreateGradeLevel(ctx, year.ID, "synthetic-relationship", "Synthetic Grade")
 	if err != nil {
 		return "", err
 	}
-	homeroom, err := factory.CreateHomeroom(ctx, "Synthetic Relationship Room")
+	homeroom, err := factory.CreateHomeroom(ctx, year.ID, "Synthetic Relationship Room")
 	if err != nil {
 		return "", err
 	}

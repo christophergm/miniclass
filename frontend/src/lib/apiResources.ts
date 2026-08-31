@@ -49,20 +49,20 @@ export const resourceApi = {
   removeProgramMembership: (schoolYearID: string, programID: string, membershipID: string) => unwrapNoContent(api.DELETE('/api/school-years/{schoolYearID}/programs/{programID}/memberships/{membershipID}', { params: { path: { schoolYearID, programID, membershipID } } })),
   countStudentsWithoutGrade: (schoolYearID: string) => unwrap(api.GET('/api/school-years/{schoolYearID}/students/missing-grade-count', { params: { path: { schoolYearID } } })),
 
-  getVocabulary: (includeRetired = true) =>
-    unwrap(api.GET('/api/vocabularies', { params: { query: { include_retired: includeRetired } } })),
+  getVocabulary: (schoolYearID: string, includeRetired = true) =>
+    unwrap(api.GET('/api/school-years/{schoolYearID}/vocabularies', { params: { path: { schoolYearID }, query: { include_retired: includeRetired } } })),
   updateHomeroomLabel: (homeroom_label: string) =>
     unwrap(api.PATCH('/api/vocabularies/settings', { body: { homeroom_label } })),
 
-  createGradeLevel: (value: Schemas['CreateGradeLevelInputBody']) =>
-    unwrap(api.POST('/api/grade-levels', { body: value })),
-  updateGradeLevel: (gradeLevelID: string, value: Schemas['UpdateGradeLevelInputBody']) =>
-    unwrap(api.PATCH('/api/grade-levels/{gradeLevelID}', { params: { path: { gradeLevelID } }, body: value })),
-  reorderGradeLevels: (ids: string[]) => unwrapList(api.POST('/api/grade-levels/reorder', { body: { ids } })),
+  createGradeLevel: (schoolYearID: string, value: Schemas['CreateGradeLevelInputBody']) =>
+    unwrap(api.POST('/api/school-years/{schoolYearID}/grade-levels', { params: { path: { schoolYearID } }, body: value })),
+  updateGradeLevel: (schoolYearID: string, gradeLevelID: string, value: Schemas['UpdateGradeLevelInputBody']) =>
+    unwrap(api.PATCH('/api/school-years/{schoolYearID}/grade-levels/{gradeLevelID}', { params: { path: { schoolYearID, gradeLevelID } }, body: value })),
+  reorderGradeLevels: (schoolYearID: string, ids: string[]) => unwrapList(api.POST('/api/school-years/{schoolYearID}/grade-levels/reorder', { params: { path: { schoolYearID } }, body: { ids } })),
 
-  createHomeroom: (value: Schemas['CreateHomeroomInputBody']) => unwrap(api.POST('/api/homerooms', { body: value })),
-  updateHomeroom: (homeroomID: string, value: Schemas['UpdateHomeroomInputBody']) =>
-    unwrap(api.PATCH('/api/homerooms/{homeroomID}', { params: { path: { homeroomID } }, body: value })),
+  createHomeroom: (schoolYearID: string, value: Schemas['CreateHomeroomInputBody']) => unwrap(api.POST('/api/school-years/{schoolYearID}/homerooms', { params: { path: { schoolYearID } }, body: value })),
+  updateHomeroom: (schoolYearID: string, homeroomID: string, value: Schemas['UpdateHomeroomInputBody']) =>
+    unwrap(api.PATCH('/api/school-years/{schoolYearID}/homerooms/{homeroomID}', { params: { path: { schoolYearID, homeroomID } }, body: value })),
 
   listAdministrators: () => unwrap(api.GET('/api/administrators')),
   inviteAdministrator: (value: Schemas['InviteAdministratorInputBody']) =>

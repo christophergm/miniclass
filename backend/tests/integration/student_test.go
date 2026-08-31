@@ -24,13 +24,17 @@ func TestStudentCRUDSoftDeleteAndPriorYearLink(t *testing.T) {
 	require.NoError(t, err)
 	year, err := schoolyear.New(harness.Database).Create(ctx, string(organizationID), actor, "2026–2027")
 	require.NoError(t, err)
-	grade, err := vocabulary.New(harness.Database).CreateGrade(ctx, string(organizationID), actor, "four", "Grade Four")
+	priorGrade, err := vocabulary.New(harness.Database).CreateGrade(ctx, string(organizationID), priorYear.ID, actor, "four", "Grade Four")
 	require.NoError(t, err)
-	homeroom, err := vocabulary.New(harness.Database).CreateHomeroom(ctx, string(organizationID), actor, "Room A", nil)
+	priorHomeroom, err := vocabulary.New(harness.Database).CreateHomeroom(ctx, string(organizationID), priorYear.ID, actor, "Room A", nil)
+	require.NoError(t, err)
+	grade, err := vocabulary.New(harness.Database).CreateGrade(ctx, string(organizationID), year.ID, actor, "four", "Grade Four")
+	require.NoError(t, err)
+	homeroom, err := vocabulary.New(harness.Database).CreateHomeroom(ctx, string(organizationID), year.ID, actor, "Room A", nil)
 	require.NoError(t, err)
 	service := people.New(harness.Database)
 	prior, err := service.CreateStudent(ctx, string(organizationID), priorYear.ID, actor, people.StudentCreateInput{
-		LegalGivenName: "Alex", LegalFamilyName: "Rivera", GradeLevelID: xidPtr(grade.ID), HomeroomID: homeroom.ID,
+		LegalGivenName: "Alex", LegalFamilyName: "Rivera", GradeLevelID: xidPtr(priorGrade.ID), HomeroomID: priorHomeroom.ID,
 	})
 	require.NoError(t, err)
 	externalIdentifier := "student-1"

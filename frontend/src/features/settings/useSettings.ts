@@ -10,13 +10,13 @@ export { useVocabulary, vocabularyKey }
 
 export const administratorsKey = ['administrators'] as const
 
-function useInvalidateVocabulary() {
+function useInvalidateVocabulary(schoolYearId: string | undefined) {
   const queryClient = useQueryClient()
-  return () => queryClient.invalidateQueries({ queryKey: vocabularyKey })
+  return () => schoolYearId ? queryClient.invalidateQueries({ queryKey: vocabularyKey(schoolYearId) }) : undefined
 }
 
-export function useVocabularyMutation<T>(mutationFn: (value: T) => Promise<unknown>) {
-  const invalidate = useInvalidateVocabulary()
+export function useVocabularyMutation<T>(schoolYearId: string | undefined, mutationFn: (value: T) => Promise<unknown>) {
+  const invalidate = useInvalidateVocabulary(schoolYearId)
   return useMutation({ mutationFn, onSuccess: invalidate })
 }
 

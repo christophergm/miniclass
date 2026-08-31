@@ -6,12 +6,14 @@ import { resourceApi } from '@/lib/apiResources'
 // edits them, and the roster reads them to render a label instead of the
 // identifier a person record carries. One key means both surfaces share one
 // cache entry rather than each fetching the vocabulary on every mount.
-export const vocabularyKey = ['vocabulary'] as const
+export function vocabularyKey(schoolYearId: string) {
+  return ['vocabulary', schoolYearId] as const
+}
 
-export function useVocabulary(options: { enabled?: boolean } = {}) {
+export function useVocabulary(schoolYearId: string | undefined, options: { enabled?: boolean } = {}) {
   return useQuery({
-    enabled: options.enabled ?? true,
-    queryKey: vocabularyKey,
-    queryFn: () => resourceApi.getVocabulary(true),
+    enabled: (options.enabled ?? true) && Boolean(schoolYearId),
+    queryKey: vocabularyKey(schoolYearId ?? ''),
+    queryFn: () => resourceApi.getVocabulary(schoolYearId!, true),
   })
 }

@@ -13,29 +13,44 @@ import (
 )
 
 const createGradeLevel = `-- name: CreateGradeLevel :one
-insert into grade_levels (organization_id, code, label, ordinal)
-values ($1, $2, $3, $4)
-returning id, organization_id, code, label, ordinal, retired_at, created_at, updated_at
+insert into grade_levels (organization_id, school_year_id, code, label, ordinal)
+values ($1, $2, $3, $4, $5)
+returning id, organization_id, school_year_id, code, label, ordinal, retired_at, created_at, updated_at
 `
 
 type CreateGradeLevelParams struct {
 	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
 	Code           string  `json:"code"`
 	Label          string  `json:"label"`
 	Ordinal        int32   `json:"ordinal"`
 }
 
-func (q *Queries) CreateGradeLevel(ctx context.Context, arg CreateGradeLevelParams) (GradeLevel, error) {
+type CreateGradeLevelRow struct {
+	ID             ids.XID            `json:"id"`
+	OrganizationID ids.XID            `json:"organization_id"`
+	SchoolYearID   ids.XID            `json:"school_year_id"`
+	Code           string             `json:"code"`
+	Label          string             `json:"label"`
+	Ordinal        int32              `json:"ordinal"`
+	RetiredAt      pgtype.Timestamptz `json:"retired_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) CreateGradeLevel(ctx context.Context, arg CreateGradeLevelParams) (CreateGradeLevelRow, error) {
 	row := q.db.QueryRow(ctx, createGradeLevel,
 		arg.OrganizationID,
+		arg.SchoolYearID,
 		arg.Code,
 		arg.Label,
 		arg.Ordinal,
 	)
-	var i GradeLevel
+	var i CreateGradeLevelRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
+		&i.SchoolYearID,
 		&i.Code,
 		&i.Label,
 		&i.Ordinal,
@@ -47,13 +62,14 @@ func (q *Queries) CreateGradeLevel(ctx context.Context, arg CreateGradeLevelPara
 }
 
 const createHomeroom = `-- name: CreateHomeroom :one
-insert into homerooms (organization_id, name, external_identifier)
-values ($1, $2, $3)
-returning id, organization_id, name, external_identifier, retired_at, created_at, updated_at
+insert into homerooms (organization_id, school_year_id, name, external_identifier)
+values ($1, $2, $3, $4)
+returning id, organization_id, school_year_id, name, external_identifier, retired_at, created_at, updated_at
 `
 
 type CreateHomeroomParams struct {
 	OrganizationID     ids.XID     `json:"organization_id"`
+	SchoolYearID       ids.XID     `json:"school_year_id"`
 	Name               string      `json:"name"`
 	ExternalIdentifier pgtype.Text `json:"external_identifier"`
 }
@@ -61,6 +77,7 @@ type CreateHomeroomParams struct {
 type CreateHomeroomRow struct {
 	ID                 ids.XID            `json:"id"`
 	OrganizationID     ids.XID            `json:"organization_id"`
+	SchoolYearID       ids.XID            `json:"school_year_id"`
 	Name               string             `json:"name"`
 	ExternalIdentifier pgtype.Text        `json:"external_identifier"`
 	RetiredAt          pgtype.Timestamptz `json:"retired_at"`
@@ -69,11 +86,95 @@ type CreateHomeroomRow struct {
 }
 
 func (q *Queries) CreateHomeroom(ctx context.Context, arg CreateHomeroomParams) (CreateHomeroomRow, error) {
-	row := q.db.QueryRow(ctx, createHomeroom, arg.OrganizationID, arg.Name, arg.ExternalIdentifier)
+	row := q.db.QueryRow(ctx, createHomeroom,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+		arg.Name,
+		arg.ExternalIdentifier,
+	)
 	var i CreateHomeroomRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
+		&i.SchoolYearID,
+		&i.Name,
+		&i.ExternalIdentifier,
+		&i.RetiredAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const findGradeLevelForRegistry = `-- name: FindGradeLevelForRegistry :one
+select id, organization_id, school_year_id, code, label, ordinal, retired_at, created_at, updated_at
+from grade_levels
+where id = $1 and organization_id = $2
+`
+
+type FindGradeLevelForRegistryParams struct {
+	ID             ids.XID `json:"id"`
+	OrganizationID ids.XID `json:"organization_id"`
+}
+
+type FindGradeLevelForRegistryRow struct {
+	ID             ids.XID            `json:"id"`
+	OrganizationID ids.XID            `json:"organization_id"`
+	SchoolYearID   ids.XID            `json:"school_year_id"`
+	Code           string             `json:"code"`
+	Label          string             `json:"label"`
+	Ordinal        int32              `json:"ordinal"`
+	RetiredAt      pgtype.Timestamptz `json:"retired_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) FindGradeLevelForRegistry(ctx context.Context, arg FindGradeLevelForRegistryParams) (FindGradeLevelForRegistryRow, error) {
+	row := q.db.QueryRow(ctx, findGradeLevelForRegistry, arg.ID, arg.OrganizationID)
+	var i FindGradeLevelForRegistryRow
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.SchoolYearID,
+		&i.Code,
+		&i.Label,
+		&i.Ordinal,
+		&i.RetiredAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const findHomeroomForRegistry = `-- name: FindHomeroomForRegistry :one
+select id, organization_id, school_year_id, name, external_identifier, retired_at, created_at, updated_at
+from homerooms
+where id = $1 and organization_id = $2
+`
+
+type FindHomeroomForRegistryParams struct {
+	ID             ids.XID `json:"id"`
+	OrganizationID ids.XID `json:"organization_id"`
+}
+
+type FindHomeroomForRegistryRow struct {
+	ID                 ids.XID            `json:"id"`
+	OrganizationID     ids.XID            `json:"organization_id"`
+	SchoolYearID       ids.XID            `json:"school_year_id"`
+	Name               string             `json:"name"`
+	ExternalIdentifier pgtype.Text        `json:"external_identifier"`
+	RetiredAt          pgtype.Timestamptz `json:"retired_at"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) FindHomeroomForRegistry(ctx context.Context, arg FindHomeroomForRegistryParams) (FindHomeroomForRegistryRow, error) {
+	row := q.db.QueryRow(ctx, findHomeroomForRegistry, arg.ID, arg.OrganizationID)
+	var i FindHomeroomForRegistryRow
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.SchoolYearID,
 		&i.Name,
 		&i.ExternalIdentifier,
 		&i.RetiredAt,
@@ -84,17 +185,36 @@ func (q *Queries) CreateHomeroom(ctx context.Context, arg CreateHomeroomParams) 
 }
 
 const getGradeLevelByID = `-- name: GetGradeLevelByID :one
-select id, organization_id, code, label, ordinal, retired_at, created_at, updated_at
+select id, organization_id, school_year_id, code, label, ordinal, retired_at, created_at, updated_at
 from grade_levels
-where id = $1
+where id = $1 and organization_id = $2 and school_year_id = $3
 `
 
-func (q *Queries) GetGradeLevelByID(ctx context.Context, id ids.XID) (GradeLevel, error) {
-	row := q.db.QueryRow(ctx, getGradeLevelByID, id)
-	var i GradeLevel
+type GetGradeLevelByIDParams struct {
+	ID             ids.XID `json:"id"`
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+}
+
+type GetGradeLevelByIDRow struct {
+	ID             ids.XID            `json:"id"`
+	OrganizationID ids.XID            `json:"organization_id"`
+	SchoolYearID   ids.XID            `json:"school_year_id"`
+	Code           string             `json:"code"`
+	Label          string             `json:"label"`
+	Ordinal        int32              `json:"ordinal"`
+	RetiredAt      pgtype.Timestamptz `json:"retired_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetGradeLevelByID(ctx context.Context, arg GetGradeLevelByIDParams) (GetGradeLevelByIDRow, error) {
+	row := q.db.QueryRow(ctx, getGradeLevelByID, arg.ID, arg.OrganizationID, arg.SchoolYearID)
+	var i GetGradeLevelByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
+		&i.SchoolYearID,
 		&i.Code,
 		&i.Label,
 		&i.Ordinal,
@@ -106,14 +226,21 @@ func (q *Queries) GetGradeLevelByID(ctx context.Context, id ids.XID) (GradeLevel
 }
 
 const getHomeroomByID = `-- name: GetHomeroomByID :one
-select id, organization_id, name, external_identifier, retired_at, created_at, updated_at
+select id, organization_id, school_year_id, name, external_identifier, retired_at, created_at, updated_at
 from homerooms
-where id = $1
+where id = $1 and organization_id = $2 and school_year_id = $3
 `
+
+type GetHomeroomByIDParams struct {
+	ID             ids.XID `json:"id"`
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+}
 
 type GetHomeroomByIDRow struct {
 	ID                 ids.XID            `json:"id"`
 	OrganizationID     ids.XID            `json:"organization_id"`
+	SchoolYearID       ids.XID            `json:"school_year_id"`
 	Name               string             `json:"name"`
 	ExternalIdentifier pgtype.Text        `json:"external_identifier"`
 	RetiredAt          pgtype.Timestamptz `json:"retired_at"`
@@ -121,12 +248,13 @@ type GetHomeroomByIDRow struct {
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 }
 
-func (q *Queries) GetHomeroomByID(ctx context.Context, id ids.XID) (GetHomeroomByIDRow, error) {
-	row := q.db.QueryRow(ctx, getHomeroomByID, id)
+func (q *Queries) GetHomeroomByID(ctx context.Context, arg GetHomeroomByIDParams) (GetHomeroomByIDRow, error) {
+	row := q.db.QueryRow(ctx, getHomeroomByID, arg.ID, arg.OrganizationID, arg.SchoolYearID)
 	var i GetHomeroomByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
+		&i.SchoolYearID,
 		&i.Name,
 		&i.ExternalIdentifier,
 		&i.RetiredAt,
@@ -156,23 +284,91 @@ func (q *Queries) GetOrganizationVocabularySettings(ctx context.Context, id ids.
 }
 
 const listAllGradeLevels = `-- name: ListAllGradeLevels :many
-select id, organization_id, code, label, ordinal, retired_at, created_at, updated_at
+select id, organization_id, school_year_id, code, label, ordinal, retired_at, created_at, updated_at
 from grade_levels
+where organization_id = $1 and school_year_id = $2
 order by ordinal, id
 `
 
-func (q *Queries) ListAllGradeLevels(ctx context.Context) ([]GradeLevel, error) {
-	rows, err := q.db.Query(ctx, listAllGradeLevels)
+type ListAllGradeLevelsParams struct {
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+}
+
+type ListAllGradeLevelsRow struct {
+	ID             ids.XID            `json:"id"`
+	OrganizationID ids.XID            `json:"organization_id"`
+	SchoolYearID   ids.XID            `json:"school_year_id"`
+	Code           string             `json:"code"`
+	Label          string             `json:"label"`
+	Ordinal        int32              `json:"ordinal"`
+	RetiredAt      pgtype.Timestamptz `json:"retired_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) ListAllGradeLevels(ctx context.Context, arg ListAllGradeLevelsParams) ([]ListAllGradeLevelsRow, error) {
+	rows, err := q.db.Query(ctx, listAllGradeLevels, arg.OrganizationID, arg.SchoolYearID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []GradeLevel{}
+	items := []ListAllGradeLevelsRow{}
 	for rows.Next() {
-		var i GradeLevel
+		var i ListAllGradeLevelsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrganizationID,
+			&i.SchoolYearID,
+			&i.Code,
+			&i.Label,
+			&i.Ordinal,
+			&i.RetiredAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAllGradeLevelsForRegistry = `-- name: ListAllGradeLevelsForRegistry :many
+select id, organization_id, school_year_id, code, label, ordinal, retired_at, created_at, updated_at
+from grade_levels
+where organization_id = $1
+order by school_year_id, ordinal, id
+`
+
+type ListAllGradeLevelsForRegistryRow struct {
+	ID             ids.XID            `json:"id"`
+	OrganizationID ids.XID            `json:"organization_id"`
+	SchoolYearID   ids.XID            `json:"school_year_id"`
+	Code           string             `json:"code"`
+	Label          string             `json:"label"`
+	Ordinal        int32              `json:"ordinal"`
+	RetiredAt      pgtype.Timestamptz `json:"retired_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) ListAllGradeLevelsForRegistry(ctx context.Context, organizationID ids.XID) ([]ListAllGradeLevelsForRegistryRow, error) {
+	rows, err := q.db.Query(ctx, listAllGradeLevelsForRegistry, organizationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListAllGradeLevelsForRegistryRow{}
+	for rows.Next() {
+		var i ListAllGradeLevelsForRegistryRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrganizationID,
+			&i.SchoolYearID,
 			&i.Code,
 			&i.Label,
 			&i.Ordinal,
@@ -191,14 +387,21 @@ func (q *Queries) ListAllGradeLevels(ctx context.Context) ([]GradeLevel, error) 
 }
 
 const listAllHomerooms = `-- name: ListAllHomerooms :many
-select id, organization_id, name, external_identifier, retired_at, created_at, updated_at
+select id, organization_id, school_year_id, name, external_identifier, retired_at, created_at, updated_at
 from homerooms
+where organization_id = $1 and school_year_id = $2
 order by lower(name), id
 `
+
+type ListAllHomeroomsParams struct {
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+}
 
 type ListAllHomeroomsRow struct {
 	ID                 ids.XID            `json:"id"`
 	OrganizationID     ids.XID            `json:"organization_id"`
+	SchoolYearID       ids.XID            `json:"school_year_id"`
 	Name               string             `json:"name"`
 	ExternalIdentifier pgtype.Text        `json:"external_identifier"`
 	RetiredAt          pgtype.Timestamptz `json:"retired_at"`
@@ -206,8 +409,8 @@ type ListAllHomeroomsRow struct {
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 }
 
-func (q *Queries) ListAllHomerooms(ctx context.Context) ([]ListAllHomeroomsRow, error) {
-	rows, err := q.db.Query(ctx, listAllHomerooms)
+func (q *Queries) ListAllHomerooms(ctx context.Context, arg ListAllHomeroomsParams) ([]ListAllHomeroomsRow, error) {
+	rows, err := q.db.Query(ctx, listAllHomerooms, arg.OrganizationID, arg.SchoolYearID)
 	if err != nil {
 		return nil, err
 	}
@@ -218,6 +421,54 @@ func (q *Queries) ListAllHomerooms(ctx context.Context) ([]ListAllHomeroomsRow, 
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrganizationID,
+			&i.SchoolYearID,
+			&i.Name,
+			&i.ExternalIdentifier,
+			&i.RetiredAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAllHomeroomsForRegistry = `-- name: ListAllHomeroomsForRegistry :many
+select id, organization_id, school_year_id, name, external_identifier, retired_at, created_at, updated_at
+from homerooms
+where organization_id = $1
+order by school_year_id, lower(name), id
+`
+
+type ListAllHomeroomsForRegistryRow struct {
+	ID                 ids.XID            `json:"id"`
+	OrganizationID     ids.XID            `json:"organization_id"`
+	SchoolYearID       ids.XID            `json:"school_year_id"`
+	Name               string             `json:"name"`
+	ExternalIdentifier pgtype.Text        `json:"external_identifier"`
+	RetiredAt          pgtype.Timestamptz `json:"retired_at"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) ListAllHomeroomsForRegistry(ctx context.Context, organizationID ids.XID) ([]ListAllHomeroomsForRegistryRow, error) {
+	rows, err := q.db.Query(ctx, listAllHomeroomsForRegistry, organizationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListAllHomeroomsForRegistryRow{}
+	for rows.Next() {
+		var i ListAllHomeroomsForRegistryRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrganizationID,
+			&i.SchoolYearID,
 			&i.Name,
 			&i.ExternalIdentifier,
 			&i.RetiredAt,
@@ -235,24 +486,42 @@ func (q *Queries) ListAllHomerooms(ctx context.Context) ([]ListAllHomeroomsRow, 
 }
 
 const listGradeLevels = `-- name: ListGradeLevels :many
-select id, organization_id, code, label, ordinal, retired_at, created_at, updated_at
+select id, organization_id, school_year_id, code, label, ordinal, retired_at, created_at, updated_at
 from grade_levels
-where retired_at is null
+where organization_id = $1 and school_year_id = $2 and retired_at is null
 order by ordinal, id
 `
 
-func (q *Queries) ListGradeLevels(ctx context.Context) ([]GradeLevel, error) {
-	rows, err := q.db.Query(ctx, listGradeLevels)
+type ListGradeLevelsParams struct {
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+}
+
+type ListGradeLevelsRow struct {
+	ID             ids.XID            `json:"id"`
+	OrganizationID ids.XID            `json:"organization_id"`
+	SchoolYearID   ids.XID            `json:"school_year_id"`
+	Code           string             `json:"code"`
+	Label          string             `json:"label"`
+	Ordinal        int32              `json:"ordinal"`
+	RetiredAt      pgtype.Timestamptz `json:"retired_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) ListGradeLevels(ctx context.Context, arg ListGradeLevelsParams) ([]ListGradeLevelsRow, error) {
+	rows, err := q.db.Query(ctx, listGradeLevels, arg.OrganizationID, arg.SchoolYearID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []GradeLevel{}
+	items := []ListGradeLevelsRow{}
 	for rows.Next() {
-		var i GradeLevel
+		var i ListGradeLevelsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrganizationID,
+			&i.SchoolYearID,
 			&i.Code,
 			&i.Label,
 			&i.Ordinal,
@@ -271,15 +540,21 @@ func (q *Queries) ListGradeLevels(ctx context.Context) ([]GradeLevel, error) {
 }
 
 const listHomerooms = `-- name: ListHomerooms :many
-select id, organization_id, name, external_identifier, retired_at, created_at, updated_at
+select id, organization_id, school_year_id, name, external_identifier, retired_at, created_at, updated_at
 from homerooms
-where retired_at is null
+where organization_id = $1 and school_year_id = $2 and retired_at is null
 order by lower(name), id
 `
+
+type ListHomeroomsParams struct {
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+}
 
 type ListHomeroomsRow struct {
 	ID                 ids.XID            `json:"id"`
 	OrganizationID     ids.XID            `json:"organization_id"`
+	SchoolYearID       ids.XID            `json:"school_year_id"`
 	Name               string             `json:"name"`
 	ExternalIdentifier pgtype.Text        `json:"external_identifier"`
 	RetiredAt          pgtype.Timestamptz `json:"retired_at"`
@@ -287,8 +562,8 @@ type ListHomeroomsRow struct {
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 }
 
-func (q *Queries) ListHomerooms(ctx context.Context) ([]ListHomeroomsRow, error) {
-	rows, err := q.db.Query(ctx, listHomerooms)
+func (q *Queries) ListHomerooms(ctx context.Context, arg ListHomeroomsParams) ([]ListHomeroomsRow, error) {
+	rows, err := q.db.Query(ctx, listHomerooms, arg.OrganizationID, arg.SchoolYearID)
 	if err != nil {
 		return nil, err
 	}
@@ -299,6 +574,7 @@ func (q *Queries) ListHomerooms(ctx context.Context) ([]ListHomeroomsRow, error)
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrganizationID,
+			&i.SchoolYearID,
 			&i.Name,
 			&i.ExternalIdentifier,
 			&i.RetiredAt,
@@ -318,21 +594,41 @@ func (q *Queries) ListHomerooms(ctx context.Context) ([]ListHomeroomsRow, error)
 const setGradeLevelRetired = `-- name: SetGradeLevelRetired :one
 update grade_levels
 set retired_at = case when $2::boolean then coalesce(retired_at, now()) else null end
-where id = $1
-returning id, organization_id, code, label, ordinal, retired_at, created_at, updated_at
+where id = $1 and organization_id = $3 and school_year_id = $4
+returning id, organization_id, school_year_id, code, label, ordinal, retired_at, created_at, updated_at
 `
 
 type SetGradeLevelRetiredParams struct {
-	ID      ids.XID `json:"id"`
-	Column2 bool    `json:"column_2"`
+	ID             ids.XID `json:"id"`
+	Column2        bool    `json:"column_2"`
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
 }
 
-func (q *Queries) SetGradeLevelRetired(ctx context.Context, arg SetGradeLevelRetiredParams) (GradeLevel, error) {
-	row := q.db.QueryRow(ctx, setGradeLevelRetired, arg.ID, arg.Column2)
-	var i GradeLevel
+type SetGradeLevelRetiredRow struct {
+	ID             ids.XID            `json:"id"`
+	OrganizationID ids.XID            `json:"organization_id"`
+	SchoolYearID   ids.XID            `json:"school_year_id"`
+	Code           string             `json:"code"`
+	Label          string             `json:"label"`
+	Ordinal        int32              `json:"ordinal"`
+	RetiredAt      pgtype.Timestamptz `json:"retired_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) SetGradeLevelRetired(ctx context.Context, arg SetGradeLevelRetiredParams) (SetGradeLevelRetiredRow, error) {
+	row := q.db.QueryRow(ctx, setGradeLevelRetired,
+		arg.ID,
+		arg.Column2,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+	)
+	var i SetGradeLevelRetiredRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
+		&i.SchoolYearID,
 		&i.Code,
 		&i.Label,
 		&i.Ordinal,
@@ -346,18 +642,21 @@ func (q *Queries) SetGradeLevelRetired(ctx context.Context, arg SetGradeLevelRet
 const setHomeroomRetired = `-- name: SetHomeroomRetired :one
 update homerooms
 set retired_at = case when $2::boolean then coalesce(retired_at, now()) else null end
-where id = $1
-returning id, organization_id, name, external_identifier, retired_at, created_at, updated_at
+where id = $1 and organization_id = $3 and school_year_id = $4
+returning id, organization_id, school_year_id, name, external_identifier, retired_at, created_at, updated_at
 `
 
 type SetHomeroomRetiredParams struct {
-	ID      ids.XID `json:"id"`
-	Column2 bool    `json:"column_2"`
+	ID             ids.XID `json:"id"`
+	Column2        bool    `json:"column_2"`
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
 }
 
 type SetHomeroomRetiredRow struct {
 	ID                 ids.XID            `json:"id"`
 	OrganizationID     ids.XID            `json:"organization_id"`
+	SchoolYearID       ids.XID            `json:"school_year_id"`
 	Name               string             `json:"name"`
 	ExternalIdentifier pgtype.Text        `json:"external_identifier"`
 	RetiredAt          pgtype.Timestamptz `json:"retired_at"`
@@ -366,11 +665,17 @@ type SetHomeroomRetiredRow struct {
 }
 
 func (q *Queries) SetHomeroomRetired(ctx context.Context, arg SetHomeroomRetiredParams) (SetHomeroomRetiredRow, error) {
-	row := q.db.QueryRow(ctx, setHomeroomRetired, arg.ID, arg.Column2)
+	row := q.db.QueryRow(ctx, setHomeroomRetired,
+		arg.ID,
+		arg.Column2,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+	)
 	var i SetHomeroomRetiredRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
+		&i.SchoolYearID,
 		&i.Name,
 		&i.ExternalIdentifier,
 		&i.RetiredAt,
@@ -383,38 +688,60 @@ func (q *Queries) SetHomeroomRetired(ctx context.Context, arg SetHomeroomRetired
 const shiftGradeLevelOrdinals = `-- name: ShiftGradeLevelOrdinals :exec
 update grade_levels
 set ordinal = ordinal + $2
-where organization_id = $1
+where organization_id = $1 and school_year_id = $3
 `
 
 type ShiftGradeLevelOrdinalsParams struct {
 	OrganizationID ids.XID `json:"organization_id"`
 	Ordinal        int32   `json:"ordinal"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
 }
 
 func (q *Queries) ShiftGradeLevelOrdinals(ctx context.Context, arg ShiftGradeLevelOrdinalsParams) error {
-	_, err := q.db.Exec(ctx, shiftGradeLevelOrdinals, arg.OrganizationID, arg.Ordinal)
+	_, err := q.db.Exec(ctx, shiftGradeLevelOrdinals, arg.OrganizationID, arg.Ordinal, arg.SchoolYearID)
 	return err
 }
 
 const updateGradeLevel = `-- name: UpdateGradeLevel :one
 update grade_levels
 set code = $2, label = $3
-where id = $1
-returning id, organization_id, code, label, ordinal, retired_at, created_at, updated_at
+where id = $1 and organization_id = $4 and school_year_id = $5
+returning id, organization_id, school_year_id, code, label, ordinal, retired_at, created_at, updated_at
 `
 
 type UpdateGradeLevelParams struct {
-	ID    ids.XID `json:"id"`
-	Code  string  `json:"code"`
-	Label string  `json:"label"`
+	ID             ids.XID `json:"id"`
+	Code           string  `json:"code"`
+	Label          string  `json:"label"`
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
 }
 
-func (q *Queries) UpdateGradeLevel(ctx context.Context, arg UpdateGradeLevelParams) (GradeLevel, error) {
-	row := q.db.QueryRow(ctx, updateGradeLevel, arg.ID, arg.Code, arg.Label)
-	var i GradeLevel
+type UpdateGradeLevelRow struct {
+	ID             ids.XID            `json:"id"`
+	OrganizationID ids.XID            `json:"organization_id"`
+	SchoolYearID   ids.XID            `json:"school_year_id"`
+	Code           string             `json:"code"`
+	Label          string             `json:"label"`
+	Ordinal        int32              `json:"ordinal"`
+	RetiredAt      pgtype.Timestamptz `json:"retired_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) UpdateGradeLevel(ctx context.Context, arg UpdateGradeLevelParams) (UpdateGradeLevelRow, error) {
+	row := q.db.QueryRow(ctx, updateGradeLevel,
+		arg.ID,
+		arg.Code,
+		arg.Label,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+	)
+	var i UpdateGradeLevelRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
+		&i.SchoolYearID,
 		&i.Code,
 		&i.Label,
 		&i.Ordinal,
@@ -428,35 +755,45 @@ func (q *Queries) UpdateGradeLevel(ctx context.Context, arg UpdateGradeLevelPara
 const updateGradeLevelOrdinal = `-- name: UpdateGradeLevelOrdinal :exec
 update grade_levels
 set ordinal = $2
-where id = $1
+where id = $1 and organization_id = $3 and school_year_id = $4
 `
 
 type UpdateGradeLevelOrdinalParams struct {
-	ID      ids.XID `json:"id"`
-	Ordinal int32   `json:"ordinal"`
+	ID             ids.XID `json:"id"`
+	Ordinal        int32   `json:"ordinal"`
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
 }
 
 func (q *Queries) UpdateGradeLevelOrdinal(ctx context.Context, arg UpdateGradeLevelOrdinalParams) error {
-	_, err := q.db.Exec(ctx, updateGradeLevelOrdinal, arg.ID, arg.Ordinal)
+	_, err := q.db.Exec(ctx, updateGradeLevelOrdinal,
+		arg.ID,
+		arg.Ordinal,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+	)
 	return err
 }
 
 const updateHomeroom = `-- name: UpdateHomeroom :one
 update homerooms
 set name = $2, external_identifier = $3
-where id = $1
-returning id, organization_id, name, external_identifier, retired_at, created_at, updated_at
+where id = $1 and organization_id = $4 and school_year_id = $5
+returning id, organization_id, school_year_id, name, external_identifier, retired_at, created_at, updated_at
 `
 
 type UpdateHomeroomParams struct {
 	ID                 ids.XID     `json:"id"`
 	Name               string      `json:"name"`
 	ExternalIdentifier pgtype.Text `json:"external_identifier"`
+	OrganizationID     ids.XID     `json:"organization_id"`
+	SchoolYearID       ids.XID     `json:"school_year_id"`
 }
 
 type UpdateHomeroomRow struct {
 	ID                 ids.XID            `json:"id"`
 	OrganizationID     ids.XID            `json:"organization_id"`
+	SchoolYearID       ids.XID            `json:"school_year_id"`
 	Name               string             `json:"name"`
 	ExternalIdentifier pgtype.Text        `json:"external_identifier"`
 	RetiredAt          pgtype.Timestamptz `json:"retired_at"`
@@ -465,11 +802,18 @@ type UpdateHomeroomRow struct {
 }
 
 func (q *Queries) UpdateHomeroom(ctx context.Context, arg UpdateHomeroomParams) (UpdateHomeroomRow, error) {
-	row := q.db.QueryRow(ctx, updateHomeroom, arg.ID, arg.Name, arg.ExternalIdentifier)
+	row := q.db.QueryRow(ctx, updateHomeroom,
+		arg.ID,
+		arg.Name,
+		arg.ExternalIdentifier,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+	)
 	var i UpdateHomeroomRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
+		&i.SchoolYearID,
 		&i.Name,
 		&i.ExternalIdentifier,
 		&i.RetiredAt,

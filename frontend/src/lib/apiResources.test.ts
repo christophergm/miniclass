@@ -3,16 +3,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { activeGradeLevels, activeHomerooms, resourceApi, type VocabularyResponse } from './apiResources'
 
 const vocabulary: VocabularyResponse = {
-  organization_id: 'org-test',
+  school_year_id: 'year-test',
   homeroom_label: 'homeroom',
   grade_levels: [
-    { id: 'g2', organization_id: 'org-test', code: '2', label: 'Second grade', ordinal: 2, created_at: '', updated_at: '' },
-    { id: 'g1', organization_id: 'org-test', code: '1', label: 'First grade', ordinal: 1, created_at: '', updated_at: '' },
-    { id: 'g0', organization_id: 'org-test', code: 'K', label: 'Kindergarten', ordinal: 0, retired_at: '2026-01-01', created_at: '', updated_at: '' },
+    { id: 'g2', school_year_id: 'year-test', code: '2', label: 'Second grade', ordinal: 2, created_at: '', updated_at: '' },
+    { id: 'g1', school_year_id: 'year-test', code: '1', label: 'First grade', ordinal: 1, created_at: '', updated_at: '' },
+    { id: 'g0', school_year_id: 'year-test', code: 'K', label: 'Kindergarten', ordinal: 0, retired_at: '2026-01-01', created_at: '', updated_at: '' },
   ],
   homerooms: [
-    { id: 'h1', organization_id: 'org-test', name: 'Blue', external_identifier: null, created_at: '', updated_at: '' },
-    { id: 'h2', organization_id: 'org-test', name: 'Green', external_identifier: null, retired_at: '2026-01-01', created_at: '', updated_at: '' },
+    { id: 'h1', school_year_id: 'year-test', name: 'Blue', external_identifier: null, created_at: '', updated_at: '' },
+    { id: 'h2', school_year_id: 'year-test', name: 'Green', external_identifier: null, retired_at: '2026-01-01', created_at: '', updated_at: '' },
   ],
 }
 

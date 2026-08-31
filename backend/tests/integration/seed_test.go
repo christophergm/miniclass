@@ -39,7 +39,7 @@ func TestSeedCorpusLoadsWithAppendixDistributionAndEdgeCases(t *testing.T) {
 	require.Len(t, students, seed.StudentCount)
 	require.Len(t, adults, seed.AdultCount)
 
-	vocabularySnapshot, err := vocabulary.New(harness.Database).List(ctx, result.OrganizationID, false)
+	vocabularySnapshot, err := vocabulary.New(harness.Database).List(ctx, result.OrganizationID, resultSchoolYearID(result), false)
 	require.NoError(t, err)
 	require.Len(t, vocabularySnapshot.Grades, 6)
 	require.Len(t, vocabularySnapshot.Homerooms, 6)

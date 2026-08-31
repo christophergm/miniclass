@@ -9,13 +9,14 @@ import (
 	"github.com/chrismott/miniclass/internal/data"
 	"github.com/chrismott/miniclass/internal/ids"
 	testharness "github.com/chrismott/miniclass/internal/testing"
+	"github.com/chrismott/miniclass/internal/testing/factories"
 	"github.com/chrismott/miniclass/internal/vocabulary"
-	"github.com/jackc/pgx/v5"
 )
 
 func init() {
 	Register(Entity{
 		TableName:               "grade_levels",
+		YearScoped:              true,
 		Factory:                 createGradeLevel,
 		ReadIDs:                 readGradeLevelIDs,
 		FetchByID:               fetchGradeLevelByID,
@@ -29,7 +30,12 @@ func createGradeLevel(ctx context.Context, harness *testharness.Harness, organiz
 	if harness == nil {
 		return "", errors.New("create grade level fixture: harness is nil")
 	}
-	row, err := vocabulary.New(harness.Database).CreateGrade(ctx, string(organizationID), audit.Actor{
+	factory := factories.New(harness.Database, string(organizationID), audit.Actor{Type: audit.ActorTypeSystem, Label: "layer 2 grade-level factory"})
+	year, err := factory.CreateSchoolYear(ctx, fmt.Sprintf("Synthetic year %s", organizationID))
+	if err != nil {
+		return "", err
+	}
+	row, err := vocabulary.New(harness.Database).CreateGrade(ctx, string(organizationID), year.ID, audit.Actor{
 		Type: audit.ActorTypeSystem, Label: "layer 2 grade-level factory",
 	}, "synthetic", fmt.Sprintf("Grade %s", organizationID))
 	if err != nil {
@@ -39,7 +45,7 @@ func createGradeLevel(ctx context.Context, harness *testharness.Harness, organiz
 }
 
 func readGradeLevelIDs(ctx context.Context, tx *data.Tx) ([]ids.XID, error) {
-	rows, err := tx.ListGradeLevels(ctx, true)
+	rows, err := tx.ListAllGradeLevelsForRegistry(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -51,28 +57,28 @@ func readGradeLevelIDs(ctx context.Context, tx *data.Tx) ([]ids.XID, error) {
 }
 
 func fetchGradeLevelByID(ctx context.Context, tx *data.Tx, id ids.XID) (bool, error) {
-	_, err := tx.GetGradeLevelByID(ctx, id)
-	if errors.Is(err, pgx.ErrNoRows) {
+	_, yearID, err := tx.FindGradeLevelForRegistry(ctx, id)
+	if yearID == "" && err == nil {
 		return false, nil
 	}
 	return err == nil, err
 }
 
 func updateGradeLevelByID(ctx context.Context, tx *data.Tx, id ids.XID) (bool, error) {
-	row, err := tx.GetGradeLevelByID(ctx, id)
-	if errors.Is(err, pgx.ErrNoRows) {
+	row, yearID, err := tx.FindGradeLevelForRegistry(ctx, id)
+	if row.ID == "" && err == nil {
 		return false, nil
 	}
 	if err != nil {
 		return false, err
 	}
-	_, err = tx.UpdateGradeLevel(ctx, id, row.Code, row.Label+" updated")
+	_, err = tx.UpdateGradeLevel(ctx, yearID, id, row.Code, row.Label+" updated")
 	return err == nil, err
 }
 
 func retireGradeLevelByID(ctx context.Context, tx *data.Tx, id ids.XID) (bool, error) {
-	row, err := tx.GetGradeLevelByID(ctx, id)
-	if errors.Is(err, pgx.ErrNoRows) {
+	row, yearID, err := tx.FindGradeLevelForRegistry(ctx, id)
+	if row.ID == "" && err == nil {
 		return false, nil
 	}
 	if err != nil {
@@ -81,13 +87,18 @@ func retireGradeLevelByID(ctx context.Context, tx *data.Tx, id ids.XID) (bool, e
 	if row.RetiredAt != nil {
 		return false, nil
 	}
-	_, err = tx.SetGradeLevelRetired(ctx, id, true)
+	_, err = tx.SetGradeLevelRetired(ctx, yearID, id, true)
 	return err == nil, err
 }
 
 func insertGradeLevelWithForeignOrganization(ctx context.Context, harness *testharness.Harness, tenantID, foreignOrganizationID ids.XID) error {
 	if harness == nil || harness.App == nil {
 		return errors.New("insert grade level fixture: app pool is nil")
+	}
+	foreignFactory := factories.New(harness.Database, string(foreignOrganizationID), audit.Actor{Type: audit.ActorTypeSystem, Label: "layer 2 foreign grade-level fixture"})
+	year, err := foreignFactory.CreateSchoolYear(ctx, fmt.Sprintf("Synthetic foreign year %s", foreignOrganizationID))
+	if err != nil {
+		return err
 	}
 	tx, err := harness.App.Begin(ctx)
 	if err != nil {
@@ -97,6 +108,6 @@ func insertGradeLevelWithForeignOrganization(ctx context.Context, harness *testh
 	if _, err := tx.Exec(ctx, "select set_config('app.organization_id', $1, true)", string(tenantID)); err != nil {
 		return err
 	}
-	_, err = tx.Exec(ctx, "insert into grade_levels (organization_id, code, label, ordinal) values ($1, $2, $3, $4)", foreignOrganizationID, "foreign", "Foreign", 1)
+	_, err = tx.Exec(ctx, "insert into grade_levels (organization_id, school_year_id, code, label, ordinal) values ($1, $2, $3, $4, $5)", foreignOrganizationID, year.ID, "foreign", "Foreign", 1)
 	return err
 }

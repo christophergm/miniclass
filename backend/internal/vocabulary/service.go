@@ -1,4 +1,4 @@
-// Package vocabulary owns the organization's grade and homeroom definitions.
+// Package vocabulary owns each school year's grade and homeroom definitions.
 package vocabulary
 
 import (
@@ -31,9 +31,10 @@ type HomeroomUpdate struct {
 }
 
 type Snapshot struct {
-	Settings  data.VocabularySettings
-	Grades    []data.GradeLevel
-	Homerooms []data.Homeroom
+	SchoolYearID ids.XID
+	Settings     data.VocabularySettings
+	Grades       []data.GradeLevel
+	Homerooms    []data.Homeroom
 }
 
 type Service struct {
@@ -44,22 +45,26 @@ func New(database *data.DB) *Service {
 	return &Service{database: database}
 }
 
-func (s *Service) List(ctx context.Context, organizationID string, includeRetired bool) (Snapshot, error) {
+func (s *Service) List(ctx context.Context, organizationID string, schoolYearID ids.XID, includeRetired bool) (Snapshot, error) {
 	if s == nil || s.database == nil {
 		return Snapshot{}, errors.New("list vocabulary: data service is nil")
 	}
 	var result Snapshot
 	err := s.database.InTenantRead(ctx, organizationID, func(ctx context.Context, tx *data.Tx) error {
+		if _, err := tx.GetSchoolYearByID(ctx, schoolYearID); err != nil {
+			return err
+		}
+		result.SchoolYearID = schoolYearID
 		var err error
 		result.Settings, err = tx.GetVocabularySettings(ctx)
 		if err != nil {
 			return err
 		}
-		result.Grades, err = tx.ListGradeLevels(ctx, includeRetired)
+		result.Grades, err = tx.ListGradeLevels(ctx, schoolYearID, includeRetired)
 		if err != nil {
 			return err
 		}
-		result.Homerooms, err = tx.ListHomerooms(ctx, includeRetired)
+		result.Homerooms, err = tx.ListHomerooms(ctx, schoolYearID, includeRetired)
 		return err
 	})
 	if err != nil {
@@ -68,14 +73,14 @@ func (s *Service) List(ctx context.Context, organizationID string, includeRetire
 	return result, nil
 }
 
-func (s *Service) GetGrade(ctx context.Context, organizationID string, id ids.XID) (data.GradeLevel, error) {
+func (s *Service) GetGrade(ctx context.Context, organizationID string, schoolYearID, id ids.XID) (data.GradeLevel, error) {
 	if s == nil || s.database == nil {
 		return data.GradeLevel{}, errors.New("get grade level: data service is nil")
 	}
 	var result data.GradeLevel
 	err := s.database.InTenantRead(ctx, organizationID, func(ctx context.Context, tx *data.Tx) error {
 		var err error
-		result, err = tx.GetGradeLevelByID(ctx, id)
+		result, err = tx.GetGradeLevelByID(ctx, schoolYearID, id)
 		return err
 	})
 	if err != nil {
@@ -84,13 +89,13 @@ func (s *Service) GetGrade(ctx context.Context, organizationID string, id ids.XI
 	return result, nil
 }
 
-func (s *Service) CreateGrade(ctx context.Context, organizationID string, actor audit.Actor, code, label string) (data.GradeLevel, error) {
+func (s *Service) CreateGrade(ctx context.Context, organizationID string, schoolYearID ids.XID, actor audit.Actor, code, label string) (data.GradeLevel, error) {
 	if s == nil || s.database == nil {
 		return data.GradeLevel{}, errors.New("create grade level: data service is nil")
 	}
 	var result data.GradeLevel
 	err := s.database.InTenant(ctx, organizationID, actor, func(ctx context.Context, tx *data.Tx) error {
-		levels, err := tx.ListGradeLevels(ctx, true)
+		levels, err := tx.ListGradeLevels(ctx, schoolYearID, true)
 		if err != nil {
 			return err
 		}
@@ -100,12 +105,12 @@ func (s *Service) CreateGrade(ctx context.Context, organizationID string, actor 
 				ordinal = level.Ordinal + 1
 			}
 		}
-		result, err = tx.CreateGradeLevel(ctx, code, label, ordinal)
+		result, err = tx.CreateGradeLevel(ctx, schoolYearID, code, label, ordinal)
 		if err != nil {
 			return err
 		}
 		id := result.ID
-		return recordChange(ctx, tx, &id, "grade_level", map[string]any{
+		return recordChange(ctx, tx, schoolYearID, &id, "grade_level", map[string]any{
 			"code": result.Code, "label": result.Label, "ordinal": result.Ordinal,
 		})
 	})
@@ -115,13 +120,13 @@ func (s *Service) CreateGrade(ctx context.Context, organizationID string, actor 
 	return result, nil
 }
 
-func (s *Service) UpdateGrade(ctx context.Context, organizationID string, id ids.XID, actor audit.Actor, input GradeLevelUpdate) (data.GradeLevel, error) {
+func (s *Service) UpdateGrade(ctx context.Context, organizationID string, schoolYearID, id ids.XID, actor audit.Actor, input GradeLevelUpdate) (data.GradeLevel, error) {
 	if s == nil || s.database == nil {
 		return data.GradeLevel{}, errors.New("update grade level: data service is nil")
 	}
 	var result data.GradeLevel
 	err := s.database.InTenant(ctx, organizationID, actor, func(ctx context.Context, tx *data.Tx) error {
-		current, err := tx.GetGradeLevelByID(ctx, id)
+		current, err := tx.GetGradeLevelByID(ctx, schoolYearID, id)
 		if err != nil {
 			return err
 		}
@@ -136,7 +141,7 @@ func (s *Service) UpdateGrade(ctx context.Context, organizationID string, id ids
 				label = *input.Label
 			}
 			if strings.TrimSpace(code) != current.Code || strings.TrimSpace(label) != current.Label {
-				result, err = tx.UpdateGradeLevel(ctx, id, code, label)
+				result, err = tx.UpdateGradeLevel(ctx, schoolYearID, id, code, label)
 				if err != nil {
 					return err
 				}
@@ -144,7 +149,7 @@ func (s *Service) UpdateGrade(ctx context.Context, organizationID string, id ids
 			}
 		}
 		if input.Retired != nil && *input.Retired != (current.RetiredAt != nil) {
-			result, err = tx.SetGradeLevelRetired(ctx, id, *input.Retired)
+			result, err = tx.SetGradeLevelRetired(ctx, schoolYearID, id, *input.Retired)
 			if err != nil {
 				return err
 			}
@@ -157,7 +162,7 @@ func (s *Service) UpdateGrade(ctx context.Context, organizationID string, id ids
 			result = current
 		}
 		after := map[string]any{"code": result.Code, "label": result.Label, "retired": result.RetiredAt != nil}
-		return recordChange(ctx, tx, &id, "grade_level", map[string]any{"before": before, "after": after})
+		return recordChange(ctx, tx, schoolYearID, &id, "grade_level", map[string]any{"before": before, "after": after})
 	})
 	if err != nil {
 		return data.GradeLevel{}, fmt.Errorf("update grade level: %w", err)
@@ -165,18 +170,18 @@ func (s *Service) UpdateGrade(ctx context.Context, organizationID string, id ids
 	return result, nil
 }
 
-func (s *Service) ReorderGrades(ctx context.Context, organizationID string, actor audit.Actor, orderedIDs []ids.XID) ([]data.GradeLevel, error) {
+func (s *Service) ReorderGrades(ctx context.Context, organizationID string, schoolYearID ids.XID, actor audit.Actor, orderedIDs []ids.XID) ([]data.GradeLevel, error) {
 	if s == nil || s.database == nil {
 		return nil, errors.New("reorder grade levels: data service is nil")
 	}
 	var result []data.GradeLevel
 	err := s.database.InTenant(ctx, organizationID, actor, func(ctx context.Context, tx *data.Tx) error {
 		var err error
-		result, err = tx.ReorderGradeLevels(ctx, orderedIDs)
+		result, err = tx.ReorderGradeLevels(ctx, schoolYearID, orderedIDs)
 		if err != nil {
 			return fmt.Errorf("%w: %v", ErrInvalid, err)
 		}
-		return recordChange(ctx, tx, nil, "grade_level", map[string]any{"reordered_ids": orderedIDs})
+		return recordChange(ctx, tx, schoolYearID, nil, "grade_level", map[string]any{"reordered_ids": orderedIDs})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("reorder grade levels: %w", err)
@@ -184,14 +189,14 @@ func (s *Service) ReorderGrades(ctx context.Context, organizationID string, acto
 	return result, nil
 }
 
-func (s *Service) GetHomeroom(ctx context.Context, organizationID string, id ids.XID) (data.Homeroom, error) {
+func (s *Service) GetHomeroom(ctx context.Context, organizationID string, schoolYearID, id ids.XID) (data.Homeroom, error) {
 	if s == nil || s.database == nil {
 		return data.Homeroom{}, errors.New("get homeroom: data service is nil")
 	}
 	var result data.Homeroom
 	err := s.database.InTenantRead(ctx, organizationID, func(ctx context.Context, tx *data.Tx) error {
 		var err error
-		result, err = tx.GetHomeroomByID(ctx, id)
+		result, err = tx.GetHomeroomByID(ctx, schoolYearID, id)
 		return err
 	})
 	if err != nil {
@@ -200,19 +205,19 @@ func (s *Service) GetHomeroom(ctx context.Context, organizationID string, id ids
 	return result, nil
 }
 
-func (s *Service) CreateHomeroom(ctx context.Context, organizationID string, actor audit.Actor, name string, externalIdentifier *string) (data.Homeroom, error) {
+func (s *Service) CreateHomeroom(ctx context.Context, organizationID string, schoolYearID ids.XID, actor audit.Actor, name string, externalIdentifier *string) (data.Homeroom, error) {
 	if s == nil || s.database == nil {
 		return data.Homeroom{}, errors.New("create homeroom: data service is nil")
 	}
 	var result data.Homeroom
 	err := s.database.InTenant(ctx, organizationID, actor, func(ctx context.Context, tx *data.Tx) error {
 		var err error
-		result, err = tx.CreateHomeroom(ctx, name, externalIdentifier)
+		result, err = tx.CreateHomeroom(ctx, schoolYearID, name, externalIdentifier)
 		if err != nil {
 			return err
 		}
 		id := result.ID
-		return recordChange(ctx, tx, &id, "homeroom", map[string]any{"name": result.Name, "external_identifier": result.ExternalIdentifier})
+		return recordChange(ctx, tx, schoolYearID, &id, "homeroom", map[string]any{"name": result.Name, "external_identifier": result.ExternalIdentifier})
 	})
 	if err != nil {
 		return data.Homeroom{}, fmt.Errorf("create homeroom: %w", err)
@@ -220,13 +225,13 @@ func (s *Service) CreateHomeroom(ctx context.Context, organizationID string, act
 	return result, nil
 }
 
-func (s *Service) UpdateHomeroom(ctx context.Context, organizationID string, id ids.XID, actor audit.Actor, input HomeroomUpdate) (data.Homeroom, error) {
+func (s *Service) UpdateHomeroom(ctx context.Context, organizationID string, schoolYearID, id ids.XID, actor audit.Actor, input HomeroomUpdate) (data.Homeroom, error) {
 	if s == nil || s.database == nil {
 		return data.Homeroom{}, errors.New("update homeroom: data service is nil")
 	}
 	var result data.Homeroom
 	err := s.database.InTenant(ctx, organizationID, actor, func(ctx context.Context, tx *data.Tx) error {
-		current, err := tx.GetHomeroomByID(ctx, id)
+		current, err := tx.GetHomeroomByID(ctx, schoolYearID, id)
 		if err != nil {
 			return err
 		}
@@ -235,7 +240,7 @@ func (s *Service) UpdateHomeroom(ctx context.Context, organizationID string, id 
 		if input.ExternalIdentifier != nil {
 			value := *input.ExternalIdentifier
 			if !sameOptionalString(current.ExternalIdentifier, value) {
-				result, err = tx.UpdateHomeroom(ctx, id, current.Name, value)
+				result, err = tx.UpdateHomeroom(ctx, schoolYearID, id, current.Name, value)
 				if err != nil {
 					return err
 				}
@@ -247,14 +252,14 @@ func (s *Service) UpdateHomeroom(ctx context.Context, organizationID string, id 
 			if input.ExternalIdentifier != nil {
 				externalIdentifier = *input.ExternalIdentifier
 			}
-			result, err = tx.UpdateHomeroom(ctx, id, *input.Name, externalIdentifier)
+			result, err = tx.UpdateHomeroom(ctx, schoolYearID, id, *input.Name, externalIdentifier)
 			if err != nil {
 				return err
 			}
 			changed = true
 		}
 		if input.Retired != nil && *input.Retired != (current.RetiredAt != nil) {
-			result, err = tx.SetHomeroomRetired(ctx, id, *input.Retired)
+			result, err = tx.SetHomeroomRetired(ctx, schoolYearID, id, *input.Retired)
 			if err != nil {
 				return err
 			}
@@ -266,7 +271,7 @@ func (s *Service) UpdateHomeroom(ctx context.Context, organizationID string, id 
 		if result.ID == "" {
 			result = current
 		}
-		return recordChange(ctx, tx, &id, "homeroom", map[string]any{
+		return recordChange(ctx, tx, schoolYearID, &id, "homeroom", map[string]any{
 			"before": before, "after": map[string]any{"name": result.Name, "external_identifier": result.ExternalIdentifier, "retired": result.RetiredAt != nil},
 		})
 	})
@@ -306,7 +311,7 @@ func (s *Service) UpdateHomeroomLabel(ctx context.Context, organizationID string
 			return err
 		}
 		id := result.OrganizationID
-		return recordChange(ctx, tx, &id, "organization", map[string]any{
+		return recordChange(ctx, tx, "", &id, "organization", map[string]any{
 			"before": map[string]string{"homeroom_label": current.HomeroomLabel},
 			"after":  map[string]string{"homeroom_label": result.HomeroomLabel},
 		})
@@ -317,12 +322,16 @@ func (s *Service) UpdateHomeroomLabel(ctx context.Context, organizationID string
 	return result, nil
 }
 
-func recordChange(ctx context.Context, tx *data.Tx, objectID *ids.XID, objectType string, summaryValue any) error {
+func recordChange(ctx context.Context, tx *data.Tx, schoolYearID ids.XID, objectID *ids.XID, objectType string, summaryValue any) error {
 	encoded, err := json.Marshal(summaryValue)
 	if err != nil {
 		return fmt.Errorf("record vocabulary change: encode summary: %w", err)
 	}
+	var year *ids.XID
+	if schoolYearID != "" {
+		year = &schoolYearID
+	}
 	return tx.Record(ctx, audit.Entry{
-		Action: audit.ActionVocabularyChange, ObjectType: objectType, ObjectID: objectID, ChangeSummary: encoded,
+		Action: audit.ActionVocabularyChange, ObjectType: objectType, ObjectID: objectID, SchoolYearID: year, ChangeSummary: encoded,
 	})
 }
