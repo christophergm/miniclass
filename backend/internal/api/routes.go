@@ -235,13 +235,19 @@ func registerOperations(api huma.API, options RouterOptions) {
 		Errors:      []int{http.StatusBadRequest, http.StatusConflict},
 	}, auth.CapabilityManageRoster, false, vocabularies.UpdateSettings)
 
-	imports := handlers.NewImportHandler(options.ImportPreview, options.ImportCommit)
+	imports := handlers.NewImportHandler(options.ImportPreview, options.ImportCommit).WithLogger(options.Logger)
 	registerOperation(api, huma.Operation{
 		OperationID: "preview-import",
 		Method:      http.MethodPost,
 		Path:        apiBasePath + "/imports/{kind}/preview",
 		Summary:     "Preview an import without changing roster data",
 		Errors:      []int{http.StatusBadRequest, http.StatusNotFound, http.StatusConflict},
+		// One URL serves every registered kind, so no single declared schema
+		// describes the body: a roster_json array and a grades_csv document
+		// arrive at the same operation. The kind's parser is the only
+		// validator (SPEC 11.3), and it reports a rejection as an import
+		// problem the organiser can act on rather than a generic 422.
+		SkipValidateBody: true,
 		RequestBody: &huma.RequestBody{
 			Required: true,
 			Content: map[string]*huma.MediaType{
@@ -254,11 +260,12 @@ func registerOperations(api huma.API, options RouterOptions) {
 		},
 	}, auth.CapabilityManageRoster, false, imports.Preview)
 	registerOperation(api, huma.Operation{
-		OperationID: "commit-import",
-		Method:      http.MethodPost,
-		Path:        apiBasePath + "/imports/{kind}/commit",
-		Summary:     "Commit a reviewed import",
-		Errors:      []int{http.StatusBadRequest, http.StatusNotFound, http.StatusConflict},
+		OperationID:      "commit-import",
+		Method:           http.MethodPost,
+		Path:             apiBasePath + "/imports/{kind}/commit",
+		Summary:          "Commit a reviewed import",
+		Errors:           []int{http.StatusBadRequest, http.StatusNotFound, http.StatusConflict},
+		SkipValidateBody: true,
 		RequestBody: &huma.RequestBody{
 			Required: true,
 			Content: map[string]*huma.MediaType{

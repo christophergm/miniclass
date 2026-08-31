@@ -15,36 +15,52 @@ const (
 	SyntheticClassroomCnt = 8
 )
 
+// Reference class names as the community platform emits them. The corpus
+// carries them verbatim because a fixture in an invented shape proves only
+// that the parser can read the fixture (SPEC §11.3).
+const (
+	syntheticClassroomClass   = "models.embedded.reference.ClassroomReference"
+	syntheticSchoolClass      = "models.embedded.reference.SchoolReference"
+	syntheticCasualGroupClass = "models.embedded.reference.CasualGroupReference"
+)
+
 // GenerateSyntheticJSON returns the deterministic, entirely synthetic wide
 // export used by the parser's golden tests. It mirrors the observed source
-// dimensions without copying historical names or contact details.
+// shape and dimensions without copying historical names or contact details.
 func GenerateSyntheticJSON() []byte {
 	type group struct {
-		ID    string `json:"id"`
-		Name  string `json:"name"`
-		Class string `json:"class"`
-		Band  string `json:"band"`
+		Class      string `json:"_class"`
+		ID         string `json:"_id"`
+		Name       string `json:"name"`
+		ParentID   string `json:"parentId"`
+		ParentName string `json:"parentName"`
+		Grade      string `json:"grade,omitempty"`
 	}
 	type child struct {
-		ID         string  `json:"id"`
-		GivenName  string  `json:"given_name"`
-		FamilyName string  `json:"family_name"`
-		Status     string  `json:"status"`
-		Groups     []group `json:"groups"`
+		ID        string  `json:"_id"`
+		FirstName string  `json:"firstName"`
+		LastName  string  `json:"lastName"`
+		Status    string  `json:"status"`
+		Groups    []group `json:"groups"`
 	}
 	type relationship struct {
 		Child        child  `json:"child"`
 		Relationship string `json:"relationship"`
 	}
 	type adult struct {
-		ID            string         `json:"id"`
+		ID            string         `json:"_id"`
 		Email         string         `json:"email,omitempty"`
-		GivenName     string         `json:"given_name"`
-		FamilyName    string         `json:"family_name"`
+		FirstName     string         `json:"firstName"`
+		LastName      string         `json:"lastName"`
 		Status        string         `json:"status"`
 		Relationships []relationship `json:"relationships"`
-		Unread        map[string]any `json:"profile_metadata,omitempty"`
+		Settings      map[string]any `json:"settings,omitempty"`
 	}
+	const (
+		schoolID   = "synthetic-school-01"
+		schoolName = "Synthetic Multiage Program"
+	)
+	schoolGroup := group{Class: syntheticSchoolClass, ID: schoolID, Name: schoolName, ParentID: "synthetic-district-01", ParentName: "Synthetic Island School District"}
 
 	children := make([]child, SyntheticChildCount)
 	for index := range children {
@@ -53,18 +69,25 @@ func GenerateSyntheticJSON() []byte {
 			family = "De La Sample"
 		}
 		if index == 17 {
-			given, family = children[16].GivenName, children[16].FamilyName
+			given, family = children[16].FirstName, children[16].LastName
 		}
 		children[index] = child{
-			ID: fmt.Sprintf("synthetic-child-%03d", index+1), GivenName: given, FamilyName: family,
-			Status: "active",
+			ID: fmt.Sprintf("synthetic-child-%03d", index+1), FirstName: given, LastName: family,
+			Status: "ACTIVE", Groups: []group{schoolGroup},
 		}
 		if index < SyntheticEnrolled {
 			room := syntheticClassroomFor(index)
 			bands := [...]string{"K", "1-2", "3", "4-5", "6"}
-			children[index].Groups = []group{{ID: fmt.Sprintf("synthetic-classroom-%02d", room+1), Name: fmt.Sprintf("Room %02d", room+1), Class: "classroom", Band: bands[room%len(bands)]}}
+			children[index].Groups = append(children[index].Groups, group{
+				Class: syntheticClassroomClass, ID: fmt.Sprintf("synthetic-classroom-%02d", room+1),
+				Name: fmt.Sprintf("Room %02d", room+1), ParentID: schoolID, ParentName: schoolName,
+				Grade: bands[room%len(bands)],
+			})
 		} else if index%2 == 0 {
-			children[index].Groups = []group{{ID: fmt.Sprintf("synthetic-activity-%02d", index%7+1), Name: "Activity group", Class: "activity", Band: "not-a-grade"}}
+			children[index].Groups = append(children[index].Groups, group{
+				Class: syntheticCasualGroupClass, ID: fmt.Sprintf("synthetic-activity-%02d", index%7+1),
+				Name: "Activity group", ParentID: schoolID, ParentName: schoolName,
+			})
 		}
 	}
 
@@ -103,20 +126,21 @@ func GenerateSyntheticJSON() []byte {
 	adults := make([]adult, SyntheticAdultCount)
 	for index := range adults {
 		adults[index] = adult{
-			ID: fmt.Sprintf("synthetic-adult-%03d", index+1), Status: "active",
+			ID: fmt.Sprintf("synthetic-adult-%03d", index+1), Status: "ACTIVE",
 			Email:     fmt.Sprintf("synthetic-%03d@example.test", index+1),
-			GivenName: fmt.Sprintf("Adult%03d", index+1), FamilyName: fmt.Sprintf("Contact%02d", index%17+1),
-			Unread: map[string]any{"source_flag": index%9 == 0, "import_note": "synthetic"},
+			FirstName: fmt.Sprintf("Adult%03d", index+1), LastName: fmt.Sprintf("Contact%02d", index%17+1),
+			Settings: map[string]any{"source_flag": index%9 == 0, "import_note": "synthetic"},
 		}
 		if index >= 226 && index < 296 { // invited accounts have no names
-			adults[index].GivenName, adults[index].FamilyName = "", ""
+			adults[index].FirstName, adults[index].LastName = "", ""
+			adults[index].Status = "INVITED"
 			adults[index].Email = fmt.Sprintf("invited-%03d@example.test", index+1)
 		}
 		if index >= 296 && index < 308 { // named accounts with no relationships
-			adults[index].GivenName = fmt.Sprintf("Unlinked%03d", index+1)
+			adults[index].FirstName = fmt.Sprintf("Unlinked%03d", index+1)
 		}
 		if index >= 308 { // named accounts whose only children are unenrolled
-			adults[index].GivenName = fmt.Sprintf("Unenrolled%03d", index+1)
+			adults[index].FirstName = fmt.Sprintf("Unenrolled%03d", index+1)
 		}
 	}
 
@@ -195,7 +219,8 @@ func GenerateSyntheticGradesCSV() []byte {
 // GenerateSyntheticEdgeCasesJSON is a small golden source for cases that did
 // not occur in the historical export but are required to keep the parser
 // honest: contradictory source names, duplicate normalized names, and a
-// two-word family name.
+// two-word family name. It is written in the snake_case alias shape rather
+// than the platform shape, so the alias mapping stays covered too.
 func GenerateSyntheticEdgeCasesJSON() []byte {
 	return []byte(`[
   {"id":"synthetic-edge-adult-1","given_name":"Edge","family_name":"Adult","relationships":[

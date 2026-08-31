@@ -18,6 +18,20 @@ const (
 	AdultExclusionNoneEnrolled = "none_enrolled"
 )
 
+// Field aliases are the explicit mapping SPEC §11.3 requires in place of
+// positional reads. The first name in each list is the one the community
+// platform actually exports — its documents are Mongo-shaped (`_id`,
+// `firstName`, `_class`) — and the rest keep hand-written and
+// CSV-derived JSON sources working.
+var (
+	identifierFields = []string{"_id", "id", "external_id", "external_identifier"}
+	givenNameFields  = []string{"firstName", "given_name", "first_name"}
+	familyNameFields = []string{"lastName", "family_name", "last_name"}
+	classFields      = []string{"_class", "class", "type", "kind", "reference"}
+	labelFields      = []string{"name", "label"}
+	bandFields       = []string{"grade", "band", "band_string"}
+)
+
 // Student is the canonical student record emitted by the roster source. The
 // classroom label and band are display metadata only; neither is interpreted
 // as a grade (ADR 0014).
@@ -199,7 +213,7 @@ func parseRecords(records []json.RawMessage) (Result, error) {
 		if err != nil {
 			return Result{}, fmt.Errorf("roster: adult record %d: %w", recordIndex+1, err)
 		}
-		adultID := stringField(object, "id", "external_id", "external_identifier")
+		adultID := stringField(object, identifierFields...)
 		if adultID == "" {
 			return Result{}, fmt.Errorf("roster: adult record %d has no opaque id", recordIndex+1)
 		}
@@ -207,8 +221,8 @@ func parseRecords(records []json.RawMessage) (Result, error) {
 			SourceExternalIdentifier: adultID,
 			ExternalIdentifier:       adultID,
 			Email:                    stringField(object, "email"),
-			GivenName:                stringField(object, "given_name", "first_name"),
-			FamilyName:               stringField(object, "family_name", "last_name"),
+			GivenName:                stringField(object, givenNameFields...),
+			FamilyName:               stringField(object, familyNameFields...),
 			Status:                   stringField(object, "status"),
 		}}
 		adult.LegalGivenName, adult.LegalFamilyName = adult.GivenName, adult.FamilyName
@@ -233,12 +247,12 @@ func parseRecords(records []json.RawMessage) (Result, error) {
 			if err != nil {
 				return Result{}, fmt.Errorf("roster: adult %q relationship %d: %w", adultID, relationshipIndex+1, err)
 			}
-			childID := stringField(childObject, "id", "external_id", "external_identifier")
+			childID := stringField(childObject, identifierFields...)
 			if childID == "" {
 				return Result{}, fmt.Errorf("roster: adult %q relationship %d child has no opaque id", adultID, relationshipIndex+1)
 			}
-			givenName := stringField(childObject, "given_name", "first_name")
-			familyName := stringField(childObject, "family_name", "last_name")
+			givenName := stringField(childObject, givenNameFields...)
+			familyName := stringField(childObject, familyNameFields...)
 			classroom, hasClassroom := classroomFromGroups(rawList(childObject, "groups"))
 			if existing, ok := children[childID]; ok {
 				if normalName(existing.GivenName) != normalName(givenName) || normalName(existing.FamilyName) != normalName(familyName) {
@@ -364,32 +378,46 @@ func classroomFromGroups(groups []json.RawMessage) (classroom, bool) {
 		if err != nil {
 			continue
 		}
-		classRaw := object["class"]
 		isReference := false
-		id := stringField(object, "id", "external_id", "external_identifier")
-		if classRaw != nil {
+		id := stringField(object, identifierFields...)
+		for _, field := range classFields {
+			classRaw, ok := object[field]
+			if !ok || classRaw == nil {
+				continue
+			}
 			if value, ok := stringValue(classRaw); ok {
-				isReference = strings.EqualFold(strings.TrimSpace(value), "classroom")
+				isReference = isClassroomReference(value)
 			} else if classObject, ok := objectValueOK(classRaw); ok {
-				kind := stringField(classObject, "type", "kind", "reference", "name")
-				isReference = strings.EqualFold(strings.TrimSpace(kind), "classroom")
-				if value := stringField(classObject, "id", "external_id", "external_identifier"); value != "" {
+				isReference = isClassroomReference(stringField(classObject, "type", "kind", "reference", "name"))
+				if value := stringField(classObject, identifierFields...); value != "" {
 					id = value
 				}
 			}
-		}
-		if !isReference {
-			kind := stringField(object, "type", "kind", "reference")
-			isReference = strings.EqualFold(strings.TrimSpace(kind), "classroom")
+			if isReference {
+				break
+			}
 		}
 		if value, ok := boolValue(object["classroom"]); ok {
 			isReference = isReference || value
 		}
 		if isReference {
-			return classroom{ID: id, Label: stringField(object, "label", "name"), Band: stringField(object, "band", "band_string")}, true
+			return classroom{ID: id, Label: stringField(object, labelFields...), Band: stringField(object, bandFields...)}, true
 		}
 	}
 	return classroom{}, false
+}
+
+// isClassroomReference recognizes both a bare "classroom" discriminator and
+// the platform's fully qualified reference class names, such as
+// "models.embedded.reference.ClassroomReference". A child's group list also
+// carries SchoolReference and CasualGroupReference entries, so the trailing
+// segment is the only part that decides enrolment.
+func isClassroomReference(value string) bool {
+	value = strings.TrimSpace(value)
+	if index := strings.LastIndex(value, "."); index >= 0 {
+		value = value[index+1:]
+	}
+	return strings.EqualFold(strings.TrimSuffix(value, "Reference"), "classroom")
 }
 
 func relationshipType(value string) (string, bool) {

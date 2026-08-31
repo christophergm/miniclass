@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { activeGradeLevels, activeHomerooms, type VocabularyResponse } from './apiResources'
+import { activeGradeLevels, activeHomerooms, resourceApi, type VocabularyResponse } from './apiResources'
 
 const vocabulary: VocabularyResponse = {
   organization_id: 'org-test',
@@ -20,5 +20,58 @@ describe('vocabulary picker helpers', () => {
   it('excludes retired entries and orders grades by their server ordinal', () => {
     expect(activeGradeLevels(vocabulary).map((grade) => grade.id)).toEqual(['g1', 'g2'])
     expect(activeHomerooms(vocabulary).map((homeroom) => homeroom.id)).toEqual(['h1'])
+  })
+})
+
+// This reaches the real request-assembly path on purpose. The client's default
+// serializer JSON.stringifies a string body, which sent every roster export as
+// a JSON string literal and made the server reject the document before any
+// parser saw it. Asserting the request body byte for byte is the only thing
+// that catches that class of bug.
+describe('import uploads', () => {
+  afterEach(() => { vi.unstubAllGlobals() })
+
+  // jsdom's Blob has no text(), which the browser and Bun both provide.
+  function sourceFile(name: string, source: string, type: string) {
+    const file = new File([source], name, { type })
+    if (typeof file.text !== 'function') {
+      Object.defineProperty(file, 'text', { value: async () => source })
+    }
+    return file
+  }
+
+  function stubFetch() {
+    const requests: Request[] = []
+    const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = input instanceof Request ? input : new Request(input, init)
+      requests.push(request.clone())
+      return new Response(JSON.stringify({ kind: 'roster_json', content_hash: 'abc' }), {
+        status: 200, headers: { 'Content-Type': 'application/json' },
+      })
+    })
+    vi.stubGlobal('fetch', fetcher)
+    return requests
+  }
+
+  it('sends a roster export unmodified as JSON', async () => {
+    const requests = stubFetch()
+    const source = '[{"_id":"adult-1","firstName":"Given","lastName":"Family","relationships":[]}]'
+
+    await resourceApi.previewImport('roster_json', 'year-1', sourceFile('people.json', source, 'application/json'))
+
+    expect(requests[0].url).toContain('/api/imports/roster_json/preview?school_year_id=year-1')
+    expect(requests[0].headers.get('Content-Type')).toBe('application/json')
+    await expect(requests[0].text()).resolves.toBe(source)
+  })
+
+  it('sends a grades CSV unmodified as text/csv', async () => {
+    const requests = stubFetch()
+    const source = 'student_name,grade\nGiven Family,3\n'
+
+    await resourceApi.commitImport('grades_csv', 'year-1', sourceFile('grades.csv', source, 'text/csv'), 'hash-1')
+
+    expect(requests[0].url).toContain('content_hash=hash-1')
+    expect(requests[0].headers.get('Content-Type')).toBe('text/csv')
+    await expect(requests[0].text()).resolves.toBe(source)
   })
 })
