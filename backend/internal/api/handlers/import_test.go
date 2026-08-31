@@ -57,7 +57,9 @@ func TestImportDoesNotLogAnActionableProblem(t *testing.T) {
 	handler := NewImportHandler(nil).WithLogger(slog.New(slog.NewTextHandler(&recorded, nil)))
 	cause := &ingest.InvalidSourceError{Kind: ingest.KindGradesCSV, Reason: "grades: no student_name column"}
 
-	handler.logged(context.Background(), "preview", ingest.KindGradesCSV, cause, importPreviewProblem(cause))
+	problem := importPreviewProblem(cause)
+	returned := handler.logged(context.Background(), "preview", ingest.KindGradesCSV, cause, problem)
 
+	require.Equal(t, problem, returned, "the problem is returned unchanged")
 	require.Empty(t, recorded.String(), "a 400 already tells the caller what to fix")
 }
