@@ -50,6 +50,11 @@ type ProgramService interface {
 	UpdateSessionNonParticipation(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, ids.XID, programservice.SessionNonParticipationUpdate) (data.SessionNonParticipation, error)
 	DeleteSessionNonParticipation(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, ids.XID) error
 	ListParticipatingMemberships(context.Context, string, ids.XID, ids.XID, ids.XID) ([]data.ProgramMembership, error)
+	GetProgramObjectiveWeights(context.Context, string, ids.XID, ids.XID) (data.ObjectiveWeightsView, error)
+	UpdateProgramObjectiveWeights(context.Context, string, audit.Actor, ids.XID, ids.XID, data.ObjectiveWeights) (data.ObjectiveWeightsView, error)
+	GetSessionObjectiveWeights(context.Context, string, ids.XID, ids.XID, ids.XID) (data.ObjectiveWeightsView, error)
+	UpdateSessionObjectiveWeights(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, data.ObjectiveWeightOverrides, string) (data.ObjectiveWeightsView, error)
+	ClearSessionObjectiveWeights(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID) (data.ObjectiveWeightsView, error)
 }
 
 type ProgramResponse struct {
@@ -159,6 +164,69 @@ type CreateProgramMembershipInput struct {
 type DeleteProgramMembershipInput struct{ ProgramMembershipPathInput }
 type ProgramDeleteOutput struct{}
 type MissingGradeSummaryInput struct{ ProgramYearPathInput }
+
+type ObjectiveWeightsResponse struct {
+	RankHighMax                   int     `json:"rank_high_max" minimum:"2"`
+	DeficitUnwantedIncrement      float64 `json:"deficit_unwanted_increment" minimum:"0"`
+	DeficitNeutralIncrement       float64 `json:"deficit_neutral_increment" minimum:"0"`
+	DeficitAcceptableIncrement    float64 `json:"deficit_acceptable_increment" minimum:"0"`
+	DeficitInfluence              float64 `json:"deficit_influence" minimum:"0"`
+	RepeatOfferingPenalty         float64 `json:"repeat_offering_penalty" minimum:"0"`
+	RepeatInterestAreaPenalty     float64 `json:"repeat_interest_area_penalty" minimum:"0"`
+	TagPrefersWeight              float64 `json:"tag_prefers_weight" minimum:"0"`
+	TagDiscouragesWeight          float64 `json:"tag_discourages_weight" minimum:"0"`
+	PairingPrefersWeight          float64 `json:"pairing_prefers_weight" minimum:"0"`
+	PairingDiscouragesWeight      float64 `json:"pairing_discourages_weight" minimum:"0"`
+	BelowMinimumEnrollmentPenalty float64 `json:"below_minimum_enrollment_penalty" minimum:"0"`
+	TagBalancePenalty             float64 `json:"tag_balance_penalty" minimum:"0"`
+}
+type ObjectiveWeightOverridesResponse struct {
+	RankHighMax                   *int     `json:"rank_high_max,omitempty" nullable:"true" minimum:"2"`
+	DeficitUnwantedIncrement      *float64 `json:"deficit_unwanted_increment,omitempty" nullable:"true" minimum:"0"`
+	DeficitNeutralIncrement       *float64 `json:"deficit_neutral_increment,omitempty" nullable:"true" minimum:"0"`
+	DeficitAcceptableIncrement    *float64 `json:"deficit_acceptable_increment,omitempty" nullable:"true" minimum:"0"`
+	DeficitInfluence              *float64 `json:"deficit_influence,omitempty" nullable:"true" minimum:"0"`
+	RepeatOfferingPenalty         *float64 `json:"repeat_offering_penalty,omitempty" nullable:"true" minimum:"0"`
+	RepeatInterestAreaPenalty     *float64 `json:"repeat_interest_area_penalty,omitempty" nullable:"true" minimum:"0"`
+	TagPrefersWeight              *float64 `json:"tag_prefers_weight,omitempty" nullable:"true" minimum:"0"`
+	TagDiscouragesWeight          *float64 `json:"tag_discourages_weight,omitempty" nullable:"true" minimum:"0"`
+	PairingPrefersWeight          *float64 `json:"pairing_prefers_weight,omitempty" nullable:"true" minimum:"0"`
+	PairingDiscouragesWeight      *float64 `json:"pairing_discourages_weight,omitempty" nullable:"true" minimum:"0"`
+	BelowMinimumEnrollmentPenalty *float64 `json:"below_minimum_enrollment_penalty,omitempty" nullable:"true" minimum:"0"`
+	TagBalancePenalty             *float64 `json:"tag_balance_penalty,omitempty" nullable:"true" minimum:"0"`
+}
+type ProgramObjectiveWeightsResponse struct {
+	ProgramID string                   `json:"program_id" doc:"Opaque program identifier."`
+	Defaults  ObjectiveWeightsResponse `json:"defaults"`
+	Effective ObjectiveWeightsResponse `json:"effective"`
+}
+type SessionObjectiveWeightsResponse struct {
+	ProgramID string                           `json:"program_id" doc:"Opaque program identifier."`
+	SessionID string                           `json:"session_id" doc:"Opaque session identifier."`
+	Defaults  ObjectiveWeightsResponse         `json:"defaults"`
+	Overrides ObjectiveWeightOverridesResponse `json:"overrides"`
+	Effective ObjectiveWeightsResponse         `json:"effective"`
+}
+type ProgramObjectiveWeightsOutput struct {
+	Body ProgramObjectiveWeightsResponse
+}
+type SessionObjectiveWeightsOutput struct {
+	Body SessionObjectiveWeightsResponse
+}
+type GetProgramObjectiveWeightsInput struct{ ProgramPathInput }
+type UpdateProgramObjectiveWeightsInput struct {
+	ProgramPathInput
+	Body ObjectiveWeightsResponse
+}
+type GetSessionObjectiveWeightsInput struct{ SessionPathInput }
+type UpdateSessionObjectiveWeightsInput struct {
+	SessionPathInput
+	Body struct {
+		Overrides ObjectiveWeightOverridesResponse `json:"overrides"`
+		Reason    string                           `json:"reason" minLength:"1" doc:"Why these session-specific overrides are being used."`
+	}
+}
+type DeleteSessionObjectiveWeightsInput struct{ SessionPathInput }
 
 type ProgramHandler struct{ service ProgramService }
 

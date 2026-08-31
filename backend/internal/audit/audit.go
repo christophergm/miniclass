@@ -39,6 +39,7 @@ const (
 	ActionSessionCreate             Action = "session_create"
 	ActionSessionChange             Action = "session_change"
 	ActionMeetingDateChange         Action = "meeting_date_change"
+	ActionObjectiveWeightsChange    Action = "objective_weights_change"
 	ActionSessionNonParticipation   Action = "session_non_participation"
 	ActionSessionStateTransition    Action = "session_state_transition"
 	ActionOfferingEdit              Action = "offering_edit_after_publish"
@@ -81,6 +82,7 @@ var actions = []Action{
 	ActionSessionCreate,
 	ActionSessionChange,
 	ActionMeetingDateChange,
+	ActionObjectiveWeightsChange,
 	ActionSessionNonParticipation,
 	ActionSessionStateTransition,
 	ActionOfferingEdit,

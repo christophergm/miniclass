@@ -9,6 +9,15 @@
 - Open items: human review of PR #150; the PR is open, non-draft, references `Fixes #139`, and has no actionable review comments.
 - Skill draft: no — existing tenant-entity and isolation-harness skills cover the reusable procedure; no new broadly reusable method was discovered.
 
+## Current work — issue #148
+
+- Scope: programme objective-weight defaults and nullable per-session overrides with effective-weight reads, audited writes, closed-year protection, tenant isolation, generated sqlc/OpenAPI, and frontend resources/hooks. Governing contract: SPEC §§12.1, 14.1, 17.7, 20.2; ADRs 0003 and 0010.
+- Key files: `backend/migrations/20260831150000_objective_weights.sql`, `backend/sql/queries/objective_weights.sql`, `backend/internal/data/objective_weights.go`, `backend/internal/program/objective_weights.go`, `backend/internal/api/handlers/objective_weights.go`, registry/objective-weight files, and frontend resource/hooks.
+- Implementation: explicit typed defaults and nullable session override tables; migration backfills before closed-year triggers; effective merge is deterministic; session override writes require an audit reason; five assignment-capability API operations and frontend wrappers/hooks are wired.
+- Validation: `GOTOOLCHAIN=local go test ./...`, focused integration compile, `make lint-backend`, `make format`, `make generate`, and `git diff --check` pass. `make test-backend` cannot create Docker network because all predefined address pools are exhausted; migration round-trip lacks `MIGRATION_ROUNDTRIP_DATABASE_URL`; frontend tests/build lack `openapi-typescript`; frontend lint cannot write Bun temp cache; smoke lacks `.env`.
+- Open items: add/update PR, verify current-head CI and review comments, and finish Workpad handoff. No dependency blocker or human action declared.
+- Skill draft: no — this was a scoped configuration model and the existing tenant-entity/isolation procedures covered the reusable work.
+
 ## Current handoff — issue #142
 
 - Scope: Programme-scoped, year-scoped `interest_areas` vocabulary with stable xid identity, mutable labels, ordinal ordering, soft retirement/reactivation, audited service/API mutations, closed-year trigger protection, Layer 2 registry coverage, and frontend management wiring. Governing contract: SPEC §§8.7, 9.1–9.2, 12.1, 12.3–12.4, 20.1; ADRs 0007, 0008, 0010.

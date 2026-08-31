@@ -27,6 +27,10 @@ export type InterestArea = Schemas['InterestAreaResponse']
 export type Session = Schemas['SessionResponse']
 export type MeetingDate = Schemas['MeetingDateResponse']
 export type Offering = Schemas['OfferingResponse']
+export type ObjectiveWeights = Schemas['ObjectiveWeightsResponse']
+export type ObjectiveWeightOverrides = Schemas['ObjectiveWeightOverridesResponse']
+export type ProgramObjectiveWeights = Schemas['ProgramObjectiveWeightsResponse']
+export type SessionObjectiveWeights = Schemas['SessionObjectiveWeightsResponse']
 
 export const resourceApi = {
   getHealth: () => unwrap(api.GET('/api/health')),
@@ -72,6 +76,11 @@ export const resourceApi = {
   getOffering: (schoolYearID: string, programID: string, sessionID: string, offeringID: string) => unwrap(api.GET('/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/offerings/{offeringID}', { params: { path: { schoolYearID, programID, sessionID, offeringID } } })),
   updateOffering: (schoolYearID: string, programID: string, sessionID: string, offeringID: string, value: Schemas['UpdateOfferingInputBody']) => unwrap(api.PATCH('/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/offerings/{offeringID}', { params: { path: { schoolYearID, programID, sessionID, offeringID } }, body: value })),
   deleteOffering: (schoolYearID: string, programID: string, sessionID: string, offeringID: string) => unwrapNoContent(api.DELETE('/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/offerings/{offeringID}', { params: { path: { schoolYearID, programID, sessionID, offeringID } } })),
+  getProgramObjectiveWeights: (schoolYearID: string, programID: string) => unwrap(api.GET('/api/school-years/{schoolYearID}/programs/{programID}/objective-weights', { params: { path: { schoolYearID, programID } } })),
+  updateProgramObjectiveWeights: (schoolYearID: string, programID: string, value: ObjectiveWeights) => unwrap(api.PUT('/api/school-years/{schoolYearID}/programs/{programID}/objective-weights', { params: { path: { schoolYearID, programID }, body: value } })),
+  getSessionObjectiveWeights: (schoolYearID: string, programID: string, sessionID: string) => unwrap(api.GET('/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/objective-weights', { params: { path: { schoolYearID, programID, sessionID } } })),
+  updateSessionObjectiveWeights: (schoolYearID: string, programID: string, sessionID: string, value: Schemas['UpdateSessionObjectiveWeightsInputBody']) => unwrap(api.PUT('/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/objective-weights', { params: { path: { schoolYearID, programID, sessionID }, body: value } })),
+  clearSessionObjectiveWeights: (schoolYearID: string, programID: string, sessionID: string) => unwrap(api.DELETE('/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/objective-weights', { params: { path: { schoolYearID, programID, sessionID } } })),
 
   getVocabulary: (schoolYearID: string, includeRetired = true) =>
     unwrap(api.GET('/api/school-years/{schoolYearID}/vocabularies', { params: { path: { schoolYearID }, query: { include_retired: includeRetired } } })),

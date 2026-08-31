@@ -210,6 +210,7 @@
               "session_create",
               "session_change",
               "meeting_date_change",
+              "objective_weights_change",
               "session_non_participation",
               "session_state_transition",
               "offering_edit_after_publish",
@@ -1392,6 +1393,211 @@
         ],
         "type": "object"
       },
+      "ObjectiveWeightOverridesResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "below_minimum_enrollment_penalty": {
+            "format": "double",
+            "minimum": 0,
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "deficit_acceptable_increment": {
+            "format": "double",
+            "minimum": 0,
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "deficit_influence": {
+            "format": "double",
+            "minimum": 0,
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "deficit_neutral_increment": {
+            "format": "double",
+            "minimum": 0,
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "deficit_unwanted_increment": {
+            "format": "double",
+            "minimum": 0,
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "pairing_discourages_weight": {
+            "format": "double",
+            "minimum": 0,
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "pairing_prefers_weight": {
+            "format": "double",
+            "minimum": 0,
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "rank_high_max": {
+            "format": "int64",
+            "minimum": 2,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "repeat_interest_area_penalty": {
+            "format": "double",
+            "minimum": 0,
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "repeat_offering_penalty": {
+            "format": "double",
+            "minimum": 0,
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "tag_balance_penalty": {
+            "format": "double",
+            "minimum": 0,
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "tag_discourages_weight": {
+            "format": "double",
+            "minimum": 0,
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "tag_prefers_weight": {
+            "format": "double",
+            "minimum": 0,
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "ObjectiveWeightsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/ObjectiveWeightsResponse.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "below_minimum_enrollment_penalty": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "deficit_acceptable_increment": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "deficit_influence": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "deficit_neutral_increment": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "deficit_unwanted_increment": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "pairing_discourages_weight": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "pairing_prefers_weight": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "rank_high_max": {
+            "format": "int64",
+            "minimum": 2,
+            "type": "integer"
+          },
+          "repeat_interest_area_penalty": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "repeat_offering_penalty": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "tag_balance_penalty": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "tag_discourages_weight": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "tag_prefers_weight": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          }
+        },
+        "required": [
+          "rank_high_max",
+          "deficit_unwanted_increment",
+          "deficit_neutral_increment",
+          "deficit_acceptable_increment",
+          "deficit_influence",
+          "repeat_offering_penalty",
+          "repeat_interest_area_penalty",
+          "tag_prefers_weight",
+          "tag_discourages_weight",
+          "pairing_prefers_weight",
+          "pairing_discourages_weight",
+          "below_minimum_enrollment_penalty",
+          "tag_balance_penalty"
+        ],
+        "type": "object"
+      },
       "OfferingResponse": {
         "additionalProperties": false,
         "properties": {
@@ -1734,6 +1940,36 @@
         ],
         "type": "object"
       },
+      "ProgramObjectiveWeightsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/ProgramObjectiveWeightsResponse.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "defaults": {
+            "$ref": "#/components/schemas/ObjectiveWeightsResponse"
+          },
+          "effective": {
+            "$ref": "#/components/schemas/ObjectiveWeightsResponse"
+          },
+          "program_id": {
+            "description": "Opaque program identifier.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "program_id",
+          "defaults",
+          "effective"
+        ],
+        "type": "object"
+      },
       "ProgramResponse": {
         "additionalProperties": false,
         "properties": {
@@ -2063,6 +2299,45 @@
           "reason",
           "created_at",
           "updated_at"
+        ],
+        "type": "object"
+      },
+      "SessionObjectiveWeightsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/SessionObjectiveWeightsResponse.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "defaults": {
+            "$ref": "#/components/schemas/ObjectiveWeightsResponse"
+          },
+          "effective": {
+            "$ref": "#/components/schemas/ObjectiveWeightsResponse"
+          },
+          "overrides": {
+            "$ref": "#/components/schemas/ObjectiveWeightOverridesResponse"
+          },
+          "program_id": {
+            "description": "Opaque program identifier.",
+            "type": "string"
+          },
+          "session_id": {
+            "description": "Opaque session identifier.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "program_id",
+          "session_id",
+          "defaults",
+          "overrides",
+          "effective"
         ],
         "type": "object"
       },
@@ -2563,6 +2838,33 @@
             "type": "string"
           }
         },
+        "type": "object"
+      },
+      "UpdateSessionObjectiveWeightsInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/UpdateSessionObjectiveWeightsInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "overrides": {
+            "$ref": "#/components/schemas/ObjectiveWeightOverridesResponse"
+          },
+          "reason": {
+            "description": "Why these session-specific overrides are being used.",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "overrides",
+          "reason"
+        ],
         "type": "object"
       },
       "UpdateStudentInputBody": {
@@ -6732,6 +7034,182 @@
         "x-required-capability": "manage_roster"
       }
     },
+    "/api/school-years/{schoolYearID}/programs/{programID}/objective-weights": {
+      "get": {
+        "operationId": "get-program-objective-weights",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "schoolYearID",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "programID",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgramObjectiveWeightsResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Read programme objective-weight defaults",
+        "x-required-capability": "manage_assignments"
+      },
+      "put": {
+        "operationId": "put-program-objective-weights",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "schoolYearID",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "programID",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ObjectiveWeightsResponse"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgramObjectiveWeightsResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Replace programme objective-weight defaults",
+        "x-required-capability": "manage_assignments"
+      }
+    },
     "/api/school-years/{schoolYearID}/programs/{programID}/sessions": {
       "get": {
         "operationId": "list-sessions",
@@ -8308,6 +8786,309 @@
         ],
         "summary": "Edit a session non-participation reason",
         "x-required-capability": "manage_catalog"
+      }
+    },
+    "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/objective-weights": {
+      "delete": {
+        "operationId": "delete-session-objective-weights",
+        "parameters": [
+          {
+            "description": "Opaque school-year identifier.",
+            "in": "path",
+            "name": "schoolYearID",
+            "required": true,
+            "schema": {
+              "description": "Opaque school-year identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque program identifier.",
+            "in": "path",
+            "name": "programID",
+            "required": true,
+            "schema": {
+              "description": "Opaque program identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque session identifier.",
+            "in": "path",
+            "name": "sessionID",
+            "required": true,
+            "schema": {
+              "description": "Opaque session identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionObjectiveWeightsResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Clear session objective-weight overrides",
+        "x-required-capability": "manage_assignments"
+      },
+      "get": {
+        "operationId": "get-session-objective-weights",
+        "parameters": [
+          {
+            "description": "Opaque school-year identifier.",
+            "in": "path",
+            "name": "schoolYearID",
+            "required": true,
+            "schema": {
+              "description": "Opaque school-year identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque program identifier.",
+            "in": "path",
+            "name": "programID",
+            "required": true,
+            "schema": {
+              "description": "Opaque program identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque session identifier.",
+            "in": "path",
+            "name": "sessionID",
+            "required": true,
+            "schema": {
+              "description": "Opaque session identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionObjectiveWeightsResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Read effective session objective weights",
+        "x-required-capability": "manage_assignments"
+      },
+      "put": {
+        "operationId": "put-session-objective-weights",
+        "parameters": [
+          {
+            "description": "Opaque school-year identifier.",
+            "in": "path",
+            "name": "schoolYearID",
+            "required": true,
+            "schema": {
+              "description": "Opaque school-year identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque program identifier.",
+            "in": "path",
+            "name": "programID",
+            "required": true,
+            "schema": {
+              "description": "Opaque program identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque session identifier.",
+            "in": "path",
+            "name": "sessionID",
+            "required": true,
+            "schema": {
+              "description": "Opaque session identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSessionObjectiveWeightsInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionObjectiveWeightsResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Replace session objective-weight overrides",
+        "x-required-capability": "manage_assignments"
       }
     },
     "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/offerings": {
