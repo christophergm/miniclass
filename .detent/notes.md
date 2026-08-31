@@ -28,6 +28,15 @@
 - Open items: Detent owns the completion-lane transition after this handoff; no dependency blocker or human action is declared.
 - Skill draft: no — the existing tenant-entity and isolation-harness skills cover the reusable procedure; no new broadly reusable method was discovered.
 
+## Current work — issue #149
+
+- Scope: consolidate the Phase 3 programme/session/catalog authoring flow per SPEC §§12, 14, 8.3–8.5, and 22.4; dependencies #142–#148 are closed.
+- Key files: `frontend/src/features/programs/ProgramPages.tsx`, `frontend/src/features/programs/usePrograms.ts`, `frontend/src/lib/apiResources.ts`, `frontend/src/App.tsx`, `frontend/src/features/programs/ProgramPages.test.tsx`, and `backend/tests/integration/phase3_authoring_test.go`.
+- Implementation: nested session authoring route; programme detail now includes membership, interest areas, sessions, meeting-date entry, complete offering fields/editing, lifecycle transition previews, non-blocking feasibility warnings, session non-participation, and objective defaults; added missing generated-client wrappers/hooks.
+- Validation: focused Go compilation and `TestPhase3AuthoringAPIRoundTrip` pass (DB-backed test skips when URLs are unset); `make lint-backend`, `make format`, and `git diff --check` pass. `make check` stops before gates because Docker address pools are exhausted. Frontend tests/build lack `openapi-typescript`; frontend lint cannot write Bun temp files; migration round-trip lacks its URL; smoke lacks `.env`. `make generate` completes without generated-file changes.
+- Open items: run available CI checks after push, review current-head comments, update Workpad telemetry, and open a non-draft PR referencing `Fixes #149`.
+- Skill draft: no — this is a one-off frontend consolidation using existing generated-client and tenant-data conventions; no broadly reusable procedure was discovered.
+
 ## Current work — issue #145
 
 - Scope: Implement the seven-state session lifecycle from SPEC §§14.3–14.5, §5.2, and §20.1; dependency issues #143 and #144 are merged on current `origin/main`.
