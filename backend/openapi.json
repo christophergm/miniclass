@@ -1503,18 +1503,104 @@
         },
         "type": "object"
       },
-      "ObjectiveWeightsResponse": {
+      "ObjectiveWeightsInput": {
         "additionalProperties": false,
         "properties": {
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/ObjectiveWeightsResponse.json"
+              "https://example.com/ObjectiveWeightsInput.json"
             ],
             "format": "uri",
             "readOnly": true,
             "type": "string"
           },
+          "below_minimum_enrollment_penalty": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "deficit_acceptable_increment": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "deficit_influence": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "deficit_neutral_increment": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "deficit_unwanted_increment": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "pairing_discourages_weight": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "pairing_prefers_weight": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "rank_high_max": {
+            "format": "int64",
+            "minimum": 2,
+            "type": "integer"
+          },
+          "repeat_interest_area_penalty": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "repeat_offering_penalty": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "tag_balance_penalty": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "tag_discourages_weight": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "tag_prefers_weight": {
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          }
+        },
+        "required": [
+          "rank_high_max",
+          "deficit_unwanted_increment",
+          "deficit_neutral_increment",
+          "deficit_acceptable_increment",
+          "deficit_influence",
+          "repeat_offering_penalty",
+          "repeat_interest_area_penalty",
+          "tag_prefers_weight",
+          "tag_discourages_weight",
+          "pairing_prefers_weight",
+          "pairing_discourages_weight",
+          "below_minimum_enrollment_penalty",
+          "tag_balance_penalty"
+        ],
+        "type": "object"
+      },
+      "ObjectiveWeightsResponse": {
+        "additionalProperties": false,
+        "properties": {
           "below_minimum_enrollment_penalty": {
             "format": "double",
             "minimum": 0,
@@ -7133,7 +7219,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ObjectiveWeightsResponse"
+                "$ref": "#/components/schemas/ObjectiveWeightsInput"
               }
             }
           },

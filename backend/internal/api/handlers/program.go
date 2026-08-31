@@ -180,6 +180,21 @@ type ObjectiveWeightsResponse struct {
 	BelowMinimumEnrollmentPenalty float64 `json:"below_minimum_enrollment_penalty" minimum:"0"`
 	TagBalancePenalty             float64 `json:"tag_balance_penalty" minimum:"0"`
 }
+type ObjectiveWeightsInput struct {
+	RankHighMax                   int     `json:"rank_high_max" minimum:"2"`
+	DeficitUnwantedIncrement      float64 `json:"deficit_unwanted_increment" minimum:"0"`
+	DeficitNeutralIncrement       float64 `json:"deficit_neutral_increment" minimum:"0"`
+	DeficitAcceptableIncrement    float64 `json:"deficit_acceptable_increment" minimum:"0"`
+	DeficitInfluence              float64 `json:"deficit_influence" minimum:"0"`
+	RepeatOfferingPenalty         float64 `json:"repeat_offering_penalty" minimum:"0"`
+	RepeatInterestAreaPenalty     float64 `json:"repeat_interest_area_penalty" minimum:"0"`
+	TagPrefersWeight              float64 `json:"tag_prefers_weight" minimum:"0"`
+	TagDiscouragesWeight          float64 `json:"tag_discourages_weight" minimum:"0"`
+	PairingPrefersWeight          float64 `json:"pairing_prefers_weight" minimum:"0"`
+	PairingDiscouragesWeight      float64 `json:"pairing_discourages_weight" minimum:"0"`
+	BelowMinimumEnrollmentPenalty float64 `json:"below_minimum_enrollment_penalty" minimum:"0"`
+	TagBalancePenalty             float64 `json:"tag_balance_penalty" minimum:"0"`
+}
 type ObjectiveWeightOverridesResponse struct {
 	RankHighMax                   *int     `json:"rank_high_max,omitempty" nullable:"true" minimum:"2"`
 	DeficitUnwantedIncrement      *float64 `json:"deficit_unwanted_increment,omitempty" nullable:"true" minimum:"0"`
@@ -216,7 +231,7 @@ type SessionObjectiveWeightsOutput struct {
 type GetProgramObjectiveWeightsInput struct{ ProgramPathInput }
 type UpdateProgramObjectiveWeightsInput struct {
 	ProgramPathInput
-	Body ObjectiveWeightsResponse
+	Body ObjectiveWeightsInput
 }
 type GetSessionObjectiveWeightsInput struct{ SessionPathInput }
 type UpdateSessionObjectiveWeightsInput struct {

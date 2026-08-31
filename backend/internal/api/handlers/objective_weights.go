@@ -89,7 +89,7 @@ func (h *ProgramHandler) DeleteSessionObjectiveWeights(ctx context.Context, inpu
 	return &SessionObjectiveWeightsOutput{Body: sessionObjectiveWeightsResponse(row)}, nil
 }
 
-func objectiveWeights(value ObjectiveWeightsResponse) data.ObjectiveWeights {
+func objectiveWeights(value ObjectiveWeightsInput) data.ObjectiveWeights {
 	return data.ObjectiveWeights{RankHighMax: value.RankHighMax, DeficitUnwantedIncrement: value.DeficitUnwantedIncrement, DeficitNeutralIncrement: value.DeficitNeutralIncrement, DeficitAcceptableIncrement: value.DeficitAcceptableIncrement, DeficitInfluence: value.DeficitInfluence, RepeatOfferingPenalty: value.RepeatOfferingPenalty, RepeatInterestAreaPenalty: value.RepeatInterestAreaPenalty, TagPrefersWeight: value.TagPrefersWeight, TagDiscouragesWeight: value.TagDiscouragesWeight, PairingPrefersWeight: value.PairingPrefersWeight, PairingDiscouragesWeight: value.PairingDiscouragesWeight, BelowMinimumEnrollmentPenalty: value.BelowMinimumEnrollmentPenalty, TagBalancePenalty: value.TagBalancePenalty}
 }
 func objectiveWeightOverrides(value ObjectiveWeightOverridesResponse) data.ObjectiveWeightOverrides {
