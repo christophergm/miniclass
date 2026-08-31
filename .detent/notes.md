@@ -136,3 +136,12 @@
 - Validation: local full backend tests, vet, lint, generated-code drift, and repository diff checks pass. All ten required PR checks pass on head `2709d41`; local root check is blocked before gates by exhausted Docker address pools, and local frontend/migration/smoke commands are environment-limited as recorded in the Workpad.
 - Open items: none; Detent owns the completion-lane transition.
 - Blockers: none.
+
+## Current work — issue #160
+
+- Scope: Move compact Phase 3 programme, interest-area, session/date, and session non-participation authoring into accessible modal forms; offerings and objectives remain dedicated pages. Governing contract: SPEC §§8.3, 8.5, 12.1, 12.3, 14.1, 14.2, 22.4.
+- Key files: `frontend/src/components/ui/modal-form.tsx`, `frontend/src/components/ui/modal-form.test.tsx`, `frontend/src/features/programs/ProgramPages.tsx`, `frontend/src/features/programs/ProgramPages.test.tsx`, and `frontend/src/features/programs/usePrograms.ts`.
+- Implementation: reusable modal focus management, focus trap, Escape/backdrop/cancel dismissal, discard confirmation for dirty forms, and focus restoration; all scoped create/edit workflows use summaries plus modals. Session create/edit uses the atomic name-plus-date payload and requires at least one date. Meeting-date query invalidation follows atomic session saves.
+- Validation: `make format`, `make lint-backend`, `make generate`, and `git diff --check` pass. `make check`/`make test-backend` cannot create Docker networks because predefined address pools are exhausted; `make test-migrations` lacks its configured URL; frontend tests/build lack `openapi-typescript`; frontend lint cannot write Bun's temp cache; smoke lacks `.env`.
+- Open items: commit/push, open PR referencing `Fixes #160`, verify current-head CI/review state, then update this Workpad to complete if the review gate is green.
+- Skill draft: no — this is a focused UI pattern and no broadly reusable project procedure was discovered.

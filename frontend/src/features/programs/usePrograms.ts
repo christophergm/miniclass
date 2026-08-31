@@ -28,8 +28,10 @@ export function useSession(schoolYearID: string | undefined, programID: string |
   return useQuery({ enabled: Boolean(schoolYearID && programID && sessionID), queryKey: [...sessionsKey(schoolYearID, programID), sessionID], queryFn: () => resourceApi.getSession(schoolYearID as string, programID as string, sessionID as string), retry: false })
 }
 
+export const meetingDatesKey = (schoolYearID: string | undefined, programID: string | undefined, sessionID: string | undefined) => [...sessionsKey(schoolYearID, programID), sessionID, 'meeting-dates'] as const
+
 export function useMeetingDates(schoolYearID: string | undefined, programID: string | undefined, sessionID: string | undefined) {
-  return useQuery({ enabled: Boolean(schoolYearID && programID && sessionID), queryKey: [...sessionsKey(schoolYearID, programID), sessionID, 'meeting-dates'], queryFn: () => resourceApi.listMeetingDates(schoolYearID as string, programID as string, sessionID as string), retry: false })
+  return useQuery({ enabled: Boolean(schoolYearID && programID && sessionID), queryKey: meetingDatesKey(schoolYearID, programID, sessionID), queryFn: () => resourceApi.listMeetingDates(schoolYearID as string, programID as string, sessionID as string), retry: false })
 }
 
 export const catalogFeasibilityKey = (schoolYearID: string | undefined, programID: string | undefined, sessionID: string | undefined) => [...sessionsKey(schoolYearID, programID), sessionID, 'catalog-feasibility'] as const
@@ -90,22 +92,22 @@ export function useCreateSession(schoolYearID: string, programID: string) {
 
 export function useUpdateSession(schoolYearID: string, programID: string) {
   const queryClient = useQueryClient()
-  return useMutation({ mutationFn: ({ sessionID, value }: { sessionID: string; value: { name?: string; meeting_dates?: string[] } }) => resourceApi.updateSession(schoolYearID, programID, sessionID, value), onSuccess: () => queryClient.invalidateQueries({ queryKey: sessionsKey(schoolYearID, programID) }) })
+  return useMutation({ mutationFn: ({ sessionID, value }: { sessionID: string; value: { name?: string; meeting_dates?: string[] } }) => resourceApi.updateSession(schoolYearID, programID, sessionID, value), onSuccess: (_, variables) => { queryClient.invalidateQueries({ queryKey: sessionsKey(schoolYearID, programID) }); queryClient.invalidateQueries({ queryKey: meetingDatesKey(schoolYearID, programID, variables.sessionID) }) } })
 }
 
 export function useCreateMeetingDate(schoolYearID: string, programID: string, sessionID: string) {
   const queryClient = useQueryClient()
-  return useMutation({ mutationFn: (date: string) => resourceApi.createMeetingDate(schoolYearID, programID, sessionID, date), onSuccess: () => queryClient.invalidateQueries({ queryKey: [...sessionsKey(schoolYearID, programID), sessionID, 'meeting-dates'] }) })
+  return useMutation({ mutationFn: (date: string) => resourceApi.createMeetingDate(schoolYearID, programID, sessionID, date), onSuccess: () => queryClient.invalidateQueries({ queryKey: meetingDatesKey(schoolYearID, programID, sessionID) }) })
 }
 
 export function useUpdateMeetingDate(schoolYearID: string, programID: string, sessionID: string) {
   const queryClient = useQueryClient()
-  return useMutation({ mutationFn: ({ meetingDateID, date }: { meetingDateID: string; date: string }) => resourceApi.updateMeetingDate(schoolYearID, programID, sessionID, meetingDateID, date), onSuccess: () => queryClient.invalidateQueries({ queryKey: [...sessionsKey(schoolYearID, programID), sessionID, 'meeting-dates'] }) })
+  return useMutation({ mutationFn: ({ meetingDateID, date }: { meetingDateID: string; date: string }) => resourceApi.updateMeetingDate(schoolYearID, programID, sessionID, meetingDateID, date), onSuccess: () => queryClient.invalidateQueries({ queryKey: meetingDatesKey(schoolYearID, programID, sessionID) }) })
 }
 
 export function useDeleteMeetingDate(schoolYearID: string, programID: string, sessionID: string) {
   const queryClient = useQueryClient()
-  return useMutation({ mutationFn: (meetingDateID: string) => resourceApi.deleteMeetingDate(schoolYearID, programID, sessionID, meetingDateID), onSuccess: () => queryClient.invalidateQueries({ queryKey: [...sessionsKey(schoolYearID, programID), sessionID, 'meeting-dates'] }) })
+  return useMutation({ mutationFn: (meetingDateID: string) => resourceApi.deleteMeetingDate(schoolYearID, programID, sessionID, meetingDateID), onSuccess: () => queryClient.invalidateQueries({ queryKey: meetingDatesKey(schoolYearID, programID, sessionID) }) })
 }
 
 export function useCreateOffering(schoolYearID: string, programID: string, sessionID: string) {
