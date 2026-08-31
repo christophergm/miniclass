@@ -1,3 +1,12 @@
+## Current work — issue #163
+
+- Scope: Dedicated offering create/edit pages from the session summary, labeled one-property-per-row form, and “Maximum enrollment” UI terminology per SPEC §§8.4, 14.2, 16.1, 16.3, 16.5, 22.4.
+- Key files: `frontend/src/features/programs/OfferingPages.tsx`, `frontend/src/features/programs/ProgramPages.tsx`, `frontend/src/features/programs/usePrograms.ts`, `frontend/src/App.tsx`, and `frontend/src/features/programs/ProgramPages.test.tsx`.
+- Implementation: nested `/offerings/new` and `/offerings/:offeringId/edit` routes; shared form preserves the existing required `capacity` payload; closed-year controls remain read-only; create/edit save and cancel return to the session.
+- Validation: `make lint-backend`, `make format`, `make generate && git diff --exit-code`, and `git diff --check` pass. Frontend tests/build/lint are environment-limited: `openapi-typescript` is unavailable and Bun cannot write its temp directory. Full `make check` still needs to be run before handoff.
+- Open items: run full check, commit/push, open a non-draft PR referencing `Fixes #163`, verify current-head CI/comments, and update the issue Workpad.
+- Skill draft: no — this is a focused frontend presentation change with no broadly reusable procedure discovered.
+
 ## Current work — issue #161
 
 - Scope: Clarify session lifecycle control labels and direct transitions per SPEC §§5.2, 5.4, 14.3–14.5, 20.1, 22.4.

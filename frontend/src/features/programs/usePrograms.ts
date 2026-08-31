@@ -39,9 +39,14 @@ export function useCatalogFeasibility(schoolYearID: string | undefined, programI
 }
 
 export const offeringsKey = (schoolYearID: string | undefined, programID: string | undefined, sessionID: string | undefined) => [...sessionsKey(schoolYearID, programID), sessionID, 'offerings'] as const
+export const offeringKey = (schoolYearID: string | undefined, programID: string | undefined, sessionID: string | undefined, offeringID: string | undefined) => [...offeringsKey(schoolYearID, programID, sessionID), offeringID] as const
 
 export function useOfferings(schoolYearID: string | undefined, programID: string | undefined, sessionID: string | undefined) {
   return useQuery({ enabled: Boolean(schoolYearID && programID && sessionID), queryKey: offeringsKey(schoolYearID, programID, sessionID), queryFn: () => resourceApi.listOfferings(schoolYearID as string, programID as string, sessionID as string), retry: false })
+}
+
+export function useOffering(schoolYearID: string | undefined, programID: string | undefined, sessionID: string | undefined, offeringID: string | undefined) {
+  return useQuery({ enabled: Boolean(schoolYearID && programID && sessionID && offeringID), queryKey: offeringKey(schoolYearID, programID, sessionID, offeringID), queryFn: () => resourceApi.getOffering(schoolYearID as string, programID as string, sessionID as string, offeringID as string), retry: false })
 }
 
 export const objectiveWeightsKey = (schoolYearID: string | undefined, programID: string | undefined, sessionID?: string) => [...programsKey(schoolYearID), programID, 'objective-weights', sessionID] as const
@@ -110,7 +115,7 @@ export function useCreateOffering(schoolYearID: string, programID: string, sessi
 
 export function useUpdateOffering(schoolYearID: string, programID: string, sessionID: string) {
   const queryClient = useQueryClient()
-  return useMutation({ mutationFn: ({ offeringID, value }: { offeringID: string; value: { name?: string; description?: string; minimum_viable_enrollment?: number | null; capacity?: number; min_grade_level_id?: string; max_grade_level_id?: string; location?: string; meeting_point?: string; meeting_instructions?: string; interest_area_id?: string | null } }) => resourceApi.updateOffering(schoolYearID, programID, sessionID, offeringID, value), onSuccess: () => { queryClient.invalidateQueries({ queryKey: offeringsKey(schoolYearID, programID, sessionID) }); queryClient.invalidateQueries({ queryKey: catalogFeasibilityKey(schoolYearID, programID, sessionID) }) } })
+  return useMutation({ mutationFn: ({ offeringID, value }: { offeringID: string; value: { name?: string; description?: string; minimum_viable_enrollment?: number | null; capacity?: number; min_grade_level_id?: string; max_grade_level_id?: string; location?: string; meeting_point?: string; meeting_instructions?: string; interest_area_id?: string | null } }) => resourceApi.updateOffering(schoolYearID, programID, sessionID, offeringID, value), onSuccess: (_, variables) => { queryClient.invalidateQueries({ queryKey: offeringsKey(schoolYearID, programID, sessionID) }); queryClient.invalidateQueries({ queryKey: offeringKey(schoolYearID, programID, sessionID, variables.offeringID) }); queryClient.invalidateQueries({ queryKey: catalogFeasibilityKey(schoolYearID, programID, sessionID) }) } })
 }
 
 export function useDeleteOffering(schoolYearID: string, programID: string, sessionID: string) {
