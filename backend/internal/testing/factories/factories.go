@@ -83,6 +83,15 @@ func (f *Factory) CreateOffering(ctx context.Context, schoolYearID, programID, s
 	return f.programs.CreateOffering(ctx, f.organizationID, f.actor, schoolYearID, programID, sessionID, name, description, minimumViableEnrollment, capacity, minGradeLevelID, maxGradeLevelID, location, meetingPoint, meetingInstructions, interestAreaID)
 }
 
+// CreateSessionNonParticipation records a required reason for excluding a
+// programme member from one session.
+func (f *Factory) CreateSessionNonParticipation(ctx context.Context, schoolYearID, programID, sessionID, studentID ids.XID, reason string) (data.SessionNonParticipation, error) {
+	if err := f.validate(); err != nil {
+		return data.SessionNonParticipation{}, err
+	}
+	return f.programs.CreateSessionNonParticipation(ctx, f.organizationID, f.actor, schoolYearID, programID, sessionID, studentID, reason)
+}
+
 func (f *Factory) AddProgramMembership(ctx context.Context, schoolYearID, programID, studentID ids.XID) (data.ProgramMembership, error) {
 	if err := f.validate(); err != nil {
 		return data.ProgramMembership{}, err
