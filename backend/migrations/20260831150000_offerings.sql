@@ -1,5 +1,10 @@
 -- +goose Up
 
+-- Interest areas are programme-owned and need a parent-compatible key before
+-- the optional offering reference can carry the complete tenant scope.
+create unique index interest_areas_id_organization_year_program_key
+    on interest_areas (id, organization_id, school_year_id, program_id);
+
 create table offerings (
     id public.xid20 primary key default public.xid(),
     organization_id public.xid20 not null references organizations (id) on delete cascade,
@@ -60,3 +65,4 @@ drop trigger if exists offerings_set_updated_at on offerings;
 drop policy if exists offerings_tenant_isolation on offerings;
 drop index if exists offerings_session_idx;
 drop table offerings;
+drop index if exists interest_areas_id_organization_year_program_key;
