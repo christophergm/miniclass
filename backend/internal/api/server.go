@@ -36,6 +36,7 @@ type ServerOptions struct {
 	GuardianRelationships  handlers.GuardianRelationshipService
 	ImportPreview          handlers.ImportPreviewService
 	ImportCommit           handlers.ImportCommitService
+	Programs               handlers.ProgramService
 	Verifier               auth.Verifier
 	Logger                 *slog.Logger
 	TrustedProxyCIDRs      []string
@@ -92,6 +93,7 @@ func NewServer(options ...ServerOption) *Server {
 		GuardianRelationships:  settings.GuardianRelationships,
 		ImportPreview:          settings.ImportPreview,
 		ImportCommit:           settings.ImportCommit,
+		Programs:               settings.Programs,
 		Verifier:               settings.Verifier,
 		Logger:                 settings.Logger,
 		TrustedProxyCIDRs:      settings.TrustedProxyCIDRs,
@@ -211,6 +213,11 @@ func WithImportPreview(service handlers.ImportPreviewService) ServerOption {
 // WithImportCommit supplies the mutating import service.
 func WithImportCommit(service handlers.ImportCommitService) ServerOption {
 	return func(options *ServerOptions) { options.ImportCommit = service }
+}
+
+// WithPrograms supplies the programme and membership service.
+func WithPrograms(service handlers.ProgramService) ServerOption {
+	return func(options *ServerOptions) { options.Programs = service }
 }
 
 // WithVerifier supplies the configured bearer-token verifier.

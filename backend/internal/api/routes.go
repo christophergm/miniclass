@@ -36,6 +36,7 @@ type RouterOptions struct {
 	GuardianRelationships  handlers.GuardianRelationshipService
 	ImportPreview          handlers.ImportPreviewService
 	ImportCommit           handlers.ImportCommitService
+	Programs               handlers.ProgramService
 	Verifier               auth.Verifier
 }
 
@@ -431,6 +432,14 @@ func registerOperations(api huma.API, options RouterOptions) {
 	registerOperation(api, huma.Operation{OperationID: "get-guardian-relationship", Method: http.MethodGet, Path: apiBasePath + "/school-years/{schoolYearID}/guardian-relationships/{relationshipID}", Summary: "Get a guardian relationship", Errors: []int{http.StatusNotFound}}, auth.CapabilityManageRoster, false, guardianRelationships.Get)
 	registerOperation(api, huma.Operation{OperationID: "update-guardian-relationship", Method: http.MethodPatch, Path: apiBasePath + "/school-years/{schoolYearID}/guardian-relationships/{relationshipID}", Summary: "Edit a guardian relationship", Errors: []int{http.StatusBadRequest, http.StatusConflict, http.StatusNotFound}}, auth.CapabilityManageRoster, false, guardianRelationships.Update)
 	registerOperation(api, huma.Operation{OperationID: "delete-guardian-relationship", Method: http.MethodDelete, Path: apiBasePath + "/school-years/{schoolYearID}/guardian-relationships/{relationshipID}", Summary: "Delete a guardian relationship", Errors: []int{http.StatusConflict, http.StatusNotFound}}, auth.CapabilityManageRoster, false, guardianRelationships.Delete)
+
+	programs := handlers.NewProgramHandler(options.Programs)
+	registerOperation(api, huma.Operation{OperationID: "list-programs", Method: http.MethodGet, Path: apiBasePath + "/school-years/{schoolYearID}/programs", Summary: "List programs in a school year", Errors: []int{http.StatusNotFound}}, auth.CapabilityManageRoster, false, programs.List)
+	registerOperation(api, huma.Operation{OperationID: "create-program", Method: http.MethodPost, Path: apiBasePath + "/school-years/{schoolYearID}/programs", Summary: "Create a program", Errors: []int{http.StatusBadRequest, http.StatusConflict, http.StatusNotFound}}, auth.CapabilityManageRoster, false, programs.Create)
+	registerOperation(api, huma.Operation{OperationID: "list-program-memberships", Method: http.MethodGet, Path: apiBasePath + "/school-years/{schoolYearID}/programs/{programID}/memberships", Summary: "List program memberships", Errors: []int{http.StatusNotFound}}, auth.CapabilityManageRoster, false, programs.ListMemberships)
+	registerOperation(api, huma.Operation{OperationID: "create-program-membership", Method: http.MethodPost, Path: apiBasePath + "/school-years/{schoolYearID}/programs/{programID}/memberships", Summary: "Add a student to a program", Errors: []int{http.StatusBadRequest, http.StatusConflict, http.StatusNotFound}}, auth.CapabilityManageRoster, false, programs.AddMembership)
+	registerOperation(api, huma.Operation{OperationID: "delete-program-membership", Method: http.MethodDelete, Path: apiBasePath + "/school-years/{schoolYearID}/programs/{programID}/memberships/{membershipID}", Summary: "Remove a student from a program", Errors: []int{http.StatusConflict, http.StatusNotFound}}, auth.CapabilityManageRoster, false, programs.DeleteMembership)
+	registerOperation(api, huma.Operation{OperationID: "count-students-without-grade", Method: http.MethodGet, Path: apiBasePath + "/school-years/{schoolYearID}/students/missing-grade-count", Summary: "Count students missing a grade", Errors: []int{http.StatusNotFound}}, auth.CapabilityManageRoster, false, programs.MissingGradeSummary)
 }
 
 func registerOperation[I, O any](api huma.API, operation huma.Operation, capability auth.Capability, allowUnresolved bool, handler func(context.Context, *I) (*O, error)) {

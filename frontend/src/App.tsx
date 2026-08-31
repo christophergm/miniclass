@@ -14,6 +14,7 @@ import { SettingsPage } from '@/features/settings/SettingsPage'
 import { AdultDetailPage, AdultListPage, StudentDetailPage, StudentListPage } from '@/features/people/PeoplePages'
 import { AuditLog } from '@/features/audit/AuditLog'
 import { ImportPage } from '@/features/imports/ImportPage'
+import { ProgramListPage, ProgramMembershipPage } from '@/features/programs/ProgramPages'
 
 function App() {
   return (
@@ -48,6 +49,8 @@ function AppRoutes() {
           <Route path="/y/:schoolYearId" element={<SchoolYearGuard />}>
             <Route index element={<SchoolYearWorkspace />} />
             <Route path="settings" element={<SettingsPage />} />
+            <Route path="programs" element={<ProgramListPage />} />
+            <Route path="programs/:programId" element={<ProgramMembershipPage />} />
 
             {/* Students scoped to a school year */}
             <Route path="students" element={<StudentListPage />} />

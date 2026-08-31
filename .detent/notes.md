@@ -1,8 +1,9 @@
-## Current handoff — issue #126
+## Current handoff — issue #127
 
-- Scope: P2-7 import page for `roster_json` and `grades_csv`; governing contract SPEC §§5.2, 6.6, 11.2, 11.4–11.5 and ADRs 0004, 0014.
-- Key files: `frontend/src/features/imports/ImportPage.tsx`, `ImportPage.test.tsx`, `useImports.ts`, `frontend/src/lib/apiResources.ts`, `frontend/src/App.tsx`.
-- Implementation: generated-client preview/commit wrappers preserve the exact `File` and preview hash; review groups outcomes, expands field changes, calls out guardian removals, groups exclusions, keeps warnings/conflicts committable, blocks Error commits, maps hash conflicts to re-preview guidance, shows committed counts, and links the filtered import audit log.
-- Validation: backend tests, backend lint, backend format, `make generate` plus generated-path drift, and `git diff --check` pass. Frontend test/build stop before execution because `openapi-typescript` is not installed; frontend lint is environment-limited by Bun temp/cache permissions. `make check` stops at `db-up` because the shared `/miniclass-postgres` container name is already in use. Migration round-trip lacks `MIGRATION_ROUNDTRIP_DATABASE_URL`; smoke lacks `.env`.
-- Validation: current PR #135 head `28ac698` passed all ten required CI checks: Backend tests, Backend lint, Backend format, Generated code drift, Migration round-trip, Frontend tests, Frontend build, Frontend lint, Repository formatting, and Developer tooling. No review or inline comments remain.
-- Skill draft: no — this was a scoped page implementation using existing generated-client and React Query patterns.
+- Scope: Gate annual program membership on a known student grade; governing contract SPEC §§5.2, 8.3, 10.1, 12.1, 14.2 and ADR 0014.
+- Key files: `backend/migrations/20260830200000_programmes.sql`, `backend/internal/data/program.go`, `backend/internal/program/service.go`, `backend/internal/api/handlers/program.go`, `frontend/src/features/programs/ProgramPages.tsx`.
+- Implementation: year-scoped `programs` and `program_memberships` tables with composite FKs, forced RLS and closed-year triggers; audited program/membership services; known-grade refusal names the student; later grade clearing retains and flags membership; missing-grade count links to the roster; generated sqlc/OpenAPI and frontend client/page are included.
+- Isolation: Layer 2 registry entries and integration coverage exercise both new tables, cross-tenant invisibility/mutation/foreign-parent rejection, and the grade gate/flag behavior with organization-scoped fixtures.
+- Validation: direct `go test -race -v ./...`, `make lint-backend`, `make format`, `make generate`, and `git diff --check` pass. `make test-backend` is blocked before tests by the existing `/miniclass-postgres` container-name conflict. Frontend test/build cannot start because `openapi-typescript` is not installed; frontend lint cannot write Bun temp files. Migration round-trip lacks `MIGRATION_ROUNDTRIP_DATABASE_URL`. Smoke requires `.env`.
+- Open items: stage, run cached whitespace/generated checks, commit/push, open/update PR with `Fixes #127` and SPEC/ADR citations, then verify CI/review state.
+- Skill draft: no — the reusable tenant-entity and backend procedures already exist and this change did not expose a new broadly reusable method.

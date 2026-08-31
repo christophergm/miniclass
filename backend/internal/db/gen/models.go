@@ -368,6 +368,25 @@ type OrganizationMember struct {
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
 
+type Program struct {
+	ID             ids.XID            `json:"id"`
+	OrganizationID ids.XID            `json:"organization_id"`
+	SchoolYearID   ids.XID            `json:"school_year_id"`
+	Name           string             `json:"name"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ProgramMembership struct {
+	ID             ids.XID            `json:"id"`
+	OrganizationID ids.XID            `json:"organization_id"`
+	SchoolYearID   ids.XID            `json:"school_year_id"`
+	ProgramID      ids.XID            `json:"program_id"`
+	StudentID      ids.XID            `json:"student_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
 type SchoolYear struct {
 	ID             ids.XID            `json:"id"`
 	OrganizationID ids.XID            `json:"organization_id"`
