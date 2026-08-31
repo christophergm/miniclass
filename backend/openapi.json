@@ -7193,8 +7193,8 @@
         "summary": "Read programme objective-weight defaults",
         "x-required-capability": "manage_assignments"
       },
-      "put": {
-        "operationId": "put-program-objective-weights",
+      "patch": {
+        "operationId": "update-program-objective-weights",
         "parameters": [
           {
             "in": "path",
@@ -9059,8 +9059,8 @@
         "summary": "Read effective session objective weights",
         "x-required-capability": "manage_assignments"
       },
-      "put": {
-        "operationId": "put-session-objective-weights",
+      "patch": {
+        "operationId": "update-session-objective-weights",
         "parameters": [
           {
             "description": "Opaque school-year identifier.",
