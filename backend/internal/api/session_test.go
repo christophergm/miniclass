@@ -40,7 +40,7 @@ func (f *fakeSessionLifecycleService) TransitionSession(_ context.Context, organ
 	}
 	now := time.Unix(1, 0).UTC()
 	return program.SessionTransitionResult{
-		Session:   data.Session{ID: sessionID, OrganizationID: ids.XID(organizationID), SchoolYearID: schoolYearID, ProgramID: programID, Name: "Synthetic session", Ordinal: 1, State: input.NextState, MeetingDates: []time.Time{now}},
+		Session:   data.Session{ID: sessionID, OrganizationID: ids.XID(organizationID), SchoolYearID: schoolYearID, ProgramID: programID, Name: "Synthetic session", State: input.NextState, MeetingDates: []time.Time{now}},
 		FromState: data.SessionPlanning, ToState: input.NextState, Applied: true,
 	}, nil
 }
@@ -67,6 +67,10 @@ func TestSessionTransitionRouteUsesCatalogCapabilityAndTypedPayload(t *testing.T
 	require.NoError(t, json.NewDecoder(recording.Body).Decode(&response))
 	require.Equal(t, true, response["applied"])
 	require.Equal(t, "catalog_published", response["to_state"])
+	sessionResponse, ok := response["session"].(map[string]any)
+	require.True(t, ok)
+	_, hasOrdinal := sessionResponse["ordinal"]
+	require.False(t, hasOrdinal)
 }
 
 func TestSessionTransitionRouteReturnsClearProblemForIllegalEdge(t *testing.T) {

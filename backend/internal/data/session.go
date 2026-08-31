@@ -35,7 +35,6 @@ type Session struct {
 	SchoolYearID          ids.XID
 	ProgramID             ids.XID
 	Name                  string
-	Ordinal               int
 	State                 SessionState
 	DraftAssignmentsStale bool
 	MeetingDates          []time.Time
@@ -55,21 +54,18 @@ type MeetingDate struct {
 	UpdatedAt      time.Time
 }
 
-func (tx *Tx) CreateSession(ctx context.Context, schoolYearID, programID ids.XID, name string, ordinal int) (Session, error) {
+func (tx *Tx) CreateSession(ctx context.Context, schoolYearID, programID ids.XID, name string) (Session, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return Session{}, errors.New("create session: name is required")
 	}
-	if ordinal < 1 {
-		return Session{}, errors.New("create session: ordinal must be positive")
-	}
 	row, err := tx.queries.CreateSession(ctx, db.CreateSessionParams{
-		OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID, Name: name, Ordinal: int32(ordinal),
+		OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID, Name: name,
 	})
 	if err != nil {
 		return Session{}, wrapProgramMutationError("create session", err)
 	}
-	return session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.Ordinal, row.State, row.DraftAssignmentsStale, row.CreatedAt, row.UpdatedAt)
+	return session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.State, row.DraftAssignmentsStale, row.CreatedAt, row.UpdatedAt)
 }
 
 func (tx *Tx) ListSessions(ctx context.Context, schoolYearID, programID ids.XID) ([]Session, error) {
@@ -79,7 +75,7 @@ func (tx *Tx) ListSessions(ctx context.Context, schoolYearID, programID ids.XID)
 	}
 	result := make([]Session, 0, len(rows))
 	for _, row := range rows {
-		value, err := session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.Ordinal, row.State, row.DraftAssignmentsStale, row.CreatedAt, row.UpdatedAt)
+		value, err := session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.State, row.DraftAssignmentsStale, row.CreatedAt, row.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -93,7 +89,7 @@ func (tx *Tx) GetSession(ctx context.Context, schoolYearID, programID, id ids.XI
 	if err != nil {
 		return Session{}, fmt.Errorf("get session: %w", err)
 	}
-	return session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.Ordinal, row.State, row.DraftAssignmentsStale, row.CreatedAt, row.UpdatedAt)
+	return session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.State, row.DraftAssignmentsStale, row.CreatedAt, row.UpdatedAt)
 }
 
 // GetSessionForUpdate serializes lifecycle changes so two organizers cannot
@@ -103,22 +99,19 @@ func (tx *Tx) GetSessionForUpdate(ctx context.Context, schoolYearID, programID, 
 	if err != nil {
 		return Session{}, fmt.Errorf("get session for update: %w", err)
 	}
-	return session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.Ordinal, row.State, row.DraftAssignmentsStale, row.CreatedAt, row.UpdatedAt)
+	return session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.State, row.DraftAssignmentsStale, row.CreatedAt, row.UpdatedAt)
 }
 
-func (tx *Tx) UpdateSession(ctx context.Context, schoolYearID, programID, id ids.XID, name string, ordinal int) (Session, error) {
+func (tx *Tx) UpdateSession(ctx context.Context, schoolYearID, programID, id ids.XID, name string) (Session, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return Session{}, errors.New("update session: name is required")
 	}
-	if ordinal < 1 {
-		return Session{}, errors.New("update session: ordinal must be positive")
-	}
-	row, err := tx.queries.UpdateSession(ctx, db.UpdateSessionParams{ID: id, Name: name, Ordinal: int32(ordinal), OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID})
+	row, err := tx.queries.UpdateSession(ctx, db.UpdateSessionParams{ID: id, Name: name, OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID})
 	if err != nil {
 		return Session{}, wrapProgramMutationError("update session", err)
 	}
-	return session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.Ordinal, row.State, row.DraftAssignmentsStale, row.CreatedAt, row.UpdatedAt)
+	return session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.State, row.DraftAssignmentsStale, row.CreatedAt, row.UpdatedAt)
 }
 
 func (tx *Tx) UpdateSessionLifecycle(ctx context.Context, schoolYearID, programID, id ids.XID, state SessionState, draftAssignmentsStale bool) (Session, error) {
@@ -129,7 +122,7 @@ func (tx *Tx) UpdateSessionLifecycle(ctx context.Context, schoolYearID, programI
 	if err != nil {
 		return Session{}, wrapProgramMutationError("update session lifecycle", err)
 	}
-	return session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.Ordinal, row.State, row.DraftAssignmentsStale, row.CreatedAt, row.UpdatedAt)
+	return session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.State, row.DraftAssignmentsStale, row.CreatedAt, row.UpdatedAt)
 }
 
 func (tx *Tx) DeleteSession(ctx context.Context, schoolYearID, programID, id ids.XID) (bool, error) {
@@ -204,7 +197,7 @@ func (tx *Tx) ListAllSessionsForRegistry(ctx context.Context) ([]Session, error)
 	}
 	result := make([]Session, 0, len(rows))
 	for _, row := range rows {
-		value, err := session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.Ordinal, row.State, row.DraftAssignmentsStale, row.CreatedAt, row.UpdatedAt)
+		value, err := session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.State, row.DraftAssignmentsStale, row.CreatedAt, row.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -221,7 +214,7 @@ func (tx *Tx) FindSessionForRegistry(ctx context.Context, id ids.XID) (Session, 
 		}
 		return Session{}, fmt.Errorf("find session for registry: %w", err)
 	}
-	return session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.Ordinal, row.State, row.DraftAssignmentsStale, row.CreatedAt, row.UpdatedAt)
+	return session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.State, row.DraftAssignmentsStale, row.CreatedAt, row.UpdatedAt)
 }
 
 func (tx *Tx) UpdateSessionForRegistry(ctx context.Context, id ids.XID, name string) (bool, error) {
@@ -283,7 +276,7 @@ func (tx *Tx) DeleteMeetingDateForRegistry(ctx context.Context, id ids.XID) (boo
 	return rows == 1, nil
 }
 
-func session(id ids.XID, organizationID, schoolYearID, programID ids.XID, name string, ordinal int32, state db.SessionState, draftAssignmentsStale bool, createdAtValue, updatedAtValue pgtype.Timestamptz) (Session, error) {
+func session(id ids.XID, organizationID, schoolYearID, programID ids.XID, name string, state db.SessionState, draftAssignmentsStale bool, createdAtValue, updatedAtValue pgtype.Timestamptz) (Session, error) {
 	createdAt, err := programTime(createdAtValue, "created_at")
 	if err != nil {
 		return Session{}, err
@@ -292,7 +285,7 @@ func session(id ids.XID, organizationID, schoolYearID, programID ids.XID, name s
 	if err != nil {
 		return Session{}, err
 	}
-	return Session{ID: id, OrganizationID: organizationID, SchoolYearID: schoolYearID, ProgramID: programID, Name: name, Ordinal: int(ordinal), State: SessionState(state), DraftAssignmentsStale: draftAssignmentsStale, CreatedAt: createdAt, UpdatedAt: updatedAt}, nil
+	return Session{ID: id, OrganizationID: organizationID, SchoolYearID: schoolYearID, ProgramID: programID, Name: name, State: SessionState(state), DraftAssignmentsStale: draftAssignmentsStale, CreatedAt: createdAt, UpdatedAt: updatedAt}, nil
 }
 
 func meetingDate(row db.MeetingDate) (MeetingDate, error) {

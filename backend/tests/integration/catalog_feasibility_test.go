@@ -35,7 +35,7 @@ func TestCatalogFeasibilityUsesSessionParticipantsAndNeverBlocksCatalogWrites(t 
 	require.NoError(t, err)
 	_, err = factory.AddProgramMembership(ctx, year.ID, programRow.ID, second.ID)
 	require.NoError(t, err)
-	session, err := factory.CreateSession(ctx, year.ID, programRow.ID, "Synthetic Catalog Session", 1, []time.Time{time.Date(2026, 10, 9, 0, 0, 0, 0, time.UTC)})
+	session, err := factory.CreateSession(ctx, year.ID, programRow.ID, "Synthetic Catalog Session", []time.Time{time.Date(2026, 10, 9, 0, 0, 0, 0, time.UTC)})
 	require.NoError(t, err)
 	area, err := factory.CreateInterestArea(ctx, year.ID, programRow.ID, "Synthetic Catalog Area")
 	require.NoError(t, err)

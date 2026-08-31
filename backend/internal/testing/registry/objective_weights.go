@@ -52,7 +52,7 @@ func createSessionObjectiveWeightOverrides(ctx context.Context, harness *testhar
 	if err != nil {
 		return "", err
 	}
-	session, err := factory.CreateSession(ctx, year.ID, programRow.ID, "Synthetic Objective Weights Session", 1, []time.Time{time.Date(2026, 9, 4, 0, 0, 0, 0, time.UTC)})
+	session, err := factory.CreateSession(ctx, year.ID, programRow.ID, "Synthetic Objective Weights Session", []time.Time{time.Date(2026, 9, 4, 0, 0, 0, 0, time.UTC)})
 	if err != nil {
 		return "", err
 	}
@@ -144,7 +144,7 @@ func insertSessionObjectiveWeightOverridesWithForeignParent(ctx context.Context,
 	if err != nil {
 		return err
 	}
-	session, err := foreignFactory.CreateSession(ctx, year.ID, programRow.ID, "Synthetic Foreign Objective Weights Session", 1, []time.Time{time.Date(2026, 9, 4, 0, 0, 0, 0, time.UTC)})
+	session, err := foreignFactory.CreateSession(ctx, year.ID, programRow.ID, "Synthetic Foreign Objective Weights Session", []time.Time{time.Date(2026, 9, 4, 0, 0, 0, 0, time.UTC)})
 	if err != nil {
 		return err
 	}

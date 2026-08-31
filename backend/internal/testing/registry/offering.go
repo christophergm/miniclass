@@ -40,7 +40,7 @@ func createOffering(ctx context.Context, harness *testharness.Harness, organizat
 	if err != nil {
 		return "", err
 	}
-	session, err := factory.CreateSession(ctx, year.ID, program.ID, "Synthetic Offering Session", 1, []time.Time{time.Date(2026, 9, 25, 0, 0, 0, 0, time.UTC)})
+	session, err := factory.CreateSession(ctx, year.ID, program.ID, "Synthetic Offering Session", []time.Time{time.Date(2026, 9, 25, 0, 0, 0, 0, time.UTC)})
 	if err != nil {
 		return "", err
 	}
@@ -101,7 +101,7 @@ func insertOfferingWithForeignParent(ctx context.Context, harness *testharness.H
 	if err != nil {
 		return err
 	}
-	session, err := foreignFactory.CreateSession(ctx, year.ID, program.ID, "Synthetic Foreign Offering Session", 1, []time.Time{time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC)})
+	session, err := foreignFactory.CreateSession(ctx, year.ID, program.ID, "Synthetic Foreign Offering Session", []time.Time{time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC)})
 	if err != nil {
 		return err
 	}

@@ -38,7 +38,7 @@ func TestSessionNonParticipationPreservesMembershipAndExcludesParticipant(t *tes
 	require.NoError(t, err)
 	secondMembership, err := factory.AddProgramMembership(ctx, year.ID, programRow.ID, second.ID)
 	require.NoError(t, err)
-	session, err := factory.CreateSession(ctx, year.ID, programRow.ID, "Synthetic Session", 1, []time.Time{time.Date(2026, 10, 9, 0, 0, 0, 0, time.UTC)})
+	session, err := factory.CreateSession(ctx, year.ID, programRow.ID, "Synthetic Session", []time.Time{time.Date(2026, 10, 9, 0, 0, 0, 0, time.UTC)})
 	require.NoError(t, err)
 	service := program.New(harness.Database)
 
@@ -100,7 +100,7 @@ func TestClosedYearSessionNonParticipationMutationsAreRejected(t *testing.T) {
 	require.NoError(t, err)
 	_, err = factory.AddProgramMembership(ctx, year.ID, programRow.ID, student.ID)
 	require.NoError(t, err)
-	session, err := factory.CreateSession(ctx, year.ID, programRow.ID, "Synthetic Closed Session", 1, []time.Time{time.Date(2026, 10, 16, 0, 0, 0, 0, time.UTC)})
+	session, err := factory.CreateSession(ctx, year.ID, programRow.ID, "Synthetic Closed Session", []time.Time{time.Date(2026, 10, 16, 0, 0, 0, 0, time.UTC)})
 	require.NoError(t, err)
 	service := program.New(harness.Database)
 	record, err := service.CreateSessionNonParticipation(ctx, string(organizationID), actor, year.ID, programRow.ID, session.ID, student.ID, "temporary absence")

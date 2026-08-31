@@ -49,9 +49,9 @@ func (q *Queries) CreateMeetingDate(ctx context.Context, arg CreateMeetingDatePa
 }
 
 const createSession = `-- name: CreateSession :one
-insert into sessions (organization_id, school_year_id, program_id, name, ordinal)
-values ($1, $2, $3, $4, $5)
-returning id, organization_id, school_year_id, program_id, name, ordinal, state, draft_assignments_stale, created_at, updated_at
+insert into sessions (organization_id, school_year_id, program_id, name)
+values ($1, $2, $3, $4)
+returning id, organization_id, school_year_id, program_id, name, state, draft_assignments_stale, created_at, updated_at
 `
 
 type CreateSessionParams struct {
@@ -59,7 +59,6 @@ type CreateSessionParams struct {
 	SchoolYearID   ids.XID `json:"school_year_id"`
 	ProgramID      ids.XID `json:"program_id"`
 	Name           string  `json:"name"`
-	Ordinal        int32   `json:"ordinal"`
 }
 
 type CreateSessionRow struct {
@@ -68,7 +67,6 @@ type CreateSessionRow struct {
 	SchoolYearID          ids.XID            `json:"school_year_id"`
 	ProgramID             ids.XID            `json:"program_id"`
 	Name                  string             `json:"name"`
-	Ordinal               int32              `json:"ordinal"`
 	State                 SessionState       `json:"state"`
 	DraftAssignmentsStale bool               `json:"draft_assignments_stale"`
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
@@ -81,7 +79,6 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (C
 		arg.SchoolYearID,
 		arg.ProgramID,
 		arg.Name,
-		arg.Ordinal,
 	)
 	var i CreateSessionRow
 	err := row.Scan(
@@ -90,7 +87,6 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (C
 		&i.SchoolYearID,
 		&i.ProgramID,
 		&i.Name,
-		&i.Ordinal,
 		&i.State,
 		&i.DraftAssignmentsStale,
 		&i.CreatedAt,
@@ -212,7 +208,7 @@ func (q *Queries) FindMeetingDateForRegistry(ctx context.Context, arg FindMeetin
 }
 
 const findSessionForRegistry = `-- name: FindSessionForRegistry :one
-select id, organization_id, school_year_id, program_id, name, ordinal, state, draft_assignments_stale, created_at, updated_at
+select id, organization_id, school_year_id, program_id, name, state, draft_assignments_stale, created_at, updated_at
 from sessions where id = $1 and organization_id = $2
 `
 
@@ -227,7 +223,6 @@ type FindSessionForRegistryRow struct {
 	SchoolYearID          ids.XID            `json:"school_year_id"`
 	ProgramID             ids.XID            `json:"program_id"`
 	Name                  string             `json:"name"`
-	Ordinal               int32              `json:"ordinal"`
 	State                 SessionState       `json:"state"`
 	DraftAssignmentsStale bool               `json:"draft_assignments_stale"`
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
@@ -243,7 +238,6 @@ func (q *Queries) FindSessionForRegistry(ctx context.Context, arg FindSessionFor
 		&i.SchoolYearID,
 		&i.ProgramID,
 		&i.Name,
-		&i.Ordinal,
 		&i.State,
 		&i.DraftAssignmentsStale,
 		&i.CreatedAt,
@@ -289,7 +283,7 @@ func (q *Queries) GetMeetingDate(ctx context.Context, arg GetMeetingDateParams) 
 }
 
 const getSession = `-- name: GetSession :one
-select id, organization_id, school_year_id, program_id, name, ordinal, state, draft_assignments_stale, created_at, updated_at
+select id, organization_id, school_year_id, program_id, name, state, draft_assignments_stale, created_at, updated_at
 from sessions
 where id = $1 and organization_id = $2 and school_year_id = $3 and program_id = $4
 `
@@ -307,7 +301,6 @@ type GetSessionRow struct {
 	SchoolYearID          ids.XID            `json:"school_year_id"`
 	ProgramID             ids.XID            `json:"program_id"`
 	Name                  string             `json:"name"`
-	Ordinal               int32              `json:"ordinal"`
 	State                 SessionState       `json:"state"`
 	DraftAssignmentsStale bool               `json:"draft_assignments_stale"`
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
@@ -328,7 +321,6 @@ func (q *Queries) GetSession(ctx context.Context, arg GetSessionParams) (GetSess
 		&i.SchoolYearID,
 		&i.ProgramID,
 		&i.Name,
-		&i.Ordinal,
 		&i.State,
 		&i.DraftAssignmentsStale,
 		&i.CreatedAt,
@@ -338,7 +330,7 @@ func (q *Queries) GetSession(ctx context.Context, arg GetSessionParams) (GetSess
 }
 
 const getSessionForUpdate = `-- name: GetSessionForUpdate :one
-select id, organization_id, school_year_id, program_id, name, ordinal, state, draft_assignments_stale, created_at, updated_at
+select id, organization_id, school_year_id, program_id, name, state, draft_assignments_stale, created_at, updated_at
 from sessions
 where id = $1 and organization_id = $2 and school_year_id = $3 and program_id = $4
 for update
@@ -357,7 +349,6 @@ type GetSessionForUpdateRow struct {
 	SchoolYearID          ids.XID            `json:"school_year_id"`
 	ProgramID             ids.XID            `json:"program_id"`
 	Name                  string             `json:"name"`
-	Ordinal               int32              `json:"ordinal"`
 	State                 SessionState       `json:"state"`
 	DraftAssignmentsStale bool               `json:"draft_assignments_stale"`
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
@@ -378,7 +369,6 @@ func (q *Queries) GetSessionForUpdate(ctx context.Context, arg GetSessionForUpda
 		&i.SchoolYearID,
 		&i.ProgramID,
 		&i.Name,
-		&i.Ordinal,
 		&i.State,
 		&i.DraftAssignmentsStale,
 		&i.CreatedAt,
@@ -422,8 +412,11 @@ func (q *Queries) ListAllMeetingDatesForRegistry(ctx context.Context, organizati
 }
 
 const listAllSessionsForRegistry = `-- name: ListAllSessionsForRegistry :many
-select id, organization_id, school_year_id, program_id, name, ordinal, state, draft_assignments_stale, created_at, updated_at
-from sessions where organization_id = $1 order by school_year_id, program_id, ordinal, id
+select id, organization_id, school_year_id, program_id, name, state, draft_assignments_stale, created_at, updated_at
+from sessions where sessions.organization_id = $1
+order by school_year_id, program_id,
+    (select min(meeting_date) from meeting_dates where meeting_dates.session_id = sessions.id and meeting_dates.organization_id = sessions.organization_id),
+    lower(sessions.name), sessions.id
 `
 
 type ListAllSessionsForRegistryRow struct {
@@ -432,7 +425,6 @@ type ListAllSessionsForRegistryRow struct {
 	SchoolYearID          ids.XID            `json:"school_year_id"`
 	ProgramID             ids.XID            `json:"program_id"`
 	Name                  string             `json:"name"`
-	Ordinal               int32              `json:"ordinal"`
 	State                 SessionState       `json:"state"`
 	DraftAssignmentsStale bool               `json:"draft_assignments_stale"`
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
@@ -454,7 +446,6 @@ func (q *Queries) ListAllSessionsForRegistry(ctx context.Context, organizationID
 			&i.SchoolYearID,
 			&i.ProgramID,
 			&i.Name,
-			&i.Ordinal,
 			&i.State,
 			&i.DraftAssignmentsStale,
 			&i.CreatedAt,
@@ -519,10 +510,10 @@ func (q *Queries) ListMeetingDates(ctx context.Context, arg ListMeetingDatesPara
 }
 
 const listSessions = `-- name: ListSessions :many
-select id, organization_id, school_year_id, program_id, name, ordinal, state, draft_assignments_stale, created_at, updated_at
+select id, organization_id, school_year_id, program_id, name, state, draft_assignments_stale, created_at, updated_at
 from sessions
-where organization_id = $1 and school_year_id = $2 and program_id = $3
-order by ordinal, id
+where sessions.organization_id = $1 and sessions.school_year_id = $2 and sessions.program_id = $3
+order by (select min(meeting_date) from meeting_dates where meeting_dates.session_id = sessions.id and meeting_dates.organization_id = sessions.organization_id), lower(sessions.name), sessions.id
 `
 
 type ListSessionsParams struct {
@@ -537,7 +528,6 @@ type ListSessionsRow struct {
 	SchoolYearID          ids.XID            `json:"school_year_id"`
 	ProgramID             ids.XID            `json:"program_id"`
 	Name                  string             `json:"name"`
-	Ordinal               int32              `json:"ordinal"`
 	State                 SessionState       `json:"state"`
 	DraftAssignmentsStale bool               `json:"draft_assignments_stale"`
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
@@ -559,7 +549,6 @@ func (q *Queries) ListSessions(ctx context.Context, arg ListSessionsParams) ([]L
 			&i.SchoolYearID,
 			&i.ProgramID,
 			&i.Name,
-			&i.Ordinal,
 			&i.State,
 			&i.DraftAssignmentsStale,
 			&i.CreatedAt,
@@ -634,15 +623,14 @@ func (q *Queries) UpdateMeetingDateForRegistry(ctx context.Context, arg UpdateMe
 
 const updateSession = `-- name: UpdateSession :one
 update sessions
-set name = $2, ordinal = $3
-where id = $1 and organization_id = $4 and school_year_id = $5 and program_id = $6
-returning id, organization_id, school_year_id, program_id, name, ordinal, state, draft_assignments_stale, created_at, updated_at
+set name = $2
+where id = $1 and organization_id = $3 and school_year_id = $4 and program_id = $5
+returning id, organization_id, school_year_id, program_id, name, state, draft_assignments_stale, created_at, updated_at
 `
 
 type UpdateSessionParams struct {
 	ID             ids.XID `json:"id"`
 	Name           string  `json:"name"`
-	Ordinal        int32   `json:"ordinal"`
 	OrganizationID ids.XID `json:"organization_id"`
 	SchoolYearID   ids.XID `json:"school_year_id"`
 	ProgramID      ids.XID `json:"program_id"`
@@ -654,7 +642,6 @@ type UpdateSessionRow struct {
 	SchoolYearID          ids.XID            `json:"school_year_id"`
 	ProgramID             ids.XID            `json:"program_id"`
 	Name                  string             `json:"name"`
-	Ordinal               int32              `json:"ordinal"`
 	State                 SessionState       `json:"state"`
 	DraftAssignmentsStale bool               `json:"draft_assignments_stale"`
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
@@ -665,7 +652,6 @@ func (q *Queries) UpdateSession(ctx context.Context, arg UpdateSessionParams) (U
 	row := q.db.QueryRow(ctx, updateSession,
 		arg.ID,
 		arg.Name,
-		arg.Ordinal,
 		arg.OrganizationID,
 		arg.SchoolYearID,
 		arg.ProgramID,
@@ -677,7 +663,6 @@ func (q *Queries) UpdateSession(ctx context.Context, arg UpdateSessionParams) (U
 		&i.SchoolYearID,
 		&i.ProgramID,
 		&i.Name,
-		&i.Ordinal,
 		&i.State,
 		&i.DraftAssignmentsStale,
 		&i.CreatedAt,
@@ -708,7 +693,7 @@ const updateSessionLifecycle = `-- name: UpdateSessionLifecycle :one
 update sessions
 set state = $2, draft_assignments_stale = $3
 where id = $1 and organization_id = $4 and school_year_id = $5 and program_id = $6
-returning id, organization_id, school_year_id, program_id, name, ordinal, state, draft_assignments_stale, created_at, updated_at
+returning id, organization_id, school_year_id, program_id, name, state, draft_assignments_stale, created_at, updated_at
 `
 
 type UpdateSessionLifecycleParams struct {
@@ -726,7 +711,6 @@ type UpdateSessionLifecycleRow struct {
 	SchoolYearID          ids.XID            `json:"school_year_id"`
 	ProgramID             ids.XID            `json:"program_id"`
 	Name                  string             `json:"name"`
-	Ordinal               int32              `json:"ordinal"`
 	State                 SessionState       `json:"state"`
 	DraftAssignmentsStale bool               `json:"draft_assignments_stale"`
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
@@ -749,7 +733,6 @@ func (q *Queries) UpdateSessionLifecycle(ctx context.Context, arg UpdateSessionL
 		&i.SchoolYearID,
 		&i.ProgramID,
 		&i.Name,
-		&i.Ordinal,
 		&i.State,
 		&i.DraftAssignmentsStale,
 		&i.CreatedAt,

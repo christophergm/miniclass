@@ -60,11 +60,11 @@ func (f *Factory) CreateInterestArea(ctx context.Context, schoolYearID, programI
 }
 
 // CreateSession creates a planning session with its required meeting dates.
-func (f *Factory) CreateSession(ctx context.Context, schoolYearID, programID ids.XID, name string, ordinal int, dates []time.Time) (data.Session, error) {
+func (f *Factory) CreateSession(ctx context.Context, schoolYearID, programID ids.XID, name string, dates []time.Time) (data.Session, error) {
 	if err := f.validate(); err != nil {
 		return data.Session{}, err
 	}
-	return f.programs.CreateSession(ctx, f.organizationID, f.actor, schoolYearID, programID, name, ordinal, dates)
+	return f.programs.CreateSession(ctx, f.organizationID, f.actor, schoolYearID, programID, name, dates)
 }
 
 // CreateMeetingDate adds one date to an existing session.

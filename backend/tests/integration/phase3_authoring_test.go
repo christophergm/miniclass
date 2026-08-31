@@ -55,7 +55,7 @@ func TestPhase3AuthoringAPIRoundTrip(t *testing.T) {
 	path := "/api/school-years/" + string(year.ID) + "/programs/" + string(programRow.ID)
 
 	created := phase3JSONRequest(t, server.Handler(), http.MethodPost, path+"/sessions", token, map[string]any{
-		"name": "Synthetic authoring session", "ordinal": 1, "meeting_dates": []string{"2026-10-02", "2026-10-09"},
+		"name": "Synthetic authoring session", "meeting_dates": []string{"2026-10-02", "2026-10-09"},
 	})
 	require.Contains(t, []int{http.StatusOK, http.StatusCreated}, created.Code)
 	var session handlers.SessionResponse
@@ -80,7 +80,7 @@ func TestPhase3AuthoringAPIRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 
 	closedCreate := phase3JSONRequest(t, server.Handler(), http.MethodPost, path+"/sessions", token, map[string]any{
-		"name": "Should be refused", "ordinal": 2, "meeting_dates": []string{time.Date(2026, 10, 16, 0, 0, 0, 0, time.UTC).Format("2006-01-02")},
+		"name": "Should be refused", "meeting_dates": []string{time.Date(2026, 10, 16, 0, 0, 0, 0, time.UTC).Format("2006-01-02")},
 	})
 	require.Equal(t, http.StatusConflict, closedCreate.Code)
 	require.Contains(t, closedCreate.Body.String(), "school-year-closed")

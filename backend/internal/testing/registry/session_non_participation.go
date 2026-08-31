@@ -49,7 +49,7 @@ func createSessionNonParticipation(ctx context.Context, harness *testharness.Har
 	if _, err := factory.AddProgramMembership(ctx, year.ID, program.ID, student.ID); err != nil {
 		return "", err
 	}
-	session, err := factory.CreateSession(ctx, year.ID, program.ID, "Synthetic Non-Participation Session", 1, []time.Time{time.Date(2026, 9, 25, 0, 0, 0, 0, time.UTC)})
+	session, err := factory.CreateSession(ctx, year.ID, program.ID, "Synthetic Non-Participation Session", []time.Time{time.Date(2026, 9, 25, 0, 0, 0, 0, time.UTC)})
 	if err != nil {
 		return "", err
 	}
@@ -117,7 +117,7 @@ func insertSessionNonParticipationWithForeignParent(ctx context.Context, harness
 	if _, err := foreignFactory.AddProgramMembership(ctx, year.ID, program.ID, student.ID); err != nil {
 		return err
 	}
-	session, err := foreignFactory.CreateSession(ctx, year.ID, program.ID, "Synthetic Foreign Non-Participation Session", 1, []time.Time{time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC)})
+	session, err := foreignFactory.CreateSession(ctx, year.ID, program.ID, "Synthetic Foreign Non-Participation Session", []time.Time{time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC)})
 	if err != nil {
 		return err
 	}

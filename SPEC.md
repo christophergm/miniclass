@@ -823,7 +823,8 @@ An offering meets on every meeting date of its session. Per-date variation is a 
 
 ### 8.5 Session and meeting dates
 
-**Session** `[Built]` — name, ordinal position within the program's year, lifecycle state (§14.3).
+**Session** `[Built]` — name and lifecycle state (§14.3). Sessions are ordered by their earliest
+meeting date; ties are ordered case-insensitively by name and then by opaque identifier.
 
 **Meeting date** `[Built]` — a specific date on which the session's classes meet. Three or four per
 session in the reference program, on consecutive Fridays.
@@ -1675,15 +1676,14 @@ preference records are per-student regardless of who submits them.
 | Property | Notes |
 |---|---|
 | Name | Required |
-| Ordinal position | Its place in the program's year; drives "previous session" semantics |
 | Meeting dates | One or more (§8.5) |
 | Lifecycle state | §14.3 |
 | Ranked-choice configuration | Whether used; how many ranked positions; voting window |
 | Objective weights | Program defaults (§12.1), overridable for this session |
 
-A session's ordinal position MUST be explicit rather than inferred from date ordering, because
-fairness and variety are computed over "sessions so far" (§17.5, §17.6) and that sequence must be
-unambiguous even when sessions are created out of order.
+Session ordering MUST be deterministic: earliest meeting date first, then case-insensitive name,
+then opaque identifier. The ordering is derived from meeting dates and is not an editable or
+persisted ranking, so sessions remain unambiguous even when they are created out of order.
 
 ### 14.2 Catalog authoring
 
@@ -2917,7 +2917,7 @@ is this specification's own rather than the predecessor's, and is retired for a 
 | **Teacher** | Both a homeroom teacher and a volunteer class leader, interchangeably | **Homeroom teacher** or **class leader** |
 | **Occurrence** | A dated instance of a session | **Meeting date** |
 | **Enrollment** | Program membership, *and* placement in a class | **Membership** or **assignment** |
-| **Session** *(as a bare number)* | An integer embedded in file names, with no year context | A **session** entity with an explicit program and ordinal (§14.1) |
+| **Session** *(as a bare number)* | An integer embedded in file names, with no year context | A **session** entity with an explicit program and meeting dates (§14.1) |
 | **Stream** | A vertical cohort at the reference school | A **tag**; it has no special semantics (§10.1) |
 | **Fallback** | A synthetic catch-all class absorbing unplaceable students | No equivalent; see **unplaced** (§17.13) |
 | **Skip** | A flat list of names excluded from a run | **Session non-participation** (§8.3) |

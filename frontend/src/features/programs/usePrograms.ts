@@ -85,12 +85,12 @@ export function useUpdateInterestArea(schoolYearID: string, programID: string) {
 
 export function useCreateSession(schoolYearID: string, programID: string) {
   const queryClient = useQueryClient()
-  return useMutation({ mutationFn: (value: { name: string; ordinal: number; meeting_dates: string[] }) => resourceApi.createSession(schoolYearID, programID, value), onSuccess: () => queryClient.invalidateQueries({ queryKey: sessionsKey(schoolYearID, programID) }) })
+  return useMutation({ mutationFn: (value: { name: string; meeting_dates: string[] }) => resourceApi.createSession(schoolYearID, programID, value), onSuccess: () => queryClient.invalidateQueries({ queryKey: sessionsKey(schoolYearID, programID) }) })
 }
 
 export function useUpdateSession(schoolYearID: string, programID: string) {
   const queryClient = useQueryClient()
-  return useMutation({ mutationFn: ({ sessionID, value }: { sessionID: string; value: { name?: string; ordinal?: number } }) => resourceApi.updateSession(schoolYearID, programID, sessionID, value), onSuccess: () => queryClient.invalidateQueries({ queryKey: sessionsKey(schoolYearID, programID) }) })
+  return useMutation({ mutationFn: ({ sessionID, value }: { sessionID: string; value: { name?: string; meeting_dates?: string[] } }) => resourceApi.updateSession(schoolYearID, programID, sessionID, value), onSuccess: () => queryClient.invalidateQueries({ queryKey: sessionsKey(schoolYearID, programID) }) })
 }
 
 export function useCreateMeetingDate(schoolYearID: string, programID: string, sessionID: string) {

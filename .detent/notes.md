@@ -127,3 +127,10 @@
 - CI: all ten required checks pass on PR #154 head `959c100` in run 33386375617. PR CI duration was 1m53s; slow checks were Backend tests 1m51s, Generated code drift 1m48s, and Backend lint 1m15s. No post-merge main CI applies because the PR is not merged.
 - Open items: none; PR #154 is open, non-draft, references `Fixes #144`, and has no actionable review comments.
 - Skill draft: no — the existing tenant-entity and isolation-harness skills cover the reusable procedure; no new broadly reusable method was discovered.
+## Current work — issue #164
+
+- Scope: Remove session ordinal storage and public exposure; order sessions by earliest meeting date, case-insensitive name, and opaque ID per SPEC §§8.5, 14.1, and 17.8. Keep session create/edit date changes atomic and preserve the one-or-more date invariant.
+- Repository state: clean worktree based on origin/main; no PR exists yet. Persistent Workpad comment: https://github.com/christophergm/miniclass/issues/164#issuecomment-5483864210.
+- Key files: `backend/migrations/20260831130000_sessions.sql`, `backend/sql/queries/session.sql`, `backend/internal/data/session.go`, `backend/internal/program/session.go`, `backend/internal/api/handlers/session.go`, `frontend/src/features/programs/ProgramPages.tsx`, `frontend/src/features/programs/usePrograms.ts`, and session integration/frontend tests.
+- Open items: implement migration/model/API/frontend/test changes, regenerate sqlc/OpenAPI, run required gates, commit/push, open non-draft PR referencing `Fixes #164`, verify current-head CI/comments, and update Workpad telemetry.
+- Blockers: none.
