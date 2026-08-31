@@ -59,7 +59,7 @@ export function PeopleListPage({ kind }: PageProps) {
   const counterpartsQuery = usePeople(counterpartKind, schoolYearId)
   const relationshipsQuery = useYearGuardianRelationships(schoolYearId)
   // Only the student roster renders grade and homeroom labels.
-  const vocabularyQuery = useVocabulary({ enabled: kind === 'student' })
+  const vocabularyQuery = useVocabulary(schoolYearId, { enabled: kind === 'student' })
   const [query, setQuery] = useState('')
   const [gradeLevelId, setGradeLevelId] = useState('')
   const [homeroomId, setHomeroomId] = useState('')
@@ -232,7 +232,7 @@ export function PersonDetailPage({ kind }: PageProps) {
   const recordId = isNew ? undefined : personId
 
   const personQuery = usePerson(kind, schoolYearId, recordId)
-  const vocabularyQuery = useVocabulary({ enabled: kind === 'student' })
+  const vocabularyQuery = useVocabulary(schoolYearId, { enabled: kind === 'student' })
   const save = useRosterMutation<PersonInputValues, Student | Adult>(schoolYearId, (next) => savePerson(kind, schoolYearId!, recordId, next))
   const remove = useRosterMutation<void, void>(schoolYearId, () => (kind === 'student' ? studentApi.remove(schoolYearId!, personId!) : adultApi.remove(schoolYearId!, personId!)))
   const [values, setValues] = useState<PersonInputValues>(() => emptyValues(kind))

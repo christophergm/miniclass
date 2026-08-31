@@ -25,9 +25,9 @@ func TestAStudentMayHaveTwoGuardiansAndEachEdgeIsItsOwnRecord(t *testing.T) {
 	actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "guardian relationship integration test"}
 	year, err := schoolyear.New(harness.Database).Create(ctx, string(organizationID), actor, "2026–2027")
 	require.NoError(t, err)
-	grade, err := vocabulary.New(harness.Database).CreateGrade(ctx, string(organizationID), actor, "guardian-grade", "Guardian Grade")
+	grade, err := vocabulary.New(harness.Database).CreateGrade(ctx, string(organizationID), year.ID, actor, "guardian-grade", "Guardian Grade")
 	require.NoError(t, err)
-	homeroom, err := vocabulary.New(harness.Database).CreateHomeroom(ctx, string(organizationID), actor, "Guardian Room", nil)
+	homeroom, err := vocabulary.New(harness.Database).CreateHomeroom(ctx, string(organizationID), year.ID, actor, "Guardian Room", nil)
 	require.NoError(t, err)
 
 	service := people.New(harness.Database)
@@ -250,9 +250,9 @@ func newGuardianFixture(t *testing.T, harness *testharness.Harness, service *peo
 	organizationID := harness.MintOrganization(t)
 	year, err := schoolyear.New(harness.Database).Create(ctx, string(organizationID), actor, "2026–2027")
 	require.NoError(t, err)
-	grade, err := vocabulary.New(harness.Database).CreateGrade(ctx, string(organizationID), actor, "relationship-grade", "Relationship Grade "+label)
+	grade, err := vocabulary.New(harness.Database).CreateGrade(ctx, string(organizationID), year.ID, actor, "relationship-grade", "Relationship Grade "+label)
 	require.NoError(t, err)
-	homeroom, err := vocabulary.New(harness.Database).CreateHomeroom(ctx, string(organizationID), actor, "Relationship Room "+label, nil)
+	homeroom, err := vocabulary.New(harness.Database).CreateHomeroom(ctx, string(organizationID), year.ID, actor, "Relationship Room "+label, nil)
 	require.NoError(t, err)
 	student, err := service.CreateStudent(ctx, string(organizationID), year.ID, actor, people.StudentCreateInput{
 		LegalGivenName: "Synthetic", LegalFamilyName: "Relationship Student " + label, GradeLevelID: xidPtr(grade.ID), HomeroomID: homeroom.ID,
@@ -286,9 +286,9 @@ func TestGuardianRelationshipListFiltersToOnePerson(t *testing.T) {
 	actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "guardian relationship filter test"}
 	year, err := schoolyear.New(harness.Database).Create(ctx, string(organizationID), actor, "2026–2027")
 	require.NoError(t, err)
-	grade, err := vocabulary.New(harness.Database).CreateGrade(ctx, string(organizationID), actor, "filter-grade", "Filter Grade")
+	grade, err := vocabulary.New(harness.Database).CreateGrade(ctx, string(organizationID), year.ID, actor, "filter-grade", "Filter Grade")
 	require.NoError(t, err)
-	homeroom, err := vocabulary.New(harness.Database).CreateHomeroom(ctx, string(organizationID), actor, "Filter Room", nil)
+	homeroom, err := vocabulary.New(harness.Database).CreateHomeroom(ctx, string(organizationID), year.ID, actor, "Filter Room", nil)
 	require.NoError(t, err)
 
 	service := people.New(harness.Database)

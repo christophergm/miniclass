@@ -225,7 +225,7 @@ func registerOperations(api huma.API, options RouterOptions) {
 	registerOperation(api, huma.Operation{
 		OperationID: "list-vocabularies",
 		Method:      http.MethodGet,
-		Path:        apiBasePath + "/vocabularies",
+		Path:        apiBasePath + "/school-years/{schoolYearID}/vocabularies",
 		Summary:     "List grade and homeroom vocabularies",
 	}, auth.CapabilityManageRoster, false, vocabularies.List)
 	registerOperation(api, huma.Operation{
@@ -279,61 +279,61 @@ func registerOperations(api huma.API, options RouterOptions) {
 	registerOperation(api, huma.Operation{
 		OperationID: "list-grade-levels",
 		Method:      http.MethodGet,
-		Path:        apiBasePath + "/grade-levels",
+		Path:        apiBasePath + "/school-years/{schoolYearID}/grade-levels",
 		Summary:     "List grade levels",
 	}, auth.CapabilityManageRoster, false, vocabularies.ListGrades)
 	registerOperation(api, huma.Operation{
 		OperationID: "create-grade-level",
 		Method:      http.MethodPost,
-		Path:        apiBasePath + "/grade-levels",
+		Path:        apiBasePath + "/school-years/{schoolYearID}/grade-levels",
 		Summary:     "Create a grade level",
 		Errors:      []int{http.StatusBadRequest, http.StatusConflict},
 	}, auth.CapabilityManageRoster, false, vocabularies.CreateGrade)
 	registerOperation(api, huma.Operation{
 		OperationID: "reorder-grade-levels",
 		Method:      http.MethodPost,
-		Path:        apiBasePath + "/grade-levels/reorder",
+		Path:        apiBasePath + "/school-years/{schoolYearID}/grade-levels/reorder",
 		Summary:     "Reorder grade levels",
 		Errors:      []int{http.StatusBadRequest, http.StatusConflict},
 	}, auth.CapabilityManageRoster, false, vocabularies.ReorderGrades)
 	registerOperation(api, huma.Operation{
 		OperationID: "get-grade-level",
 		Method:      http.MethodGet,
-		Path:        apiBasePath + "/grade-levels/{gradeLevelID}",
+		Path:        apiBasePath + "/school-years/{schoolYearID}/grade-levels/{gradeLevelID}",
 		Summary:     "Get a grade level",
 		Errors:      []int{http.StatusNotFound},
 	}, auth.CapabilityManageRoster, false, vocabularies.GetGrade)
 	registerOperation(api, huma.Operation{
 		OperationID: "update-grade-level",
 		Method:      http.MethodPatch,
-		Path:        apiBasePath + "/grade-levels/{gradeLevelID}",
+		Path:        apiBasePath + "/school-years/{schoolYearID}/grade-levels/{gradeLevelID}",
 		Summary:     "Edit or retire a grade level",
 		Errors:      []int{http.StatusBadRequest, http.StatusNotFound, http.StatusConflict},
 	}, auth.CapabilityManageRoster, false, vocabularies.UpdateGrade)
 	registerOperation(api, huma.Operation{
 		OperationID: "list-homerooms",
 		Method:      http.MethodGet,
-		Path:        apiBasePath + "/homerooms",
+		Path:        apiBasePath + "/school-years/{schoolYearID}/homerooms",
 		Summary:     "List homerooms",
 	}, auth.CapabilityManageRoster, false, vocabularies.ListHomerooms)
 	registerOperation(api, huma.Operation{
 		OperationID: "create-homeroom",
 		Method:      http.MethodPost,
-		Path:        apiBasePath + "/homerooms",
+		Path:        apiBasePath + "/school-years/{schoolYearID}/homerooms",
 		Summary:     "Create a homeroom",
 		Errors:      []int{http.StatusBadRequest, http.StatusConflict},
 	}, auth.CapabilityManageRoster, false, vocabularies.CreateHomeroom)
 	registerOperation(api, huma.Operation{
 		OperationID: "get-homeroom",
 		Method:      http.MethodGet,
-		Path:        apiBasePath + "/homerooms/{homeroomID}",
+		Path:        apiBasePath + "/school-years/{schoolYearID}/homerooms/{homeroomID}",
 		Summary:     "Get a homeroom",
 		Errors:      []int{http.StatusNotFound},
 	}, auth.CapabilityManageRoster, false, vocabularies.GetHomeroom)
 	registerOperation(api, huma.Operation{
 		OperationID: "update-homeroom",
 		Method:      http.MethodPatch,
-		Path:        apiBasePath + "/homerooms/{homeroomID}",
+		Path:        apiBasePath + "/school-years/{schoolYearID}/homerooms/{homeroomID}",
 		Summary:     "Edit or retire a homeroom",
 		Errors:      []int{http.StatusBadRequest, http.StatusNotFound, http.StatusConflict},
 	}, auth.CapabilityManageRoster, false, vocabularies.UpdateHomeroom)

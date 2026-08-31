@@ -25,16 +25,16 @@ const students: Student[] = [
 const deletedStudent: Student = { ...ids, ...timestamps, id: 'student-4', legal_given_name: 'Sam', legal_family_name: 'Vale', display_name: 'Sam Vale', grade_level_id: 'grade-1', homeroom_id: 'homeroom-a', deleted_at: '2026-08-02T00:00:00Z' }
 
 const vocabulary: VocabularyResponse = {
-  organization_id: 'org-1',
+  school_year_id: 'year-1',
   homeroom_label: 'Homeroom',
   grade_levels: [
-    { ...timestamps, id: 'grade-1', organization_id: 'org-1', code: '1', label: 'First grade', ordinal: 1 },
-    { ...timestamps, id: 'grade-2', organization_id: 'org-1', code: '2', label: 'Second grade', ordinal: 2 },
+    { ...timestamps, id: 'grade-1', school_year_id: 'year-1', code: '1', label: 'First grade', ordinal: 1 },
+    { ...timestamps, id: 'grade-2', school_year_id: 'year-1', code: '2', label: 'Second grade', ordinal: 2 },
   ],
   homerooms: [
-    { ...timestamps, id: 'homeroom-a', organization_id: 'org-1', name: 'Room A', external_identifier: null },
-    { ...timestamps, id: 'homeroom-b', organization_id: 'org-1', name: 'Room B', external_identifier: null },
-    { ...timestamps, id: 'homeroom-c', organization_id: 'org-1', name: 'Room C', external_identifier: null },
+    { ...timestamps, id: 'homeroom-a', school_year_id: 'year-1', name: 'Room A', external_identifier: null },
+    { ...timestamps, id: 'homeroom-b', school_year_id: 'year-1', name: 'Room B', external_identifier: null },
+    { ...timestamps, id: 'homeroom-c', school_year_id: 'year-1', name: 'Room C', external_identifier: null },
   ],
 }
 
@@ -203,7 +203,7 @@ describe('people roster pages', () => {
     vi.spyOn(resourceApi, 'getVocabulary').mockResolvedValue({
       ...vocabulary,
       grade_levels: [
-        { ...timestamps, id: 'grade-k', organization_id: 'org-1', code: 'K', label: 'Kindergarten', ordinal: 0 },
+        { ...timestamps, id: 'grade-k', school_year_id: 'year-1', code: 'K', label: 'Kindergarten', ordinal: 0 },
         ...(vocabulary.grade_levels ?? []),
       ],
     })

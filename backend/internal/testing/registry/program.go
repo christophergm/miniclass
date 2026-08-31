@@ -47,11 +47,11 @@ func createProgramMembership(ctx context.Context, harness *testharness.Harness, 
 	if err != nil {
 		return "", err
 	}
-	grade, err := factory.CreateGradeLevel(ctx, "synthetic-membership", "Synthetic Grade")
+	grade, err := factory.CreateGradeLevel(ctx, year.ID, "synthetic-membership", "Synthetic Grade")
 	if err != nil {
 		return "", err
 	}
-	homeroom, err := factory.CreateHomeroom(ctx, "Synthetic Membership Room")
+	homeroom, err := factory.CreateHomeroom(ctx, year.ID, "Synthetic Membership Room")
 	if err != nil {
 		return "", err
 	}
@@ -156,11 +156,11 @@ func insertProgramMembershipWithForeignParent(ctx context.Context, harness *test
 	if err != nil {
 		return err
 	}
-	grade, err := foreignFactory.CreateGradeLevel(ctx, "synthetic-foreign-membership", "Synthetic Foreign Grade")
+	grade, err := foreignFactory.CreateGradeLevel(ctx, year.ID, "synthetic-foreign-membership", "Synthetic Foreign Grade")
 	if err != nil {
 		return err
 	}
-	homeroom, err := foreignFactory.CreateHomeroom(ctx, "Synthetic Foreign Membership Room")
+	homeroom, err := foreignFactory.CreateHomeroom(ctx, year.ID, "Synthetic Foreign Membership Room")
 	if err != nil {
 		return err
 	}

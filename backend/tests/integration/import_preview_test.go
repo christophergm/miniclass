@@ -35,8 +35,13 @@ func TestImportPreviewUsesTenantReadAndClassifiesRepeatAndEdit(t *testing.T) {
 	year, err := schoolyear.New(harness.Database).Create(ctx, string(organizationID), actor, "2026–2027")
 	require.NoError(t, err)
 	roomExternalIdentifier := "room-1"
-	room, err := vocabulary.New(harness.Database).CreateHomeroom(ctx, string(organizationID), actor, "Synthetic Room", &roomExternalIdentifier)
+	room, err := vocabulary.New(harness.Database).CreateHomeroom(ctx, string(organizationID), year.ID, actor, "Synthetic Room", &roomExternalIdentifier)
 	require.NoError(t, err)
+	nextYear, err := schoolyear.New(harness.Database).Create(ctx, string(organizationID), actor, "2027–2028")
+	require.NoError(t, err)
+	nextYearRoom, err := vocabulary.New(harness.Database).CreateHomeroom(ctx, string(organizationID), nextYear.ID, actor, "Synthetic Room", &roomExternalIdentifier)
+	require.NoError(t, err)
+	require.NotEqual(t, room.ID, nextYearRoom.ID, "a classroom external identifier may recur in another school year")
 
 	adultExternalIdentifier := "adult-1"
 	studentExternalIdentifier := "student-1"
@@ -114,7 +119,7 @@ func TestImportPreviewGoldenCorpusAgainstDatabase(t *testing.T) {
 			continue
 		}
 		externalIdentifier := source.ClassroomExternalIdentifier
-		room, createErr := vocabularyService.CreateHomeroom(ctx, string(organizationID), actor, source.ClassroomLabel, &externalIdentifier)
+		room, createErr := vocabularyService.CreateHomeroom(ctx, string(organizationID), year.ID, actor, source.ClassroomLabel, &externalIdentifier)
 		require.NoError(t, createErr)
 		homerooms[externalIdentifier] = room.ID
 	}
@@ -204,9 +209,9 @@ func TestGradesImportUpdatesExistingStudentsOnly(t *testing.T) {
 	actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "grades import integration test"}
 	year, err := schoolyear.New(harness.Database).Create(ctx, string(organizationID), actor, "2026–2027")
 	require.NoError(t, err)
-	homeroom, err := vocabulary.New(harness.Database).CreateHomeroom(ctx, string(organizationID), actor, "Grades Room", nil)
+	homeroom, err := vocabulary.New(harness.Database).CreateHomeroom(ctx, string(organizationID), year.ID, actor, "Grades Room", nil)
 	require.NoError(t, err)
-	grade, err := vocabulary.New(harness.Database).CreateGrade(ctx, string(organizationID), actor, "4", "Fourth Grade")
+	grade, err := vocabulary.New(harness.Database).CreateGrade(ctx, string(organizationID), year.ID, actor, "4", "Fourth Grade")
 	require.NoError(t, err)
 	preferred := "Katie"
 	peopleService := people.New(harness.Database)

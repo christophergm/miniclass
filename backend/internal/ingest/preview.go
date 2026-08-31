@@ -145,11 +145,11 @@ func loadCurrentState(ctx context.Context, tx *data.Tx, year data.SchoolYear) (C
 	if err != nil {
 		return CurrentState{}, err
 	}
-	state.GradeLevels, err = tx.ListGradeLevels(ctx, false)
+	state.GradeLevels, err = tx.ListGradeLevels(ctx, year.ID, false)
 	if err != nil {
 		return CurrentState{}, err
 	}
-	state.Homerooms, err = tx.ListHomerooms(ctx, false)
+	state.Homerooms, err = tx.ListHomerooms(ctx, year.ID, false)
 	if err != nil {
 		return CurrentState{}, err
 	}
@@ -460,7 +460,7 @@ func resolveHomeroom(source roster.Student, homerooms map[string][]data.Homeroom
 	}
 	matches := homerooms[externalID]
 	if len(matches) == 0 {
-		return "", fmt.Sprintf("student source id %q has an unresolved classroom: source id %q, label %q; create it in vocabulary settings before previewing again", source.SourceExternalIdentifier, externalID, source.ClassroomLabel)
+		return "", fmt.Sprintf("student source id %q has an unresolved classroom: source id %q, label %q; create it in this school year's vocabulary before previewing again", source.SourceExternalIdentifier, externalID, source.ClassroomLabel)
 	}
 	if len(matches) > 1 {
 		return "", fmt.Sprintf("student source id %q has an ambiguous classroom external identifier %q", source.SourceExternalIdentifier, externalID)

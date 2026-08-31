@@ -32,11 +32,11 @@ func createStudent(ctx context.Context, harness *testharness.Harness, organizati
 	if err != nil {
 		return "", err
 	}
-	grade, err := factory.CreateGradeLevel(ctx, "synthetic", "Synthetic Grade")
+	grade, err := factory.CreateGradeLevel(ctx, year.ID, "synthetic", "Synthetic Grade")
 	if err != nil {
 		return "", err
 	}
-	homeroom, err := factory.CreateHomeroom(ctx, "Synthetic Homeroom")
+	homeroom, err := factory.CreateHomeroom(ctx, year.ID, "Synthetic Homeroom")
 	if err != nil {
 		return "", err
 	}

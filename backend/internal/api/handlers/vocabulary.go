@@ -18,14 +18,14 @@ import (
 )
 
 type VocabularyService interface {
-	List(context.Context, string, bool) (vocabulary.Snapshot, error)
-	GetGrade(context.Context, string, ids.XID) (data.GradeLevel, error)
-	CreateGrade(context.Context, string, audit.Actor, string, string) (data.GradeLevel, error)
-	UpdateGrade(context.Context, string, ids.XID, audit.Actor, vocabulary.GradeLevelUpdate) (data.GradeLevel, error)
-	ReorderGrades(context.Context, string, audit.Actor, []ids.XID) ([]data.GradeLevel, error)
-	GetHomeroom(context.Context, string, ids.XID) (data.Homeroom, error)
-	CreateHomeroom(context.Context, string, audit.Actor, string, *string) (data.Homeroom, error)
-	UpdateHomeroom(context.Context, string, ids.XID, audit.Actor, vocabulary.HomeroomUpdate) (data.Homeroom, error)
+	List(context.Context, string, ids.XID, bool) (vocabulary.Snapshot, error)
+	GetGrade(context.Context, string, ids.XID, ids.XID) (data.GradeLevel, error)
+	CreateGrade(context.Context, string, ids.XID, audit.Actor, string, string) (data.GradeLevel, error)
+	UpdateGrade(context.Context, string, ids.XID, ids.XID, audit.Actor, vocabulary.GradeLevelUpdate) (data.GradeLevel, error)
+	ReorderGrades(context.Context, string, ids.XID, audit.Actor, []ids.XID) ([]data.GradeLevel, error)
+	GetHomeroom(context.Context, string, ids.XID, ids.XID) (data.Homeroom, error)
+	CreateHomeroom(context.Context, string, ids.XID, audit.Actor, string, *string) (data.Homeroom, error)
+	UpdateHomeroom(context.Context, string, ids.XID, ids.XID, audit.Actor, vocabulary.HomeroomUpdate) (data.Homeroom, error)
 	UpdateHomeroomLabel(context.Context, string, audit.Actor, string) (data.VocabularySettings, error)
 }
 
@@ -38,7 +38,8 @@ func NewVocabularyHandler(service VocabularyService) *VocabularyHandler {
 }
 
 type VocabularyListInput struct {
-	IncludeRetired bool `query:"include_retired" doc:"Include retired entries for administration; picker callers should omit this."`
+	SchoolYearID   string `path:"schoolYearID" minLength:"1" doc:"Opaque school-year identifier."`
+	IncludeRetired bool   `query:"include_retired" doc:"Include retired entries for administration; picker callers should omit this."`
 }
 
 type VocabularyListOutput struct {
@@ -54,26 +55,26 @@ type HomeroomListOutput struct {
 }
 
 type VocabularyResponse struct {
-	OrganizationID string             `json:"organization_id" doc:"Opaque organization identifier."`
-	HomeroomLabel  string             `json:"homeroom_label" doc:"Configured label for a homeroom."`
-	GradeLevels    []GradeLevelOutput `json:"grade_levels"`
-	Homerooms      []HomeroomOutput   `json:"homerooms"`
+	SchoolYearID  string             `json:"school_year_id" doc:"Opaque school-year identifier."`
+	HomeroomLabel string             `json:"homeroom_label" doc:"Configured label for a homeroom."`
+	GradeLevels   []GradeLevelOutput `json:"grade_levels"`
+	Homerooms     []HomeroomOutput   `json:"homerooms"`
 }
 
 type GradeLevelOutput struct {
-	ID             string     `json:"id" doc:"Opaque grade-level identifier."`
-	OrganizationID string     `json:"organization_id" doc:"Opaque organization identifier."`
-	Code           string     `json:"code"`
-	Label          string     `json:"label"`
-	Ordinal        int        `json:"ordinal" doc:"Explicit ordering value; never inferred from code or label."`
-	RetiredAt      *time.Time `json:"retired_at,omitempty"`
-	CreatedAt      time.Time  `json:"created_at"`
-	UpdatedAt      time.Time  `json:"updated_at"`
+	ID           string     `json:"id" doc:"Opaque grade-level identifier."`
+	SchoolYearID string     `json:"school_year_id" doc:"Opaque school-year identifier."`
+	Code         string     `json:"code"`
+	Label        string     `json:"label"`
+	Ordinal      int        `json:"ordinal" doc:"Explicit ordering value; never inferred from code or label."`
+	RetiredAt    *time.Time `json:"retired_at,omitempty"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
 }
 
 type HomeroomOutput struct {
 	ID                 string     `json:"id" doc:"Opaque homeroom identifier."`
-	OrganizationID     string     `json:"organization_id" doc:"Opaque organization identifier."`
+	SchoolYearID       string     `json:"school_year_id" doc:"Opaque school-year identifier."`
 	Name               string     `json:"name"`
 	ExternalIdentifier *string    `json:"external_identifier" nullable:"true"`
 	RetiredAt          *time.Time `json:"retired_at,omitempty"`
@@ -82,25 +83,29 @@ type HomeroomOutput struct {
 }
 
 type GradeLevelPathInput struct {
+	SchoolYearID string `path:"schoolYearID" minLength:"1" doc:"Opaque school-year identifier."`
 	GradeLevelID string `path:"gradeLevelID" minLength:"1" doc:"Opaque grade-level identifier."`
 }
 
 type HomeroomPathInput struct {
-	HomeroomID string `path:"homeroomID" minLength:"1" doc:"Opaque homeroom identifier."`
+	SchoolYearID string `path:"schoolYearID" minLength:"1" doc:"Opaque school-year identifier."`
+	HomeroomID   string `path:"homeroomID" minLength:"1" doc:"Opaque homeroom identifier."`
 }
 
 type GradeLevelItemOutput struct{ Body GradeLevelOutput }
 type HomeroomItemOutput struct{ Body HomeroomOutput }
 
 type CreateGradeLevelInput struct {
-	Body struct {
+	SchoolYearID string `path:"schoolYearID" minLength:"1" doc:"Opaque school-year identifier."`
+	Body         struct {
 		Code  string `json:"code" minLength:"1"`
 		Label string `json:"label" minLength:"1"`
 	}
 }
 
 type CreateHomeroomInput struct {
-	Body struct {
+	SchoolYearID string `path:"schoolYearID" minLength:"1" doc:"Opaque school-year identifier."`
+	Body         struct {
 		Name               string  `json:"name" minLength:"1"`
 		ExternalIdentifier *string `json:"external_identifier,omitempty" nullable:"true"`
 	}
@@ -125,7 +130,8 @@ type UpdateHomeroomInput struct {
 }
 
 type ReorderGradeLevelsInput struct {
-	Body struct {
+	SchoolYearID string `path:"schoolYearID" minLength:"1" doc:"Opaque school-year identifier."`
+	Body         struct {
 		IDs []string `json:"ids" minItems:"1" doc:"Every grade-level ID in its new ordinal order."`
 	}
 }
@@ -156,7 +162,10 @@ func (h *VocabularyHandler) List(ctx context.Context, input *VocabularyListInput
 		return nil, vocabularyProblem(errors.New("vocabulary service is not configured"))
 	}
 	includeRetired := input != nil && input.IncludeRetired
-	snapshot, err := h.service.List(ctx, string(account.OrganizationID), includeRetired)
+	if input == nil || strings.TrimSpace(input.SchoolYearID) == "" {
+		return nil, problems.New(http.StatusNotFound, problems.ResourceNotFound, "school year not found")
+	}
+	snapshot, err := h.service.List(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), includeRetired)
 	if err != nil {
 		return nil, vocabularyProblem(err)
 	}
@@ -171,8 +180,11 @@ func (h *VocabularyHandler) ListGrades(ctx context.Context, input *VocabularyLis
 	if h == nil || h.service == nil {
 		return nil, vocabularyProblem(errors.New("vocabulary service is not configured"))
 	}
-	includeRetired := input != nil && input.IncludeRetired
-	snapshot, err := h.service.List(ctx, string(account.OrganizationID), includeRetired)
+	if input == nil || strings.TrimSpace(input.SchoolYearID) == "" {
+		return nil, problems.New(http.StatusNotFound, problems.ResourceNotFound, "school year not found")
+	}
+	includeRetired := input.IncludeRetired
+	snapshot, err := h.service.List(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), includeRetired)
 	if err != nil {
 		return nil, vocabularyProblem(err)
 	}
@@ -191,8 +203,11 @@ func (h *VocabularyHandler) ListHomerooms(ctx context.Context, input *Vocabulary
 	if h == nil || h.service == nil {
 		return nil, vocabularyProblem(errors.New("vocabulary service is not configured"))
 	}
-	includeRetired := input != nil && input.IncludeRetired
-	snapshot, err := h.service.List(ctx, string(account.OrganizationID), includeRetired)
+	if input == nil || strings.TrimSpace(input.SchoolYearID) == "" {
+		return nil, problems.New(http.StatusNotFound, problems.ResourceNotFound, "school year not found")
+	}
+	includeRetired := input.IncludeRetired
+	snapshot, err := h.service.List(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), includeRetired)
 	if err != nil {
 		return nil, vocabularyProblem(err)
 	}
@@ -208,10 +223,10 @@ func (h *VocabularyHandler) GetGrade(ctx context.Context, input *GradeLevelPathI
 	if err != nil {
 		return nil, err
 	}
-	if h == nil || h.service == nil || input == nil || strings.TrimSpace(input.GradeLevelID) == "" {
+	if h == nil || h.service == nil || input == nil || strings.TrimSpace(input.SchoolYearID) == "" || strings.TrimSpace(input.GradeLevelID) == "" {
 		return nil, problems.New(http.StatusNotFound, problems.ResourceNotFound, "grade level not found")
 	}
-	row, err := h.service.GetGrade(ctx, string(account.OrganizationID), ids.XID(input.GradeLevelID))
+	row, err := h.service.GetGrade(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), ids.XID(input.GradeLevelID))
 	if err != nil {
 		return nil, vocabularyProblem(err)
 	}
@@ -229,7 +244,10 @@ func (h *VocabularyHandler) CreateGrade(ctx context.Context, input *CreateGradeL
 	if input == nil {
 		return nil, problems.New(http.StatusBadRequest, problems.ResourceNotFound, "grade-level body is required")
 	}
-	row, err := h.service.CreateGrade(ctx, string(account.OrganizationID), vocabularyActor(account), input.Body.Code, input.Body.Label)
+	if strings.TrimSpace(input.SchoolYearID) == "" {
+		return nil, problems.New(http.StatusNotFound, problems.ResourceNotFound, "school year not found")
+	}
+	row, err := h.service.CreateGrade(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), vocabularyActor(account), input.Body.Code, input.Body.Label)
 	if err != nil {
 		return nil, vocabularyProblem(err)
 	}
@@ -241,10 +259,10 @@ func (h *VocabularyHandler) UpdateGrade(ctx context.Context, input *UpdateGradeL
 	if err != nil {
 		return nil, err
 	}
-	if h == nil || h.service == nil || input == nil || strings.TrimSpace(input.GradeLevelID) == "" {
+	if h == nil || h.service == nil || input == nil || strings.TrimSpace(input.SchoolYearID) == "" || strings.TrimSpace(input.GradeLevelID) == "" {
 		return nil, problems.New(http.StatusNotFound, problems.ResourceNotFound, "grade level not found")
 	}
-	row, err := h.service.UpdateGrade(ctx, string(account.OrganizationID), ids.XID(input.GradeLevelID), vocabularyActor(account), vocabulary.GradeLevelUpdate{
+	row, err := h.service.UpdateGrade(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), ids.XID(input.GradeLevelID), vocabularyActor(account), vocabulary.GradeLevelUpdate{
 		Code: input.Body.Code, Label: input.Body.Label, Retired: input.Body.Retired,
 	})
 	if err != nil {
@@ -258,14 +276,14 @@ func (h *VocabularyHandler) ReorderGrades(ctx context.Context, input *ReorderGra
 	if err != nil {
 		return nil, err
 	}
-	if h == nil || h.service == nil || input == nil {
+	if h == nil || h.service == nil || input == nil || strings.TrimSpace(input.SchoolYearID) == "" {
 		return nil, problems.New(http.StatusBadRequest, problems.ResourceNotFound, "grade-level order is required")
 	}
 	ordered := make([]ids.XID, 0, len(input.Body.IDs))
 	for _, id := range input.Body.IDs {
 		ordered = append(ordered, ids.XID(strings.TrimSpace(id)))
 	}
-	rows, err := h.service.ReorderGrades(ctx, string(account.OrganizationID), vocabularyActor(account), ordered)
+	rows, err := h.service.ReorderGrades(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), vocabularyActor(account), ordered)
 	if err != nil {
 		return nil, vocabularyProblem(err)
 	}
@@ -281,10 +299,10 @@ func (h *VocabularyHandler) GetHomeroom(ctx context.Context, input *HomeroomPath
 	if err != nil {
 		return nil, err
 	}
-	if h == nil || h.service == nil || input == nil || strings.TrimSpace(input.HomeroomID) == "" {
+	if h == nil || h.service == nil || input == nil || strings.TrimSpace(input.SchoolYearID) == "" || strings.TrimSpace(input.HomeroomID) == "" {
 		return nil, problems.New(http.StatusNotFound, problems.ResourceNotFound, "homeroom not found")
 	}
-	row, err := h.service.GetHomeroom(ctx, string(account.OrganizationID), ids.XID(input.HomeroomID))
+	row, err := h.service.GetHomeroom(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), ids.XID(input.HomeroomID))
 	if err != nil {
 		return nil, vocabularyProblem(err)
 	}
@@ -296,10 +314,16 @@ func (h *VocabularyHandler) CreateHomeroom(ctx context.Context, input *CreateHom
 	if err != nil {
 		return nil, err
 	}
-	if h == nil || h.service == nil || input == nil {
+	if h == nil || h.service == nil {
+		return nil, vocabularyProblem(errors.New("vocabulary service is not configured"))
+	}
+	if input == nil {
 		return nil, problems.New(http.StatusBadRequest, problems.ResourceNotFound, "homeroom body is required")
 	}
-	row, err := h.service.CreateHomeroom(ctx, string(account.OrganizationID), vocabularyActor(account), input.Body.Name, input.Body.ExternalIdentifier)
+	if strings.TrimSpace(input.SchoolYearID) == "" {
+		return nil, problems.New(http.StatusNotFound, problems.ResourceNotFound, "school year not found")
+	}
+	row, err := h.service.CreateHomeroom(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), vocabularyActor(account), input.Body.Name, input.Body.ExternalIdentifier)
 	if err != nil {
 		return nil, vocabularyProblem(err)
 	}
@@ -311,7 +335,7 @@ func (h *VocabularyHandler) UpdateHomeroom(ctx context.Context, input *UpdateHom
 	if err != nil {
 		return nil, err
 	}
-	if h == nil || h.service == nil || input == nil || strings.TrimSpace(input.HomeroomID) == "" {
+	if h == nil || h.service == nil || input == nil || strings.TrimSpace(input.SchoolYearID) == "" || strings.TrimSpace(input.HomeroomID) == "" {
 		return nil, problems.New(http.StatusNotFound, problems.ResourceNotFound, "homeroom not found")
 	}
 	var externalIdentifier **string
@@ -319,7 +343,7 @@ func (h *VocabularyHandler) UpdateHomeroom(ctx context.Context, input *UpdateHom
 		value := input.Body.ExternalIdentifier
 		externalIdentifier = &value
 	}
-	row, err := h.service.UpdateHomeroom(ctx, string(account.OrganizationID), ids.XID(input.HomeroomID), vocabularyActor(account), vocabulary.HomeroomUpdate{
+	row, err := h.service.UpdateHomeroom(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), ids.XID(input.HomeroomID), vocabularyActor(account), vocabulary.HomeroomUpdate{
 		Name: input.Body.Name, ExternalIdentifier: externalIdentifier, Retired: input.Body.Retired,
 	})
 	if err != nil {
@@ -364,7 +388,7 @@ func vocabularyActor(account auth.AccountPrincipal) audit.Actor {
 }
 
 func vocabularyResponse(snapshot vocabulary.Snapshot) VocabularyResponse {
-	response := VocabularyResponse{OrganizationID: string(snapshot.Settings.OrganizationID), HomeroomLabel: snapshot.Settings.HomeroomLabel}
+	response := VocabularyResponse{SchoolYearID: string(snapshot.SchoolYearID), HomeroomLabel: snapshot.Settings.HomeroomLabel}
 	response.GradeLevels = make([]GradeLevelOutput, 0, len(snapshot.Grades))
 	for _, row := range snapshot.Grades {
 		response.GradeLevels = append(response.GradeLevels, gradeLevelResponse(row))
@@ -377,11 +401,11 @@ func vocabularyResponse(snapshot vocabulary.Snapshot) VocabularyResponse {
 }
 
 func gradeLevelResponse(row data.GradeLevel) GradeLevelOutput {
-	return GradeLevelOutput{ID: string(row.ID), OrganizationID: string(row.OrganizationID), Code: row.Code, Label: row.Label, Ordinal: row.Ordinal, RetiredAt: row.RetiredAt, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+	return GradeLevelOutput{ID: string(row.ID), SchoolYearID: string(row.SchoolYearID), Code: row.Code, Label: row.Label, Ordinal: row.Ordinal, RetiredAt: row.RetiredAt, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
 }
 
 func homeroomResponse(row data.Homeroom) HomeroomOutput {
-	return HomeroomOutput{ID: string(row.ID), OrganizationID: string(row.OrganizationID), Name: row.Name, ExternalIdentifier: row.ExternalIdentifier, RetiredAt: row.RetiredAt, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+	return HomeroomOutput{ID: string(row.ID), SchoolYearID: string(row.SchoolYearID), Name: row.Name, ExternalIdentifier: row.ExternalIdentifier, RetiredAt: row.RetiredAt, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
 }
 
 func vocabularyProblem(err error) error {
@@ -392,8 +416,10 @@ func vocabularyProblem(err error) error {
 		return problems.New(http.StatusConflict, problems.SchoolYearTransitionInvalid, err.Error())
 	case errors.Is(err, vocabulary.ErrInvalid):
 		return problems.New(http.StatusBadRequest, problems.SchoolYearTransitionInvalid, err.Error())
+	case data.IsSchoolYearClosed(err):
+		return problems.New(http.StatusConflict, problems.SchoolYearClosed, "the school year is closed and cannot be changed")
 	case isUniqueViolation(err):
-		return problems.New(http.StatusConflict, problems.HomeroomExternalIdentifierConflict, "the homeroom external identifier is already used in this organisation")
+		return problems.New(http.StatusConflict, problems.HomeroomExternalIdentifierConflict, "the homeroom external identifier is already used in this school year")
 	case strings.Contains(err.Error(), "is empty"), strings.Contains(err.Error(), "must be positive"):
 		return problems.New(http.StatusBadRequest, problems.SchoolYearTransitionInvalid, err.Error())
 	default:

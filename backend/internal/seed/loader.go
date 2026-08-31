@@ -156,7 +156,7 @@ func Load(ctx context.Context, database *data.DB, options Options) (Result, erro
 
 	gradeIDs := make([]string, len(corpus.Grades))
 	for index, grade := range corpus.Grades {
-		row, err := factory.CreateGradeLevel(ctx, "grade-"+grade, "Grade "+grade)
+		row, err := factory.CreateGradeLevel(ctx, year.ID, "grade-"+grade, "Grade "+grade)
 		if err != nil {
 			return Result{}, fmt.Errorf("seed: create grade %s: %w", grade, err)
 		}
@@ -164,7 +164,7 @@ func Load(ctx context.Context, database *data.DB, options Options) (Result, erro
 	}
 	homeroomIDs := make([]string, len(corpus.Homerooms))
 	for index, name := range corpus.Homerooms {
-		row, err := factory.CreateHomeroom(ctx, name)
+		row, err := factory.CreateHomeroom(ctx, year.ID, name)
 		if err != nil {
 			return Result{}, fmt.Errorf("seed: create homeroom %s: %w", name, err)
 		}
