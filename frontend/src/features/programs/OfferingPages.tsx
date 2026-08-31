@@ -13,7 +13,7 @@ function PageFrame({ children }: { children: ReactNode }) { return <main classNa
 function Card({ children, title, description }: { children: ReactNode; title: string; description?: string }) { return <section className="mt-6 rounded-lg border bg-card p-5 shadow-sm"><h2 className="font-semibold">{title}</h2>{description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}{children}</section> }
 function ReadOnlyNotice() { return <section className="mt-6 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950" role="status"><h2 className="font-semibold">Read-only history</h2><p className="mt-1">This school year is closed. You can review the authoring record, but mutations are disabled.</p></section> }
 
-export function offeringPath(schoolYearId: string, programId: string, sessionId: string, offeringId?: string) { return `/y/${schoolYearId}/programs/${programId}/sessions/${sessionId}/offerings/${offeringId ? `${offeringId}/edit` : 'new'}` }
+function offeringPath(schoolYearId: string, programId: string, sessionId: string, offeringId?: string) { return `/y/${schoolYearId}/programs/${programId}/sessions/${sessionId}/offerings/${offeringId ? `${offeringId}/edit` : 'new'}` }
 
 export function OfferingSummary({ readOnly, schoolYearId, programId, sessionId, grades }: { readOnly: boolean; schoolYearId: string; programId: string; sessionId: string; grades: ReturnType<typeof activeGradeLevels> }) {
   const offerings = useOfferings(schoolYearId, programId, sessionId)
