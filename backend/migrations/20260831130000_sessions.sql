@@ -53,7 +53,7 @@ create index meeting_dates_session_idx on meeting_dates (organization_id, school
 -- Deferring this check until commit preserves that atomic write while keeping
 -- the one-or-more meeting-date invariant true for direct database writers.
 -- +goose StatementBegin
-create function public.require_session_meeting_date() returns trigger language plpgsql as
+create or replace function public.require_session_meeting_date() returns trigger language plpgsql as
 $$
 begin
     if exists (select 1 from sessions where id = new.id)
