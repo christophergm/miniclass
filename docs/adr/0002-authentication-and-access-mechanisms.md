@@ -13,16 +13,19 @@
 
 ## Context
 
-SPEC §9.3 requires **four deliberately unequal** authentication mechanisms:
+SPEC §9.3 requires deliberately unequal authentication mechanisms. The original household terminology in
+this record was superseded when ADR 0012 removed the household entity; ADR 0013 resolves the remaining
+Phase 4 adult and student access questions:
 
 | Principal | Mechanism | Scope |
 |---|---|---|
 | Owner, Administrator, Coordinator | Account with credential, renewable session | Organisation |
-| Household | Emailed magic link | Household, submission window |
+| Guardian | Application-owned email OTP followed by a bounded session | Current guardian relationships |
+| Student | Application-owned high-entropy survey/session code | One student and one instrument |
 | Class leader, Homeroom teacher | Tokenised link | Named objects, session |
 | Public reader | Unauthenticated share link | One artifact, one session, expiring |
 
-Only administrators have passwords. The specification is explicit that this inequality is
+Only administrative users have accounts. The specification is explicit that this inequality is
 intentional: "obscurity is the only access control here" for share links, and the design accepts that
 in exchange for a workflow that parents and volunteers will actually complete.
 
@@ -44,32 +47,35 @@ which maps three unequal mechanisms onto one and understates the problem.
    subject onto an application user carrying an organisation and one of `Owner`, `Administrator`,
    `Coordinator`. Supabase is an identity provider only; it is not consulted for authorization.
 
-2. **The three link mechanisms are owned by this application**, in PostgreSQL, as a single
-   `access_token` concept with a discriminated purpose:
+2. **Non-administrative scoped access is owned by this application**, in PostgreSQL, as application
+   verifiers and a single `access_token` concept with discriminated purposes:
 
    - opaque high-entropy random token, stored hashed, never derived from any identifier;
-   - a purpose (`household_submission`, `class_leader`, `homeroom_teacher`, `published_artifact`);
+   - a purpose (`guardian_submission`, `student_code`, `class_leader`, `homeroom_teacher`,
+     `published_artifact`);
    - the exact object set the token authorizes;
    - an expiry, a revoked-at, and a generation counter so regeneration invalidates the prior URL;
-   - single-purpose and non-reusable outside its window, per §9.3.
+   - single-purpose and non-reusable outside its window, per §9.3. OTP verifiers follow the same
+     single-use and expiry requirements but are not an identity or a bearer grant to administration.
 
 3. **Authorization is always the application's own**, evaluated server-side on every request, after
    the tenancy guard has run. No principal — including an administrator — reaches data through a
    path that bypasses the guard.
 
-4. **Persona separation is enforced**, per §6.3: the household view and the class-leader view never
-   merge, even when the same person holds both. A household link yields the household view and
-   nothing else.
+4. **Persona separation is enforced**, per §6.3 and ADR 0013: the guardian, student, class-leader,
+   homeroom-teacher, and public-reader views never merge, even when the same adult holds more than one
+   access path. A guardian session yields guardian data only, and a student code yields one student's
+   instrument only.
 
 ## Alternatives considered
 
-**Supabase Auth for everything, including households.** Rejected. Supabase magic links authenticate
-an *email address into an account*; SPEC requires a link scoped to a *household's submission window*
-for a *specific session*, single-purpose, non-reusable afterwards, and independently revocable. It
-would also create accounts for ~90 households that the specification deliberately avoids, and it
-cannot express the class-leader or public-share cases at all.
+**Supabase Auth for everything, including guardians.** Rejected. Supabase magic links authenticate
+an *email address into an account*; SPEC requires guardian OTP access scoped to an adult's current
+relationships, a bounded session, and no account creation. It would also make email possession enough
+to enter a surface containing child data, and it cannot express the student-code, class-leader or
+public-share cases with their independent scopes.
 
-**Drop Supabase Auth and own all four mechanisms.** Genuinely attractive: there are three
+**Drop Supabase Auth and own all administrator authentication.** Genuinely attractive: there are three
 administrator accounts, the token machinery is being built regardless, and §5.7 prefers the direct
 approach. Rejected for now on the operator's judgement that other Supabase capabilities may be
 adopted later. Should be revisited at R3 if Supabase is still doing nothing but authenticating three
@@ -89,5 +95,5 @@ into the token, which §9.5 forbids.
 - Tokens are stored hashed, so a database disclosure does not yield working links.
 - Supabase is a hard external dependency of the administrative surface. Published artifacts must not
   inherit that dependency; see [ADR 0005](./0005-published-artifact-availability.md).
-- Whether a household link addresses a *household* or an *individual adult* is not settled by this
-  record. See [ADR 0006](./0006-household-and-volunteer-access.md).
+- Guardian scope is addressed to an individual adult and derived from guardian relationships, not a
+  household entity; see [ADR 0012](./0012-remove-the-household-entity.md) and [ADR 0013](./0013-guardian-and-volunteer-access.md).

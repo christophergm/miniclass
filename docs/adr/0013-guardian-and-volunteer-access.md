@@ -29,6 +29,19 @@ account. The account-to-adult link is explicit and uses opaque identifiers. Matc
 suggest a link but must never create one silently. Distinct adult records must not share an email for
 OTP access; duplicates require resolution. Changing an email does not change the identity link.
 
+The resolved principal is a security value, not a UI persona label. The implementation must preserve
+these distinctions:
+
+| Principal | Proof | Maximum preference scope |
+|---|---|---|
+| Guardian session | Single-use email OTP | The adult's current guardian relationships |
+| Student-code principal | Hashed, instrument-bound code | One student and one survey or session |
+| Administrative account | Linked account identity plus MFA | Organization capabilities, including selected administrator-on-behalf targets |
+
+Guardian, student-code, and link principals never inherit account capabilities. An account-to-adult
+link is an explicit opaque-ID relationship; a matching email may suggest a link for an organizer to
+review, but cannot create or widen one.
+
 The application presents separate modes:
 
 - **Guardian mode** shows only the adult's current guardian-scoped students and their open preference
@@ -50,11 +63,22 @@ Administrative access uses the existing account identity provider and requires m
 uses single-use recovery codes or an explicit, audited Owner-assisted reset; email OTP alone is not an
 administrative MFA fallback. Administrative sessions are invalidated after an MFA reset.
 
+OTP challenges are short-lived, single-use, rate-limited, and stored only as verifiers. Successful
+guardian authentication creates a bounded, revocable session with an absolute and idle expiry. The
+session is renewable only while valid and never stores a permanent student list: current guardian
+relationships are resolved on every request. An MFA reset or Owner-assisted reset invalidates all
+active administrative sessions and prior recovery codes, and records the actor, target, time, and
+reason in the audit log.
+
 Transactional email for OTP delivery is in scope. Bulk and workflow notifications remain out of scope,
 including emailing student codes, survey invitations, reminders, or follow-ups.
 
 An adult without an email is unreachable for self-service preference submission. The student remains
 eligible and appears in response tracking; an administrator can submit on the student's behalf.
+
+Duplicate email addresses are an unresolved ambiguity, not a shared guardian scope. OTP access is not
+issued for an ambiguous email until an organizer resolves the adult records. A missing email is
+represented as unreachable, not as an invitation to infer an identity from names or other attributes.
 
 ### Student survey access
 
@@ -63,6 +87,8 @@ and revise their own response:
 
 - one code is bound to one student and one interest-profile survey or ranked-choice session;
 - the code is stored hashed, regenerable, revocable, and valid only while its instrument is open;
+- the code is a non-account student-code principal and grants no access to another student, instrument,
+  placement, guardian record, or administration surface;
 - codes are generated when the instrument opens from its frozen audience;
 - an organizer-only list presents codes grouped by homeroom in a print-friendly view;
 - code-list view/print is not audited, but generation and regeneration are audited;
@@ -71,6 +97,13 @@ and revise their own response:
 Interest-profile surveys and ranked-choice responses use the same narrow respondent pattern but remain
 separate domain concepts. Interest surveys have administrator-configured windows. Ranked-choice access
 follows the session voting window and stops at its configured deadline before assignment.
+
+Every submission retains the target student, acting principal, access channel, and timestamp. An
+administrator-on-behalf submission additionally records the acting administrator and selected target
+student as separate identifiers. Authorization tests must demonstrate that another tenant, another
+student, and another instrument are each denied even when the caller knows a valid opaque ID. All
+tenant-scoped reads and writes follow ADRs 0007 and 0008: reads use the tenant read path, writes use
+the audited tenant unit of work, and no unaudited write commits.
 
 ### Volunteer and artifact access
 

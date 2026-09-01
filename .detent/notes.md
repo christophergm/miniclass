@@ -188,3 +188,24 @@
 - Repository state: commits `f6fd5b3` and `092c830` are pushed to PR #179, which references `Fixes #175`, is open, non-draft, clean, and has no actionable reviews or comments. The final head is `092c830`.
 - Open items: none; Detent owns the completion-lane transition.
 - Skill draft: no — this is a focused frontend routing change with no broadly reusable procedure discovered.
+
+## Current work — issue #183
+
+- Scope: define the Phase 4 principal, capability, session, authentication, recovery, attribution, and
+  authorization contract per SPEC §§6.2, 6.5–6.6, 9.3–9.4, 13.8 and ADRs 0002/0008/0013.
+- Implementation: clarified administrative-account versus scoped non-account principals; explicit
+  guardian/student-code boundaries; current relationship-derived scope; OTP/session bounds and
+  revocation; MFA recovery/reset invalidation; mode reauthentication; duplicate/no-email behavior;
+  administrator-on-behalf attribution; tenant/audit transaction obligations; and security-test coverage.
+  Removed stale household wording from ADR 0002 and fixed the malformed guardian sentence in SPEC.
+- Key files: `SPEC.md`, `docs/adr/0002-authentication-and-access-mechanisms.md`, and
+  `docs/adr/0013-guardian-and-volunteer-access.md`.
+- Validation: local `make format`, `make lint-backend`, `make generate`, and `git diff --check` pass;
+  generated artifacts are unchanged. Root `make check` stops before gates because Docker reports all
+  predefined address pools exhausted. PR #192 head `d6344e4` passes all ten required checks; PR CI took
+  111s, with Backend tests 108s, Generated code drift/Developer tooling 91s, and Backend lint 86s.
+- Open items: none; PR #192 is open, non-draft, merge-clean, references `Fixes #183`, and has no
+  actionable review comments. Quiet-window wait 0s; local merge-gate duration under 1s; no post-merge
+  main CI applies while the PR is open. Detent owns the completion-lane transition.
+- Skill draft: no — this is a one-off contract clarification using existing ADR/spec conventions; no
+  broadly reusable procedure was discovered.
