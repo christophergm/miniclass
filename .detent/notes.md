@@ -200,9 +200,12 @@
   Removed stale household wording from ADR 0002 and fixed the malformed guardian sentence in SPEC.
 - Key files: `SPEC.md`, `docs/adr/0002-authentication-and-access-mechanisms.md`, and
   `docs/adr/0013-guardian-and-volunteer-access.md`.
-- Validation: `git diff --check` passes; full repository checks and PR CI remain to be run after commit
-  and push. No dependency blocker or human action declared.
-- Open items: inspect final diff, run applicable gates, commit/push, open PR with `Fixes #183`, verify
-  current-head CI/review state, and update the Workpad completion status.
+- Validation: local `make format`, `make lint-backend`, `make generate`, and `git diff --check` pass;
+  generated artifacts are unchanged. Root `make check` stops before gates because Docker reports all
+  predefined address pools exhausted. PR #192 head `d6344e4` passes all ten required checks; PR CI took
+  111s, with Backend tests 108s, Generated code drift/Developer tooling 91s, and Backend lint 86s.
+- Open items: none; PR #192 is open, non-draft, merge-clean, references `Fixes #183`, and has no
+  actionable review comments. Quiet-window wait 0s; local merge-gate duration under 1s; no post-merge
+  main CI applies while the PR is open. Detent owns the completion-lane transition.
 - Skill draft: no — this is a one-off contract clarification using existing ADR/spec conventions; no
   broadly reusable procedure was discovered.
