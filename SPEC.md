@@ -523,7 +523,8 @@ diverge.
 
 ## 6. Personas and Roles
 
-Five human roles interact with the system. Only one of them has an account.
+Five persona categories interact with the system. Administrative users have accounts; the other
+personas use narrow, scoped access proofs rather than accounts.
 
 ### 6.1 Program organizer / administrator
 
@@ -538,12 +539,12 @@ multiple administrators per organization, and SHOULD support distinguishing thei
 
 ### 6.2 Guardian
 
-An adult with a recorded relationship to one or more students (§8.2). Submits preference information
-and views their students' placements. Authenticating by email OTP provides guardian access; an adult
-who also has administrative capabilities may step up to administration (§9.3).
+An adult with a recorded relationship to one or more students (§8.2). Guardian is a scoped capability,
+not a separate account: email OTP provides guardian access, while an adult who also has an explicitly
+linked administrative account may step up to administration (§9.3).
 
 The authenticated guardian view shows **that adult's own information only** — the students they are a
-their students' preferences and placements.
+guardian of, those students' preferences and placements.
 It MUST NOT show class rosters, another adult's students, or any program-wide view.
 
 Scope is derived from the guardian relationships in force at the moment of the request, not from any
@@ -579,9 +580,9 @@ goes where. Six people in the reference program, using it weekly for two minutes
 ### 6.5 Student
 
 The subject of every placement and the author of the preferences that drive it, but not an account
-user in v1. A student may use a survey-scoped invite code to submit their own interest profile or ranked
-choices; the code grants no broader system access (§13.8). Preference records identify the student they
-describe and separately record who or what submitted them.
+user in v1. A student may use a survey-scoped access code as a non-account principal to submit their
+own interest profile or ranked choices; the code grants no broader system access (§13.8). Preference
+records identify the student they describe and separately record who or what submitted them.
 
 ### 6.6 Role and permission model
 
@@ -612,6 +613,16 @@ Minimum capability separation:
 `Coordinator` exists for the common real case: a second organizer who does substantive work on one
 program but should not be the person who publishes it or removes a family's data. Finer-grained
 permissions, including per-program scoping of administrators, are `Implementation-defined`.
+
+Capabilities are evaluated on the resolved principal, not inferred from a name, email address, or
+browser mode. Guardian, student-code, class-leader, homeroom-teacher, and public-reader principals
+never inherit account capabilities. In particular:
+
+- A guardian session may read and submit for only the adult's current guardian-scoped students.
+- A student-code principal may read and submit only for its one student and one bound instrument.
+- Administrator-on-behalf entry is an administrative capability, and the acting administrator and
+  target student remain distinct in the resulting record (§13.8).
+- A mode switch changes the surface presented; it never broadens the principal's server-side grants.
 
 ## 7. System Overview
 
@@ -942,18 +953,35 @@ remembering to filter.
 
 ### 9.3 Authentication
 
-Four mechanisms, deliberately unequal, with one adult identity able to hold both guardian and administrator capabilities.
+Five mechanisms, deliberately unequal, with one adult identity able to hold both guardian and
+administrator capabilities. The proof, resulting session, and grants are distinct:
 
-| Principal | Mechanism | Lifetime |
+| Principal | Authentication proof | Session and minimum grant |
 |---|---|---|
-| Owner, Administrator, Coordinator | Account with credential and mandatory MFA | Session-based, renewable; step-up required for administration |
-| Guardian | Email OTP followed by a session token | Bounded, renewable session; guardian scope derived per request |
-| Class leader, Homeroom teacher | Tokenized link | Scoped to a session |
-| Public reader | Unauthenticated share link | Scoped to a session, expiring (§9.5) |
+| Owner, Administrator, Coordinator | Account credential plus mandatory MFA for administration | Renewable account session; account capabilities at organization scope |
+| Guardian | Short-lived, single-use email OTP | Bounded, revocable guardian session; current guardian scope derived per request |
+| Student | High-entropy survey/session access code | Instrument-bound principal for one student; no account or broader access |
+| Class leader, Homeroom teacher | Tokenized link | Link-scoped principal for named objects |
+| Public reader | Unauthenticated share link | Expiring, artifact-scoped access (§9.5) |
 
 Only administrators have administrative accounts. Guardian access does not create an account and uses
 email OTP: the code is short-lived and single-use, and the resulting session is bounded and revocable.
 Email OTP alone MUST NOT grant administrative access to PII; administration requires step-up MFA.
+
+Authentication and session requirements:
+
+- OTP challenges MUST be short-lived, single-use, rate-limited, and stored only as a verifier. A
+  successful challenge creates a revocable session; it does not create an account or permanently copy
+  the adult's student scope into the session.
+- Sessions MUST have an absolute bound and an idle bound, and MUST be invalidatable server-side.
+  Renewal MUST NOT restore a revoked session or an authorization that the current relationships no
+  longer grant.
+- Administrative MFA recovery uses single-use recovery codes or an explicit Owner-assisted reset.
+  Email OTP MUST NOT be an administrative MFA fallback. A reset invalidates all active administrative
+  sessions and prior recovery codes; the reset and its actor, target, time, and reason are audited.
+- Guardian mode, survey mode, and administration mode are separate server-authorized surfaces. Leaving
+  administration or returning to it from survey mode requires reauthentication with the required MFA;
+  a client-side mode flag is never an authorization decision.
 
 A guardian session MUST be scoped to the adult's current guardian relationships. It MUST NOT grant
 access to any other adult's data or reach a student that adult is not a guardian of. An adult who has
@@ -970,9 +998,19 @@ to administration. Survey mode MUST NOT expose administrative or program-wide da
   `Implementation-defined`.
 - Account-to-adult links MUST be explicit and identifier-based. Email matching may suggest a link but
   MUST NOT create one silently.
+- Authorization for a guardian request MUST resolve the adult's current relationships before loading
+  a student or response. A guardian request for a student outside that scope MUST fail the same way as
+  a missing student, including when the student is in the same organization.
 - Link-based principals are authorized for exactly the objects their link names — a class leader's
   token grants their offerings and nothing else, including no visibility of other offerings in the
   same session.
+- Every tenant-scoped write MUST use the tenant unit-of-work path and record an audit entry in the
+  same transaction, or declare an explicit `NoAuditRequired` reason. Reads MUST use the read-only
+  tenant path (§20.1; ADRs 0007 and 0008).
+- The security test suite MUST cover cross-tenant not-found behavior, cross-student guardian and
+  student-code denial, account-link scope, OTP single-use and expiry, MFA assurance and reset
+  invalidation, code regeneration/revocation, and audit attribution. These tests are required for a
+  new access path, not optional end-to-end coverage.
 
 ### 9.5 Share-link security model
 
@@ -1659,13 +1697,15 @@ Preference access is deliberately split by principal while using one underlying 
   session. The session shows only the adult's current guardian-scoped students and their open forms.
 - **Student access** uses a high-entropy code bound to one student and one survey or session. Codes are
   stored hashed, are regenerable and revocable, and are valid only while the bound instrument is open.
-  They grant access only to that student's response.
+  They grant access only to that student's response. The code is a student-code principal, not an
+  account or an adult identity.
 - **Administrator access** begins from the adult's linked administrative identity and requires step-up
-  MFA. An administrator can open a form for a selected student and submit on that student's behalf.
+  MFA. An administrator can open a form for a selected student and submit on that student's behalf;
+  the response records the acting administrator, target student, channel, and submission time.
 - An adult without an email is unreachable for self-service, but the student remains eligible and an
   administrator can submit on the student's behalf.
 - Distinct adult records MUST NOT share an email for OTP access. Duplicate emails are a warning that
-  requires resolution; the system MUST NOT silently merge their scopes.
+  requires resolution before OTP access is issued; the system MUST NOT silently merge their scopes.
 
 Interest-profile surveys and ranked choices have separate access grants. A survey may be configured
 with any practical response-window duration; ranked-choice access closes automatically at its session
