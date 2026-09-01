@@ -551,22 +551,28 @@ export function ProgramDetailPage() {
         title="Sessions"
         description="Sessions are ordered by first meeting date, then name. Add each meeting date in the session form."
       >
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          {(sessions.data ?? []).map((session) => (
-            <div className="rounded-md border p-4" key={session.id}>
-              <div className="flex items-start justify-between gap-3">
-                <Link
-                  className="min-w-0 flex-1 hover:text-primary"
-                  to={`/y/${schoolYearId}/programs/${programId}/sessions/${session.id}`}
-                >
-                  <h3 className="font-medium">{session.name}</h3>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {session.meeting_dates?.length ?? 0} meeting dates ·{" "}
-                    {(session.feasibility_warnings ?? []).length} warning
-                    {session.feasibility_warnings?.length === 1 ? "" : "s"}
-                  </p>
-                </Link>
-                <div className="flex shrink-0 gap-2">
+        <div className="mt-5 grid gap-3">
+          {(sessions.data ?? []).map((session) => {
+            const warningCount = (session.feasibility_warnings ?? []).length;
+            return (
+              <div className="rounded-md border p-4" key={session.id}>
+                <div className="grid gap-x-8 gap-y-3 sm:grid-cols-[repeat(3,minmax(0,1fr))_auto]">
+                  <Link
+                    className="min-w-0 hover:text-primary"
+                    to={`/y/${schoolYearId}/programs/${programId}/sessions/${session.id}`}
+                  >
+                    <h3 className="font-medium">{session.name}</h3>
+                  </Link>
+                  <div className="flex items-start">
+                    <span className="rounded-full bg-secondary px-2 py-1 text-xs">
+                      {stateLabel(session.state)}
+                    </span>
+                  </div>
+                  <ul className="min-w-0 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                    {(session.meeting_dates ?? []).map((date) => (
+                      <li key={date}>{date}</li>
+                    ))}
+                  </ul>
                   <Button
                     aria-label={`Edit ${session.name}`}
                     disabled={readOnly}
@@ -583,13 +589,15 @@ export function ProgramDetailPage() {
                   >
                     Edit
                   </Button>
-                  <span className="rounded-full bg-secondary px-2 py-1 text-xs">
-                    {stateLabel(session.state)}
-                  </span>
                 </div>
+                {warningCount > 0 && (
+                  <div className="mt-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                    {warningCount} warning{warningCount === 1 ? "" : "s"}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
         <Button
           className="mt-5"
