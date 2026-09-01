@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SchoolYear } from '@/lib/apiResources'
 import { renderWithQueryClient } from '@/test/queryClient'
 
-import { ProgramDetailPage, ProgramInterestAreasPage, ProgramListPage, ProgramMembershipPage, ProgramObjectiveWeightsPage, ProgramSettingsPage, SessionObjectiveWeightsPage, SessionPage } from './ProgramPages'
+import { ProgramDetailPage, ProgramInterestAreasPage, ProgramListPage, ProgramMembershipPage, ProgramObjectiveWeightsPage, ProgramSettingsPage, ProgramYearEntryPage, SessionObjectiveWeightsPage, SessionPage } from './ProgramPages'
 import { OfferingPage } from './OfferingPages'
 
 const mocks = vi.hoisted(() => ({
@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   programUpdate: vi.fn(),
   sessionUpdate: vi.fn(),
   reorderAreas: vi.fn(),
+  programs: [{ id: 'program-1', organization_id: 'org-1', school_year_id: 'year-1', name: 'Enrichment', created_at: '', updated_at: '' }],
 }))
 
 vi.mock('./usePrograms', () => {
@@ -26,7 +27,7 @@ vi.mock('./usePrograms', () => {
   return {
     useSession: vi.fn(() => ({ data: { id: 'session-1', organization_id: 'org-1', school_year_id: 'year-1', program_id: 'program-1', name: 'Autumn session', state: mocks.sessionState, draft_assignments_stale: false, meeting_dates: ['2026-10-02'], feasibility_warnings: [], created_at: '', updated_at: '' }, isLoading: false, isError: false, error: null })),
     useOffering: vi.fn(() => ({ data: mocks.offering, isLoading: false, isError: false, error: null })),
-    usePrograms: query([{ id: 'program-1', organization_id: 'org-1', school_year_id: 'year-1', name: 'Enrichment', created_at: '', updated_at: '' }]),
+    usePrograms: vi.fn(() => ({ data: mocks.programs, isLoading: false, isError: false, error: null })),
     useSessions: query([{ id: 'session-1', organization_id: 'org-1', school_year_id: 'year-1', program_id: 'program-1', name: 'Autumn session', ordinal: 1, state: 'planning', draft_assignments_stale: false, meeting_dates: ['2026-10-02'], feasibility_warnings: [], created_at: '', updated_at: '' }]),
     useMeetingDates: query([{ id: 'date-1', school_year_id: 'year-1', organization_id: 'org-1', program_id: 'program-1', session_id: 'session-1', meeting_date: '2026-10-02', created_at: '', updated_at: '' }]),
     useOfferings: query([{ id: 'offering-1', school_year_id: 'year-1', organization_id: 'org-1', program_id: 'program-1', session_id: 'session-1', name: 'Making', description: 'Build a project', capacity: 10, minimum_viable_enrollment: 2, min_grade_level_id: 'grade-1', max_grade_level_id: 'grade-1', location: 'Studio', meeting_point: 'Front desk', meeting_instructions: 'Ask for the key', interest_area_id: null, created_at: '', updated_at: '' }]),
@@ -51,6 +52,10 @@ vi.mock('@/lib/hooks/useVocabulary', () => ({ useVocabulary: vi.fn(() => ({ data
 vi.mock('@/features/people/roster-queries', () => ({ usePeople: vi.fn(() => ({ data: [], isLoading: false, isError: false, error: null })) }))
 
 const year = (state: SchoolYear['state']): SchoolYear => ({ id: 'year-1', organization_id: 'org-1', label: '2026–27', state, created_at: '', updated_at: '' })
+
+beforeEach(() => {
+  mocks.programs = [{ id: 'program-1', organization_id: 'org-1', school_year_id: 'year-1', name: 'Enrichment', created_at: '', updated_at: '' }]
+})
 
 function renderSession(currentYear = year('active')) {
   function ContextRoute() { return <Outlet context={currentYear} /> }
@@ -87,6 +92,10 @@ function renderProgramList(currentYear = year('active')) {
   return renderWithQueryClient(<MemoryRouter initialEntries={['/y/year-1/programs']}><Routes><Route element={<ContextRoute />} path="/y/:schoolYearId"><Route element={<ProgramListPage />} path="programs" /></Route></Routes></MemoryRouter>)
 }
 
+function renderProgramYearEntry() {
+  return renderWithQueryClient(<MemoryRouter initialEntries={['/y/year-1']}><Routes><Route path="/y/:schoolYearId"><Route element={<ProgramYearEntryPage />} index /><Route element={<p>Programs list</p>} path="programs" /><Route element={<p>Program detail</p>} path="programs/:programId" /></Route></Routes></MemoryRouter>)
+}
+
 function renderProgramObjectives(currentYear = year('active')) {
   function ContextRoute() { return <Outlet context={currentYear} /> }
   return renderWithQueryClient(<MemoryRouter initialEntries={['/y/year-1/programs/program-1/settings/assignment-planner']}><Routes><Route element={<ContextRoute />} path="/y/:schoolYearId"><Route element={<ProgramObjectiveWeightsPage />} path="programs/:programId/settings/assignment-planner" /></Route></Routes></MemoryRouter>)
@@ -111,6 +120,37 @@ describe('ProgramListPage', () => {
     renderProgramList(year('closed'))
 
     expect(screen.getByRole('button', { name: 'Create program' })).toBeDisabled()
+  })
+})
+
+describe('program year entry', () => {
+  it('routes a year with no programs to the complete Programs list', () => {
+    mocks.programs = []
+    renderProgramYearEntry()
+
+    expect(screen.getByText('Programs list')).toBeInTheDocument()
+  })
+
+  it('routes a year with one program to that program home', () => {
+    renderProgramYearEntry()
+
+    expect(screen.getByText('Program detail')).toBeInTheDocument()
+  })
+
+  it('routes a year with multiple programs to the complete Programs list', () => {
+    mocks.programs = [
+      ...mocks.programs,
+      { id: 'program-2', organization_id: 'org-1', school_year_id: 'year-1', name: 'Arts', created_at: '', updated_at: '' },
+    ]
+    renderProgramYearEntry()
+
+    expect(screen.getByText('Programs list')).toBeInTheDocument()
+  })
+
+  it('keeps the complete Programs list directly reachable', () => {
+    renderWithQueryClient(<MemoryRouter initialEntries={['/y/year-1/programs']}><Routes><Route path="/y/:schoolYearId/programs" element={<p>Programs list</p>} /></Routes></MemoryRouter>)
+
+    expect(screen.getByText('Programs list')).toBeInTheDocument()
   })
 })
 

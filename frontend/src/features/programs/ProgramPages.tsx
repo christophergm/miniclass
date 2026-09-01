@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
-import { Link, useOutletContext, useParams } from 'react-router-dom'
+import { Link, Navigate, useOutletContext, useParams } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -48,6 +48,18 @@ function MeetingDateDraftList({ dates, onChange }: { dates: string[]; onChange: 
 
 function SessionForm({ value, onChange, onSubmit, pending, error, submitLabel }: { value: SessionDraft; onChange: (value: SessionDraft) => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void; pending: boolean; error: unknown; submitLabel: string }) {
   return <form className="space-y-4" onSubmit={onSubmit}><label className="block text-sm font-medium">Session name<Input aria-label="Session name" className="mt-2" onChange={(event) => onChange({ ...value, name: event.target.value })} required value={value.name} /></label><div><p className="text-sm font-medium">Meeting dates</p><p className="mt-1 text-sm text-muted-foreground">Every offering meets on every date listed here.</p><div className="mt-2"><MeetingDateDraftList dates={value.meetingDates} onChange={(meetingDates) => onChange({ ...value, meetingDates })} /></div></div><Button disabled={pending || !value.name.trim() || value.meetingDates.length === 0 || value.meetingDates.some((date) => !date)} type="submit">{pending ? 'Saving…' : submitLabel}</Button>{error != null ? <Problem error={error} fallback="Unable to save the session." /> : null}</form>
+}
+
+export function ProgramYearEntryPage() {
+  const { schoolYearId } = useParams<{ schoolYearId: string }>()
+  const programs = usePrograms(schoolYearId)
+
+  if (!schoolYearId) return <PageFrame><p>School year is required.</p></PageFrame>
+  if (programs.isLoading) return <PageFrame><p className="text-sm text-muted-foreground" role="status">Loading programs…</p></PageFrame>
+  if (programs.isError) return <PageFrame><Problem error={programs.error} fallback="Unable to load programs." /></PageFrame>
+
+  const program = programs.data?.length === 1 ? programs.data[0] : undefined
+  return <Navigate replace to={program ? `/y/${schoolYearId}/programs/${program.id}` : `/y/${schoolYearId}/programs`} />
 }
 
 export function ProgramListPage() {
