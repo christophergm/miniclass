@@ -1,6 +1,6 @@
-import { Link } from 'react-router-dom'
+import { Link } from "react-router-dom";
 
-import { Button } from '@/components/ui/button'
+import { Button } from "@/components/ui/button";
 
 // The top-level catch-all. It used to render SchoolYearNotFound, so every
 // unmatched URL — including a claim link whose shape the router did not accept —
@@ -19,7 +19,9 @@ export function NotFoundPage() {
         That address does not match anything in MiniClass. If you followed an invitation link, check
         that it was copied in full.
       </p>
-      <Button className="mt-6" asChild><Link to="/">Back to MiniClass</Link></Button>
+      <Button className="mt-6" asChild>
+        <Link to="/">Back to MiniClass</Link>
+      </Button>
     </main>
-  )
+  );
 }

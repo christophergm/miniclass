@@ -219,7 +219,7 @@ whether the token resolves to a principal.
 | `make test-migrations` | Apply, roll back, and reapply every migration on a scratch database |
 | `make lint` | Lint both components |
 | `make lint-backend` | Run golangci-lint and the depguard boundary proof |
-| `make lint-frontend` | Run ESLint |
+| `make lint-frontend` | Run the Biome formatting check and ESLint |
 | `make format` | Check Go formatting and run the vet analyzer |
 | `make build-frontend` | Type-check and build the production frontend bundle |
 | `make smoke` | Run the Developer tooling full-stack claim and login check |

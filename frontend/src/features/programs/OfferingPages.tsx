@@ -1,58 +1,434 @@
-import { useEffect, useState, type ComponentProps, type FormEvent, type ReactNode } from 'react'
-import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom'
+import { useEffect, useState, type ComponentProps, type FormEvent, type ReactNode } from "react";
+import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom";
 
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import type { InterestArea, Offering, SchoolYear } from '@/lib/apiResources'
-import { activeGradeLevels } from '@/lib/apiResources'
-import { useVocabulary } from '@/lib/hooks/useVocabulary'
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import type { InterestArea, Offering, SchoolYear } from "@/lib/apiResources";
+import { activeGradeLevels } from "@/lib/apiResources";
+import { useVocabulary } from "@/lib/hooks/useVocabulary";
 
-import { useOffering, useOfferings, useProgramInterestAreas, usePrograms, useSession, useCreateOffering, useDeleteOffering, useUpdateOffering } from './usePrograms'
+import {
+  useOffering,
+  useOfferings,
+  useProgramInterestAreas,
+  usePrograms,
+  useSession,
+  useCreateOffering,
+  useDeleteOffering,
+  useUpdateOffering,
+} from "./usePrograms";
 
-function PageFrame({ children }: { children: ReactNode }) { return <main className="mx-auto w-full max-w-6xl px-6 pt-4 pb-10">{children}</main> }
-function Card({ children, title, description }: { children: ReactNode; title: string; description?: string }) { return <section className="mt-6 rounded-lg border bg-card p-5 shadow-sm"><h2 className="font-semibold">{title}</h2>{description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}{children}</section> }
-function ReadOnlyNotice() { return <section className="mt-6 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950" role="status"><h2 className="font-semibold">Read-only history</h2><p className="mt-1">This school year is closed. You can review the authoring record, but mutations are disabled.</p></section> }
-
-function offeringPath(schoolYearId: string, programId: string, sessionId: string, offeringId?: string) { return `/y/${schoolYearId}/programs/${programId}/sessions/${sessionId}/offerings/${offeringId ? `${offeringId}/edit` : 'new'}` }
-
-export function OfferingSummary({ readOnly, schoolYearId, programId, sessionId, grades }: { readOnly: boolean; schoolYearId: string; programId: string; sessionId: string; grades: ReturnType<typeof activeGradeLevels> }) {
-  const offerings = useOfferings(schoolYearId, programId, sessionId)
-  const remove = useDeleteOffering(schoolYearId, programId, sessionId)
-  return <Card title="Offerings" description="Define the catalog options for this session. Each offering meets on every listed date."><div className="mt-4">{readOnly ? <span className="text-sm text-muted-foreground" aria-disabled="true">Create offering</span> : <Link className="font-medium text-primary hover:underline" to={offeringPath(schoolYearId, programId, sessionId)}>Create offering</Link>}</div><div className="mt-6 space-y-3">{(offerings.data ?? []).length === 0 && <p className="rounded-md border border-dashed px-4 py-6 text-sm text-muted-foreground">No offerings yet.</p>}{(offerings.data ?? []).map((offering) => <div className="rounded-md border p-4" key={offering.id}><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-medium">{offering.name}</h3><p className="mt-1 text-sm text-muted-foreground">{offering.description || 'No description'} · Maximum enrollment {offering.capacity} · {offering.location || 'Location not set'}</p><p className="mt-1 text-xs text-muted-foreground">Grade window {grades.find((grade) => grade.id === offering.min_grade_level_id)?.label ?? offering.min_grade_level_id}–{grades.find((grade) => grade.id === offering.max_grade_level_id)?.label ?? offering.max_grade_level_id}</p></div><div className="flex gap-2">{readOnly ? <span className="text-sm text-muted-foreground" aria-disabled="true">Edit</span> : <Link className="rounded-md border border-input px-3 py-1.5 text-xs font-medium shadow-sm hover:bg-accent" to={offeringPath(schoolYearId, programId, sessionId, offering.id)}>Edit</Link>}<Button disabled={readOnly || remove.isPending} onClick={() => remove.mutate(offering.id)} size="sm" type="button" variant="outline">Delete</Button></div></div></div>)}</div></Card>
+function PageFrame({ children }: { children: ReactNode }) {
+  return <main className="mx-auto w-full max-w-6xl px-6 pt-4 pb-10">{children}</main>;
+}
+function Card({
+  children,
+  title,
+  description,
+}: {
+  children: ReactNode;
+  title: string;
+  description?: string;
+}) {
+  return (
+    <section className="mt-6 rounded-lg border bg-card p-5 shadow-sm">
+      <h2 className="font-semibold">{title}</h2>
+      {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
+      {children}
+    </section>
+  );
+}
+function ReadOnlyNotice() {
+  return (
+    <section
+      className="mt-6 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"
+      role="status"
+    >
+      <h2 className="font-semibold">Read-only history</h2>
+      <p className="mt-1">
+        This school year is closed. You can review the authoring record, but mutations are disabled.
+      </p>
+    </section>
+  );
 }
 
-type OfferingFormValues = { name: string; description: string; capacity: string; minimum_viable_enrollment: string; min_grade_level_id: string; max_grade_level_id: string; location: string; meeting_point: string; meeting_instructions: string; interest_area_id: string }
-const emptyOffering: OfferingFormValues = { name: '', description: '', capacity: '1', minimum_viable_enrollment: '', min_grade_level_id: '', max_grade_level_id: '', location: '', meeting_point: '', meeting_instructions: '', interest_area_id: '' }
-function offeringValues(offering: Offering): OfferingFormValues { return { name: offering.name, description: offering.description, capacity: String(offering.capacity), minimum_viable_enrollment: offering.minimum_viable_enrollment == null ? '' : String(offering.minimum_viable_enrollment), min_grade_level_id: offering.min_grade_level_id, max_grade_level_id: offering.max_grade_level_id, location: offering.location, meeting_point: offering.meeting_point, meeting_instructions: offering.meeting_instructions, interest_area_id: offering.interest_area_id ?? '' } }
-function OfferingField({ label, ...props }: { label: string } & ComponentProps<typeof Input>) { return <label className="text-sm font-medium">{label}<Input className="mt-2" {...props} /></label> }
+function offeringPath(
+  schoolYearId: string,
+  programId: string,
+  sessionId: string,
+  offeringId?: string,
+) {
+  return `/y/${schoolYearId}/programs/${programId}/sessions/${sessionId}/offerings/${offeringId ? `${offeringId}/edit` : "new"}`;
+}
+
+export function OfferingSummary({
+  readOnly,
+  schoolYearId,
+  programId,
+  sessionId,
+  grades,
+}: {
+  readOnly: boolean;
+  schoolYearId: string;
+  programId: string;
+  sessionId: string;
+  grades: ReturnType<typeof activeGradeLevels>;
+}) {
+  const offerings = useOfferings(schoolYearId, programId, sessionId);
+  const remove = useDeleteOffering(schoolYearId, programId, sessionId);
+  return (
+    <Card
+      title="Offerings"
+      description="Define the catalog options for this session. Each offering meets on every listed date."
+    >
+      <div className="mt-4">
+        {readOnly ? (
+          <span className="text-sm text-muted-foreground" aria-disabled="true">
+            Create offering
+          </span>
+        ) : (
+          <Link
+            className="font-medium text-primary hover:underline"
+            to={offeringPath(schoolYearId, programId, sessionId)}
+          >
+            Create offering
+          </Link>
+        )}
+      </div>
+      <div className="mt-6 space-y-3">
+        {(offerings.data ?? []).length === 0 && (
+          <p className="rounded-md border border-dashed px-4 py-6 text-sm text-muted-foreground">
+            No offerings yet.
+          </p>
+        )}
+        {(offerings.data ?? []).map((offering) => (
+          <div className="rounded-md border p-4" key={offering.id}>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="font-medium">{offering.name}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {offering.description || "No description"} · Maximum enrollment{" "}
+                  {offering.capacity} · {offering.location || "Location not set"}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Grade window{" "}
+                  {grades.find((grade) => grade.id === offering.min_grade_level_id)?.label ??
+                    offering.min_grade_level_id}
+                  –
+                  {grades.find((grade) => grade.id === offering.max_grade_level_id)?.label ??
+                    offering.max_grade_level_id}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                {readOnly ? (
+                  <span className="text-sm text-muted-foreground" aria-disabled="true">
+                    Edit
+                  </span>
+                ) : (
+                  <Link
+                    className="rounded-md border border-input px-3 py-1.5 text-xs font-medium shadow-sm hover:bg-accent"
+                    to={offeringPath(schoolYearId, programId, sessionId, offering.id)}
+                  >
+                    Edit
+                  </Link>
+                )}
+                <Button
+                  disabled={readOnly || remove.isPending}
+                  onClick={() => remove.mutate(offering.id)}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  Delete
+                </Button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+type OfferingFormValues = {
+  name: string;
+  description: string;
+  capacity: string;
+  minimum_viable_enrollment: string;
+  min_grade_level_id: string;
+  max_grade_level_id: string;
+  location: string;
+  meeting_point: string;
+  meeting_instructions: string;
+  interest_area_id: string;
+};
+const emptyOffering: OfferingFormValues = {
+  name: "",
+  description: "",
+  capacity: "1",
+  minimum_viable_enrollment: "",
+  min_grade_level_id: "",
+  max_grade_level_id: "",
+  location: "",
+  meeting_point: "",
+  meeting_instructions: "",
+  interest_area_id: "",
+};
+function offeringValues(offering: Offering): OfferingFormValues {
+  return {
+    name: offering.name,
+    description: offering.description,
+    capacity: String(offering.capacity),
+    minimum_viable_enrollment:
+      offering.minimum_viable_enrollment == null ? "" : String(offering.minimum_viable_enrollment),
+    min_grade_level_id: offering.min_grade_level_id,
+    max_grade_level_id: offering.max_grade_level_id,
+    location: offering.location,
+    meeting_point: offering.meeting_point,
+    meeting_instructions: offering.meeting_instructions,
+    interest_area_id: offering.interest_area_id ?? "",
+  };
+}
+function OfferingField({ label, ...props }: { label: string } & ComponentProps<typeof Input>) {
+  return (
+    <label className="text-sm font-medium">
+      {label}
+      <Input className="mt-2" {...props} />
+    </label>
+  );
+}
 
 export function OfferingPage() {
-  const { schoolYearId, programId, sessionId, offeringId } = useParams<{ schoolYearId: string; programId: string; sessionId: string; offeringId: string }>()
-  const year = useOutletContext<SchoolYear>()
-  const navigate = useNavigate()
-  const readOnly = year.state === 'closed'
-  const session = useSession(schoolYearId, programId, sessionId)
-  const programs = usePrograms(schoolYearId)
-  const offering = useOffering(schoolYearId, programId, sessionId, offeringId)
-  const vocabulary = useVocabulary(schoolYearId)
-  const areas = useProgramInterestAreas(schoolYearId, programId)
-  const create = useCreateOffering(schoolYearId ?? '', programId ?? '', sessionId ?? '')
-  const update = useUpdateOffering(schoolYearId ?? '', programId ?? '', sessionId ?? '')
-  const [value, setValue] = useState<OfferingFormValues>(emptyOffering)
-  useEffect(() => { if (offering.data) setValue(offeringValues(offering.data)) }, [offering.data])
-  const grades = vocabulary.data ? activeGradeLevels(vocabulary.data) : []
-  const areasForSelect: InterestArea[] = (areas.data ?? []).filter((area) => !area.retired_at)
-  const backToSession = `/y/${schoolYearId}/programs/${programId}/sessions/${sessionId}`
-  const submit = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); const payload = { ...value, capacity: Number(value.capacity), minimum_viable_enrollment: value.minimum_viable_enrollment === '' ? null : Number(value.minimum_viable_enrollment), interest_area_id: value.interest_area_id || null }; if (offeringId) update.mutate({ offeringID: offeringId, value: payload }, { onSuccess: () => navigate(backToSession) }); else create.mutate(payload, { onSuccess: () => navigate(backToSession) }) }
-  if (!schoolYearId || !programId || !sessionId) return <PageFrame><p>Offering context is required.</p></PageFrame>
-  if (session.isLoading || (offeringId && offering.isLoading)) return <PageFrame><p role="status">Loading offering…</p></PageFrame>
-  if (session.isError || !session.data) return <PageFrame><p role="alert">Unable to load the session.</p></PageFrame>
-  if (offeringId && (offering.isError || !offering.data)) return <PageFrame><p role="alert">Unable to load the offering.</p></PageFrame>
-  const selectedProgram = programs.data?.find((program) => program.id === programId)
-  return <PageFrame>
-    <p className="text-sm font-medium text-primary"><Link className="hover:underline" to={`/y/${schoolYearId}/programs/${programId}`}>{selectedProgram?.name ?? 'Program'}</Link> / <Link className="hover:underline" to={backToSession}>{session.data.name}</Link> / offering</p>
-    <div className="mt-2 flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-3xl font-semibold tracking-tight">{offeringId ? 'Edit offering' : 'Create offering'}</h1><p className="mt-2 text-sm text-muted-foreground">{session.data.name} · {year.label}</p></div><Link className="text-sm font-medium text-primary hover:underline" to={backToSession}>Back to session</Link></div>
-    {readOnly && <ReadOnlyNotice />}
-    <Card title={offeringId ? 'Offering details' : 'New offering'} description="Set one property per row. Minimum and maximum grade define the eligibility window."><form className="mt-5 grid gap-5" onSubmit={submit}><OfferingField aria-label="Offering name" disabled={readOnly} label="Name" onChange={(event) => setValue({ ...value, name: event.target.value })} required value={value.name} /><OfferingField aria-label="Offering description" disabled={readOnly} label="Description" onChange={(event) => setValue({ ...value, description: event.target.value })} value={value.description} /><OfferingField aria-label="Maximum enrollment" disabled={readOnly} label="Maximum enrollment" min="1" onChange={(event) => setValue({ ...value, capacity: event.target.value })} required type="number" value={value.capacity} /><OfferingField aria-label="Minimum viable enrollment" disabled={readOnly} label="Minimum viable enrollment" min="0" onChange={(event) => setValue({ ...value, minimum_viable_enrollment: event.target.value })} type="number" value={value.minimum_viable_enrollment} /><div className="grid gap-5 sm:grid-cols-2"><label className="text-sm font-medium">Minimum grade<select aria-label="Minimum grade" className="mt-2 flex h-9 w-full rounded-md border bg-transparent px-3 text-sm" disabled={readOnly} onChange={(event) => setValue({ ...value, min_grade_level_id: event.target.value })} required value={value.min_grade_level_id}><option value="">Choose minimum grade</option>{grades.map((grade) => <option key={grade.id} value={grade.id}>{grade.label}</option>)}</select></label><label className="text-sm font-medium">Maximum grade<select aria-label="Maximum grade" className="mt-2 flex h-9 w-full rounded-md border bg-transparent px-3 text-sm" disabled={readOnly} onChange={(event) => setValue({ ...value, max_grade_level_id: event.target.value })} required value={value.max_grade_level_id}><option value="">Choose maximum grade</option>{grades.map((grade) => <option key={grade.id} value={grade.id}>{grade.label}</option>)}</select></label></div><OfferingField aria-label="Location" disabled={readOnly} label="Location" onChange={(event) => setValue({ ...value, location: event.target.value })} value={value.location} /><OfferingField aria-label="Meeting point" disabled={readOnly} label="Meeting point" onChange={(event) => setValue({ ...value, meeting_point: event.target.value })} value={value.meeting_point} /><OfferingField aria-label="Meeting instructions" disabled={readOnly} label="Meeting instructions" onChange={(event) => setValue({ ...value, meeting_instructions: event.target.value })} value={value.meeting_instructions} /><label className="text-sm font-medium">Interest area<select aria-label="Interest area" className="mt-2 flex h-9 w-full rounded-md border bg-transparent px-3 text-sm" disabled={readOnly} onChange={(event) => setValue({ ...value, interest_area_id: event.target.value })} value={value.interest_area_id}><option value="">No interest area</option>{areasForSelect.map((area) => <option key={area.id} value={area.id}>{area.label}</option>)}</select></label><div className="flex gap-2"><Button disabled={readOnly || create.isPending || update.isPending || !value.name.trim() || !value.capacity || !value.min_grade_level_id || !value.max_grade_level_id} type="submit">{offeringId ? 'Save offering' : 'Create offering'}</Button><Button asChild variant="outline"><Link to={backToSession}>Cancel</Link></Button></div>{create.isError && <p role="alert">Unable to create the offering.</p>}{update.isError && <p role="alert">Unable to update the offering.</p>}</form></Card>
-  </PageFrame>
+  const { schoolYearId, programId, sessionId, offeringId } = useParams<{
+    schoolYearId: string;
+    programId: string;
+    sessionId: string;
+    offeringId: string;
+  }>();
+  const year = useOutletContext<SchoolYear>();
+  const navigate = useNavigate();
+  const readOnly = year.state === "closed";
+  const session = useSession(schoolYearId, programId, sessionId);
+  const programs = usePrograms(schoolYearId);
+  const offering = useOffering(schoolYearId, programId, sessionId, offeringId);
+  const vocabulary = useVocabulary(schoolYearId);
+  const areas = useProgramInterestAreas(schoolYearId, programId);
+  const create = useCreateOffering(schoolYearId ?? "", programId ?? "", sessionId ?? "");
+  const update = useUpdateOffering(schoolYearId ?? "", programId ?? "", sessionId ?? "");
+  const [value, setValue] = useState<OfferingFormValues>(emptyOffering);
+  useEffect(() => {
+    if (offering.data) setValue(offeringValues(offering.data));
+  }, [offering.data]);
+  const grades = vocabulary.data ? activeGradeLevels(vocabulary.data) : [];
+  const areasForSelect: InterestArea[] = (areas.data ?? []).filter((area) => !area.retired_at);
+  const backToSession = `/y/${schoolYearId}/programs/${programId}/sessions/${sessionId}`;
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const payload = {
+      ...value,
+      capacity: Number(value.capacity),
+      minimum_viable_enrollment:
+        value.minimum_viable_enrollment === "" ? null : Number(value.minimum_viable_enrollment),
+      interest_area_id: value.interest_area_id || null,
+    };
+    if (offeringId)
+      update.mutate(
+        { offeringID: offeringId, value: payload },
+        { onSuccess: () => navigate(backToSession) },
+      );
+    else create.mutate(payload, { onSuccess: () => navigate(backToSession) });
+  };
+  if (!schoolYearId || !programId || !sessionId)
+    return (
+      <PageFrame>
+        <p>Offering context is required.</p>
+      </PageFrame>
+    );
+  if (session.isLoading || (offeringId && offering.isLoading))
+    return (
+      <PageFrame>
+        <p role="status">Loading offering…</p>
+      </PageFrame>
+    );
+  if (session.isError || !session.data)
+    return (
+      <PageFrame>
+        <p role="alert">Unable to load the session.</p>
+      </PageFrame>
+    );
+  if (offeringId && (offering.isError || !offering.data))
+    return (
+      <PageFrame>
+        <p role="alert">Unable to load the offering.</p>
+      </PageFrame>
+    );
+  const selectedProgram = programs.data?.find((program) => program.id === programId);
+  return (
+    <PageFrame>
+      <p className="text-sm font-medium text-primary">
+        <Link className="hover:underline" to={`/y/${schoolYearId}/programs/${programId}`}>
+          {selectedProgram?.name ?? "Program"}
+        </Link>{" "}
+        /{" "}
+        <Link className="hover:underline" to={backToSession}>
+          {session.data.name}
+        </Link>{" "}
+        / offering
+      </p>
+      <div className="mt-2 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight">
+            {offeringId ? "Edit offering" : "Create offering"}
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {session.data.name} · {year.label}
+          </p>
+        </div>
+        <Link className="text-sm font-medium text-primary hover:underline" to={backToSession}>
+          Back to session
+        </Link>
+      </div>
+      {readOnly && <ReadOnlyNotice />}
+      <Card
+        title={offeringId ? "Offering details" : "New offering"}
+        description="Set one property per row. Minimum and maximum grade define the eligibility window."
+      >
+        <form className="mt-5 grid gap-5" onSubmit={submit}>
+          <OfferingField
+            aria-label="Offering name"
+            disabled={readOnly}
+            label="Name"
+            onChange={(event) => setValue({ ...value, name: event.target.value })}
+            required
+            value={value.name}
+          />
+          <OfferingField
+            aria-label="Offering description"
+            disabled={readOnly}
+            label="Description"
+            onChange={(event) => setValue({ ...value, description: event.target.value })}
+            value={value.description}
+          />
+          <OfferingField
+            aria-label="Maximum enrollment"
+            disabled={readOnly}
+            label="Maximum enrollment"
+            min="1"
+            onChange={(event) => setValue({ ...value, capacity: event.target.value })}
+            required
+            type="number"
+            value={value.capacity}
+          />
+          <OfferingField
+            aria-label="Minimum viable enrollment"
+            disabled={readOnly}
+            label="Minimum viable enrollment"
+            min="0"
+            onChange={(event) =>
+              setValue({ ...value, minimum_viable_enrollment: event.target.value })
+            }
+            type="number"
+            value={value.minimum_viable_enrollment}
+          />
+          <div className="grid gap-5 sm:grid-cols-2">
+            <label className="text-sm font-medium">
+              Minimum grade
+              <select
+                aria-label="Minimum grade"
+                className="mt-2 flex h-9 w-full rounded-md border bg-transparent px-3 text-sm"
+                disabled={readOnly}
+                onChange={(event) => setValue({ ...value, min_grade_level_id: event.target.value })}
+                required
+                value={value.min_grade_level_id}
+              >
+                <option value="">Choose minimum grade</option>
+                {grades.map((grade) => (
+                  <option key={grade.id} value={grade.id}>
+                    {grade.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-sm font-medium">
+              Maximum grade
+              <select
+                aria-label="Maximum grade"
+                className="mt-2 flex h-9 w-full rounded-md border bg-transparent px-3 text-sm"
+                disabled={readOnly}
+                onChange={(event) => setValue({ ...value, max_grade_level_id: event.target.value })}
+                required
+                value={value.max_grade_level_id}
+              >
+                <option value="">Choose maximum grade</option>
+                {grades.map((grade) => (
+                  <option key={grade.id} value={grade.id}>
+                    {grade.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <OfferingField
+            aria-label="Location"
+            disabled={readOnly}
+            label="Location"
+            onChange={(event) => setValue({ ...value, location: event.target.value })}
+            value={value.location}
+          />
+          <OfferingField
+            aria-label="Meeting point"
+            disabled={readOnly}
+            label="Meeting point"
+            onChange={(event) => setValue({ ...value, meeting_point: event.target.value })}
+            value={value.meeting_point}
+          />
+          <OfferingField
+            aria-label="Meeting instructions"
+            disabled={readOnly}
+            label="Meeting instructions"
+            onChange={(event) => setValue({ ...value, meeting_instructions: event.target.value })}
+            value={value.meeting_instructions}
+          />
+          <label className="text-sm font-medium">
+            Interest area
+            <select
+              aria-label="Interest area"
+              className="mt-2 flex h-9 w-full rounded-md border bg-transparent px-3 text-sm"
+              disabled={readOnly}
+              onChange={(event) => setValue({ ...value, interest_area_id: event.target.value })}
+              value={value.interest_area_id}
+            >
+              <option value="">No interest area</option>
+              {areasForSelect.map((area) => (
+                <option key={area.id} value={area.id}>
+                  {area.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="flex gap-2">
+            <Button
+              disabled={
+                readOnly ||
+                create.isPending ||
+                update.isPending ||
+                !value.name.trim() ||
+                !value.capacity ||
+                !value.min_grade_level_id ||
+                !value.max_grade_level_id
+              }
+              type="submit"
+            >
+              {offeringId ? "Save offering" : "Create offering"}
+            </Button>
+            <Button asChild variant="outline">
+              <Link to={backToSession}>Cancel</Link>
+            </Button>
+          </div>
+          {create.isError && <p role="alert">Unable to create the offering.</p>}
+          {update.isError && <p role="alert">Unable to update the offering.</p>}
+        </form>
+      </Card>
+    </PageFrame>
+  );
 }

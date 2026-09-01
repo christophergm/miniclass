@@ -1,0 +1,60 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.5/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "maxSize": 16777216,
+    "includes": [
+      "**/*.{ts,tsx,js,jsx,json,jsonc,graphql,graphqls,gql}",
+      "!**/*.d.ts",
+      "!**/*.gen.ts",
+      "!**/*.generated.ts"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double",
+      "trailingCommas": "all",
+      "semicolons": "always"
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "correctness": {
+        // React Rules of Hooks. NOT in Biome's `recommended` preset, so enabled
+        // explicitly: catches a hook called conditionally or after an early
+        // return, which crashes the component on the render where the hook count
+        // changes (and only trips on the code path that skips the hook, so it is
+        // easy to miss in manual testing).
+        "useHookAtTopLevel": "error"
+      },
+      "suspicious": {
+        "noExplicitAny": "error"
+      },
+      "complexity": {
+        "useOptionalChain": "warn"
+      },
+      "nursery": {
+        "useSortedClasses": {
+          "level": "warn",
+          "fix": "safe",
+          "options": {
+            "attributes": ["className"],
+            "functions": ["cn", "clsx", "cva", "twMerge"]
+          }
+        }
+      }
+    }
+  }
+}
