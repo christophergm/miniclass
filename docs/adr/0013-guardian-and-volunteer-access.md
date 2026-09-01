@@ -1,81 +1,97 @@
-# 13. Guardian and volunteer access mechanics
+# 13. Adult and student access mechanics
 
-- **Status:** Open — deliberately carried; resolved at the start of Phase 4
-- **Date:** 2026-08-28
-- **Relates to:** SPEC §13.9 and §24.2, both of which the specification itself leaves open
+- **Status:** Accepted
+- **Date:** 2026-09-01
+- **Implements:** SPEC §6.2, §6.5–6.6, §9.3–9.4, §13.8, §19.5
 - **Related:** [0002](./0002-authentication-and-access-mechanisms.md),
   [0012](./0012-remove-the-household-entity.md)
 
 ## Context
 
-This record carries the residue of [ADR 0006](./0006-household-and-volunteer-access.md), restated in
-a household-free world. 0006 listed five open questions;
-[ADR 0012](./0012-remove-the-household-entity.md) closed two of them by removing the entity they
-were about. The remaining three are unchanged in substance and are renumbered here.
+The household entity was removed by ADR 0012. The remaining access design needed to resolve three
+questions: how adults authenticate and renew access, how non-guardian volunteers reach the system, and
+what happens when an adult has no email address. Phase 4 also introduced a deliberate decision to allow
+students to submit preferences directly without creating student accounts.
 
-This is still not an implementation gap. The specification records the question as open in two
-places (§13.9, §24.2) and lists what it has settled.
+The system must distinguish limited guardian access from administrative access. Email OTP is convenient
+for the small population of guardians, but control of an email mailbox is not sufficient assurance for
+an administrative surface containing substantial personal information about children.
 
-**Settled.** Partly by the specification, partly by 0012.
-
-- **Links are adult-addressed.** 0006 leaned this way on the evidence; 0012 made it the only
-  available shape, because there is no household to address. An emailed link authenticates a person.
-- **The authenticated guardian view shows only the students that adult is a guardian of**, and has
-  **exactly one shape** regardless of the viewer's volunteer role (§6.3). A guardian who also leads
-  a class reaches class information through the class link, exactly as a leader with no children in
-  the program does. Merging the two would make an authenticated view's contents vary by an unrelated
-  role.
-- **Preference records are bound to a specific student at the moment of creation, never by typed
-  name** (§13.7). This is the single most important rule in the area and the one the predecessor
-  violated at enormous cost (§3.2, §3.3). Nothing in the access design may weaken it.
-- **A submission records who submitted it and when** (§13.7). Adult-addressed links are what make
-  that attribution meaningful rather than nominal.
-- **An adult may submit for all the students they guard in one sitting**, producing **per-student**
-  records (§13.7).
-
-**Not settled.**
-
-1. **Delivery and renewal cadence.** On request, on a schedule, or per submission window. §9.5
-   requires every link to expire and to be independently regenerable and revocable, which constrains
-   the mechanism but does not choose the cadence.
-2. **How does a non-guardian volunteer obtain access?** An external instructor guards no students at
-   all, yet §15.3 requires that they be able to record per-meeting-date availability. This was the
-   most constraining question in 0006 and it remains so: removing households did not touch it, since
-   the volunteer's problem was never that they lacked a household — it was that they have nothing to
-   be scoped *to*. It is now also the **only structural question left**, because the adult-addressed
-   link resolved the others.
-3. **What happens to an adult with no email on file.** §8.2 makes email required only "if the adult
-   is to receive a magic link", so the roster legitimately contains adults who cannot be reached
-   this way, and their students are then unreachable for preference submission.
+Volunteer sign-up and availability are handled in Konstella, so the system does not need a volunteer
+self-service access path. Organizers enter staffing assignments and any confirmations in the application.
 
 ## Decision
 
-**Deferred to the start of Phase 4**, deliberately, and for the same reasons 0006 gave: nothing in
-Phases 1–3 needs the answer, the answer is better made with the real domain model in front of us,
-and the specification's own authors did not settle it. Question 2 in particular is a question about
-what the program actually does with external instructors, not a question about software.
+### One adult identity with separate capabilities
 
-**What the model must preserve.** 0006 asked Phase 1 to model Adult as a first-class, year-scoped
-entity with its own identity, independent of household membership. That constraint is now
-structural rather than a discipline to be maintained: after 0012 there is no grouping an adult could
-be subordinated to, and the guardian edge is a relationship by construction. Any resolution of the
-three questions above is still available, and none of them costs a migration of the people tables.
+An adult may have both a year-scoped adult record with guardian relationships and an administrative
+account. The account-to-adult link is explicit and uses opaque identifiers. Matching email addresses may
+suggest a link but must never create one silently. Distinct adult records must not share an email for
+OTP access; duplicates require resolution. Changing an email does not change the identity link.
 
-**The counter-argument that survives from 0006.** An adult-addressed link asserts **identity** — it
-says *you are this person* — and an emailed bearer token is thin evidence of identity. When
-adult-addressing was a choice, that was its price and could be weighed against a household-addressed
-alternative that claimed less. It is no longer a choice, so it is a cost the project simply carries.
-The mitigations available are the ordinary ones §9.5 already requires: short expiry, regeneration
-that invalidates the prior URL, and revocation. None of them turns a bearer token into proof of
-identity, and the resolution of question 1 should be made in full knowledge of that.
+The application presents separate modes:
 
-## Consequences of deferring
+- **Guardian mode** shows only the adult's current guardian-scoped students and their open preference
+  forms. It does not show program-wide data, class rosters, administrative data, or another adult's
+  students.
+- **Administration mode** is available only to an adult with administrative capabilities and requires
+  step-up MFA. It can include administrator-on-behalf preference entry for a selected student.
+- **Survey mode** is a restricted guardian experience. Returning to administration requires
+  reauthentication/step-up. A mode boundary reduces accidental exposure but cannot establish who is at
+  the keyboard of an already-unlocked browser.
 
-- Phase 4 opens with a decision rather than with implementation. That is the intent; it is scheduled
-  work, not a surprise.
-- Question 2 is the schedule risk. A second access mechanism for non-guardian volunteers is more
-  work than a cadence choice, and it is discovered at the point where it blocks §15.3.
-- Questions 1 and 3 are operational as much as technical, and their answers may differ per
-  organisation. Resolving them may produce configuration rather than a fixed mechanism.
-- If Phase 4 arrives and question 2 is still genuinely open, it should be escalated to the programme
-  organisers, where §24.5 already directs several related questions.
+### Adult authentication
+
+Guardian access begins with a short-lived, single-use email OTP and creates a bounded, revocable session.
+The session scope is derived from current guardian relationships on every request, not stored in the
+session as a permanent student list. OTP alone never authorizes administration.
+
+Administrative access uses the existing account identity provider and requires mandatory MFA. Recovery
+uses single-use recovery codes or an explicit, audited Owner-assisted reset; email OTP alone is not an
+administrative MFA fallback. Administrative sessions are invalidated after an MFA reset.
+
+Transactional email for OTP delivery is in scope. Bulk and workflow notifications remain out of scope,
+including emailing student codes, survey invitations, reminders, or follow-ups.
+
+An adult without an email is unreachable for self-service preference submission. The student remains
+eligible and appears in response tracking; an administrator can submit on the student's behalf.
+
+### Student survey access
+
+Students are not account users. A student may use a high-entropy, survey-scoped access code to submit
+and revise their own response:
+
+- one code is bound to one student and one interest-profile survey or ranked-choice session;
+- the code is stored hashed, regenerable, revocable, and valid only while its instrument is open;
+- codes are generated when the instrument opens from its frozen audience;
+- an organizer-only list presents codes grouped by homeroom in a print-friendly view;
+- code-list view/print is not audited, but generation and regeneration are audited;
+- no automated student-code email is sent in Phase 4.
+
+Interest-profile surveys and ranked-choice responses use the same narrow respondent pattern but remain
+separate domain concepts. Interest surveys have administrator-configured windows. Ranked-choice access
+follows the session voting window and stops at its configured deadline before assignment.
+
+### Volunteer and artifact access
+
+Volunteer sign-up, participation intent, topic interests, availability, and class proposals are
+collected outside the system, currently through Konstella. There is no non-guardian volunteer
+self-service access path in v1.
+
+Read-only class-leader and homeroom-teacher artifact links remain separate, narrow, session-scoped
+published-artifact access. They do not provide preference, staffing, or administrative access.
+
+## Consequences
+
+- Guardian convenience and administrative assurance are separated without requiring a second adult
+  identity or duplicating guardian data.
+- The application owns OTP/session and student-code security boundaries; tokens are opaque, hashed,
+  scoped, expiring, regenerable, and revocable.
+- Transactional email becomes a Phase 4 dependency, while bulk communication remains an organizer task.
+- Students can improve response rates through direct access without introducing accounts, passwords, or
+  general student privacy surfaces.
+- A student with no guardian or an adult with no email does not block participation; organizer entry is
+  the fallback.
+- Volunteer data may be incomplete because Konstella is the external source; staffing remains advisory.
+- Class-leader and homeroom-teacher links continue to be separate from authenticated guardian sessions,
+  preserving persona and data-surface separation.

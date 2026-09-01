@@ -104,8 +104,7 @@ the Google Forms / Sheets / Docs process wrapped around them.
   - [13.5 Rating scales and the meaning of absence](#135-rating-scales-and-the-meaning-of-absence)
   - [13.6 Preference surveys](#136-preference-surveys)
   - [13.7 Collection](#137-collection)
-  - [13.8 Import of preferences](#138-import-of-preferences)
-  - [13.9 Open: guardian access mechanics](#139-open-guardian-access-mechanics)
+  - [13.8 Access mechanics](#138-access-mechanics)
 - [14. Catalog, Sessions and Lifecycle](#14-catalog-sessions-and-lifecycle)
   - [14.1 Session definition](#141-session-definition)
   - [14.2 Catalog authoring](#142-catalog-authoring)
@@ -115,11 +114,10 @@ the Google Forms / Sheets / Docs process wrapped around them.
   - [14.6 State diagram](#146-state-diagram)
 - [15. Volunteers and Staffing](#15-volunteers-and-staffing)
   - [15.1 Staffing is advisory](#151-staffing-is-advisory)
-  - [15.2 Participation intent and topic interests](#152-participation-intent-and-topic-interests)
-  - [15.3 Availability](#153-availability)
-  - [15.4 Staffing assignments](#154-staffing-assignments)
-  - [15.5 Per-date confirmation](#155-per-date-confirmation)
-  - [15.6 What the system does not do](#156-what-the-system-does-not-do)
+  - [15.2 External volunteer sign-up](#152-external-volunteer-sign-up)
+  - [15.3 Staffing assignments](#153-staffing-assignments)
+  - [15.4 Per-date confirmation](#154-per-date-confirmation)
+  - [15.5 What the system does not do](#155-what-the-system-does-not-do)
 
 **Arc IV — Engine**
 
@@ -188,8 +186,8 @@ the Google Forms / Sheets / Docs process wrapped around them.
   - [23.2 Deprecated and colliding terms](#232-deprecated-and-colliding-terms)
 - [24. Deferred Items and Open Questions](#24-deferred-items-and-open-questions)
   - [24.1 Deferred to a later release](#241-deferred-to-a-later-release)
-  - [24.2 Open: guardian access mechanics](#242-open-guardian-access-mechanics)
-  - [24.3 Open: student direct access](#243-open-student-direct-access)
+  - [24.2 Resolved: adult access mechanics](#242-resolved-adult-access-mechanics)
+  - [24.3 Deferred: broader student access](#243-deferred-broader-student-access)
   - [24.4 Known limitation carried forward](#244-known-limitation-carried-forward)
   - [24.5 Questions for the program organizers](#245-questions-for-the-program-organizers)
 - [Appendix A — As-Built Inventory of Predecessor Systems](#appendix-a--as-built-inventory-of-predecessor-systems)
@@ -448,7 +446,7 @@ rankings tell them *where to put people*. §13 sets out how they coexist.
 - **Not a student information system.** The roster is loaded from elsewhere; this system is not the
   authority on enrolment, attendance or academic records.
 - **Not an automated decision-maker.** The solver produces a proposal. A person publishes it.
-- **Not a communications platform.** v1 makes information available; it does not send it (§4.3).
+- **Not a communications platform.** v1 sends only transactional authentication email; bulk and workflow notifications remain out of scope (§4.3).
 - **Not a general-purpose rules engine.** The constraint vocabulary is deliberately closed (§16) so
   that every rule can be explained in the interface in plain language.
 
@@ -457,9 +455,8 @@ rankings tell them *where to put people*. §13 sets out how they coexist.
 The following are understood, wanted, and out of scope for the first release. §24 records the
 reasoning and any consequences.
 
-- Notifications of any kind.
+- Bulk and workflow notifications, including survey invitations, reminders, and emailing student access codes. Transactional email required for adult authentication is in scope.
 - Change-tracking against a published baseline.
-- Direct student access to preference submission.
 - Optimized matching of volunteers to classes.
 - Cross-year identity resolution and roster rollover.
 - Delivery of sensitive per-student information to class leaders.
@@ -541,17 +538,17 @@ multiple administrators per organization, and SHOULD support distinguishing thei
 
 ### 6.2 Guardian
 
-An adult with a recorded relationship to one or more students (§8.2). Submits preference information,
-declares their own participation intent and availability, and views their students' placements.
-Authenticates by magic link (§9.3); no password, no account creation.
+An adult with a recorded relationship to one or more students (§8.2). Submits preference information
+and views their students' placements. Authenticating by email OTP provides guardian access; an adult
+who also has administrative capabilities may step up to administration (§9.3).
 
 The authenticated guardian view shows **that adult's own information only** — the students they are a
-guardian of, those students' preferences and placements, and the adult's own participation details.
+their students' preferences and placements.
 It MUST NOT show class rosters, another adult's students, or any program-wide view.
 
 Scope is derived from the guardian relationships in force at the moment of the request, not from any
 stored grouping (§8.2). Two guardians of the same student therefore each see that student,
-independently, and neither is shown the other.
+independently, and neither is shown the other. A guardian view does not include administrative or volunteer data.
 
 ### 6.3 Class leader and helper
 
@@ -581,13 +578,10 @@ goes where. Six people in the reference program, using it weekly for two minutes
 
 ### 6.5 Student
 
-The subject of every placement and the author of the preferences that drive it, but not a system
-user in v1. Preference submission is mediated by a guardian, matching current practice — the survey
-addresses children directly while a parent operates the keyboard.
-
-Direct student access is deferred (§4.3) but anticipated: §13 requires that a preference record
-identify the student it describes rather than the adult who submitted it, so that opening a direct
-channel later is an access change and not a data-model change.
+The subject of every placement and the author of the preferences that drive it, but not an account
+user in v1. A student may use a survey-scoped invite code to submit their own interest profile or ranked
+choices; the code grants no broader system access (§13.8). Preference records identify the student they
+describe and separately record who or what submitted them.
 
 ### 6.6 Role and permission model
 
@@ -598,7 +592,7 @@ The system MUST implement at least the following roles.
 | `Owner` | Organization | Account |
 | `Administrator` | Organization | Account |
 | `Coordinator` | Organization | Account |
-| `Guardian` | Own students | Magic link |
+| `Guardian` | Own students | Email OTP and bounded session |
 | `Class leader` | Own offerings | Tokenized link |
 | `Homeroom teacher` | Own homeroom | Tokenized link |
 
@@ -628,10 +622,10 @@ Seven capabilities, of which the first two are annual and the rest repeat every 
 | Capability | Cadence | Section |
 |---|---|---|
 | **Roster** — load and maintain students, adults and guardian relationships | Annual | §11 |
-| **Preferences** — standing interest profiles | Annual, refreshable | §13 |
+| **Preferences** — standing interest profiles | Configured window, refreshable | §13 |
 | **Catalog** — author the offerings for a session | Per session | §14 |
 | **Preferences** — ranked choices over the published catalog | Per session, optional | §13 |
-| **Staffing** — assign volunteers, collect availability and confirmations | Per session | §15 |
+| **Staffing** — assign volunteers and record confirmations | Per session | §15 |
 | **Assignment** — solve, review, override, re-solve | Per session | §17 |
 | **Publishing** — share links, guardian views | Per session | §18 |
 | **Reporting** — quality, demand, participation | Continuous | §19 |
@@ -677,11 +671,11 @@ flowchart TD
     PM --> IP[Interest profiles]
     PM --> CAT[Session catalog]
     CAT --> RC[Ranked choices]
-    CAT --> STF[Staffing and availability]
+    CAT --> STF[Staffing assignments]
     IP --> SOLVE[Assignment engine]
     RC --> SOLVE
     RULES[Tags, pairings, pins, exclusions] --> SOLVE
-    HIST[Placement history and fairness deficit] --> SOLVE
+    HIST[Native placement history and fairness deficit] --> SOLVE
     SOLVE --> DRAFT[Draft assignments plus warnings]
     DRAFT --> REVIEW[Organizer review and override]
     REVIEW --> SOLVE
@@ -751,10 +745,9 @@ Two entities and one relationship, all scoped to a school year.
 | Field | Notes |
 |---|---|
 | Legal and preferred names | As above |
-| Email | Required if the adult is to receive a magic link |
+| Email | Required if the adult is to use OTP access |
 | Phone | Optional |
 | External identifier | Optional |
-| Participation intent | Lead, help, unavailable (§15.1) |
 | Tags | As above |
 
 An adult may be a guardian, a class leader, both, or neither. The predecessor conflated "adult" with
@@ -829,9 +822,8 @@ meeting date; ties are ordered case-insensitively by name and then by opaque ide
 **Meeting date** `[Built]` — a specific date on which the session's classes meet. Three or four per
 session in the reference program, on consecutive Fridays.
 
-Meeting dates are not decoration. They are the granularity at which volunteer availability is
-collected and confirmed (§15.2, §15.4), and the reason the predecessor could not use the
-availability data it gathered is that it had nowhere to put a date.
+Meeting dates are not decoration. They determine when a session meets and provide the dates used by
+organizers when recording any staffing confirmations (§15.4).
 
 ### 8.6 Assignment
 
@@ -950,22 +942,23 @@ remembering to filter.
 
 ### 9.3 Authentication
 
-Four mechanisms, deliberately unequal.
+Four mechanisms, deliberately unequal, with one adult identity able to hold both guardian and administrator capabilities.
 
 | Principal | Mechanism | Lifetime |
 |---|---|---|
-| Owner, Administrator, Coordinator | Account with credential | Session-based, renewable |
-| Guardian | Emailed magic link | Scoped to a submission window |
+| Owner, Administrator, Coordinator | Account with credential and mandatory MFA | Session-based, renewable; step-up required for administration |
+| Guardian | Email OTP followed by a session token | Bounded, renewable session; guardian scope derived per request |
 | Class leader, Homeroom teacher | Tokenized link | Scoped to a session |
 | Public reader | Unauthenticated share link | Scoped to a session, expiring (§9.5) |
 
-Only administrators have passwords. This is a requirement, not an accident of scope: the population
-is ~100 parents and volunteers who use the system a handful of times a year, and account management
-for that population would cost more in support than it returns in security.
+Only administrators have administrative accounts. Guardian access does not create an account and uses
+email OTP: the code is short-lived and single-use, and the resulting session is bounded and revocable.
+Email OTP alone MUST NOT grant administrative access to PII; administration requires step-up MFA.
 
-A magic link MUST be single-purpose and scoped to the adult it was issued to. It MUST NOT grant
-access to any other adult's data, MUST NOT reach a student that adult is not a guardian of, and MUST
-NOT be reusable after its window closes.
+A guardian session MUST be scoped to the adult's current guardian relationships. It MUST NOT grant
+access to any other adult's data or reach a student that adult is not a guardian of. An adult who has
+both capabilities enters guardian mode after OTP and must reauthenticate with MFA to enter or return
+to administration. Survey mode MUST NOT expose administrative or program-wide data.
 
 ### 9.4 Authorization
 
@@ -975,6 +968,8 @@ NOT be reusable after its window closes.
   as not-found, not as forbidden.
 - Role capabilities are specified in §6.6. Granularity beyond that minimum is
   `Implementation-defined`.
+- Account-to-adult links MUST be explicit and identifier-based. Email matching may suggest a link but
+  MUST NOT create one silently.
 - Link-based principals are authorized for exactly the objects their link names — a class leader's
   token grants their offerings and nothing else, including no visibility of other offerings in the
   same session.
@@ -1417,13 +1412,14 @@ which is precisely what makes §12.2's service-learning case work cleanly.
 
 ### 13.1 Two preference models, both first-class
 
-The system supports two ways of asking a student what they want, and treats both as primary.
+The system supports two ways of asking a student what they want, and treats both as primary. Both
+provide a scoped respondent flow, but they remain separate domain concepts with different lifecycles.
 
 | | Interest profile | Ranked choices |
 |---|---|---|
 | Subject | Topic area | A specific offering |
 | Timing | Before any catalog exists | After the catalog is published |
-| Cadence | Annual, refreshable | Per session, optional |
+| Window | Administrator-configured | Session voting window |
 | Answers | "What is this child interested in?" | "Which of these should they get?" |
 | Drives | Catalog design, recruiting, fallback placement | Placement |
 | Marker | `[Built]` | `[Partial]` |
@@ -1469,7 +1465,9 @@ For each offering in the session, a student's response is exactly one of:
 | *(no response)* | No opinion expressed (§13.5) |
 
 Ranked choices require a published catalog (§14.3) and therefore require offering descriptions
-(§8.4) — a student cannot rank what they cannot read.
+(§8.4) — a student cannot rank what they cannot read. They are available through a student code bound
+to that student and session while voting is open, and through the authenticated guardian view for the
+adult's own students.
 
 A rank MUST be unique within a student's response for a session; two offerings cannot both be first
 choice. The system MUST prevent this at entry rather than resolving it at solve time.
@@ -1607,15 +1605,20 @@ non-responder to the January survey — roughly half the program.
 | State | Behaviour |
 |---|---|
 | `Draft` | Composable; not visible to respondents |
-| `Open` | Accepting submissions within the window |
+| `Open` | Accepting submissions within the configured window |
 | `Closed` | No further submissions |
 
-A closed survey MAY be reopened, with a warning, on the same reasoning as §14.5 — a family that
-missed the deadline is a routine case, and forbidding it only pushes the fix outside the system.
-Reopening MUST be recorded in the audit log.
+A survey MUST have a closing timestamp when it opens. Submissions stop automatically at that timestamp,
+even if the lifecycle transition is finalized by a later job or request. A closed survey MAY be reopened,
+with a warning, on the same reasoning as §14.5 — a family that missed the deadline is a routine case,
+and forbidding it only pushes the fix outside the system. Reopening MUST be recorded in the audit log and
+requires a new closing timestamp. Existing unrevoked student codes reactivate; regeneration invalidates
+the prior code.
 
-A survey MUST NOT be deleted once it has submissions; it is closed and retained, because the
-submissions are the provenance of the effective profile.
+When a survey opens, its audience, included areas and order, rating-scale version, and student access
+codes MUST be snapshotted. An empty audience is allowed but MUST produce a warning. A survey MUST NOT
+be deleted once it has submissions; it is closed and retained, because the submissions are the provenance
+of the effective profile.
 
 #### 13.6.5 Relationship to ranked choices
 
@@ -1632,40 +1635,42 @@ Requirements:
 
 - A preference record MUST be bound to a specific student at the moment of creation. It MUST NOT
   identify the student by typed name.
-- A submission MUST record who submitted it and when.
-- Collection MUST be scoped by a submission window with an opening and closing time. For ranked
-  choices this is governed by the session lifecycle (§14.3).
+- A submission MUST record who submitted it and when, including whether it was made through guardian,
+  student-code, or administrator-on-behalf access.
+- Collection MUST be scoped by a submission window with an opening and closing time. Interest-profile
+  surveys use an administrator-configured window; ranked choices use the session lifecycle (§14.3).
 - The system MUST be able to report, at any time, which students have not responded (§19.5).
 - An adult MAY submit for every student they are a guardian of in one sitting; the resulting records
   are per-student (§6.5).
-- Re-submission before the window closes MUST be permitted and MUST supersede per §13.2.
+- Re-submission before the window closes MUST be permitted. For interest profiles, the effective value
+  is the latest valid rating per area. For ranked choices, the latest valid complete response replaces
+  the prior response for that student and session. All submissions remain retained.
 
 Binding to a student at creation is what deletes the entire identity-reconciliation stage described
 in §3.2 and §3.3 — the name scrubbing, the join tooling, the unmatched-record review loop, and the
 hard abort that gated the whole pipeline on it. Those stages do not become better; they cease to
 exist.
 
-### 13.8 Import of preferences
+### 13.8 Access mechanics
 
-`[New]` Preferences MUST also be importable, using the same two-phase mechanism as §11.5.
+Preference access is deliberately split by principal while using one underlying response model.
 
-This serves three purposes: migrating two prior years of history so that variety and fairness have
-something to work with from day one; backfilling a survey run outside the system; and entering
-responses collected on paper.
+- **Guardian access** begins with a short-lived, single-use email OTP and creates a bounded, revocable
+  session. The session shows only the adult's current guardian-scoped students and their open forms.
+- **Student access** uses a high-entropy code bound to one student and one survey or session. Codes are
+  stored hashed, are regenerable and revocable, and are valid only while the bound instrument is open.
+  They grant access only to that student's response.
+- **Administrator access** begins from the adult's linked administrative identity and requires step-up
+  MFA. An administrator can open a form for a selected student and submit on that student's behalf.
+- An adult without an email is unreachable for self-service, but the student remains eligible and an
+  administrator can submit on the student's behalf.
+- Distinct adult records MUST NOT share an email for OTP access. Duplicate emails are a warning that
+  requires resolution; the system MUST NOT silently merge their scopes.
 
-Imported preference rows are matched to students by the rules in §11.6. Unmatched rows MUST be
-reported for resolution and MUST NOT be discarded silently.
-
-### 13.9 Open: guardian access mechanics
-
-The mechanics of guardian authentication are flagged as needing refinement and are not fully
-specified here (§24.2). The open points are: link delivery and renewal; how a volunteer who is not a
-guardian obtains access in order to declare availability (§15.3); and what happens when an adult has
-no email address on file.
-
-What is settled: authentication is by emailed link rather than password (§9.3); a link addresses an
-individual adult and its scope is the students that adult is a guardian of (§6.2, §8.2); and
-preference records are per-student regardless of who submits them.
+Interest-profile surveys and ranked choices have separate access grants. A survey may be configured
+with any practical response-window duration; ranked-choice access closes automatically at its session
+voting deadline. Opening snapshots the audience, question set, rating scale, and codes. Reopening is
+allowed with a warning and audit entry and reactivates existing codes unless they are regenerated.
 
 ## 14. Catalog, Sessions and Lifecycle
 
@@ -1693,7 +1698,7 @@ the process (§3.2), and the system's role is to inform it, not to perform it.
 While authoring, the organizer SHOULD have access to:
 
 - **Demand.** Aggregate interest-profile ratings across participating students, by area (§19.4).
-- **Volunteer supply.** Who has offered to lead or help, and in what topics (§15.2).
+- **Volunteer supply.** Information organizers may enter from the external volunteer process (§15.2).
 - **Recent history.** What has already run this year, and how well it was received.
 
 The system MUST evaluate the catalog for feasibility and report the following as warnings. None
@@ -1802,43 +1807,25 @@ The consequences are normative and pervade this section:
 because no external system performs it. The asymmetry is deliberate and worth stating plainly: this
 system is the authority for where children go, and a planning aid for who supervises them.
 
-### 15.2 Participation intent and topic interests
+### 15.2 External volunteer sign-up
 
-`[Built]` For each adult in a school year:
+`[Out of scope]` Volunteer sign-up and availability are handled externally. The application retains only
+organizer-managed staffing data:
 
 | Field | Notes |
 |---|---|
-| Participation intent | Lead, help, or unavailable |
-| Topic interests | Which interest areas they would like to be involved with |
-| General availability | Free text; captures the qualifications people actually give |
+| Staffing assignments | Organizer-managed assignments of adults to offerings |
+| Confirmation | Organizer-managed per-date confirmation, where used |
 
-The reference survey's participation question has three settled options — wanting to lead, wanting
-to support, and being unavailable on the relevant afternoons — and its free-text escape on the
-availability question was used by roughly a fifth of respondents, so the free-text field is a
-requirement rather than a concession.
+Volunteer sign-up and availability are collected outside this system, currently through Konstella. The
+system does not provide adult self-service participation-intent, topic-interest, or availability
+forms. Organizers may use information from that external process when making staffing assignments,
+but staffing remains advisory (§15.1).
 
-**Class proposals.** `[Partial]` An adult MAY submit one or more proposals for a class they would
-like to run, each with a title, description, intended grade range and notes. The reference program
-collects these — in one survey generation as structured fields, in others as free text — and they
-are the raw material from which the catalog is built (§14.2). Storing them structured means a
-proposal can become an offering directly rather than by retyping.
+**Class proposals.** Class proposals, if used, are also collected outside this system. Organizers may
+enter the resulting offering and staffing decisions here without requiring volunteer access.
 
-### 15.3 Availability
-
-`[Partial]` Availability is collected **per meeting date**, not per session.
-
-Each adult may record, for each meeting date, one of: available, possibly available, unavailable.
-
-This is marked `[Partial]` because the data has been collected for years and stored nowhere. The
-reference survey asks every parent about each individual Friday; the pipeline had no date entity, so
-the answers were discarded and the information was reconstructed later as free text attached to
-staffing rows — `NOT MARCH 6`, `(12/5 only)`, `(not 12/12)`.
-
-An adult who is a guardian of no student — an external instructor, for instance — MUST still be able
-to record availability. No guardian-scoped mechanism reaches them, which is what makes this the
-hardest of the open points in §13.9.
-
-### 15.4 Staffing assignments
+### 15.3 Staffing assignments
 
 `[Built]` An adult assigned to an offering.
 
@@ -1853,28 +1840,19 @@ assigned adults MUST be visible to the organizer and to co-assigned adults; the 
 staffing file has an email column that is almost always empty, so there is currently no reliable way
 to reach the person running a class.
 
-### 15.5 Per-date confirmation
+### 15.4 Per-date confirmation
 
 `[Designed]` A staffing assignment MAY carry a confirmation for each meeting date of its session:
-confirmed, tentative, or declined, defaulting to unrecorded.
+confirmed, tentative, or declined, defaulting to unrecorded. Confirmations are entered by organizers;
+there is no adult self-service confirmation flow in v1. Confirmation state MUST NOT gate anything
+(§15.1). Its purpose is to let an organizer see coverage at a glance.
 
-The Django prototype modelled exactly this and built a grid to enter it, which is strong evidence
-the need is real; nothing consumed it.
+### 15.5 What the system does not do
 
-Confirmations MAY be recorded by the adult themselves through their authenticated view, or by an
-organizer on their behalf. **Organizer entry MUST always be available**, because a meaningful share
-of confirmations arrive by text message or in conversation regardless of what the system offers.
-
-Confirmation state MUST NOT gate anything (§15.1). Its purpose is to let an organizer see coverage
-at a glance and chase the gaps.
-
-### 15.6 What the system does not do
-
-- **No volunteer-to-class optimization.** `[New, rejected]` With roughly 13 leaders and 45 helpers a
-  year, recruitment is a social process: the organizer knows these people, negotiates with them, and
-  pairs co-leaders by temperament. The available interest data — a multi-select with a heavily-used
-  free-text escape — is not structured enough to optimize on. The system surfaces supply and
-  availability during catalog authoring (§14.2) and leaves the decision to a person.
+- **No volunteer-to-class optimization.** `[New, rejected]` Recruitment is a social process: the
+  organizer knows these people, negotiates with them, and pairs co-leaders by temperament. The system
+  surfaces information entered from the external volunteer process during catalog authoring (§14.2) and
+  leaves the decision to a person.
 - **No completeness warnings and no publishing gate.** Per §15.1.
 - **No reverse import of external sign-ups.** Reconciling final sign-up data back from the community
   platform is possible and would restore completeness, but is not planned (§24.1).
@@ -2170,6 +2148,12 @@ The operational consequence is visible in Appendix B.2: between two and fifteen 
 received a class they had explicitly rejected, and there is no way to know whether they were the
 same children each time.
 
+A program normally starts a school year with no native completed-session history. In that state the
+student's deficit is zero and historical fairness contributes no preference to the solve; the dashboard
+MUST identify the history as unavailable rather than implying that the student has been well served.
+Completed native sessions progressively populate the deficit and variety history within the program and
+year. No imported preference or placement history is required to begin operating.
+
 ### 17.6 Variety
 
 `[Partial]` A soft preference for giving a student something they have not already had this year.
@@ -2413,7 +2397,7 @@ Requirements:
   need is a volunteer printing a roster to carry to the gym.
 - Adult **email addresses MUST NOT appear.** The predecessor's template printed them, which on an
   open URL publishes volunteer contact details to anyone holding the link. Contact details remain
-  available to the organizer and to co-assigned adults (§15.4).
+  available to the organizer and to co-assigned adults (§15.3).
 - Staffing MUST be presented as known to this system, without implying completeness (§15.1).
 
 ### 18.4 Homeroom dismissal list
@@ -2456,7 +2440,7 @@ and, for each: their placement, the offering's description, where and when it me
 leading it.
 
 This replaces scanning a whole-program class list to find one child, and it is the adult's landing
-page after following their magic link. It shows that adult's own information only (§6.2).
+page after completing email OTP authentication. It shows that adult's own information only (§6.2).
 
 ### 18.7 Course guide
 
@@ -2540,7 +2524,7 @@ Aggregates over interest profiles, to inform catalog authoring (§14.2) and volu
 |---|---|
 | Interest by area | How many participating students rate each area highly |
 | Unmet demand | Areas rated highly with no offering this session, or with capacity well below interest |
-| Volunteer supply by area | Which areas adults have offered to lead or help with (§15.2) |
+| Volunteer supply by area | Information organizers may enter from the external volunteer process (§15.2) |
 | Historical uptake | How offerings in each area have filled in previous sessions |
 
 Demand analysis is the primary justification for keeping the interest profile once ranked choice is
@@ -2549,28 +2533,20 @@ what to create.
 
 ### 19.5 Response tracking
 
-At any time, the system MUST be able to report which participating students have not submitted — a
-response to a given survey (§13.6), or ranked choices for an open session — grouped by guardian, so
-that a single follow-up covers every child that adult is responsible for.
+At any time, the system MUST be able to report which participating students have not submitted a
+response to a given survey (§13.6), or ranked choices for an open session.
 
-Because the grouping is by guardian rather than by any stored family (§8.2), the report is **not a
-partition** of the student set: a student with two guardians appears under both. That is correct for
-its purpose — either adult can answer and both are worth asking — but it means a total taken over the
-report double-counts such students, and any count of non-responders MUST be taken over students
-rather than over report rows.
+Student completion is the unit of measurement. Reports MUST provide counts and percentages, broken down
+by grade and homeroom, and MUST name every non-responder. A student with multiple guardians is counted
+once in student totals. A student with no guardian MUST appear as unreachable rather than be omitted;
+a guardian without email MUST be distinguished from a guardian who simply has not responded.
 
-A participating student with no guardian at all MUST appear in this report as unreachable rather than
-be omitted from it. They are the case that most needs an organizer's attention, and the one a
-guardian-grouped report would otherwise hide.
+A separate guardian follow-up view lists each guardian with their outstanding students. A student MAY
+appear under multiple guardians in that view, but those rows MUST NOT be used for aggregate student
+counts. This report is also the basis for targeting a follow-up survey at non-responders (§13.6.2).
 
-This report is also the basis for targeting a follow-up survey at non-responders (§13.6.2).
-
-This is currently derived by diffing files. It matters because non-responders are the students most
-exposed to a poor placement (§13.4), so knowing who they are before voting closes is worth more than
-any adjustment made afterwards.
-
-v1 has no notifications (§4.3); the report exists so the organizer can chase people through whatever
-channel the school already uses.
+Transactional email required for OTP authentication is in scope. Bulk and workflow notifications,
+including survey invitations, reminders, and emailing student codes, remain out of scope (§4.3).
 
 ### 19.6 Participation reporting
 
@@ -2706,7 +2682,7 @@ rather than be discovered during a review.
 | Comments | Students, adults |
 | Stated preferences | Students |
 | Placements and placement history | Students |
-| Availability and participation | Adults |
+| Staffing assignments and confirmations | Adults |
 
 Two categories deserve particular care. **Tag notes** may contain health-adjacent information about
 a child — the reference survey's sensory-needs question elicits exactly that. **Comments** are
@@ -2733,7 +2709,7 @@ historical records is preserved. Soft deletion is reversible.
 genuine data-removal request. It MUST:
 
 - remove the person and all dependent records — preferences, placements, tags, notes, comments,
-  relationships, availability, confirmations;
+  relationships, staffing assignments, confirmations;
 - remove them from every retained solve run, or invalidate runs that cannot be redacted;
 - **regenerate or revoke any published artifact containing them.** A published snapshot is a copy;
   deleting the source record does not alter what a share link serves;
@@ -2899,8 +2875,8 @@ these questions are currently unanswerable even in principle (§3.3).
 | **Warning** | A visible, non-blocking indication that a soft rule is unmet or a hard rule was overridden (§16.5) |
 | **Solve run** | An immutable record of one execution of the assignment engine (§20.2) |
 | **Share link** | An unauthenticated, session-scoped, expiring URL serving a published artifact (§9.5) |
-| **Guardian** | An adult with a recorded relationship to a student; the unit of submission scope and magic-link addressing (§8.2) |
-| **Class leader** | An adult assigned to run an offering (§15.4) |
+| **Guardian** | An adult with a recorded relationship to a student; the unit of submission scope and OTP addressing (§8.2) |
+| **Class leader** | An adult assigned to run an offering (§15.3) |
 | **Homeroom** | A student's base class group in the school; the axis of the dismissal list. Defined per school year (§10.1) |
 | **Participation** | Whether a student takes part in a program, and in a given session (§8.3) |
 
@@ -2937,51 +2913,38 @@ this specification has already solved.
 
 | Item | Reason | Cost of deferring |
 |---|---|---|
-| **Notifications** of any kind | Requires delivery infrastructure and consent handling; the school already has a push channel | Organizers distribute links manually, as today |
+| **Bulk and workflow notifications** | Requires delivery infrastructure and consent handling; authentication email is handled separately | Organizers distribute survey codes and follow up manually, as today |
 | **Change tracking** against a published baseline | §18.2 provides a last-updated timestamp, which covers the common need | A reader cannot see *what* changed since they last looked |
-| **Direct student access** to preference submission | §24.3 | Preferences remain guardian-mediated |
-| **Volunteer-to-class optimization** | Rejected on merit, not deferred (§15.6) | None |
+| **General student account access** | Students have only scoped survey access in v1 (§13.8) | No student dashboard, placement access, or account |
+| **Volunteer-to-class optimization** | Rejected on merit, not deferred (§15.5) | None |
 | **Cross-year identity resolution and rollover** | Rejected on merit (§5.6); the nullable link (§8.7) preserves the option | Multi-year analysis requires links to have been set |
 | **Sensitive information reaching class leaders** | §24.4 | The information is captured but unused |
-| **Reverse import of external volunteer sign-ups** | Possible, not planned (§15.6) | Staffing data stays advisory |
+| **Reverse import of external volunteer sign-ups** | Possible, not planned (§15.5) | Staffing data stays advisory |
 | **Full temporal versioning** | §20.5 | Routine roster and catalog edits are summarized, not reconstructable |
 | **Fully generalized student attributes** | §10.1; promotion path is non-breaking | Programs that are not grade-structured are unsupported |
 
-### 24.2 Open: guardian access mechanics
+### 24.2 Resolved: adult access mechanics
 
-Authentication by emailed magic link is settled (§9.3). So is the addressing: a link identifies an
-**individual adult**, and its scope is the students that adult is a guardian of (§6.2, §8.2).
-Removing the household entity settled that by elimination — there is no grouping left for a link to
-address — and it likewise disposed of the question of an adult belonging to two households, which is
-now simply an adult with guardian relationships to students who share no other guardian.
+Adult guardian access uses a short-lived, single-use email OTP followed by a bounded, revocable session.
+An adult who is also an administrator uses the same linked adult identity, but administration requires
+step-up MFA. Guardian mode and administration remain separate surfaces; returning to administration from
+survey mode requires reauthentication.
 
-Three points remain unresolved:
+The guardian scope is the adult's current guardian relationships at request time. Distinct adult
+records MUST NOT share an email for OTP access. Account-to-adult links are explicit and identifier-based;
+email matching may suggest a link but MUST NOT create one silently. An adult without an email is
+unreachable for self-service, but an administrator can submit on behalf of the student.
 
-- How are links **delivered and renewed** — on request, on a schedule, or per submission window?
-- How does a **volunteer who is not a guardian** obtain access in order to record availability and
-  confirmations (§15.3)? They are a guardian of nobody, so no guardian-scoped mechanism reaches them.
-  This was the most constraining of these questions before the household entity was removed, and it
-  is more so now: it is the only structural one left.
-- What happens when an adult has **no email address** on file?
+Transactional authentication email is in scope. Bulk and workflow notifications, including emailing
+student codes or reminders, remain deferred. Volunteer sign-up and availability are handled through
+Konstella; this system has no non-guardian volunteer self-service access.
 
-One cost is carried knowingly. An adult-addressed link asserts *identity*, and an emailed bearer
-token is thin evidence of identity. While the addressing was still a choice this was an argument
-against it; it is now simply a property of the design.
+### 24.3 Deferred: broader student access
 
-### 24.3 Open: student direct access
-
-Deferred by decision (§6.5), but the target repository's architecture note anticipates it — *"student
-surveys: no login accounts, scoped magic links / QR codes / short access codes."*
-
-The two positions need reconciling before implementation. This specification's requirement is
-narrower and compatible with either outcome: a preference record identifies the **student** it
-describes, not the adult who submitted it (§6.5, §13.7), so opening a direct channel later is an
-access change rather than a data-model change.
-
-What is genuinely open is whether v1 ships that channel. Arguments for doing so: the survey already
-addresses children directly, and classroom-administered QR codes would raise response rates among
-exactly the non-responders who are most at risk of a poor placement (§13.4). Arguments against:
-consent, and a second access mechanism to design and secure.
+Students have narrow, survey-scoped access in v1 through high-entropy codes bound to one student and one
+interest-profile survey or ranked-choice session. They have no account and no access to placements,
+guardian data, program-wide data, or a general dashboard. Broader student account and system access
+remains deferred.
 
 ### 24.4 Known limitation carried forward
 
@@ -3263,7 +3226,7 @@ is `1st Choice` through `4th Choice`, plus `Interested, but not a top choice` an
 `Not at all interested` — the basis for §13.3 and the quality mapping in §17.4.1.
 
 Two further observations. The 2025–26 annual form asks adult availability **per Friday** rather than
-per session, which is finer than any predecessor could store (§15.3). And the mid-year refresh was
+per session, which is finer than any predecessor could store (§15.2). And the mid-year refresh was
 answered by roughly half the students while changing the option set substantially — dropping one
 area and adding nine — which is the case that requires per-area overlay rather than wholesale
 replacement (§13.2).
@@ -3326,7 +3289,7 @@ all 26 grade 5 and 6 students plus one name absent from the roster. Why the coho
 not recoverable from the data (§8.3).
 
 **Staffing notes** — `NOT MARCH 6`, `(12/5 only)`, `(not 12/12)`. These are per-date availability
-reconstructed as free text because the pipeline had no date entity (§15.3).
+reconstructed as free text because the pipeline had no date entity (§15.2).
 
 The conditional pin — *"knitting alternative first if this is full"* — is worth singling out. It is
 the one observed requirement this specification does not accommodate, and it is a reasonable

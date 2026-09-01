@@ -69,7 +69,7 @@ Four architectural forks were identified before Phase 1. Their resolutions are r
 | ID | Decision | Resolution | ADR |
 |---|---|---|---|
 | D1 | Assignment solver technology | **Python OR-Tools CP-SAT sidecar.** Validation deferred to Phase 5 rather than spiked up front. | [0003](./docs/adr/0003-assignment-solver-technology.md) |
-| D2 | Authentication | **Keep Supabase Auth** for administrator accounts; own the three link-based mechanisms in Postgres. | [0002](./docs/adr/0002-authentication-and-access-mechanisms.md) |
+| D2 | Authentication | **Keep Supabase Auth** for administrative accounts; adult guardian access uses application-owned email OTP sessions, with step-up MFA for administration. Student survey access uses application-owned scoped codes. | [0002](./docs/adr/0002-authentication-and-access-mechanisms.md), [0013](./docs/adr/0013-guardian-and-volunteer-access.md) |
 | D3 | API contract between Go and TypeScript | **Go is the source of truth**, via Huma v2 over chi. `openapi.json` committed and drift-checked; TypeScript generated at build time. | [0004](./docs/adr/0004-api-contract-and-type-generation.md) |
 | D4 | Published-artifact serving topology | **Served by the main API.** §22.3's independence SHOULD is knowingly relaxed for v1, with a named revisit trigger. Publishing still materialises a snapshot. | [0005](./docs/adr/0005-published-artifact-availability.md) |
 
@@ -96,8 +96,8 @@ vocabularies the roster draws on were scoped one level too high:
 The historical wide survey format is one row per adult with their children named inline, so the
 adult→student edge is sourced and the adult→adult grouping into a household never was. There is no
 replacement entity and renaming to `Family` was rejected: a name for an inference does not make it
-sourced. ADR 0012 supersedes [0006](./docs/adr/0006-household-and-volunteer-access.md), whose
-unresolved questions carry forward into 0013 untouched.
+sourced. ADR 0012 supersedes [0006](./docs/adr/0006-household-and-volunteer-access.md). ADR 0013
+records the resulting adult access decision for Phase 4.
 
 D10 postdates Phase 1, so it is retrofit rather than plan: Phase 1 shipped the three household
 tables and they have to come back out. That lands as a **new timestamped migration** whose `Down`
@@ -115,11 +115,7 @@ by the migration rather than reassigned or discarded, because `students.homeroom
 and discarding the vocabulary would take the roster with it. The Phase 1 bullets below describe the
 model after that move.
 
-One spec-level question is carried deliberately unresolved:
-
-| ID | Question | Handling | ADR |
-|---|---|---|---|
-| D5 | Guardian and volunteer access mechanics (SPEC §13.9, §24.2) | **Carried open.** Decided at the start of Phase 4. Adult-addressed links are settled by D10 and no longer a fork; what remains open is how a non-guardian volunteer obtains access, delivery and renewal cadence, and what happens to an adult with no email on file. | [0013](./docs/adr/0013-guardian-and-volunteer-access.md) |
+The adult access decision is now resolved in [ADR 0013](./docs/adr/0013-guardian-and-volunteer-access.md) and implemented in Phase 4; it is no longer a carried-open planning question.
 
 ---
 
@@ -143,7 +139,7 @@ graph TD
     P0["Phase 0<br/>Decisions and Platform"] --> P1["Phase 1<br/>Tenancy, Identity, People, Audit"]
     P1 --> P2["Phase 2<br/>Ingest Engine"]
     P2 --> P3["Phase 3<br/>Programs, Catalog, Sessions"]
-    P3 --> P4["Phase 4<br/>Preferences and Guardian Access"]
+    P3 --> P4["Phase 4<br/>Preferences and Adult/Student Access"]
     P4 --> P5["Phase 5<br/>Engine v0"]
     P5 --> P6["Phase 6<br/>Publishing and Artifacts"]
     P6 --> R1{{"R1 — Usable"}}
@@ -296,8 +292,7 @@ cheap.
 ### Phase 2 — Ingest engine
 
 *SPEC §11, plus §10.1 vocabularies. Scope and source authority are fixed by
-[ADR 0014](./docs/adr/0014-roster-ingest-scope-and-source-authority.md); §13.8 reuses the resulting
-two-phase mechanism in Phase 4.*
+[ADR 0014](./docs/adr/0014-roster-ingest-scope-and-source-authority.md).*
 
 **Feature track**
 
@@ -311,8 +306,8 @@ two-phase mechanism in Phase 4.*
   list guardian edges being **removed**, not only those added.
 - Matching is by external identifier only (§11.6 rule 1). Name matching is out of scope for the
   observed sources; a future source without external identifiers requires a new decision.
-- The enrolment and adult filters, nullable grade and nullable participation intent, non-parsed
-  classroom labels, and exclusion reporting are fixed in ADR 0014 (§5.2, §10.1, §15.2, §21.1).
+- The enrolment and adult filters, nullable grade, non-parsed classroom labels, and exclusion
+  reporting are fixed in ADR 0014 (§5.2, §10.1, §21.1).
 - Two-phase preview → atomic commit is stateless and content-hash guarded, with per-row `Create` /
   `Update` / `Unchanged` / `Conflict` / `Error`. Commit is blocked while any `Error` exists, while
   `Conflict` rows are reported and skipped for manual correction and re-import (§11.5, ADR 0014).
@@ -336,7 +331,7 @@ two-phase mechanism in Phase 4.*
 - An operator demonstration against their own instance produces the import audit entry as evidence.
 - A deliberately ambiguous or otherwise unresolved row is reported for manual correction; the
   Phase 2 source contract does not attempt name-based matching, and individual conflict resolution
-  is deferred until the Phase 4 preference import trigger (§11.5, ADR 0014).
+  follows the Phase 2 roster contract (§11.5, ADR 0014).
 
 ---
 
@@ -403,49 +398,81 @@ rather than landing as one large frontend bundle.
 
 ---
 
-### Phase 4 — Preferences and guardian access
+### Phase 4 — Preferences and adult/student access
 
-*SPEC §13, §19.5. Resolve D5 ([ADR 0013](./docs/adr/0013-guardian-and-volunteer-access.md)) at the
-start of this phase.*
+*SPEC §13, §19.5; [ADR 0013](./docs/adr/0013-guardian-and-volunteer-access.md). Preference
+history import is intentionally out of scope; all preference data is collected natively.*
 
 **Feature track**
 
-- Interest profile scoped to student + programme, with **per-area overlay** refresh semantics: each
-  submission is a distinct record and the effective profile is, per area, the most recent rating.
-  Never wholesale replacement — the mid-year refresh in B.3 dropped one area and added nine while
-  only half the students responded.
-- Surveys as a distinct entity from the vocabulary: a curated, ordered subset of areas asked at one
-  moment. Audience narrowable by explicit list, by attribute, and **by response state**. Draft /
-  Open / Closed lifecycle.
-- Ranked choices, per session, with **unique ranks enforced at entry**, not resolved at solve time.
-- Three states distinguished everywhere: **Rated**, **Unrated**, **No response**. The predecessor
-  summed "no rating" with "very interested" into one queue key and consequently placed non-responders
-  last (A.5 defect 9).
-- Guardian access per ADR 0013, **adult-addressed**: a link is issued to an adult and covers the
-  students they are a guardian of, a scope derived at read time rather than stored. Preference
-  records are bound to a specific student at creation, never by typed name; submissions record who
-  and when; re-submission before window close permitted.
-- A participating student with **no guardian relationship** is a roster warning, never a block
-  (§5.2). There is nobody to address a link to, which the organiser must see and act on, but the
-  system does not refuse the student — an organiser can enter preferences on their behalf.
-- Preference import through the Phase 2 engine — **this is what backfills two years of history so
-  that fairness and variety have data from the first solve.**
-- Response tracking grouped by guardian, so one follow-up covers everything one adult owes (§19.5).
-  Grouping by guardian no longer partitions the student set: a student with two guardians appears
-  under both. That is correct for chasing, and it means counts taken over the report double-count.
+- Interest profiles scoped to student + program, with retained submissions and per-area effective
+  overlay semantics. The latest valid rating for each area wins; omitted areas are not cleared.
+- Interest-profile surveys as separate entities from the vocabulary: ordered area subsets, configurable
+  audience, configurable response window, and Draft/Open/Closed lifecycle. Opening freezes audience,
+  questions, scale version, and student codes; deadlines close access automatically; reopening warns and
+  is audited.
+- Ranked choices per session, with unique ranks enforced at entry, retained submissions, and latest-valid-
+  complete-response replacement. Access opens with the session voting window and closes automatically at
+  its deadline before assignment.
+- Student access codes: high-entropy, hashed, regenerable, revocable, and unique to one student and one
+  survey/session. Organizer-only code list grouped by homeroom, with print-friendly presentation; no
+  automated distribution in this phase.
+- Unified adult identity: email OTP creates guardian access; linked administrators step up with mandatory
+  MFA. Guardian mode shows only current guardian-scoped students; administration is a separate mode and
+  requires reauthentication after survey mode. Explicit account-to-adult links and duplicate-email
+  safeguards are required.
+- Administrator-on-behalf entry for students without guardians, without email, or otherwise needing
+  assistance; every record remains bound to a student and records actor/channel/time.
+- Ranked-choice and interest-profile response rules, including guardian/student resubmission precedence,
+  Rated/Unrated/No response distinctions, and server-side authorization.
+- Student-centric response tracking with totals and percentages by grade/homeroom, named non-responders,
+  unreachable students, and a separate outstanding-students-by-guardian view.
+- Transactional email for adult OTP only. Parent emailing of student codes, reminders, and other bulk or
+  workflow notifications remain deferred. Volunteer sign-up and availability remain in Konstella;
+  staffing data is organizer-managed.
+
+**Task breakdown**
+
+| Task | Scope | Spec/ADR | Effort |
+|---|---|---|---|
+| **P4-0 — Access decision and security contract** | Update principal/capability model; explicit account-to-adult links; OTP/session assurance levels; mandatory admin MFA, recovery, revocation, duplicate-email and no-email behavior. | §6.2, §6.5–6.6, §9.3–9.4, §13.8, ADR 0013 | high |
+| **P4-1 — Preference data model and effective values** | Interest-profile submissions, per-area overlay, ranked-choice submissions, valid-response replacement, actor/channel attribution, and program/session scoping. | §8.3, §13.1–13.5, §13.7 | high |
+| **P4-2 — Interest-profile surveys** | Survey CRUD, audience filters, scale snapshot, open/close deadlines, frozen definition, auto-close, reopen warning/audit, code issuance, and retention. | §13.5–13.6 | xhigh |
+| **P4-3 — Ranked-choice response window** | Session voting configuration, per-student/session codes, unique-rank validation, response replacement, deadline enforcement, and lifecycle integration. | §13.3, §14.1, §14.3–14.5 | xhigh |
+| **P4-4 — Adult OTP and unified modes** | Transactional OTP delivery, bounded sessions, current guardian scope, linked admin identity, step-up MFA, recovery, privacy-mode navigation, and reauthentication. | §6.2, §6.6, §9.3–9.4, §13.8, §22.5, ADR 0013 | xhigh |
+| **P4-5 — Student code distribution** | Organizer-only code list scoped by survey/session, grouped by homeroom, print-friendly, regeneration/revocation, and no bulk email. | §13.8, §19.5, §22.4 | high |
+| **P4-6 — Submission surfaces** | Mobile guardian flow for all guardian-scoped students; student-code flow for one student; administrator-on-behalf flow; resubmission and actor attribution. | §6.2, §6.5, §13.7–13.8, §22.4 | xhigh |
+| **P4-7 — Response tracking and follow-up views** | Student-level denominator and percentages; grade/homeroom breakdowns; unreachable/no-email states; separate guardian outstanding list. | §19.5 | high |
+| **P4-8 — Integration, accessibility, and security tests** | Tenant isolation and authorization tests; OTP/MFA and code lifecycle tests; lifecycle table tests; mobile Playwright coverage; accessibility CI baseline; generated API client wiring. | §5.2, §9.2–9.4, §13, §14.3, §19.5, §22.4 | xhigh |
+
+**Recommended dependency order**
+
+`P4-0 → P4-1 → P4-2 → P4-3 → P4-4 → P4-5 → P4-6 → P4-7 → P4-8`
+
+`P4-2` and `P4-3` may proceed in parallel after `P4-1` where their API boundaries are separate.
+`P4-4` should establish the principal/session contract before submission surfaces are built.
 
 **Platform track**
 
-- Playwright end-to-end coverage of the guardian submission flow at a mobile viewport. §22.4 makes
-  phone usability a MUST, and this is the only surface a non-administrator uses at volume.
+- Playwright end-to-end coverage of guardian and student submission at a mobile viewport.
 - Accessibility baseline in CI.
+- Security-focused tests for tenant ordering, scope derivation, OTP/MFA assurance, code isolation,
+  regeneration, revocation, and duplicate-email handling.
 
 **Exit criteria**
 
-- An adult can submit for every student they are a guardian of on a phone in one sitting, producing
-  per-student records.
-- Two years of historical preferences are loaded and queryable.
-- A report names every non-responder, grouped by guardian.
+- A guardian can use email OTP and submit or revise responses for every guardian-scoped student on a
+  phone in one sitting, producing per-student records.
+- A student can use a survey/session-specific code to submit and revise only their own response while the
+  relevant instrument is open.
+- An administrator who is also a guardian can enter guardian mode easily, and administration requires
+  step-up MFA after leaving survey mode.
+- An administrator can open a form for a selected student and submit on the student's behalf.
+- Administrators can view and print student codes grouped by homeroom; no automated code email is sent.
+- A report provides accurate student-level completion totals and percentages, names every non-responder,
+  identifies unreachable/no-email cases, and provides a separate outstanding-students-by-guardian view.
+- No preference import is implemented; a program with no placement history starts normally and reports
+  fairness/variety history as unavailable until native completed sessions accumulate.
 
 ---
 
@@ -550,8 +577,8 @@ it is here because §15.1 makes it advisory and non-blocking, so nothing before 
   of manual pinning — roughly 200 hand-written exclusion rows a year.
 - Authoring-time conflict detection that **names the specific rules in conflict** and never
   auto-resolves (§10.8).
-- Staffing: participation intent, topic interests, general availability free text, class proposals,
-  staffing assignments with role and note, per-meeting-date availability, per-date confirmation.
+- Staffing: organizer-managed staffing assignments with role and note, and optional per-meeting-date
+  confirmations. Volunteer sign-up and availability remain external to this system.
 - Staffing remains advisory throughout: **no under-staffing warnings, no publication gate**, and an
   unresolvable adult pairing is an informational note rather than a warning (§10.7, §15.1).
 
@@ -707,6 +734,6 @@ These become part of `AGENTS.md` in Phase 0 and apply to every subsequent phase.
 | Determinism treated as a later hardening pass | 5 | It gates re-solve, comparison and reproducibility. Built in Phase 5 or not at all. |
 | Sensitivity leak through an export or print path | 7 | Central enforcement plus a surface-enumerating test. §21.5 names this the most probable regression. |
 | Hard delete misses published snapshots | 10 | §21.3 names this the most likely silent failure. Test asserts absence from artifacts, not just from tables. |
-| Volunteer access decision (D5) taken too late to shape Phase 4 | 4 | Adult addressing is settled by D10, so the remaining question is the non-guardian volunteer, which touches no schema Phase 1 owns. |
+| Adult OTP/MFA and guardian-mode separation are under-specified | 4 | ADR 0013 and P4-0 define assurance levels, explicit identity links, recovery, and privacy-mode transitions before implementation. |
 | Agent throughput outpaces review quality | all | Phase 0 makes the gate real before domain volume begins. |
-| Two years of historical preferences never get loaded | 4 | Without them fairness and variety have no data. Treated as a Phase 4 exit criterion, not a nice-to-have. |
+| A program starts without placement history | 5, 8 | No-history behavior is neutral and visible; native completed sessions progressively populate fairness and variety history. |
