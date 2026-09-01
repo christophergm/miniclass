@@ -22,7 +22,7 @@ export function SettingsPage() {
   const label = vocabulary.data?.homeroom_label ?? 'homeroom'
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-6 py-10">
+    <main className="mx-auto w-full max-w-6xl px-6 pt-4 pb-10">
       <p className="text-sm font-medium text-primary">Organisation</p>
       <h1 className="mt-2 text-3xl font-semibold tracking-tight">Settings</h1>
       <p className="mt-2 max-w-2xl text-sm text-muted-foreground">Manage the term used for homerooms and the people who can administer this organisation.</p>

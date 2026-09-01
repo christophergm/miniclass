@@ -159,8 +159,8 @@ describe('SchoolYearWorkspace', () => {
     mockQuery(useSchoolYear, { data: year({ state: 'active' }), isLoading: false, isError: false, error: null })
     renderWorkspace()
 
-    expect(screen.getByRole('link', { name: 'Manage grades and homerooms' })).toHaveAttribute('href', '/y/year-test/vocabulary')
-    expect(screen.getByRole('link', { name: 'Import roster or grades' })).toHaveAttribute('href', '/y/year-test/imports')
+    expect(screen.getByRole('link', { name: /Manage grades and homerooms/ })).toHaveAttribute('href', '/y/year-test/vocabulary')
+    expect(screen.getByRole('link', { name: /Import roster or grades/ })).toHaveAttribute('href', '/y/year-test/imports')
     expect(screen.queryByRole('link', { name: 'Organisation settings' })).not.toBeInTheDocument()
   })
 
@@ -174,20 +174,14 @@ describe('SchoolYearWorkspace', () => {
 })
 
 describe('SchoolYearLayout', () => {
-  it('keeps year context in the breadcrumb and primary navigation', async () => {
+  it('renders the active child route', () => {
     renderLayout()
-
-    expect(screen.getByRole('link', { name: 'School years' })).toHaveAttribute('href', '/years')
-    expect(screen.getByRole('link', { name: '2025–26' })).toHaveAttribute('href', '/y/year-test/programs')
-    expect(screen.getByRole('link', { name: 'Programs' })).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByRole('link', { name: 'Adults' })).toHaveAttribute('href', '/y/year-test/adults')
-    expect(screen.getByRole('link', { name: 'Students' })).toHaveAttribute('href', '/y/year-test/students')
-    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/y/year-test/settings')
+    expect(screen.getByText('Programs page')).toBeInTheDocument()
   })
 
-  it('marks year settings active for its vocabulary and import subpages', () => {
+  it('renders the settings child route', () => {
     renderLayout('/y/year-test/settings')
-    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByText('Settings page')).toBeInTheDocument()
   })
 })
 

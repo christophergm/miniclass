@@ -32,7 +32,7 @@ const pageCopy = {
 } as const
 
 function PageFrame({ children }: { children: ReactNode }) {
-  return <main className="mx-auto w-full max-w-6xl px-6 py-10">{children}</main>
+  return <main className="mx-auto w-full max-w-6xl px-6 pt-4 pb-10">{children}</main>
 }
 
 export function StudentListPage() {
@@ -136,7 +136,7 @@ export function PeopleListPage({ kind }: PageProps) {
         <label className="mt-4 flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={includeDeleted} onChange={(event) => setIncludeDeleted(event.target.checked)} />Show deleted</label>
       </section>
 
-      {missingGradeCount > 0 && <p className="mt-4 rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-900 dark:text-amber-200" role="status">{missingGradeCount} student{missingGradeCount === 1 ? '' : 's'} have no grade yet. This is a warning; you can still save roster changes.</p>}
+      {missingGradeCount > 0 && <p className="mt-4 rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-900" role="status">{missingGradeCount} student{missingGradeCount === 1 ? '' : 's'} have no grade yet. This is a warning; you can still save roster changes.</p>}
 
       {isLoading && <p className="mt-8 text-sm text-muted-foreground" role="status">Loading {copy.plural.toLowerCase()}…</p>}
       {error !== null && <p className="mt-8 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive" role="alert">{errorMessage(error, `Unable to load ${copy.plural.toLowerCase()}.`)}</p>}

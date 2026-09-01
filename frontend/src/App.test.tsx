@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -170,6 +170,7 @@ describe('App routing', () => {
     renderApp('/y/year-1/students/student-1', authenticatedClient())
 
     expect(await screen.findByRole('heading', { name: 'Riley Stone' })).toBeInTheDocument()
+    expect(within(screen.getByRole('banner')).getByRole('link', { name: '2026–27' })).toHaveAttribute('href', '/y/year-1/programs')
     expect(screen.queryByRole('heading', { name: 'Add student' })).not.toBeInTheDocument()
   })
 })

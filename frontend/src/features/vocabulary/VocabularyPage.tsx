@@ -21,7 +21,7 @@ export function VocabularyPage() {
   const isEmpty = grades.length === 0 || homerooms.length === 0
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-6 py-10">
+    <main className="mx-auto w-full max-w-6xl px-6 pt-4 pb-10">
       <Link className="text-sm font-medium text-primary hover:underline" to={`/y/${year.id}/settings`}>← Back to Settings</Link>
       <p className="mt-6 text-sm font-medium text-primary">School-year setup</p>
       <h1 className="mt-2 text-3xl font-semibold tracking-tight">Grades and {noun}</h1>
