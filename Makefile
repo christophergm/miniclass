@@ -147,7 +147,7 @@ lint: lint-backend lint-frontend ## Lint both components
 lint-backend: ## Run golangci-lint and the depguard boundary proof
 	@$(MAKE) -C backend lint
 
-lint-frontend: ## Run ESLint
+lint-frontend: ## Run Biome formatting check and ESLint
 	@cd frontend && bun run lint
 
 format: ## Check Go formatting and run the vet analyzer
