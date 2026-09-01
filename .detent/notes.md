@@ -179,3 +179,12 @@
 - Validation: local `make format`, `make lint-backend`, `make generate` with generated-artifact drift check, and `git diff --check` pass. Local `make check` stops at Docker address-pool exhaustion; local frontend tests/build/lint are unavailable because dependencies are absent and Bun cannot write its temp cache. PR #178 head `aa9a494` passes all ten required CI checks, is open/non-draft/merge-clean, and has no actionable reviews or comments.
 - Open items: none; Detent owns the completion-lane transition. CI duration was approximately 1m46s; slow checks were Backend tests and Generated code drift at approximately 105s each. No post-merge main CI applies while the PR is open.
 - Skill draft: no — this is a focused frontend routing/presentation change with no broadly reusable procedure discovered.
+## Current handoff — issue #175
+
+- Scope: route `/y/:schoolYearId` to the sole program detail/home when exactly one program exists, otherwise to `/y/:schoolYearId/programs`; do not infer activity from session lifecycle state.
+- Key files: `frontend/src/App.tsx`, `frontend/src/features/programs/ProgramPages.tsx`, and `frontend/src/features/programs/ProgramPages.test.tsx`.
+- Implementation: `ProgramYearEntryPage` loads the year-scoped program list and uses an explicit count-based `Navigate`; the complete Programs list remains a direct route. No program activity or session lifecycle state is consulted.
+- Validation: local backend lint/format, generation drift, and `git diff --check` pass. Local backend tests, migration round-trip, frontend tests/build/lint, and smoke are environment-limited as recorded in the PR. PR #179 head `f6fd5b3` passes all ten required checks; slow checks were Backend tests (104s), Generated code drift (88s), and Backend lint (80s). PR CI duration was 108s; quiet-window wait was 0s; local merge-gate duration was not applicable beyond the clean `git diff --check`; no post-merge main CI applies while the PR is open.
+- Repository state: commits `f6fd5b3` and `092c830` are pushed to PR #179, which references `Fixes #175`, is open, non-draft, clean, and has no actionable reviews or comments. The final head is `092c830`.
+- Open items: none; Detent owns the completion-lane transition.
+- Skill draft: no — this is a focused frontend routing change with no broadly reusable procedure discovered.

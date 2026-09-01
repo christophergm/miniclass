@@ -16,7 +16,7 @@ import { AdultDetailPage, AdultListPage, StudentDetailPage, StudentListPage } fr
 import { AuditLog } from '@/features/audit/AuditLog'
 import { ImportPage } from '@/features/imports/ImportPage'
 import { OfferingPage } from '@/features/programs/OfferingPages'
-import { ProgramDetailPage, ProgramInterestAreasPage, ProgramListPage, ProgramMembershipPage, ProgramObjectiveWeightsPage, ProgramSettingsPage, SessionObjectiveWeightsPage, SessionPage } from '@/features/programs/ProgramPages'
+import { ProgramDetailPage, ProgramInterestAreasPage, ProgramListPage, ProgramMembershipPage, ProgramObjectiveWeightsPage, ProgramSettingsPage, ProgramYearEntryPage, SessionObjectiveWeightsPage, SessionPage } from '@/features/programs/ProgramPages'
 
 function App() {
   return (
@@ -50,7 +50,7 @@ function AppRoutes() {
 
           <Route path="/y/:schoolYearId" element={<SchoolYearGuard />}>
             <Route element={<SchoolYearLayout />}>
-              <Route index element={<Navigate replace to="settings" />} />
+              <Route index element={<ProgramYearEntryPage />} />
               <Route path="settings" element={<SchoolYearSettingsPage />} />
               <Route path="vocabulary" element={<VocabularyPage />} />
               <Route path="programs" element={<ProgramListPage />} />
