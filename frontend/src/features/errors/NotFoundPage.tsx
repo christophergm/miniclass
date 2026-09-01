@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button'
 // missing or inaccessible year is the actual cause.
 export function NotFoundPage() {
   return (
-    <main className="mx-auto w-full max-w-6xl px-6 py-10">
+    <main className="mx-auto w-full max-w-6xl px-6 pt-4 pb-10">
       <p className="text-sm font-medium text-primary">Not found</p>
       <h1 className="mt-2 text-3xl font-semibold tracking-tight">Page not found</h1>
       <p className="mt-3 max-w-xl text-sm text-muted-foreground">

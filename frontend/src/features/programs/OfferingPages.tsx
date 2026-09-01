@@ -9,7 +9,7 @@ import { useVocabulary } from '@/lib/hooks/useVocabulary'
 
 import { useOffering, useOfferings, useProgramInterestAreas, usePrograms, useSession, useCreateOffering, useDeleteOffering, useUpdateOffering } from './usePrograms'
 
-function PageFrame({ children }: { children: ReactNode }) { return <main className="mx-auto w-full max-w-6xl px-6 py-10">{children}</main> }
+function PageFrame({ children }: { children: ReactNode }) { return <main className="mx-auto w-full max-w-6xl px-6 pt-4 pb-10">{children}</main> }
 function Card({ children, title, description }: { children: ReactNode; title: string; description?: string }) { return <section className="mt-6 rounded-lg border bg-card p-5 shadow-sm"><h2 className="font-semibold">{title}</h2>{description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}{children}</section> }
 function ReadOnlyNotice() { return <section className="mt-6 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950" role="status"><h2 className="font-semibold">Read-only history</h2><p className="mt-1">This school year is closed. You can review the authoring record, but mutations are disabled.</p></section> }
 

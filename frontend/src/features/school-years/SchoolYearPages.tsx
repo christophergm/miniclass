@@ -1,5 +1,5 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
-import { Link, Outlet, useLocation, useOutletContext, useParams } from 'react-router-dom'
+import { Link, Outlet, useOutletContext, useParams } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,7 +11,7 @@ import { useIsOwner } from '@/lib/hooks/useAccount'
 import { useCreateSchoolYear, useSchoolYear, useSchoolYears, useUpdateSchoolYear } from './useSchoolYears'
 
 function PageFrame({ children }: { children: ReactNode }) {
-  return <main className="mx-auto w-full max-w-6xl px-6 py-10">{children}</main>
+  return <main className="mx-auto w-full max-w-6xl px-6 pt-4 pb-10">{children}</main>
 }
 
 function Problem({ error, fallback }: { error: unknown; fallback: string }) {
@@ -38,7 +38,7 @@ function StateBadge({ state, className }: { state: SchoolYearState; className?: 
 
 function formatDate(value: string) {
   const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(date)
+  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeZone: 'UTC' }).format(date)
 }
 
 
@@ -56,17 +56,12 @@ export function SchoolYearListPage() {
   return (
     <PageFrame>
       <div>
-        <p className="text-sm font-medium text-primary">Workspace</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight">School years</h1>
-        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">Choose a school year to work in. The selected year is always part of the URL, so shared and bookmarked links stay explicit.</p>
-      </div>
 
-      <div className="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-lg border bg-card p-5 shadow-sm">
-        <div>
-          <h2 className="font-semibold">Create a school year</h2>
-          <p className="mt-1 text-sm text-muted-foreground">A new year starts in setup. Closing a year is never required in order to create the next one.</p>
+        <div className="flex flex-wrap items-center justify-between">
+          <h1 className="text-3xl font-semibold tracking-tight">School years</h1>
+          <Button onClick={() => { setLabel(''); setCreateOpen(true) }} type="button">Create year</Button>
         </div>
-        <Button onClick={() => { setLabel(''); setCreateOpen(true) }} type="button">Create year</Button>
+        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">Choose a school year to work in.</p>
       </div>
       <ModalForm dirty={Boolean(label.trim())} onClose={() => setCreateOpen(false)} open={createOpen} title="Create school year" description="A new school year starts in setup and can be activated when it is ready.">
         <form className="space-y-4" onSubmit={submit}>
@@ -125,43 +120,11 @@ export function SchoolYearGuard() {
   return <Outlet context={result.data} />
 }
 
-const yearNavigation = [
-  { label: 'Programs', path: 'programs' },
-  { label: 'Adults', path: 'adults' },
-  { label: 'Students', path: 'students' },
-] as const
-
-function navigationClass(active: boolean) {
-  return active
-    ? 'rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground'
-    : 'rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground'
-}
 
 export function SchoolYearLayout() {
   const year = useOutletContext<SchoolYear>()
-  const location = useLocation()
-  const basePath = `/y/${year.id}`
-  const isAt = (path: string) => location.pathname === `${basePath}/${path}` || location.pathname.startsWith(`${basePath}/${path}/`)
-  const settingsActive = isAt('settings') || isAt('vocabulary') || isAt('imports')
 
-  return <>
-    <div className="border-b bg-card">
-      <div className="mx-auto w-full max-w-6xl px-6">
-        <nav aria-label="Breadcrumb" className="flex items-center gap-2 py-4 text-sm">
-          <Link className="text-muted-foreground hover:text-foreground hover:underline" to="/years">School years</Link>
-          <span aria-hidden="true" className="text-muted-foreground">/</span>
-          <Link className="font-medium text-foreground hover:underline" to={`${basePath}/programs`}>{year.label}</Link>
-        </nav>
-        <div className="flex flex-wrap items-end justify-between gap-4 pb-4">
-          <nav aria-label="School year navigation" className="flex flex-wrap gap-1">
-            {yearNavigation.map(({ label, path }) => <Link aria-current={isAt(path) ? 'page' : undefined} className={navigationClass(isAt(path))} key={path} to={`${basePath}/${path}`}>{label}</Link>)}
-          </nav>
-          <Link aria-current={settingsActive ? 'page' : undefined} className={navigationClass(settingsActive)} to={`${basePath}/settings`}>Settings</Link>
-        </div>
-      </div>
-    </div>
-    <Outlet context={year} />
-  </>
+  return <Outlet context={year} />
 }
 
 export function SchoolYearSettingsPage() {
@@ -219,11 +182,6 @@ export function SchoolYearSettingsPage() {
         </section>
       )}
 
-      <section aria-labelledby="school-year-details-heading" className="mt-6 rounded-lg border bg-card p-5 shadow-sm">
-        <h2 className="font-semibold" id="school-year-details-heading">Year details</h2>
-        <p className="mt-2 text-sm text-muted-foreground">Edit the display label or manage this year’s lifecycle from the Edit dialog.</p>
-      </section>
-
       <ModalForm dirty={label.trim() !== year.label || Boolean(reason.trim())} onClose={closeEditor} open={editOpen} title="Edit school year" description="Update the label or manage the school-year lifecycle. Created and updated timestamps are read-only.">
         <div className="space-y-5">
           <form className="space-y-4" onSubmit={saveLabel}>
@@ -259,14 +217,36 @@ export function SchoolYearSettingsPage() {
         </div>
       </ModalForm>
 
-      <section aria-labelledby="year-tools-heading" className="mt-6 rounded-lg border bg-card p-5 shadow-sm">
-        <h2 className="font-semibold" id="year-tools-heading">Year tools</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Open the tools associated with this school year.</p>
-        <div className="mt-4 flex flex-wrap gap-3">
-          <Button asChild variant="outline"><Link to={`/y/${year.id}/vocabulary`}>Manage grades and homerooms</Link></Button>
-          <Button asChild variant="outline"><Link to={`/y/${year.id}/imports`}>Import roster or grades</Link></Button>
+      <div className="flex items-center justify-between">
+      <div className="mt-8 grid w-full grid-cols-1 gap-4 md:grid-cols-2">
+        <Link className="rounded-lg border bg-card p-5 shadow-sm hover:bg-accent/50" to={`/y/${year.id}/vocabulary`}>
+          <h2 className="font-semibold">Manage grades and homerooms</h2>
+          <p className="mt-2 text-sm text-muted-foreground">Manage grades and homerooms for this school year.</p>
+          <span className="mt-5 block text-sm font-medium text-primary">Open Grades and Homerooms →</span>
+        </Link>
+
+        <Link className="rounded-lg border bg-card p-5 shadow-sm hover:bg-accent/50" to={`/y/${year.id}/imports`}>
+          <h2 className="font-semibold">Import roster or grades</h2>
+          <p className="mt-2 text-sm text-muted-foreground">Import students, adults and grades from files.</p>
+          <span className="mt-5 block text-sm font-medium text-primary">Import →</span>
+        </Link>
+
+        <Link className="rounded-lg border bg-card p-5 shadow-sm hover:bg-accent/50" to={`/y/${year.id}/students`}>
+          <h2 className="font-semibold">Student roster</h2>
+          <p className="mt-2 text-sm text-muted-foreground">View students and edit manually</p>
+          <span className="mt-5 block text-sm font-medium text-primary">View students →</span>
+        </Link>
+
+        <Link className="rounded-lg border bg-card p-5 shadow-sm hover:bg-accent/50" to={`/y/${year.id}/adults`}>
+          <h2 className="font-semibold">Adult roster</h2>
+          <p className="mt-2 text-sm text-muted-foreground">View adults and edit manually</p>
+          <span className="mt-5 block text-sm font-medium text-primary">View adults →</span>
+        </Link>
+
+
         </div>
-      </section>
+    </div>
+
     </PageFrame>
   )
 }

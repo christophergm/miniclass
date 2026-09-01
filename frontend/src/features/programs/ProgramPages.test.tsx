@@ -107,9 +107,10 @@ function renderSessionObjectives(currentYear = year('active')) {
 }
 
 describe('ProgramListPage', () => {
-  it('keeps Create program in the header and renders each program in its own row', () => {
+  it('keeps Settings in the header and Create program below the list', () => {
     renderProgramList()
 
+    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/y/year-1/settings')
     expect(screen.getByRole('button', { name: 'Create program' })).toBeInTheDocument()
     const programs = screen.getByRole('link', { name: /Enrichment/ })
     expect(programs).toHaveAttribute('href', '/y/year-1/programs/program-1')
@@ -191,7 +192,7 @@ describe('SessionPage', () => {
 
     expect(screen.getByRole('heading', { name: 'Autumn session' })).toBeInTheDocument()
     expect(screen.queryByLabelText('Edit session ordinal')).not.toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Meeting dates' })).toBeInTheDocument()
+
     expect(screen.getByRole('heading', { name: 'Offerings' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Create offering' })).toHaveAttribute('href', '/y/year-1/programs/program-1/sessions/session-1/offerings/new')
     expect(screen.getByRole('link', { name: 'Edit' })).toHaveAttribute('href', '/y/year-1/programs/program-1/sessions/session-1/offerings/offering-1/edit')
@@ -200,16 +201,17 @@ describe('SessionPage', () => {
     expect(screen.getByRole('link', { name: 'Assignment planner' })).toHaveAttribute('href', '/y/year-1/programs/program-1/sessions/session-1/assignment-planner')
     expect(screen.queryByRole('heading', { name: 'Session objective overrides' })).not.toBeInTheDocument()
     expect(screen.getByText('Advisory only — you can continue authoring.')).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Choose allowed state' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Lifecycle' })).not.toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Session state' })).toHaveValue('planning')
     expect(screen.getByRole('option', { name: 'Catalog Published' })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: 'Complete' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Transition' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Transition' })).toBeDisabled()
   })
 
   it('applies a transition directly when no confirmation is required', () => {
     renderSession()
 
-    fireEvent.change(screen.getByRole('combobox', { name: 'Next session state' }), { target: { value: 'catalog_published' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Session state' }), { target: { value: 'catalog_published' } })
     fireEvent.click(screen.getByRole('button', { name: 'Transition' }))
 
     expect(mocks.transition).toHaveBeenCalledWith(
@@ -225,11 +227,12 @@ describe('SessionPage', () => {
     })
     renderSession()
 
-    fireEvent.change(screen.getByRole('combobox', { name: 'Next session state' }), { target: { value: 'voting_open' } })
-    expect(screen.getByRole('button', { name: 'Preview Transition…' })).toBeInTheDocument()
+    fireEvent.change(screen.getByRole('combobox', { name: 'Session state' }), { target: { value: 'voting_open' } })
+    expect(screen.getByRole('button', { name: 'Preview transition...' })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: 'Complete' })).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Preview Transition…' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Preview transition...' }))
+    expect(screen.getByRole('dialog', { name: 'Preview transition to Voting Open' })).toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: 'Transition reason' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Confirm transition' })).toBeDisabled()
 
@@ -246,7 +249,7 @@ describe('SessionPage', () => {
 
     expect(screen.getByRole('heading', { name: 'Read-only history' })).toBeInTheDocument()
     expect(screen.getByText('Create offering')).toHaveAttribute('aria-disabled', 'true')
-    expect(screen.getByRole('button', { name: 'Edit dates' })).toBeDisabled()
+
     expect(screen.getByRole('button', { name: 'Transition' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Mark not participating' })).toBeDisabled()
   })
