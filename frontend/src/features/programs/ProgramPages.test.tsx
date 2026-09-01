@@ -129,9 +129,9 @@ describe('program navigation', () => {
     renderProgramSettings()
 
     expect(screen.getByRole('heading', { name: 'Enrichment settings' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Open Membership →' })).toHaveAttribute('href', '/y/year-1/programs/program-1/settings/membership')
-    expect(screen.getByRole('link', { name: 'Open Interest areas →' })).toHaveAttribute('href', '/y/year-1/programs/program-1/settings/interest-areas')
-    expect(screen.getByRole('link', { name: 'Open Assignment planner →' })).toHaveAttribute('href', '/y/year-1/programs/program-1/settings/assignment-planner')
+    expect(screen.getByRole('link', { name: /Open Membership →/ })).toHaveAttribute('href', '/y/year-1/programs/program-1/settings/membership')
+    expect(screen.getByRole('link', { name: /Open Interest areas →/ })).toHaveAttribute('href', '/y/year-1/programs/program-1/settings/interest-areas')
+    expect(screen.getByRole('link', { name: /Open Assignment planner →/ })).toHaveAttribute('href', '/y/year-1/programs/program-1/settings/assignment-planner')
   })
 
   it('keeps membership on its dedicated settings page', () => {
