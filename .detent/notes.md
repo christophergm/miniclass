@@ -172,3 +172,10 @@
 - Validation: backend format/lint/vet and `git diff --check` pass; generation runs without generated-file changes. Local frontend checks cannot run because frontend dependencies, including `openapi-typescript`, are not installed. Full `make check` stops at Docker address-pool exhaustion before gates. PR #177 final head `0e52f46` passes all ten required CI checks; the first run caught and was fixed by scoping an ambiguous modal test query.
 - Open items: none; PR #177 is open, non-draft, merge-clean, references `Fixes #173`, and has no actionable review comments. Detent owns the completion-lane transition. No dependency blocker.
 - Skill draft: no — this is a focused UI refinement using the existing modal pattern and exposed no broadly reusable procedure.
+## Current work — issue #174
+
+- Scope: Make program detail session-first and move membership, interest-area, and assignment planner authoring to dedicated settings pages per SPEC §§12.1–12.4, 14.1, and 17.7.
+- Current implementation: `frontend/src/features/programs/ProgramPages.tsx` now has `ProgramDetailPage`, `ProgramSettingsPage`, `ProgramMembershipPage`, and `ProgramInterestAreasPage`; `frontend/src/App.tsx` routes settings subpages and renamed planner entry points. Program detail has no `All programs` control or embedded administrative authoring.
+- Validation: local `make format`, `make lint-backend`, `make generate` with generated-artifact drift check, and `git diff --check` pass. Local `make check` stops at Docker address-pool exhaustion; local frontend tests/build/lint are unavailable because dependencies are absent and Bun cannot write its temp cache. PR #178 head `aa9a494` passes all ten required CI checks, is open/non-draft/merge-clean, and has no actionable reviews or comments.
+- Open items: none; Detent owns the completion-lane transition. CI duration was approximately 1m46s; slow checks were Backend tests and Generated code drift at approximately 105s each. No post-merge main CI applies while the PR is open.
+- Skill draft: no — this is a focused frontend routing/presentation change with no broadly reusable procedure discovered.

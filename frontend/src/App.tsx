@@ -16,7 +16,7 @@ import { AdultDetailPage, AdultListPage, StudentDetailPage, StudentListPage } fr
 import { AuditLog } from '@/features/audit/AuditLog'
 import { ImportPage } from '@/features/imports/ImportPage'
 import { OfferingPage } from '@/features/programs/OfferingPages'
-import { ProgramListPage, ProgramMembershipPage, ProgramObjectiveWeightsPage, SessionObjectiveWeightsPage, SessionPage } from '@/features/programs/ProgramPages'
+import { ProgramDetailPage, ProgramInterestAreasPage, ProgramListPage, ProgramMembershipPage, ProgramObjectiveWeightsPage, ProgramSettingsPage, SessionObjectiveWeightsPage, SessionPage } from '@/features/programs/ProgramPages'
 
 function App() {
   return (
@@ -54,12 +54,17 @@ function AppRoutes() {
               <Route path="settings" element={<SchoolYearSettingsPage />} />
               <Route path="vocabulary" element={<VocabularyPage />} />
               <Route path="programs" element={<ProgramListPage />} />
-              <Route path="programs/:programId" element={<ProgramMembershipPage />} />
+              <Route path="programs/:programId" element={<ProgramDetailPage />} />
+              <Route path="programs/:programId/settings" element={<ProgramSettingsPage />} />
+              <Route path="programs/:programId/settings/membership" element={<ProgramMembershipPage />} />
+              <Route path="programs/:programId/settings/interest-areas" element={<ProgramInterestAreasPage />} />
+              <Route path="programs/:programId/settings/assignment-planner" element={<ProgramObjectiveWeightsPage />} />
               <Route path="programs/:programId/objectives" element={<ProgramObjectiveWeightsPage />} />
               <Route path="programs/:programId/sessions/:sessionId" element={<SessionPage />} />
               <Route path="programs/:programId/sessions/:sessionId/offerings/new" element={<OfferingPage />} />
               <Route path="programs/:programId/sessions/:sessionId/offerings/:offeringId/edit" element={<OfferingPage />} />
               <Route path="programs/:programId/sessions/:sessionId/objectives" element={<SessionObjectiveWeightsPage />} />
+              <Route path="programs/:programId/sessions/:sessionId/assignment-planner" element={<SessionObjectiveWeightsPage />} />
 
               {/* Students scoped to a school year */}
               <Route path="students" element={<StudentListPage />} />

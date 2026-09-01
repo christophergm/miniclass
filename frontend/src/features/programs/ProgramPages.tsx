@@ -72,6 +72,60 @@ export function ProgramListPage() {
   </PageFrame>
 }
 
+function ProgramBreadcrumb({ schoolYearId, programId, programName, current }: { schoolYearId: string; programId: string; programName: string; current: string }) {
+  return <nav aria-label="Program breadcrumb" className="text-sm font-medium text-primary"><Link className="hover:underline" to={`/y/${schoolYearId}/programs`}>Programs</Link> / <Link className="hover:underline" to={`/y/${schoolYearId}/programs/${programId}`}>{programName}</Link> / {current}</nav>
+}
+
+function SettingsBreadcrumb({ schoolYearId, programId, programName, current }: { schoolYearId: string; programId: string; programName: string; current: string }) {
+  return <nav aria-label="Program breadcrumb" className="text-sm font-medium text-primary"><Link className="hover:underline" to={`/y/${schoolYearId}/programs`}>Programs</Link> / <Link className="hover:underline" to={`/y/${schoolYearId}/programs/${programId}`}>{programName}</Link> / <Link className="hover:underline" to={`/y/${schoolYearId}/programs/${programId}/settings`}>Settings</Link> / {current}</nav>
+}
+
+function useProgramName(schoolYearId: string | undefined, programId: string | undefined) {
+  const programs = usePrograms(schoolYearId)
+  return programs.data?.find((program) => program.id === programId)?.name ?? 'Program'
+}
+
+export function ProgramDetailPage() {
+  const { schoolYearId, programId } = useParams<{ schoolYearId: string; programId: string }>()
+  const year = useOutletContext<SchoolYear>()
+  const readOnly = year.state === 'closed'
+  const programs = usePrograms(schoolYearId)
+  const selected = programs.data?.find((program) => program.id === programId)
+  const sessions = useSessions(schoolYearId, programId)
+  const createSession = useCreateSession(schoolYearId ?? '', programId ?? '')
+  const updateSession = useUpdateSession(schoolYearId ?? '', programId ?? '')
+  const [sessionEditor, setSessionEditor] = useState<'create' | Session | null>(null)
+  const [sessionDraft, setSessionDraft] = useState<SessionDraft>({ name: '', meetingDates: [] })
+  if (!schoolYearId || !programId) return <PageFrame><p>Program is required.</p></PageFrame>
+  const submitSession = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); const value = { name: sessionDraft.name.trim(), meeting_dates: sessionDraft.meetingDates }; if (sessionEditor === 'create') createSession.mutate(value, { onSuccess: () => setSessionEditor(null) }); else if (sessionEditor) updateSession.mutate({ sessionID: sessionEditor.id, value }, { onSuccess: () => setSessionEditor(null) }) }
+  return <PageFrame>
+    <ProgramBreadcrumb current="Overview" programId={programId} programName={selected?.name ?? 'Program'} schoolYearId={schoolYearId} />
+    <div className="mt-2 flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-3xl font-semibold tracking-tight">{selected?.name ?? 'Program'}</h1><p className="mt-2 text-sm text-muted-foreground">Plan and review the sessions for this programme.</p></div><Button asChild variant="outline"><Link to={`/y/${schoolYearId}/programs/${programId}/settings`}>Program settings</Link></Button></div>
+    {readOnly && <ReadOnlyNotice />}
+    <Card title="Sessions" description="Sessions are ordered by first meeting date, then name. Add each meeting date in the session form.">
+      <Button disabled={readOnly} onClick={() => { setSessionDraft({ name: '', meetingDates: [] }); setSessionEditor('create') }} type="button">Create session</Button>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">{(sessions.data ?? []).map((session) => <div className="rounded-md border p-4" key={session.id}><div className="flex items-start justify-between gap-3"><Link className="min-w-0 flex-1 hover:text-primary" to={`/y/${schoolYearId}/programs/${programId}/sessions/${session.id}`}><h3 className="font-medium">{session.name}</h3><p className="mt-2 text-sm text-muted-foreground">{session.meeting_dates?.length ?? 0} meeting dates · {(session.feasibility_warnings ?? []).length} warning{session.feasibility_warnings?.length === 1 ? '' : 's'}</p></Link><div className="flex shrink-0 gap-2"><Button aria-label={`Edit ${session.name}`} disabled={readOnly} onClick={() => { setSessionDraft({ name: session.name, meetingDates: [...(session.meeting_dates ?? [])] }); setSessionEditor(session) }} size="sm" type="button" variant="outline">Edit</Button><span className="rounded-full bg-secondary px-2 py-1 text-xs">{stateLabel(session.state)}</span></div></div></div>)}</div>
+      <ModalForm dirty={sessionEditor !== null && (sessionDraft.name.trim() !== (sessionEditor === 'create' ? '' : sessionEditor.name) || JSON.stringify(sessionDraft.meetingDates) !== JSON.stringify(sessionEditor === 'create' ? [] : sessionEditor.meeting_dates ?? []))} onClose={() => setSessionEditor(null)} open={sessionEditor !== null} title={sessionEditor === 'create' ? 'Create session' : 'Edit session'} description="Add at least one meeting date. Saving replaces the session name and dates atomically."><SessionForm error={createSession.error || updateSession.error} onChange={setSessionDraft} onSubmit={submitSession} pending={createSession.isPending || updateSession.isPending} submitLabel={sessionEditor === 'create' ? 'Create session' : 'Save session'} value={sessionDraft} /></ModalForm>
+    </Card>
+  </PageFrame>
+}
+
+export function ProgramSettingsPage() {
+  const { schoolYearId, programId } = useParams<{ schoolYearId: string; programId: string }>()
+  const programName = useProgramName(schoolYearId, programId)
+  if (!schoolYearId || !programId) return <PageFrame><p>Program is required.</p></PageFrame>
+  const destinations = [
+    { title: 'Membership', description: 'Manage the annual students included in this programme.', path: 'membership' },
+    { title: 'Interest areas', description: 'Manage the ordered vocabulary used by this programme.', path: 'interest-areas' },
+    { title: 'Assignment planner', description: 'Tune programme defaults for the automated assignment planner.', path: 'assignment-planner' },
+  ] as const
+  return <PageFrame>
+    <ProgramBreadcrumb current="Settings" programId={programId} programName={programName} schoolYearId={schoolYearId} />
+    <div className="mt-2"><h1 className="text-3xl font-semibold tracking-tight">{programName} settings</h1><p className="mt-2 max-w-3xl text-sm text-muted-foreground">Manage programme configuration separately from the session authoring workspace.</p></div>
+    <div className="mt-8 grid gap-4 md:grid-cols-3">{destinations.map((destination) => <Link className="rounded-lg border bg-card p-5 shadow-sm hover:bg-accent/50" key={destination.path} to={`/y/${schoolYearId}/programs/${programId}/settings/${destination.path}`}><h2 className="font-semibold">{destination.title}</h2><p className="mt-2 text-sm text-muted-foreground">{destination.description}</p><span className="mt-5 block text-sm font-medium text-primary">Open {destination.title} →</span></Link>)}</div>
+  </PageFrame>
+}
+
 export function ProgramMembershipPage() {
   const { schoolYearId, programId } = useParams<{ schoolYearId: string; programId: string }>()
   const year = useOutletContext<SchoolYear>()
@@ -80,45 +134,41 @@ export function ProgramMembershipPage() {
   const selected = programs.data?.find((program) => program.id === programId)
   const memberships = useProgramMemberships(schoolYearId, programId)
   const students = usePeople('student', schoolYearId)
+  const addMembership = useAddProgramMembership(schoolYearId ?? '', programId ?? '')
+  const removeMembership = useRemoveProgramMembership(schoolYearId ?? '', programId ?? '')
+  const [studentId, setStudentId] = useState('')
+  if (!schoolYearId || !programId) return <PageFrame><p>Program is required.</p></PageFrame>
+  return <PageFrame>
+    <SettingsBreadcrumb current="Membership" programId={programId} programName={selected?.name ?? 'Program'} schoolYearId={schoolYearId} />
+    <div className="mt-2"><h1 className="text-3xl font-semibold tracking-tight">Membership</h1><p className="mt-2 text-sm text-muted-foreground">Add the explicit annual set of students. A missing grade is flagged; it never silently removes membership.</p></div>
+    {readOnly && <ReadOnlyNotice />}
+    <Card title="Programme membership"><form className="mt-4 flex gap-3" onSubmit={(event) => { event.preventDefault(); if (studentId) addMembership.mutate(studentId, { onSuccess: () => setStudentId('') }) }}><select aria-label="Student" className="flex h-9 min-w-0 flex-1 rounded-md border bg-transparent px-3 text-sm" disabled={readOnly} onChange={(event) => setStudentId(event.target.value)} value={studentId}><option value="">Choose a student</option>{(students.data ?? []).filter((student) => !student.deleted_at).map((student) => <option key={student.id} value={student.id}>{student.display_name}</option>)}</select><Button disabled={readOnly || !studentId || addMembership.isPending} type="submit">Add student</Button></form>{addMembership.isError && <Problem error={addMembership.error} fallback="Unable to add the student." />}<Table className="mt-6" aria-label="Program membership"><TableHeader><TableRow><TableHead>Student</TableHead><TableHead>Grade state</TableHead><TableHead>Actions</TableHead></TableRow></TableHeader><TableBody>{(memberships.data ?? []).map((membership) => <TableRow key={membership.id}><TableCell><Link className="font-medium text-primary hover:underline" to={`/y/${schoolYearId}/students/${membership.student_id}`}>{membership.legal_given_name} {membership.legal_family_name}</Link></TableCell><TableCell>{membership.grade_missing ? <span className="font-medium text-amber-700">Missing grade — flagged</span> : 'Known'}</TableCell><TableCell><Button disabled={readOnly || removeMembership.isPending} onClick={() => removeMembership.mutate(membership.id)} size="sm" variant="outline">Remove</Button></TableCell></TableRow>)}</TableBody></Table></Card>
+  </PageFrame>
+}
+
+export function ProgramInterestAreasPage() {
+  const { schoolYearId, programId } = useParams<{ schoolYearId: string; programId: string }>()
+  const year = useOutletContext<SchoolYear>()
+  const readOnly = year.state === 'closed'
+  const programs = usePrograms(schoolYearId)
+  const selected = programs.data?.find((program) => program.id === programId)
   const areas = useProgramInterestAreas(schoolYearId, programId)
-  const sessions = useSessions(schoolYearId, programId)
   const createArea = useCreateInterestArea(schoolYearId ?? '', programId ?? '')
   const updateArea = useUpdateInterestArea(schoolYearId ?? '', programId ?? '')
   const reorderAreas = useReorderInterestAreas(schoolYearId ?? '', programId ?? '')
-  const addMembership = useAddProgramMembership(schoolYearId ?? '', programId ?? '')
-  const removeMembership = useRemoveProgramMembership(schoolYearId ?? '', programId ?? '')
-  const createSession = useCreateSession(schoolYearId ?? '', programId ?? '')
-  const updateSession = useUpdateSession(schoolYearId ?? '', programId ?? '')
   const [areaEditor, setAreaEditor] = useState<'create' | InterestArea | null>(null)
   const [areaLabel, setAreaLabel] = useState('')
   const [areaBaseline, setAreaBaseline] = useState('')
-  const [studentId, setStudentId] = useState('')
-  const [sessionEditor, setSessionEditor] = useState<'create' | Session | null>(null)
-  const [sessionDraft, setSessionDraft] = useState<SessionDraft>({ name: '', meetingDates: [] })
   const orderedAreas = [...(areas.data ?? [])].sort((a, b) => a.ordinal - b.ordinal)
   if (!schoolYearId || !programId) return <PageFrame><p>Program is required.</p></PageFrame>
-  const submitSession = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); const value = { name: sessionDraft.name.trim(), meeting_dates: sessionDraft.meetingDates }; if (sessionEditor === 'create') createSession.mutate(value, { onSuccess: () => setSessionEditor(null) }); else if (sessionEditor) updateSession.mutate({ sessionID: sessionEditor.id, value }, { onSuccess: () => setSessionEditor(null) }) }
   const openCreateArea = () => { setAreaLabel(''); setAreaBaseline(''); setAreaEditor('create') }
   const openEditArea = (area: InterestArea) => { setAreaLabel(area.label); setAreaBaseline(area.label); setAreaEditor(area) }
   const submitArea = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); const label = areaLabel.trim(); if (!label) return; if (areaEditor === 'create') createArea.mutate(label, { onSuccess: () => setAreaEditor(null) }); else if (areaEditor) updateArea.mutate({ interestAreaID: areaEditor.id, value: { label } }, { onSuccess: () => setAreaEditor(null) }) }
   return <PageFrame>
-    <p className="text-sm font-medium text-primary"><Link className="hover:underline" to={`/y/${schoolYearId}/programs`}>Programs</Link> / authoring</p>
-    <div className="mt-2 flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-3xl font-semibold tracking-tight">{selected?.name ?? 'Program'}</h1><p className="mt-2 text-sm text-muted-foreground">Programme membership is annual; session non-participation is recorded separately.</p></div><div className="flex gap-2"><Button asChild variant="outline"><Link to={`/y/${schoolYearId}/programs/${programId}/objectives`}>Assignment objectives</Link></Button><Button asChild variant="outline"><Link to={`/y/${schoolYearId}/programs`}>All programs</Link></Button></div></div>
+    <SettingsBreadcrumb current="Interest areas" programId={programId} programName={selected?.name ?? 'Program'} schoolYearId={schoolYearId} />
+    <div className="mt-2"><h1 className="text-3xl font-semibold tracking-tight">Interest areas</h1><p className="mt-2 text-sm text-muted-foreground">Stable area identities keep historical offering labels intact. Retire an area instead of deleting it.</p></div>
     {readOnly && <ReadOnlyNotice />}
-    <Card title="Interest areas" description="Stable area identities keep historical offering labels intact. Retire an area instead of deleting it.">
-      <Button disabled={readOnly} onClick={openCreateArea} type="button">Add area</Button>
-      <div className="mt-4 space-y-2">{orderedAreas.map((area, index) => <div className="flex flex-wrap items-center gap-2" key={area.id}><span className={`min-w-48 flex-1 text-sm ${area.retired_at ? 'text-muted-foreground line-through' : ''}`}>{area.ordinal}. {area.label}</span><Button aria-label={`Edit ${area.label}`} disabled={readOnly} onClick={() => openEditArea(area)} size="sm" type="button" variant="outline">Edit</Button><Button aria-label={`Move ${area.label} up`} disabled={readOnly || index === 0} onClick={() => reorderAreas.mutate([...orderedAreas.slice(0, index - 1), orderedAreas[index], orderedAreas[index - 1], ...orderedAreas.slice(index + 1)].map((item) => item.id))} size="sm" type="button" variant="outline">↑</Button><Button aria-label={`Move ${area.label} down`} disabled={readOnly || index === orderedAreas.length - 1} onClick={() => reorderAreas.mutate([...orderedAreas.slice(0, index), orderedAreas[index + 1], orderedAreas[index], ...orderedAreas.slice(index + 2)].map((item) => item.id))} size="sm" type="button" variant="outline">↓</Button><Button disabled={readOnly} onClick={() => updateArea.mutate({ interestAreaID: area.id, value: { retired: !area.retired_at } })} size="sm" type="button" variant="outline">{area.retired_at ? 'Reactivate' : 'Retire'}</Button></div>)}</div>{updateArea.isError && <Problem error={updateArea.error} fallback="Unable to update the interest area." />}
-      <ModalForm dirty={areaLabel !== areaBaseline} onClose={() => setAreaEditor(null)} open={areaEditor !== null} title={areaEditor === 'create' ? 'Add interest area' : 'Edit interest area'}><form className="space-y-4" onSubmit={submitArea}><label className="block text-sm font-medium">Interest-area label<Input aria-label="Interest-area label" className="mt-2" onChange={(event) => setAreaLabel(event.target.value)} required value={areaLabel} /></label><div className="flex gap-2"><Button disabled={createArea.isPending || updateArea.isPending || !areaLabel.trim()} type="submit">{areaEditor === 'create' ? 'Add area' : 'Save area'}</Button><Button onClick={() => setAreaEditor(null)} type="button" variant="outline">Cancel</Button></div>{(createArea.isError || updateArea.isError) && <Problem error={createArea.error || updateArea.error} fallback="Unable to save the interest area." />}</form></ModalForm>
-    </Card>
-    <Card title="Program membership" description="Add the explicit annual set of students. A missing grade is flagged; it never silently removes membership.">
-      <form className="mt-4 flex gap-3" onSubmit={(event) => { event.preventDefault(); if (studentId) addMembership.mutate(studentId, { onSuccess: () => setStudentId('') }) }}><select aria-label="Student" className="flex h-9 min-w-0 flex-1 rounded-md border bg-transparent px-3 text-sm" disabled={readOnly} onChange={(event) => setStudentId(event.target.value)} value={studentId}><option value="">Choose a student</option>{(students.data ?? []).filter((student) => !student.deleted_at).map((student) => <option key={student.id} value={student.id}>{student.display_name}</option>)}</select><Button disabled={readOnly || !studentId || addMembership.isPending} type="submit">Add student</Button></form>{addMembership.isError && <Problem error={addMembership.error} fallback="Unable to add the student." />}
-      <Table className="mt-6" aria-label="Program membership"><TableHeader><TableRow><TableHead>Student</TableHead><TableHead>Grade state</TableHead><TableHead>Actions</TableHead></TableRow></TableHeader><TableBody>{(memberships.data ?? []).map((membership) => <TableRow key={membership.id}><TableCell><Link className="font-medium text-primary hover:underline" to={`/y/${schoolYearId}/students/${membership.student_id}`}>{membership.legal_given_name} {membership.legal_family_name}</Link></TableCell><TableCell>{membership.grade_missing ? <span className="font-medium text-amber-700">Missing grade — flagged</span> : 'Known'}</TableCell><TableCell><Button disabled={readOnly || removeMembership.isPending} onClick={() => removeMembership.mutate(membership.id)} size="sm" variant="outline">Remove</Button></TableCell></TableRow>)}</TableBody></Table>
-    </Card>
-    <Card title="Sessions" description="Sessions are ordered by first meeting date, then name. Add each meeting date in the session form.">
-      <Button disabled={readOnly} onClick={() => { setSessionDraft({ name: '', meetingDates: [] }); setSessionEditor('create') }} type="button">Create session</Button>
-      <div className="mt-5 grid gap-3 sm:grid-cols-2">{(sessions.data ?? []).map((session) => <div className="rounded-md border p-4" key={session.id}><div className="flex items-start justify-between gap-3"><Link className="min-w-0 flex-1 hover:text-primary" to={`/y/${schoolYearId}/programs/${programId}/sessions/${session.id}`}><h3 className="font-medium">{session.name}</h3><p className="mt-2 text-sm text-muted-foreground">{session.meeting_dates?.length ?? 0} meeting dates · {(session.feasibility_warnings ?? []).length} warning{session.feasibility_warnings?.length === 1 ? '' : 's'}</p></Link><div className="flex shrink-0 gap-2"><Button aria-label={`Edit ${session.name}`} disabled={readOnly} onClick={() => { setSessionDraft({ name: session.name, meetingDates: [...(session.meeting_dates ?? [])] }); setSessionEditor(session) }} size="sm" type="button" variant="outline">Edit</Button><span className="rounded-full bg-secondary px-2 py-1 text-xs">{stateLabel(session.state)}</span></div></div></div>)}</div>
-      <ModalForm dirty={sessionEditor !== null && (sessionDraft.name.trim() !== (sessionEditor === 'create' ? '' : sessionEditor.name) || JSON.stringify(sessionDraft.meetingDates) !== JSON.stringify(sessionEditor === 'create' ? [] : sessionEditor.meeting_dates ?? []))} onClose={() => setSessionEditor(null)} open={sessionEditor !== null} title={sessionEditor === 'create' ? 'Create session' : 'Edit session'} description="Add at least one meeting date. Saving replaces the session name and dates atomically."><SessionForm error={createSession.error || updateSession.error} onChange={setSessionDraft} onSubmit={submitSession} pending={createSession.isPending || updateSession.isPending} submitLabel={sessionEditor === 'create' ? 'Create session' : 'Save session'} value={sessionDraft} /></ModalForm>
-    </Card>
+    <Card title="Interest-area vocabulary"><Button disabled={readOnly} onClick={openCreateArea} type="button">Add area</Button><div className="mt-4 space-y-2">{orderedAreas.map((area, index) => <div className="flex flex-wrap items-center gap-2" key={area.id}><span className={`min-w-48 flex-1 text-sm ${area.retired_at ? 'text-muted-foreground line-through' : ''}`}>{area.ordinal}. {area.label}</span><Button aria-label={`Edit ${area.label}`} disabled={readOnly} onClick={() => openEditArea(area)} size="sm" type="button" variant="outline">Edit</Button><Button aria-label={`Move ${area.label} up`} disabled={readOnly || index === 0} onClick={() => reorderAreas.mutate([...orderedAreas.slice(0, index - 1), orderedAreas[index], orderedAreas[index - 1], ...orderedAreas.slice(index + 1)].map((item) => item.id))} size="sm" type="button" variant="outline">↑</Button><Button aria-label={`Move ${area.label} down`} disabled={readOnly || index === orderedAreas.length - 1} onClick={() => reorderAreas.mutate([...orderedAreas.slice(0, index), orderedAreas[index + 1], orderedAreas[index], ...orderedAreas.slice(index + 2)].map((item) => item.id))} size="sm" type="button" variant="outline">↓</Button><Button disabled={readOnly} onClick={() => updateArea.mutate({ interestAreaID: area.id, value: { retired: !area.retired_at } })} size="sm" type="button" variant="outline">{area.retired_at ? 'Reactivate' : 'Retire'}</Button></div>)}</div>{updateArea.isError && <Problem error={updateArea.error} fallback="Unable to update the interest area." />}<ModalForm dirty={areaLabel !== areaBaseline} onClose={() => setAreaEditor(null)} open={areaEditor !== null} title={areaEditor === 'create' ? 'Add interest area' : 'Edit interest area'}><form className="space-y-4" onSubmit={submitArea}><label className="block text-sm font-medium">Interest-area label<Input aria-label="Interest-area label" className="mt-2" onChange={(event) => setAreaLabel(event.target.value)} required value={areaLabel} /></label><div className="flex gap-2"><Button disabled={createArea.isPending || updateArea.isPending || !areaLabel.trim()} type="submit">{areaEditor === 'create' ? 'Add area' : 'Save area'}</Button><Button onClick={() => setAreaEditor(null)} type="button" variant="outline">Cancel</Button></div>{(createArea.isError || updateArea.isError) && <Problem error={createArea.error || updateArea.error} fallback="Unable to save the interest area." />}</form></ModalForm></Card>
   </PageFrame>
 }
 
@@ -147,8 +197,8 @@ function WeightInput({ field, value, disabled, onChange, override = false }: { f
   return <div className="grid gap-3 border-b py-4 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_12rem]"><div><label className="font-medium" htmlFor={`objective-${field.key}-${override ? 'override' : 'default'}`}>{field.label}</label><p className="mt-1 text-sm text-muted-foreground">{field.explanation}</p></div><Input aria-label={`${field.label}${override ? ' override' : ''}`} disabled={disabled} id={`objective-${field.key}-${override ? 'override' : 'default'}`} min={field.key === 'rank_high_max' ? 2 : 0} onChange={(event) => onChange(event.target.value === '' ? null : Number(event.target.value))} placeholder={value == null ? undefined : String(value)} step={field.key === 'rank_high_max' ? '1' : '0.01'} type="number" value={value == null ? '' : String(value)} /></div>
 }
 
-function ObjectiveHeader({ breadcrumb, title, description, backTo }: { breadcrumb: ReactNode; title: string; description: string; backTo: string }) {
-  return <><p className="text-sm font-medium text-primary">{breadcrumb}</p><div className="mt-2 flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-3xl font-semibold tracking-tight">{title}</h1><p className="mt-2 max-w-3xl text-sm text-muted-foreground">{description}</p></div><Link className="text-sm font-medium text-primary hover:underline" to={backTo}>Back to authoring</Link></div></>
+function ObjectiveHeader({ breadcrumb, title, description, backTo, backLabel }: { breadcrumb: ReactNode; title: string; description: string; backTo: string; backLabel: string }) {
+  return <><p className="text-sm font-medium text-primary">{breadcrumb}</p><div className="mt-2 flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-3xl font-semibold tracking-tight">{title}</h1><p className="mt-2 max-w-3xl text-sm text-muted-foreground">{description}</p></div><Link className="text-sm font-medium text-primary hover:underline" to={backTo}>{backLabel}</Link></div></>
 }
 
 export function ProgramObjectiveWeightsPage() {
@@ -161,11 +211,11 @@ export function ProgramObjectiveWeightsPage() {
   const readOnly = year.state === 'closed'
   const program = programs.data?.find((item) => item.id === programId)
   if (!schoolYearId || !programId) return <PageFrame><p>Programme is required.</p></PageFrame>
-  if (weights.isLoading) return <PageFrame><p role="status">Loading assignment objectives…</p></PageFrame>
-  if (weights.isError || !weights.data) return <PageFrame><Problem error={weights.error} fallback="Unable to load assignment objectives." /></PageFrame>
+  if (weights.isLoading) return <PageFrame><p role="status">Loading assignment planner…</p></PageFrame>
+  if (weights.isError || !weights.data) return <PageFrame><Problem error={weights.error} fallback="Unable to load assignment planner." /></PageFrame>
   const values = draft ?? weights.data.defaults
   return <PageFrame>
-    <ObjectiveHeader breadcrumb={<><Link className="hover:underline" to={`/y/${schoolYearId}/programs`}>Programs</Link> / <Link className="hover:underline" to={`/y/${schoolYearId}/programs/${programId}`}>{program?.name ?? 'Program'}</Link></>} title="Assignment objectives" description={objectiveDescription} backTo={`/y/${schoolYearId}/programs/${programId}`} />
+    <ObjectiveHeader backLabel="Back to settings" breadcrumb={<><Link className="hover:underline" to={`/y/${schoolYearId}/programs`}>Programs</Link> / <Link className="hover:underline" to={`/y/${schoolYearId}/programs/${programId}`}>{program?.name ?? 'Program'}</Link> / <Link className="hover:underline" to={`/y/${schoolYearId}/programs/${programId}/settings`}>Settings</Link></>} title="Assignment planner" description={objectiveDescription} backTo={`/y/${schoolYearId}/programs/${programId}/settings`} />
     {readOnly && <ReadOnlyNotice />}
     <Card title="Programme defaults" description="These defaults apply to every session unless a session has an explicit override."><form onSubmit={(event) => { event.preventDefault(); update.mutate(values, { onSuccess: () => setDraft(null) }) }}><div className="mt-2">{weightFields.map((field) => <WeightInput field={field} key={field.key} value={values[field.key]} disabled={readOnly} onChange={(value) => setDraft({ ...values, [field.key]: value ?? 0 })} />)}</div><Button className="mt-5" disabled={readOnly || update.isPending} type="submit">Save programme defaults</Button></form>{update.isError && <Problem error={update.error} fallback="Unable to save programme defaults." />}</Card>
   </PageFrame>
@@ -183,8 +233,8 @@ export function SessionObjectiveWeightsPage() {
   const readOnly = year.state === 'closed'
   const program = programs.data?.find((item) => item.id === programId)
   if (!schoolYearId || !programId || !sessionId) return <PageFrame><p>Session is required.</p></PageFrame>
-  if (session.isLoading || weights.isLoading) return <PageFrame><p role="status">Loading assignment objectives…</p></PageFrame>
-  if (session.isError || !session.data || weights.isError || !weights.data) return <PageFrame><Problem error={session.error || weights.error} fallback="Unable to load assignment objectives." /></PageFrame>
+  if (session.isLoading || weights.isLoading) return <PageFrame><p role="status">Loading assignment planner…</p></PageFrame>
+  if (session.isError || !session.data || weights.isError || !weights.data) return <PageFrame><Problem error={session.error || weights.error} fallback="Unable to load assignment planner." /></PageFrame>
   const current = session.data
   const values = draft ?? weights.data.overrides
   const overrideValue = (key: WeightKey) => values[key] === undefined ? null : values[key]
@@ -194,7 +244,7 @@ export function SessionObjectiveWeightsPage() {
     update.mutate({ overrides, reason: reason.trim() }, { onSuccess: () => { setDraft(null); setReason('') } })
   }
   return <PageFrame>
-    <ObjectiveHeader breadcrumb={<><Link className="hover:underline" to={`/y/${schoolYearId}/programs`}>Programs</Link> / <Link className="hover:underline" to={`/y/${schoolYearId}/programs/${programId}`}>{program?.name ?? 'Program'}</Link> / <Link className="hover:underline" to={`/y/${schoolYearId}/programs/${programId}/sessions/${sessionId}`}>{current.name}</Link></>} title="Assignment objectives" description={objectiveDescription} backTo={`/y/${schoolYearId}/programs/${programId}/sessions/${sessionId}`} />
+    <ObjectiveHeader backLabel="Back to session" breadcrumb={<><Link className="hover:underline" to={`/y/${schoolYearId}/programs`}>Programs</Link> / <Link className="hover:underline" to={`/y/${schoolYearId}/programs/${programId}`}>{program?.name ?? 'Program'}</Link> / <Link className="hover:underline" to={`/y/${schoolYearId}/programs/${programId}/sessions/${sessionId}`}>{current.name}</Link> / Assignment planner</>} title="Assignment planner" description={objectiveDescription} backTo={`/y/${schoolYearId}/programs/${programId}/sessions/${sessionId}`} />
     {readOnly && <ReadOnlyNotice />}
     <Card title="Session overrides" description="Leave a parameter blank to inherit the programme default. An explicit override is shown alongside its effective value."><form onSubmit={save}><div className="mt-2">{weightFields.map((field) => { const override = overrideValue(field.key); const effective = weights.data.effective[field.key]; const inherited = override == null; return <div key={field.key}><WeightInput field={field} override value={override} disabled={readOnly} onChange={(value) => setDraft({ ...(values as ObjectiveWeightOverrides), [field.key]: value })} /><p className="-mt-2 mb-2 text-sm text-muted-foreground">Effective value: <strong>{effective}</strong> · {inherited ? `Inherited programme default: ${weights.data.defaults[field.key]}` : `Session override: ${override}`}</p></div> })}</div><label className="mt-5 block text-sm font-medium" htmlFor="objective-reason">Reason for these session overrides<Input aria-label="Reason for these session overrides" className="mt-1" disabled={readOnly} id="objective-reason" onChange={(event) => setReason(event.target.value)} placeholder="Explain this tuning change" value={reason} /></label><Button className="mt-4" disabled={readOnly || update.isPending || !reason.trim()} type="submit">Save session overrides</Button></form>{update.isError && <Problem error={update.error} fallback="Unable to save session overrides." />}</Card>
   </PageFrame>
@@ -245,8 +295,8 @@ export function SessionPage() {
   const openEditNonParticipation = (item: SessionNonParticipation) => { const value = { studentId: item.student_id, reason: item.reason }; setNonParticipationDraft(value); setNonParticipationBaseline(value); setNonParticipationEditor(item) }
   const submitNonParticipation = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); const reason = nonParticipationDraft.reason.trim(); if (!reason) return; if (nonParticipationEditor === 'create') createExclusion.mutate({ student_id: nonParticipationDraft.studentId, reason }, { onSuccess: () => setNonParticipationEditor(null) }); else if (nonParticipationEditor) updateExclusion.mutate({ nonParticipationID: nonParticipationEditor.id, reason }, { onSuccess: () => setNonParticipationEditor(null) }) }
   return <PageFrame>
-    <p className="text-sm font-medium text-primary"><Link className="hover:underline" to={`/y/${schoolYearId}/programs/${programId}`}>{selectedProgram?.name ?? 'Program'}</Link> / session</p>
-    <div className="mt-2 flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-3xl font-semibold tracking-tight">{current.name}</h1><p className="mt-2 text-sm text-muted-foreground">First meeting {current.meeting_dates?.[0] ?? 'not set'} · {stateLabel(current.state)}</p></div><div className="flex gap-2"><Link className="text-sm font-medium text-primary hover:underline" to={`/y/${schoolYearId}/programs/${programId}/sessions/${sessionId}/objectives`}>Assignment objectives</Link><Link className="text-sm font-medium text-primary hover:underline" to={`/y/${schoolYearId}/programs/${programId}`}>Back to program</Link></div></div>
+    <ProgramBreadcrumb current={current.name} programId={programId} programName={selectedProgram?.name ?? 'Program'} schoolYearId={schoolYearId} />
+    <div className="mt-2 flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-3xl font-semibold tracking-tight">{current.name}</h1><p className="mt-2 text-sm text-muted-foreground">First meeting {current.meeting_dates?.[0] ?? 'not set'} · {stateLabel(current.state)}</p></div><Link className="text-sm font-medium text-primary hover:underline" to={`/y/${schoolYearId}/programs/${programId}/sessions/${sessionId}/assignment-planner`}>Assignment planner</Link></div>
     {readOnly && <ReadOnlyNotice />}{current.draft_assignments_stale && <p className="mt-6 rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-900" role="status"><strong>Stale draft assignments.</strong> They were retained after a backward transition and must be regenerated before publication.</p>}
     <Card title="Session details" description="Review the session name and meeting schedule, then edit them together in one atomic form."><div className="mt-4 flex flex-wrap items-center justify-between gap-3"><div><p className="font-medium">{current.name}</p><p className="mt-1 text-sm text-muted-foreground">{current.meeting_dates?.length ?? 0} meeting dates</p></div><Button disabled={readOnly} onClick={openSessionEditor} type="button">Edit session</Button></div>{updateSession.isError && <Problem error={updateSession.error} fallback="Unable to update session details." />}</Card>
     <Card title="Lifecycle" description="Only legal next states are offered. Backward transitions preview their consequences and require a reason before confirmation."><div className="mt-4 flex flex-wrap items-end gap-3"><label className="text-sm">Next state<select aria-label="Next session state" className="mt-1 block h-9 rounded-md border bg-transparent px-3 text-sm" disabled={readOnly || nextStates[current.state].length === 0} onChange={(event) => { setTransitionState(event.target.value); setTransitionPreview(null) }} value={transitionState}><option value="">Choose allowed state</option>{nextStates[current.state].map((state) => <option key={state} value={state}>{stateLabel(state)}</option>)}</select></label><Button disabled={readOnly || !transitionState || transition.isPending} onClick={() => performTransition(false)} type="button">{transitionNeedsConfirmation ? 'Preview Transition…' : 'Transition'}</Button></div>{transitionPreview && <div className="mt-4 rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"><strong>Review before confirming {stateLabel(transitionPreview.state)}</strong>{transitionPreview.warnings.map((warning) => <div className="mt-2" key={warning.message}><p>{warning.message}</p>{warning.invalidation_summary?.map((summary) => <p className="mt-1" key={summary}>• {summary}</p>)}</div>)}<label className="mt-4 block">Reason for this backward transition<Input aria-label="Transition reason" className="mt-1" disabled={readOnly} onChange={(event) => setTransitionReason(event.target.value)} value={transitionReason} /></label><div className="mt-3 flex gap-2"><Button disabled={!transitionReason.trim() || transition.isPending} onClick={() => performTransition(true)} type="button">Confirm transition</Button><Button onClick={() => setTransitionPreview(null)} type="button" variant="outline">Cancel</Button></div></div>}{transition.isError && <Problem error={transition.error} fallback="Unable to change session state." />}</Card>
