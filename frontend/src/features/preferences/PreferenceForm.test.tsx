@@ -71,9 +71,9 @@ describe("PreferenceFormEditor", () => {
 
     const save = screen.getByRole("button", { name: "Save preferences" });
     expect(save).toBeDisabled();
-    fireEvent.click(screen.getByLabelText("Very interested", { selector: "input" }));
+    fireEvent.click(screen.getAllByLabelText("Very interested", { selector: "input" })[0]);
     expect(save).toBeDisabled();
-    fireEvent.click(screen.getByLabelText("Interested", { selector: "input" }));
+    fireEvent.click(screen.getAllByLabelText("Interested", { selector: "input" })[1]);
     expect(save).toBeEnabled();
     fireEvent.click(save);
 
