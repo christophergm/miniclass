@@ -119,7 +119,7 @@ test("a student can submit ranked choices on a phone", async ({ page }) => {
     await route.fulfill({ json: form });
   });
 
-	await page.goto("/respond/sessions/year-1/program-1/session-1?organization_id=org-1&code=secret");
+  await page.goto("/respond/sessions/year-1/program-1/session-1?organization_id=org-1&code=secret");
   await expect(page.getByRole("heading", { name: form.name })).toBeVisible();
   await page.locator("#answer-offering-1").selectOption("ranked");
   await page.locator("#rank-offering-1").fill("1");

@@ -190,7 +190,7 @@ describe("phase 4 generated resources", () => {
     await resourceApi.getRankedChoiceResponseTracking("year-1", "program-1", "session-1");
 
     expect(requests.map((request) => request.method)).toEqual(["POST", "GET", "GET"]);
-		expect(requests[0].url).toContain("/api/respondent/sessions/year-1/program-1/session-1/form");
+    expect(requests[0].url).toContain("/api/respondent/sessions/year-1/program-1/session-1/form");
     expect(requests[1].url).toContain(
       "/api/school-years/year-1/programs/program-1/interest-profile-surveys/survey-1/response-tracking",
     );
