@@ -229,8 +229,27 @@ printf '%s' "$me_response" | grep -Eq '"email"[[:space:]]*:[[:space:]]*"'"$claim
   || die "GET $FRONTEND_URL/api/me did not return the claimed email: $me_response"
 printf '%s' "$me_response" | grep -Eq '"role"[[:space:]]*:[[:space:]]*"(owner|administrator)"' \
   || die "GET $FRONTEND_URL/api/me did not return an administrator membership: $me_response"
-curl --fail --silent --show-error --max-time 10 \
+
+echo "Enrolling and verifying MFA for the smoke-test administrator..."
+mfa_enrollment_response="$(curl --fail --silent --show-error --max-time 10 \
   -H "Authorization: Bearer $claim_bearer" \
+  -H 'Content-Type: application/json' \
+  -d '{}' \
+  "$FRONTEND_URL/api/auth/mfa/enroll")" \
+  || die "POST $FRONTEND_URL/api/auth/mfa/enroll failed for the smoke-test administrator"
+mfa_recovery_code="$(printf '%s' "$mfa_enrollment_response" | sed -n 's/.*"recovery_codes"[[:space:]]*:[[:space:]]*\["\([^"]*\)".*/\1/p')"
+[[ -n "$mfa_recovery_code" ]] || die "MFA enrollment did not return a recovery code"
+mfa_session_response="$(curl --fail --silent --show-error --max-time 10 \
+  -H "Authorization: Bearer $claim_bearer" \
+  -H 'Content-Type: application/json' \
+  -d "{\"recovery_code\":\"$mfa_recovery_code\"}" \
+  "$FRONTEND_URL/api/auth/mfa/verify")" \
+  || die "POST $FRONTEND_URL/api/auth/mfa/verify failed for the smoke-test administrator"
+admin_bearer="$(printf '%s' "$mfa_session_response" | sed -n 's/.*"session_token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')"
+[[ -n "$admin_bearer" ]] || die "MFA verification did not return an administrative session"
+
+curl --fail --silent --show-error --max-time 10 \
+  -H "Authorization: Bearer $admin_bearer" \
   "$FRONTEND_URL/api/school-years" >"$LOG_DIR/school-years.json" 2>"$LOG_DIR/school-years.err" \
   || die "GET $FRONTEND_URL/api/school-years failed after claiming the invitation"
 school_years_response="$(cat "$LOG_DIR/school-years.json")"
