@@ -134,7 +134,12 @@ export function PeopleListPage({ kind }: PageProps) {
     <PageFrame>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-medium text-primary">Roster</p>
+          <Link
+            className="text-sm font-medium text-primary hover:underline"
+            to={`/y/${schoolYearId}/settings`}
+          >
+            ← Back to Settings
+          </Link>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">{copy.plural}</h1>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
             Manage the people in this school year.

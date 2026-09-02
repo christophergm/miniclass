@@ -71,6 +71,16 @@ beforeEach(() => {
 });
 
 describe("ImportPage", () => {
+  it("links back to school-year settings from the breadcrumb", () => {
+    setup();
+    renderImport();
+
+    expect(screen.getByRole("link", { name: "← Back to Settings" })).toHaveAttribute(
+      "href",
+      "/y/year-1/settings",
+    );
+  });
+
   it("blocks commit while an Error record is present and explains why", () => {
     const result = preview({ counts: { ...emptyCounts, error: 1 } });
     setup(result);
