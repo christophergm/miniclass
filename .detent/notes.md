@@ -3,9 +3,10 @@
 - Scope: complete Phase 4 integration, accessibility, security validation, generated-client wiring, and documentation consistency per SPEC §§5.2, 9.2–9.4, 13, 14.3, 19.5, 22.4–22.5 and ADR 0013.
 - Dependency: #190 and #199 are closed and their pull requests are merged; the native `blocked_by` relation is terminal. Branch is rebased onto current `origin/main`.
 - Implementation: added explicit duplicate-email neutrality, OTP expiry, idle/absolute guardian-session expiry, live guardian-scope removal, and session revocation regressions; added ranked-choice mobile E2E coverage, a mobile accessibility baseline, response-tracking UI coverage, and generated-resource path coverage; documented the Phase 4 validation record in `PLAN.md`.
-- Validation: race-enabled full backend tests, `make format`, `make lint-backend`, `make generate`, generated-code drift, and `git diff --check` pass. Root `make check` stops at Docker address-pool exhaustion; migration round-trip lacks its configured URL; frontend gates lack installed dependencies; smoke lacks `.env`.
+- Validation: race-enabled full backend tests, `make format`, `make lint-backend`, `make generate`, generated-code drift, and `git diff --check` pass locally. Root `make check` stops at Docker address-pool exhaustion; migration round-trip lacks its configured URL; frontend gates lack installed dependencies; smoke lacks `.env`. PR #203 has passed all ten required CI checks on the latest source head.
 - Out-of-scope: populated adult-auth migration rollback enum mismatch filed as Backlog issue #202 with `detent-agent` effort `medium`.
-- Open items: commit/push, open PR referencing `Fixes #191`, verify all current-head CI checks and review comments, then refresh this note and the persistent Workpad.
+- Repository/PR: PR #203 is open, non-draft, merge-clean, references `Fixes #191`, and has no actionable reviews or inline comments. Detent owns the completion-lane transition.
+- Open items: none.
 - Skill draft: no — this pass used existing project test and validation conventions without discovering a broadly reusable procedure.
 
 ## Current work — issue #185
