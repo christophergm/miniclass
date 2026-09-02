@@ -205,6 +205,18 @@ func registerOperations(api huma.API, options RouterOptions) {
 		Errors:  []int{http.StatusBadRequest, http.StatusConflict, http.StatusNotFound},
 	}, auth.CapabilityManageRoster, false, preferenceHandler.AdministratorRankedSubmit)
 	registerOperation(api, huma.Operation{
+		OperationID: "get-interest-profile-response-tracking", Method: http.MethodGet,
+		Path:    apiBasePath + "/school-years/{schoolYearID}/programs/{programID}/interest-profile-surveys/{surveyID}/response-tracking",
+		Summary: "Read student-centric interest-profile response tracking",
+		Errors:  []int{http.StatusConflict, http.StatusNotFound},
+	}, auth.CapabilityManageRoster, false, preferenceHandler.InterestProfileResponseTracking)
+	registerOperation(api, huma.Operation{
+		OperationID: "get-ranked-choice-response-tracking", Method: http.MethodGet,
+		Path:    apiBasePath + "/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/response-tracking",
+		Summary: "Read student-centric ranked-choice response tracking",
+		Errors:  []int{http.StatusConflict, http.StatusNotFound},
+	}, auth.CapabilityManageCatalog, false, preferenceHandler.RankedChoiceResponseTracking)
+	registerOperation(api, huma.Operation{
 		OperationID: "get-guardian-auth-context", Method: http.MethodGet,
 		Path: apiBasePath + "/auth/guardian", Summary: "Read the current guardian scope",
 		Errors: []int{http.StatusForbidden},

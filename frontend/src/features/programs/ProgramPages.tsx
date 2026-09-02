@@ -709,6 +709,11 @@ export function ProgramSettingsPage() {
       path: "access-codes",
     },
     {
+      title: "Response tracking",
+      description: "Review student completion and guardian follow-up for each instrument.",
+      path: "response-tracking",
+    },
+    {
       title: "Assignment planner",
       description: "Tune programme defaults for the automated assignment planner.",
       path: "assignment-planner",
@@ -1680,6 +1685,12 @@ export function SessionPage() {
             to={`/y/${schoolYearId}/programs/${programId}/sessions/${sessionId}/assignment-planner`}
           >
             Assignment planner
+          </Link>
+          <Link
+            className="text-sm font-medium text-primary hover:underline"
+            to={`/y/${schoolYearId}/programs/${programId}/settings/response-tracking/sessions/${sessionId}`}
+          >
+            Response tracking
           </Link>
         </div>
       </div>

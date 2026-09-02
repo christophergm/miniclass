@@ -89,6 +89,24 @@ export function useInterestProfileSurvey(
   });
 }
 
+export function useInterestProfileResponseTracking(
+  schoolYearID: string | undefined,
+  programID: string | undefined,
+  surveyID: string | undefined,
+) {
+  return useQuery({
+    enabled: Boolean(schoolYearID && programID && surveyID),
+    queryKey: [...interestProfileSurveyKey(schoolYearID, programID, surveyID), "response-tracking"],
+    queryFn: () =>
+      resourceApi.getInterestProfileResponseTracking(
+        schoolYearID as string,
+        programID as string,
+        surveyID as string,
+      ),
+    retry: false,
+  });
+}
+
 export const guardianPreferenceFormsKey = ["guardian-preference-forms"] as const;
 
 export function useGuardianPreferenceForms() {
@@ -368,6 +386,24 @@ export function useSession(
     queryKey: [...sessionsKey(schoolYearID, programID), sessionID],
     queryFn: () =>
       resourceApi.getSession(schoolYearID as string, programID as string, sessionID as string),
+    retry: false,
+  });
+}
+
+export function useRankedChoiceResponseTracking(
+  schoolYearID: string | undefined,
+  programID: string | undefined,
+  sessionID: string | undefined,
+) {
+  return useQuery({
+    enabled: Boolean(schoolYearID && programID && sessionID),
+    queryKey: [...sessionsKey(schoolYearID, programID), sessionID, "response-tracking"],
+    queryFn: () =>
+      resourceApi.getRankedChoiceResponseTracking(
+        schoolYearID as string,
+        programID as string,
+        sessionID as string,
+      ),
     retry: false,
   });
 }

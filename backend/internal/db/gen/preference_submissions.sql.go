@@ -905,6 +905,101 @@ func (q *Queries) ListAllRankedChoiceSubmissionsForRegistry(ctx context.Context,
 	return items, nil
 }
 
+const listInterestProfileResponseTrackingStudents = `-- name: ListInterestProfileResponseTrackingStudents :many
+select s.id, s.organization_id, s.school_year_id, s.legal_given_name,
+    s.legal_family_name, s.preferred_given_name, s.grade_level_id,
+    coalesce(g.label, '') as grade_level_label, s.homeroom_id,
+    coalesce(h.name, '') as homeroom_name,
+    exists (
+        select 1
+        from interest_profile_submissions submission
+        where submission.organization_id = s.organization_id
+          and submission.school_year_id = s.school_year_id
+          and submission.program_id = $3
+          and submission.survey_id = $4
+          and submission.student_id = s.id
+    ) as responded
+from interest_profile_survey_audience_snapshots audience
+join students s
+  on s.id = audience.student_id
+ and s.organization_id = audience.organization_id
+ and s.school_year_id = audience.school_year_id
+left join grade_levels g
+  on g.id = s.grade_level_id
+ and g.organization_id = s.organization_id
+ and g.school_year_id = s.school_year_id
+left join homerooms h
+  on h.id = s.homeroom_id
+ and h.organization_id = s.organization_id
+ and h.school_year_id = s.school_year_id
+where audience.organization_id = $1
+  and audience.school_year_id = $2
+  and audience.program_id = $3
+  and audience.survey_id = $4
+  and s.deleted_at is null
+order by lower(s.legal_family_name),
+    lower(coalesce(s.preferred_given_name, s.legal_given_name)),
+    lower(s.legal_given_name), s.id
+`
+
+type ListInterestProfileResponseTrackingStudentsParams struct {
+	OrganizationID ids.XID  `json:"organization_id"`
+	SchoolYearID   ids.XID  `json:"school_year_id"`
+	ProgramID      ids.XID  `json:"program_id"`
+	SurveyID       *ids.XID `json:"survey_id"`
+}
+
+type ListInterestProfileResponseTrackingStudentsRow struct {
+	ID                 ids.XID     `json:"id"`
+	OrganizationID     ids.XID     `json:"organization_id"`
+	SchoolYearID       ids.XID     `json:"school_year_id"`
+	LegalGivenName     string      `json:"legal_given_name"`
+	LegalFamilyName    string      `json:"legal_family_name"`
+	PreferredGivenName pgtype.Text `json:"preferred_given_name"`
+	GradeLevelID       *ids.XID    `json:"grade_level_id"`
+	GradeLevelLabel    string      `json:"grade_level_label"`
+	HomeroomID         ids.XID     `json:"homeroom_id"`
+	HomeroomName       string      `json:"homeroom_name"`
+	Responded          bool        `json:"responded"`
+}
+
+func (q *Queries) ListInterestProfileResponseTrackingStudents(ctx context.Context, arg ListInterestProfileResponseTrackingStudentsParams) ([]ListInterestProfileResponseTrackingStudentsRow, error) {
+	rows, err := q.db.Query(ctx, listInterestProfileResponseTrackingStudents,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+		arg.ProgramID,
+		arg.SurveyID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListInterestProfileResponseTrackingStudentsRow{}
+	for rows.Next() {
+		var i ListInterestProfileResponseTrackingStudentsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrganizationID,
+			&i.SchoolYearID,
+			&i.LegalGivenName,
+			&i.LegalFamilyName,
+			&i.PreferredGivenName,
+			&i.GradeLevelID,
+			&i.GradeLevelLabel,
+			&i.HomeroomID,
+			&i.HomeroomName,
+			&i.Responded,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listInterestProfileResponses = `-- name: ListInterestProfileResponses :many
 select id, organization_id, school_year_id, program_id, submission_id, interest_area_id, response, created_at
 from interest_profile_responses
@@ -1011,6 +1106,107 @@ func (q *Queries) ListInterestProfileSubmissions(ctx context.Context, arg ListIn
 			&i.ActorLabel,
 			&i.SubmittedAt,
 			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRankedChoiceResponseTrackingStudents = `-- name: ListRankedChoiceResponseTrackingStudents :many
+select s.id, s.organization_id, s.school_year_id, s.legal_given_name,
+    s.legal_family_name, s.preferred_given_name, s.grade_level_id,
+    coalesce(g.label, '') as grade_level_label, s.homeroom_id,
+    coalesce(h.name, '') as homeroom_name,
+    exists (
+        select 1
+        from ranked_choice_submissions submission
+        where submission.organization_id = s.organization_id
+          and submission.school_year_id = s.school_year_id
+          and submission.program_id = $3
+          and submission.session_id = $4
+          and submission.student_id = s.id
+    ) as responded
+from program_memberships membership
+join students s
+  on s.id = membership.student_id
+ and s.organization_id = membership.organization_id
+ and s.school_year_id = membership.school_year_id
+left join session_non_participations excluded
+  on excluded.organization_id = membership.organization_id
+ and excluded.school_year_id = membership.school_year_id
+ and excluded.program_id = membership.program_id
+ and excluded.session_id = $4
+ and excluded.student_id = membership.student_id
+left join grade_levels g
+  on g.id = s.grade_level_id
+ and g.organization_id = s.organization_id
+ and g.school_year_id = s.school_year_id
+left join homerooms h
+  on h.id = s.homeroom_id
+ and h.organization_id = s.organization_id
+ and h.school_year_id = s.school_year_id
+where membership.organization_id = $1
+  and membership.school_year_id = $2
+  and membership.program_id = $3
+  and excluded.id is null
+  and s.deleted_at is null
+order by lower(s.legal_family_name),
+    lower(coalesce(s.preferred_given_name, s.legal_given_name)),
+    lower(s.legal_given_name), s.id
+`
+
+type ListRankedChoiceResponseTrackingStudentsParams struct {
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+	ProgramID      ids.XID `json:"program_id"`
+	SessionID      ids.XID `json:"session_id"`
+}
+
+type ListRankedChoiceResponseTrackingStudentsRow struct {
+	ID                 ids.XID     `json:"id"`
+	OrganizationID     ids.XID     `json:"organization_id"`
+	SchoolYearID       ids.XID     `json:"school_year_id"`
+	LegalGivenName     string      `json:"legal_given_name"`
+	LegalFamilyName    string      `json:"legal_family_name"`
+	PreferredGivenName pgtype.Text `json:"preferred_given_name"`
+	GradeLevelID       *ids.XID    `json:"grade_level_id"`
+	GradeLevelLabel    string      `json:"grade_level_label"`
+	HomeroomID         ids.XID     `json:"homeroom_id"`
+	HomeroomName       string      `json:"homeroom_name"`
+	Responded          bool        `json:"responded"`
+}
+
+func (q *Queries) ListRankedChoiceResponseTrackingStudents(ctx context.Context, arg ListRankedChoiceResponseTrackingStudentsParams) ([]ListRankedChoiceResponseTrackingStudentsRow, error) {
+	rows, err := q.db.Query(ctx, listRankedChoiceResponseTrackingStudents,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+		arg.ProgramID,
+		arg.SessionID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListRankedChoiceResponseTrackingStudentsRow{}
+	for rows.Next() {
+		var i ListRankedChoiceResponseTrackingStudentsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrganizationID,
+			&i.SchoolYearID,
+			&i.LegalGivenName,
+			&i.LegalFamilyName,
+			&i.PreferredGivenName,
+			&i.GradeLevelID,
+			&i.GradeLevelLabel,
+			&i.HomeroomID,
+			&i.HomeroomName,
+			&i.Responded,
 		); err != nil {
 			return nil, err
 		}

@@ -270,3 +270,14 @@
 - Validation: current head `565b71a` passes all ten required CI checks, including the mocked mobile Playwright flows in Frontend tests. CI took 155s; slow checks were Backend tests (151s), Generated code drift (113s), and Backend lint/Developer tooling (78s/77s). Local `git diff --check` passes; root Docker-backed checks remain unavailable because address pools are exhausted, migration round-trip lacks `MIGRATION_ROUNDTRIP_DATABASE_URL`, local frontend dependencies are not installed, and smoke lacks `.env`.
 - Open items: none; PR #198 has no reviews or inline comments requiring action. Quiet-window wait 0s; local merge-gate `git diff --check` under 1s; no post-merge main CI applies while the PR is open. Detent owns the completion-lane transition. No dependency blocker or human action is declared.
 - Skill draft: no — the existing auth, tenant-data, and isolation guidance covered the reusable method; no new broadly reusable procedure was discovered.
+## Current work — issue #190
+
+- Scope: student-centric response tracking and organizer follow-up views per SPEC §19.5.
+- Dependency: #189 is Done and PR #198 is merged; the native GitHub `blocked_by` relation is terminal.
+- Repository state: rebased onto `origin/main` at `dc3231c`; no PR exists; `.detent/notes.md` retains the carried workpad notes.
+- Implementation: added instrument-specific student-denominator queries, read-only preference service projections, organizer API/OpenAPI routes, generated sqlc, frontend hooks/pages/links, and organization-scoped integration plus pure aggregation tests. Survey reports use the frozen audience; ranked-choice reports use participating programme members and exclude session non-participation. Guardian rows remain separate from student aggregates.
+- Validation: full `GOTOOLCHAIN=local go test ./...`, focused response-tracking/API/integration tests, `make lint-backend`, `make format`, `make generate`, and `git diff --check` pass. Local frontend tests/build/lint are unavailable because `openapi-typescript` and Bun's Biome plugin are not provisioned; migration round-trip lacks `MIGRATION_ROUNDTRIP_DATABASE_URL`; smoke lacks `.env`; aggregate `make check` stops at Docker's exhausted predefined address pools. CI must verify all ten required checks after push.
+- Open items: commit/push, open a non-draft PR referencing `Fixes #190`, verify current-head CI/review state, then update this Workpad to complete when the review gate is green.
+- Blockers: none.
+- Telemetry: local aggregate gate stopped before stages; no PR CI or quiet-window wait yet.
+- Skill draft: no — this is a focused reporting projection using existing tenant-data, access, and submission conventions; no new broadly reusable procedure was discovered.
