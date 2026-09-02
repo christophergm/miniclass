@@ -119,15 +119,15 @@ function AppRoutes() {
                 element={<InterestProfileSurveysPage />}
               />
               <Route
-                path="programs/:programId/settings/response-tracking"
+                path="programs/:programId/response-tracking"
                 element={<ResponseTrackingIndexPage />}
               />
               <Route
-                path="programs/:programId/settings/response-tracking/surveys/:surveyId"
+                path="programs/:programId/response-tracking/surveys/:surveyId"
                 element={<InterestProfileResponseTrackingPage />}
               />
               <Route
-                path="programs/:programId/settings/response-tracking/sessions/:sessionId"
+                path="programs/:programId/response-tracking/sessions/:sessionId"
                 element={<RankedChoiceResponseTrackingPage />}
               />
               <Route

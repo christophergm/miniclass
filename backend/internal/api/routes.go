@@ -205,6 +205,12 @@ func registerOperations(api huma.API, options RouterOptions) {
 		Errors:  []int{http.StatusBadRequest, http.StatusConflict, http.StatusNotFound},
 	}, auth.CapabilityManageRoster, false, preferenceHandler.AdministratorRankedSubmit)
 	registerOperation(api, huma.Operation{
+		OperationID: "get-response-tracking-summaries", Method: http.MethodGet,
+		Path:    apiBasePath + "/school-years/{schoolYearID}/programs/{programID}/response-tracking/summary",
+		Summary: "Read response tracking summaries for programme instruments",
+		Errors:  []int{http.StatusNotFound},
+	}, auth.CapabilityManageRoster, false, preferenceHandler.ResponseTrackingSummaries)
+	registerOperation(api, huma.Operation{
 		OperationID: "get-interest-profile-response-tracking", Method: http.MethodGet,
 		Path:    apiBasePath + "/school-years/{schoolYearID}/programs/{programID}/interest-profile-surveys/{surveyID}/response-tracking",
 		Summary: "Read student-centric interest-profile response tracking",

@@ -50,6 +50,7 @@ import {
   usePrograms,
   useRemoveProgramMembership,
   useReorderInterestAreas,
+  useResponseTrackingSummaries,
   useSession,
   useSessionNonParticipations,
   useSessionObjectiveWeights,
@@ -120,6 +121,10 @@ function ReadOnlyNotice() {
 }
 function stateLabel(value: string) {
   return value.replace(/_/g, " ").replace(/\b\w/g, (letter: string) => letter.toUpperCase());
+}
+
+function percent(value: number) {
+  return `${value.toFixed(1).replace(/\.0$/, "")}%`;
 }
 
 type SessionDraft = {
@@ -551,6 +556,7 @@ export function ProgramDetailPage() {
   const programs = usePrograms(schoolYearId);
   const selected = programs.data?.find((program) => program.id === programId);
   const sessions = useSessions(schoolYearId, programId);
+  const responseTrackingSummaries = useResponseTrackingSummaries(schoolYearId, programId);
   const createSession = useCreateSession(schoolYearId ?? "", programId ?? "");
   const updateSession = useUpdateSession(schoolYearId ?? "", programId ?? "");
   const [sessionEditor, setSessionEditor] = useState<"create" | Session | null>(null);
@@ -587,9 +593,16 @@ export function ProgramDetailPage() {
             Plan and review the sessions for this programme.
           </p>
         </div>
-        <Button asChild variant="outline">
-          <Link to={`/y/${schoolYearId}/programs/${programId}/settings`}>Program settings</Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline">
+            <Link to={`/y/${schoolYearId}/programs/${programId}/response-tracking`}>
+              Response tracking
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link to={`/y/${schoolYearId}/programs/${programId}/settings`}>Program settings</Link>
+          </Button>
+        </div>
       </div>
       {readOnly && <ReadOnlyNotice />}
       <Card
@@ -599,6 +612,11 @@ export function ProgramDetailPage() {
         <div className="mt-5 grid gap-3">
           {(sessions.data ?? []).map((session) => {
             const warningCount = (session.feasibility_warnings ?? []).length;
+            const responseTracking = responseTrackingSummaries.data?.find(
+              (summary) =>
+                summary.instrument_type === "ranked_choice_session" &&
+                summary.instrument_id === session.id,
+            );
             return (
               <div className="rounded-md border p-4" key={session.id}>
                 <div className="grid gap-x-8 gap-y-3 sm:grid-cols-[repeat(3,minmax(0,1fr))_auto]">
@@ -608,10 +626,21 @@ export function ProgramDetailPage() {
                   >
                     <h3 className="font-medium">{session.name}</h3>
                   </Link>
-                  <div className="flex items-start">
+                  <div className="flex flex-col items-start gap-2">
                     <span className="rounded-full bg-secondary px-2 py-1 text-xs">
                       {stateLabel(session.state)}
                     </span>
+                    {session.ranked_choice &&
+                      session.state === "voting_open" &&
+                      responseTracking && (
+                        <Link
+                          className="text-sm font-medium text-primary hover:underline"
+                          to={`/y/${schoolYearId}/programs/${programId}/response-tracking/sessions/${session.id}`}
+                        >
+                          Responses: {percent(responseTracking.completion_percentage)} (
+                          {responseTracking.responded_students}/{responseTracking.total_students})
+                        </Link>
+                      )}
                   </div>
                   <ul className="min-w-0 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
                     {(session.meeting_dates ?? []).map((date) => (
@@ -713,11 +742,7 @@ export function ProgramSettingsPage() {
       description: "Regenerate and print student codes for open interest surveys.",
       path: "access-codes",
     },
-    {
-      title: "Response tracking",
-      description: "Review student completion and guardian follow-up for each instrument.",
-      path: "response-tracking",
-    },
+
     {
       title: "Assignment planner",
       description: "Tune programme defaults for the automated assignment planner.",
@@ -1691,12 +1716,14 @@ export function SessionPage() {
           >
             Assignment planner
           </Link>
-          <Link
-            className="text-sm font-medium text-primary hover:underline"
-            to={`/y/${schoolYearId}/programs/${programId}/settings/response-tracking/sessions/${sessionId}`}
-          >
-            Response tracking
-          </Link>
+          {current.ranked_choice && (
+            <Link
+              className="text-sm font-medium text-primary hover:underline"
+              to={`/y/${schoolYearId}/programs/${programId}/response-tracking/sessions/${sessionId}`}
+            >
+              Response tracking
+            </Link>
+          )}
         </div>
       </div>
       {readOnly && <ReadOnlyNotice />}

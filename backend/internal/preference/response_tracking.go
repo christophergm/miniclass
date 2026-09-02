@@ -27,6 +27,18 @@ const (
 // ResponseTracking is a read-only projection for one survey or session. The
 // student list is the source of every aggregate; guardian follow-up rows are
 // intentionally separate because one student may have several guardians.
+type ResponseTrackingSummary struct {
+	InstrumentType       ResponseTrackingInstrumentType
+	InstrumentID         ids.XID
+	InstrumentName       string
+	State                string
+	SchoolYearID         ids.XID
+	ProgramID            ids.XID
+	TotalStudents        int
+	RespondedStudents    int
+	CompletionPercentage float64
+}
+
 type ResponseTracking struct {
 	InstrumentType       ResponseTrackingInstrumentType
 	InstrumentID         ids.XID
@@ -67,6 +79,33 @@ type ResponseTrackingGuardianFollowUp struct {
 	StudentID     ids.XID
 	StudentName   string
 	ContactStatus string
+}
+
+func (s *Service) ListResponseTrackingSummaries(ctx context.Context, organizationID string, schoolYearID, programID ids.XID) ([]ResponseTrackingSummary, error) {
+	if s == nil || s.database == nil {
+		return nil, ErrPreferenceServiceNil
+	}
+	var result []ResponseTrackingSummary
+	err := s.database.InTenantRead(ctx, organizationID, func(ctx context.Context, tx *data.Tx) error {
+		rows, err := tx.ListResponseTrackingSummaries(ctx, schoolYearID, programID)
+		if err != nil {
+			return err
+		}
+		result = make([]ResponseTrackingSummary, 0, len(rows))
+		for _, row := range rows {
+			result = append(result, ResponseTrackingSummary{
+				InstrumentType: ResponseTrackingInstrumentType(row.InstrumentType), InstrumentID: row.InstrumentID,
+				InstrumentName: row.InstrumentName, State: row.State, SchoolYearID: row.SchoolYearID,
+				ProgramID: row.ProgramID, TotalStudents: row.TotalStudents, RespondedStudents: row.RespondedStudents,
+				CompletionPercentage: completionPercentage(row.RespondedStudents, row.TotalStudents),
+			})
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 func (s *Service) GetInterestProfileResponseTracking(ctx context.Context, organizationID string, schoolYearID, programID, surveyID ids.XID) (ResponseTracking, error) {

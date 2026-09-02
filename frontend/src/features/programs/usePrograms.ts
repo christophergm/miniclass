@@ -364,6 +364,24 @@ export function useSubmitAdministratorRankedChoice() {
   });
 }
 
+export const responseTrackingSummariesKey = (
+  schoolYearID: string | undefined,
+  programID: string | undefined,
+) => [...programsKey(schoolYearID), programID, "response-tracking-summaries"] as const;
+
+export function useResponseTrackingSummaries(
+  schoolYearID: string | undefined,
+  programID: string | undefined,
+) {
+  return useQuery({
+    enabled: Boolean(schoolYearID && programID),
+    queryKey: responseTrackingSummariesKey(schoolYearID, programID),
+    queryFn: () =>
+      resourceApi.listResponseTrackingSummaries(schoolYearID as string, programID as string),
+    retry: false,
+  });
+}
+
 export const sessionsKey = (schoolYearID: string | undefined, programID: string | undefined) =>
   [...programsKey(schoolYearID), programID, "sessions"] as const;
 

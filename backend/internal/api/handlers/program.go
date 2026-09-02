@@ -72,6 +72,7 @@ type ProgramService interface {
 	GetInterestProfileFormByCode(context.Context, string, ids.XID, ids.XID, ids.XID, string) (preference.PreferenceForm, error)
 	SubmitInterestProfileSurvey(context.Context, string, audit.Actor, preference.InterestProfileSurveySubmissionInput) (data.InterestProfileSubmission, error)
 	GetInterestProfileResponseTracking(context.Context, string, ids.XID, ids.XID, ids.XID) (preference.ResponseTracking, error)
+	ListResponseTrackingSummaries(context.Context, string, ids.XID, ids.XID) ([]preference.ResponseTrackingSummary, error)
 	ListGuardianPreferenceForms(context.Context, string, ids.XID, ids.XID) (preference.GuardianPreferenceForms, error)
 	GetRankedChoiceForm(context.Context, string, ids.XID, ids.XID, ids.XID, ids.XID) (preference.PreferenceForm, error)
 	GetRankedChoiceFormByCode(context.Context, string, ids.XID, ids.XID, ids.XID, string) (preference.PreferenceForm, error)

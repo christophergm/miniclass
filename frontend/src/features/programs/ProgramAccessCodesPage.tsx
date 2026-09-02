@@ -53,7 +53,7 @@ export function ProgramAccessCodesPage() {
               </div>
               <Link
                 className="text-sm font-medium text-primary hover:underline"
-                to={`/y/${schoolYearId}/programs/${programId}/settings/response-tracking/surveys/${survey.id}`}
+                to={`/y/${schoolYearId}/programs/${programId}/response-tracking/surveys/${survey.id}`}
               >
                 Response tracking
               </Link>

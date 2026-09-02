@@ -59,6 +59,10 @@ func (s *Service) GetInterestProfileResponseTracking(ctx context.Context, organi
 	return preference.New(s.database).GetInterestProfileResponseTracking(ctx, organizationID, schoolYearID, programID, surveyID)
 }
 
+func (s *Service) ListResponseTrackingSummaries(ctx context.Context, organizationID string, schoolYearID, programID ids.XID) ([]preference.ResponseTrackingSummary, error) {
+	return preference.New(s.database).ListResponseTrackingSummaries(ctx, organizationID, schoolYearID, programID)
+}
+
 func (s *Service) ListGuardianPreferenceForms(ctx context.Context, organizationID string, schoolYearID, adultID ids.XID) (preference.GuardianPreferenceForms, error) {
 	return preference.New(s.database).ListGuardianPreferenceForms(ctx, organizationID, schoolYearID, adultID)
 }
