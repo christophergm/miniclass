@@ -38,6 +38,8 @@ type RouterOptions struct {
 	ImportCommit           handlers.ImportCommitService
 	Programs               handlers.ProgramService
 	Verifier               auth.Verifier
+	AdultAuth              auth.AdultAuthentication
+	Sessions               auth.SessionResolver
 }
 
 // NewRouter builds the complete API router and middleware chain. Routes are
@@ -89,7 +91,7 @@ func newRouter(options RouterOptions) (chi.Router, huma.API) {
 	}
 	options.Version = version
 	api := humachi.New(router, humaConfig(version))
-	api.UseMiddleware(auth.Middleware(options.Verifier, options.Identity, writeAuthError))
+	api.UseMiddleware(auth.MiddlewareWithSessions(options.Verifier, options.Identity, options.Sessions, writeAuthError))
 	registerOperations(api, options)
 	addProblemTypesToContract(api.OpenAPI())
 	return router, api
@@ -128,6 +130,63 @@ func registerOperations(api huma.API, options RouterOptions) {
 		Summary:     "Check API and database health",
 		Errors:      []int{http.StatusServiceUnavailable},
 	}, auth.CapabilityPublic, false, health.Handle)
+
+	adultAuth := handlers.NewAdultAuthHandler(options.AdultAuth)
+	registerOperation(api, huma.Operation{
+		OperationID: "request-adult-otp", Method: http.MethodPost,
+		Path: apiBasePath + "/auth/adult/otp/request", Summary: "Request a guardian email OTP",
+		Errors: []int{http.StatusServiceUnavailable},
+	}, auth.CapabilityPublic, false, adultAuth.RequestOTP)
+	registerOperation(api, huma.Operation{
+		OperationID: "verify-adult-otp", Method: http.MethodPost,
+		Path: apiBasePath + "/auth/adult/otp/verify", Summary: "Verify a guardian email OTP",
+		Errors: []int{http.StatusUnauthorized},
+	}, auth.CapabilityPublic, false, adultAuth.VerifyOTP)
+	registerOperation(api, huma.Operation{
+		OperationID: "get-guardian-auth-context", Method: http.MethodGet,
+		Path: apiBasePath + "/auth/guardian", Summary: "Read the current guardian scope",
+		Errors: []int{http.StatusForbidden},
+	}, auth.CapabilityGuardianAccess, false, adultAuth.GuardianMe)
+	registerOperation(api, huma.Operation{
+		OperationID: "revoke-auth-session", Method: http.MethodPost,
+		Path: apiBasePath + "/auth/session/revoke", Summary: "Revoke the current application session",
+		Errors: []int{http.StatusBadRequest},
+	}, auth.CapabilitySession, false, adultAuth.Revoke)
+	registerOperation(api, huma.Operation{
+		OperationID: "enroll-mfa", Method: http.MethodPost,
+		Path: apiBasePath + "/auth/mfa/enroll", Summary: "Enroll the authenticated adult in MFA",
+		Errors: []int{http.StatusConflict},
+	}, auth.CapabilityAuthenticated, false, adultAuth.EnrollMFA)
+	registerOperation(api, huma.Operation{
+		OperationID: "verify-mfa", Method: http.MethodPost,
+		Path: apiBasePath + "/auth/mfa/verify", Summary: "Verify MFA and create an administrative session",
+		Errors: []int{http.StatusUnauthorized, http.StatusConflict},
+	}, auth.CapabilitySession, false, adultAuth.VerifyMFA)
+	registerOperation(api, huma.Operation{
+		OperationID: "reset-mfa", Method: http.MethodPost,
+		Path: apiBasePath + "/auth/mfa/reset", Summary: "Reset an adult's MFA enrollment",
+		Errors: []int{http.StatusBadRequest, http.StatusNotFound},
+	}, auth.CapabilityManageAdministrators, false, adultAuth.ResetMFA)
+	registerOperation(api, huma.Operation{
+		OperationID: "enter-guardian-mode", Method: http.MethodPost,
+		Path: apiBasePath + "/auth/mode/guardian", Summary: "Enter guardian mode for a school year",
+		Errors: []int{http.StatusForbidden, http.StatusNotFound},
+	}, auth.CapabilityAuthenticated, false, adultAuth.GuardianMode)
+	registerOperation(api, huma.Operation{
+		OperationID: "create-adult-account-link", Method: http.MethodPost,
+		Path: apiBasePath + "/auth/adult-account-links", Summary: "Link an adult to an administrative account",
+		Errors: []int{http.StatusConflict, http.StatusNotFound},
+	}, auth.CapabilityManageAdministrators, false, adultAuth.CreateLink)
+	registerOperation(api, huma.Operation{
+		OperationID: "list-adult-account-links", Method: http.MethodGet,
+		Path: apiBasePath + "/auth/adult-account-links", Summary: "List adult account links",
+		Errors: []int{http.StatusNotFound},
+	}, auth.CapabilityManageAdministrators, false, adultAuth.ListLinks)
+	registerOperation(api, huma.Operation{
+		OperationID: "delete-adult-account-link", Method: http.MethodDelete,
+		Path: apiBasePath + "/auth/adult-account-links/{linkID}", Summary: "Remove an adult account link",
+		Errors: []int{http.StatusNotFound},
+	}, auth.CapabilityManageAdministrators, false, adultAuth.DeleteLink)
 
 	registerOperation(api, huma.Operation{
 		OperationID: "get-me",
@@ -561,6 +620,8 @@ func writeAuthError(ctx huma.Context, failure auth.Failure) {
 		slug = problems.CapabilityRequired
 	case auth.FailureMissingCapability:
 		slug = problems.CapabilityNotDeclared
+	case auth.FailureMFARequired:
+		slug = problems.MFARequired
 	}
 	problems.WriteContext(ctx, problems.New(failure.Status, slug, failure.Detail))
 }

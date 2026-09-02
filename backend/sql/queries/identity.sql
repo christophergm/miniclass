@@ -6,7 +6,10 @@ returning id, name, homeroom_label, created_at, updated_at;
 -- name: CreateAccessToken :one
 insert into access_tokens (token_hash, purpose, expires_at, generation)
 values ($1, $2, $3, $4)
-returning id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation, created_at, updated_at;
+returning id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
+    created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
+    verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
+    mfa_generation;
 
 -- name: CreateOrganizationMember :one
 insert into organization_members (
@@ -22,10 +25,12 @@ returning id, organization_id, user_id, role, invited_email, invitation_token_id
 -- name: CreateUser :one
 insert into users (provider_subject, email)
 values ($1, $2)
-returning id, provider_subject, email, created_at, updated_at;
+returning id, provider_subject, email, created_at, updated_at,
+    mfa_secret_ciphertext, mfa_enrolled_at, mfa_generation;
 
 -- name: GetUserByProviderSubject :one
-select id, provider_subject, email, created_at, updated_at
+select id, provider_subject, email, created_at, updated_at,
+    mfa_secret_ciphertext, mfa_enrolled_at, mfa_generation
 from users
 where provider_subject = $1;
 
@@ -48,13 +53,38 @@ join organizations o on o.id = om.organization_id
 where u.provider_subject = $1
 order by om.organization_id;
 
+-- name: GetAccountMembershipsByUserID :many
+select
+    u.id as user_id,
+    u.provider_subject,
+    u.email,
+    u.created_at as user_created_at,
+    u.updated_at as user_updated_at,
+    om.id as membership_id,
+    om.organization_id,
+    o.name as organization_name,
+    om.role,
+    om.created_at as membership_created_at,
+    om.updated_at as membership_updated_at
+from users u
+join organization_members om on om.user_id = u.id
+join organizations o on o.id = om.organization_id
+where u.id = $1
+order by om.organization_id;
+
 -- name: GetAccessTokenByHash :one
-select id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation, created_at, updated_at
+select id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
+    created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
+    verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
+    mfa_generation
 from access_tokens
 where token_hash = $1;
 
 -- name: GetAccessTokenByID :one
-select id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation, created_at, updated_at
+select id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
+    created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
+    verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
+    mfa_generation
 from access_tokens
 where id = $1;
 

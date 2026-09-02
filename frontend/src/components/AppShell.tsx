@@ -55,6 +55,12 @@ export function AppShell() {
             >
               Settings
             </Link>
+            <Link
+              className="text-sm font-medium text-muted-foreground hover:text-foreground"
+              to="/mfa"
+            >
+              Security
+            </Link>
             <details className="relative">
               <summary className="cursor-pointer list-none rounded-md border px-3 py-2 text-sm font-medium hover:bg-accent">
                 {email}

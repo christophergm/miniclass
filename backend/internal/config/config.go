@@ -44,6 +44,11 @@ type Config struct {
 	AuthLocalPublicKey     string
 	AuthLocalPrivateKey    string
 	AuthLocalKeyID         string
+	AuthMFAEncryptionKey   string
+	AuthSMTPAddress        string
+	AuthSMTPUsername       string
+	AuthSMTPPassword       string
+	AuthSMTPFrom           string
 }
 
 // Load reads .env when it exists, then builds and validates the application
@@ -111,6 +116,11 @@ func fromEnvironment() (*Config, error) {
 		AuthLocalPublicKey:     authLocalPublicKey,
 		AuthLocalPrivateKey:    authLocalPrivateKey,
 		AuthLocalKeyID:         strings.TrimSpace(os.Getenv("AUTH_LOCAL_KEY_ID")),
+		AuthMFAEncryptionKey:   strings.TrimSpace(os.Getenv("AUTH_MFA_ENCRYPTION_KEY")),
+		AuthSMTPAddress:        strings.TrimSpace(os.Getenv("AUTH_SMTP_ADDRESS")),
+		AuthSMTPUsername:       strings.TrimSpace(os.Getenv("AUTH_SMTP_USERNAME")),
+		AuthSMTPPassword:       strings.TrimSpace(os.Getenv("AUTH_SMTP_PASSWORD")),
+		AuthSMTPFrom:           strings.TrimSpace(os.Getenv("AUTH_SMTP_FROM")),
 	}
 
 	if err := cfg.Validate(); err != nil {

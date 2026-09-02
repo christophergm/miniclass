@@ -38,6 +38,8 @@ type ServerOptions struct {
 	ImportCommit           handlers.ImportCommitService
 	Programs               handlers.ProgramService
 	Verifier               auth.Verifier
+	AdultAuth              auth.AdultAuthentication
+	Sessions               auth.SessionResolver
 	Logger                 *slog.Logger
 	TrustedProxyCIDRs      []string
 	ReadTimeout            time.Duration
@@ -95,6 +97,8 @@ func NewServer(options ...ServerOption) *Server {
 		ImportCommit:           settings.ImportCommit,
 		Programs:               settings.Programs,
 		Verifier:               settings.Verifier,
+		AdultAuth:              settings.AdultAuth,
+		Sessions:               settings.Sessions,
 		Logger:                 settings.Logger,
 		TrustedProxyCIDRs:      settings.TrustedProxyCIDRs,
 		Version:                settings.Version,
@@ -155,6 +159,16 @@ func WithIdentity(store *identity.Store) ServerOption {
 		options.Identity = store
 		options.Claimer = store
 		options.Administrators = store
+	}
+}
+
+// WithAdultAuth enables application-owned OTP, MFA, and bounded-session
+// resolution. It is separate from WithIdentity so existing provider-only
+// composition remains useful for health and migration tests.
+func WithAdultAuth(service auth.AdultAuthentication) ServerOption {
+	return func(options *ServerOptions) {
+		options.AdultAuth = service
+		options.Sessions = service
 	}
 }
 

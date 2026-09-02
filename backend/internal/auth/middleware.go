@@ -27,6 +27,7 @@ var (
 	ErrInvitationInvalid     = errors.New("admin invitation is invalid")
 	ErrInvitationEmail       = errors.New("admin invitation email does not match")
 	ErrInvitationUnverified  = errors.New("invitation claim requires a verified email")
+	ErrSessionInvalid        = errors.New("application session is invalid")
 )
 
 // AccountResolver maps an already verified provider subject to local
@@ -44,6 +45,11 @@ type InvitationClaimInput struct {
 
 type InvitationClaimer interface {
 	ClaimAdminInvitation(context.Context, InvitationClaimInput) (Account, error)
+}
+
+// SessionResolver verifies application-owned bounded sessions.
+type SessionResolver interface {
+	ResolveSession(context.Context, string) (Principal, error)
 }
 
 // Failure is a transport-neutral authentication/authorization failure. The
@@ -64,6 +70,7 @@ const (
 	FailureMultipleOrganizations  FailureCode = "multiple-organizations"
 	FailureCapabilityRequired     FailureCode = "capability-required"
 	FailureMissingCapability      FailureCode = "capability-not-declared"
+	FailureMFARequired            FailureCode = "mfa-required"
 )
 
 // ErrorWriter writes a failure using the host framework's error format.
@@ -74,6 +81,12 @@ type ErrorWriter func(huma.Context, Failure)
 // metadata is the source of the requirement, so a route cannot silently omit
 // its authorization check.
 func Middleware(verifier Verifier, resolver AccountResolver, writeError ErrorWriter) func(huma.Context, func(huma.Context)) {
+	return MiddlewareWithSessions(verifier, resolver, nil, writeError)
+}
+
+// MiddlewareWithSessions adds resolution for application-owned opaque
+// sessions while preserving the provider JWT path used by administrators.
+func MiddlewareWithSessions(verifier Verifier, resolver AccountResolver, sessions SessionResolver, writeError ErrorWriter) func(huma.Context, func(huma.Context)) {
 	if writeError == nil {
 		writeError = defaultErrorWriter
 	}
@@ -101,6 +114,21 @@ func Middleware(verifier Verifier, resolver AccountResolver, writeError ErrorWri
 		if Capability(strings.TrimSpace(capability)) == CapabilityPublic {
 			next(ctx)
 			return
+		}
+
+		if sessions != nil {
+			bearer, bearerErr := bearerFromHeader(ctx.Header("Authorization"))
+			if bearerErr == nil && !strings.Contains(bearer, ".") {
+				principal, sessionErr := sessions.ResolveSession(ctx.Context(), bearer)
+				if sessionErr == nil {
+					if !principal.HasCapability(Capability(capability)) {
+						writeError(ctx, Failure{Status: http.StatusForbidden, Code: FailureCapabilityRequired, Detail: "the principal lacks the required capability"})
+						return
+					}
+					next(huma.WithValue(ctx, principalContextKey, principal))
+					return
+				}
+			}
 		}
 
 		if verifier == nil || resolver == nil {
@@ -149,6 +177,14 @@ func Middleware(verifier Verifier, resolver AccountResolver, writeError ErrorWri
 			OrganizationID: account.Membership.OrganizationID,
 			Organization:   account.Membership.OrganizationName,
 			Role:           OrganizationRole(account.Membership.Role),
+		}
+		if sessions != nil && RequiresMFA(Capability(capability)) && !principal.MFAAuthenticated {
+			writeError(huma.WithValue(withIdentity, principalContextKey, Principal(principal)), Failure{
+				Status: http.StatusForbidden,
+				Code:   FailureMFARequired,
+				Detail: "a recent MFA proof is required for administrative access",
+			})
+			return
 		}
 		if !principal.HasCapability(Capability(capability)) {
 			writeError(huma.WithValue(withIdentity, principalContextKey, Principal(principal)), Failure{

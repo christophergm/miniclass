@@ -42,12 +42,54 @@ export type InterestProfileSurveyTransitionInput =
   Schemas["TransitionInterestProfileSurveyInputBody"];
 export type InterestProfileSurveyTransition = Schemas["InterestProfileSurveyTransitionResponse"];
 export type InterestProfileSurveyCodes = Schemas["InterestProfileSurveyCodeResponse"];
+export type AdultOTPRequest = Schemas["RequestAdultOTPOutputBody"];
+export type GuardianSession = Schemas["GuardianSessionResponse"];
+export type MFAEnrollment = Schemas["MFAEnrollmentOutputBody"];
+export type AdministrativeSession = Schemas["AdministrativeSessionOutputBody"];
+export type AdultAccountLink = Schemas["AdultAccountLinkResponse"];
 
 export const resourceApi = {
   getHealth: () => unwrap(api.GET("/api/health")),
 
   getMe: () => unwrap(api.GET("/api/me")),
   claimInvitation: (token: string) => unwrap(api.POST("/api/auth/claim", { body: { token } })),
+  requestAdultOTP: (organizationID: string, schoolYearID: string, email: string) =>
+    unwrap(
+      api.POST("/api/auth/adult/otp/request", {
+        body: { organization_id: organizationID, school_year_id: schoolYearID, email },
+      }),
+    ),
+  verifyAdultOTP: (challengeID: string, code: string) =>
+    unwrap(
+      api.POST("/api/auth/adult/otp/verify", {
+        body: { challenge_id: challengeID, code },
+      }),
+    ),
+  getGuardianAuthContext: () => unwrap(api.GET("/api/auth/guardian")),
+  enrollMFA: () => unwrap(api.POST("/api/auth/mfa/enroll", {})),
+  verifyMFA: (code?: string, recoveryCode?: string) =>
+    unwrap(api.POST("/api/auth/mfa/verify", { body: { code, recovery_code: recoveryCode } })),
+  enterGuardianMode: (schoolYearID: string) =>
+    unwrap(api.POST("/api/auth/mode/guardian", { body: { school_year_id: schoolYearID } })),
+  listAdultAccountLinks: (schoolYearID: string) =>
+    unwrapList(
+      api.GET("/api/auth/adult-account-links", {
+        params: { query: { school_year_id: schoolYearID } },
+      }),
+    ),
+  createAdultAccountLink: (schoolYearID: string, adultID: string, userID: string) =>
+    unwrap(
+      api.POST("/api/auth/adult-account-links", {
+        body: { school_year_id: schoolYearID, adult_id: adultID, user_id: userID },
+      }),
+    ),
+  deleteAdultAccountLink: (linkID: string, schoolYearID: string) =>
+    unwrapNoContent(
+      api.DELETE("/api/auth/adult-account-links/{linkID}", {
+        params: { path: { linkID }, query: { school_year_id: schoolYearID } },
+      }),
+    ),
+  revokeAuthSession: () => unwrapNoContent(api.POST("/api/auth/session/revoke", {})),
 
   getAuditLog: (options: { objectType?: string; cursor?: string; limit?: number } = {}) =>
     unwrap(

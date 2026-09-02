@@ -26,6 +26,15 @@ const (
 	MultipleOrganizations              Slug = "multiple-organizations"
 	CapabilityRequired                 Slug = "capability-required"
 	CapabilityNotDeclared              Slug = "capability-not-declared"
+	MFARequired                        Slug = "mfa-required"
+	SessionInvalid                     Slug = "session-invalid"
+	OTPInvalid                         Slug = "otp-invalid"
+	OTPDeliveryUnavailable             Slug = "otp-delivery-unavailable"
+	MFAAlreadyEnrolled                 Slug = "mfa-already-enrolled"
+	MFANotEnrolled                     Slug = "mfa-not-enrolled"
+	MFAInvalid                         Slug = "mfa-invalid"
+	MFAResetReasonRequired             Slug = "mfa-reset-reason-required"
+	AdultAccountLinkMissing            Slug = "adult-account-link-missing"
 	InvitationInvalid                  Slug = "invitation-invalid"
 	InvitationEmailMismatch            Slug = "invitation-email-mismatch"
 	InvitationEmailUnverified          Slug = "invitation-email-unverified"
@@ -71,6 +80,15 @@ var registry = map[Slug]Definition{
 	MultipleOrganizations:              {Slug: MultipleOrganizations, Title: "Multiple organizations"},
 	CapabilityRequired:                 {Slug: CapabilityRequired, Title: "Capability required"},
 	CapabilityNotDeclared:              {Slug: CapabilityNotDeclared, Title: "Capability not declared"},
+	MFARequired:                        {Slug: MFARequired, Title: "MFA required"},
+	SessionInvalid:                     {Slug: SessionInvalid, Title: "Session invalid"},
+	OTPInvalid:                         {Slug: OTPInvalid, Title: "Invalid or expired OTP"},
+	OTPDeliveryUnavailable:             {Slug: OTPDeliveryUnavailable, Title: "OTP delivery unavailable"},
+	MFAAlreadyEnrolled:                 {Slug: MFAAlreadyEnrolled, Title: "MFA already enrolled"},
+	MFANotEnrolled:                     {Slug: MFANotEnrolled, Title: "MFA not enrolled"},
+	MFAInvalid:                         {Slug: MFAInvalid, Title: "Invalid MFA proof"},
+	MFAResetReasonRequired:             {Slug: MFAResetReasonRequired, Title: "MFA reset reason required"},
+	AdultAccountLinkMissing:            {Slug: AdultAccountLinkMissing, Title: "Adult account link missing"},
 	InvitationInvalid:                  {Slug: InvitationInvalid, Title: "Invitation invalid"},
 	InvitationEmailMismatch:            {Slug: InvitationEmailMismatch, Title: "Invitation email mismatch"},
 	InvitationEmailUnverified:          {Slug: InvitationEmailUnverified, Title: "Invitation email is not verified"},
