@@ -102,7 +102,7 @@ agent:
     prioritize_unblockers: true
     auto_promote:
         enabled: true
-        quiet_seconds: 600
+        quiet_seconds: 300
         optout_label: requires-human-review
         allowed_issue_labels: []
         gate_wait_state: review
