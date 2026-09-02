@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useOutletContext, useParams } from "react-router-dom";
+import { Link, useOutletContext, useParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import type { SchoolYear } from "@/lib/apiResources";
@@ -51,6 +51,12 @@ export function ProgramAccessCodesPage() {
                   State: {survey.state}. Existing grants: {(survey.active_codes ?? []).length}.
                 </p>
               </div>
+              <Link
+                className="text-sm font-medium text-primary hover:underline"
+                to={`/y/${schoolYearId}/programs/${programId}/settings/response-tracking/surveys/${survey.id}`}
+              >
+                Response tracking
+              </Link>
               <div className="flex flex-wrap gap-2">
                 <Button
                   disabled={readOnly || survey.state === "draft" || regenerate.isPending}

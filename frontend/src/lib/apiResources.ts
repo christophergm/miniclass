@@ -45,6 +45,7 @@ export type InterestProfileSurveyCodes = Schemas["InterestProfileSurveyCodeRespo
 export type RankedChoiceAccessCode = Schemas["RankedChoiceAccessCodeResponse"];
 export type PreferenceForm = Schemas["PreferenceFormResponse"];
 export type GuardianPreferenceForms = Schemas["GuardianPreferenceFormsResponse"];
+export type ResponseTracking = Schemas["ResponseTrackingResponse"];
 export type PreferenceInterestAnswerInput = Schemas["InterestProfileAnswerInput"];
 export type PreferenceRankedAnswerInput = Schemas["RankedChoiceAnswerInput"];
 export type AdultOTPRequest = Schemas["RequestAdultOTPOutputBody"];
@@ -349,6 +350,20 @@ export const resourceApi = {
           params: { path: { schoolYearID, programID, sessionID, studentID } },
           body: { responses: responses ?? [] },
         },
+      ),
+    ),
+  getInterestProfileResponseTracking: (schoolYearID: string, programID: string, surveyID: string) =>
+    unwrap(
+      api.GET(
+        "/api/school-years/{schoolYearID}/programs/{programID}/interest-profile-surveys/{surveyID}/response-tracking",
+        { params: { path: { schoolYearID, programID, surveyID } } },
+      ),
+    ),
+  getRankedChoiceResponseTracking: (schoolYearID: string, programID: string, sessionID: string) =>
+    unwrap(
+      api.GET(
+        "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/response-tracking",
+        { params: { path: { schoolYearID, programID, sessionID } } },
       ),
     ),
   createInterestArea: (schoolYearID: string, programID: string, label: string) =>

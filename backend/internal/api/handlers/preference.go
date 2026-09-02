@@ -89,6 +89,50 @@ type GuardianPreferenceFormsResponse struct {
 	Students     []GuardianPreferenceStudentResponse `json:"students"`
 }
 
+type ResponseTrackingBreakdownResponse struct {
+	ID                   string  `json:"id" doc:"Opaque grade-level or homeroom identifier; empty means no grade is assigned."`
+	Label                string  `json:"label"`
+	TotalStudents        int     `json:"total_students"`
+	RespondedStudents    int     `json:"responded_students"`
+	CompletionPercentage float64 `json:"completion_percentage" minimum:"0" maximum:"100"`
+}
+
+type ResponseTrackingNonResponderResponse struct {
+	StudentID     string  `json:"student_id" doc:"Opaque student identifier."`
+	DisplayName   string  `json:"display_name"`
+	GradeLevelID  *string `json:"grade_level_id" nullable:"true"`
+	GradeLabel    string  `json:"grade_label"`
+	HomeroomID    string  `json:"homeroom_id" doc:"Opaque homeroom identifier."`
+	HomeroomName  string  `json:"homeroom_name"`
+	ContactStatus string  `json:"contact_status" enum:"unreachable,guardian_follow_up"`
+}
+
+type ResponseTrackingGuardianFollowUpResponse struct {
+	AdultID       string  `json:"adult_id" doc:"Opaque adult identifier."`
+	AdultName     string  `json:"adult_name"`
+	Email         *string `json:"email" nullable:"true"`
+	StudentID     string  `json:"student_id" doc:"Opaque student identifier."`
+	StudentName   string  `json:"student_name"`
+	ContactStatus string  `json:"contact_status" enum:"no_email,not_responded"`
+}
+
+type ResponseTrackingResponse struct {
+	InstrumentType       string                                     `json:"instrument_type" enum:"interest_profile_survey,ranked_choice_session"`
+	InstrumentID         string                                     `json:"instrument_id" doc:"Opaque survey or session identifier."`
+	InstrumentName       string                                     `json:"instrument_name"`
+	SchoolYearID         string                                     `json:"school_year_id" doc:"Opaque school-year identifier."`
+	ProgramID            string                                     `json:"program_id" doc:"Opaque program identifier."`
+	TotalStudents        int                                        `json:"total_students"`
+	RespondedStudents    int                                        `json:"responded_students"`
+	CompletionPercentage float64                                    `json:"completion_percentage" minimum:"0" maximum:"100"`
+	GradeBreakdown       []ResponseTrackingBreakdownResponse        `json:"grade_breakdown"`
+	HomeroomBreakdown    []ResponseTrackingBreakdownResponse        `json:"homeroom_breakdown"`
+	NonResponders        []ResponseTrackingNonResponderResponse     `json:"non_responders"`
+	GuardianFollowUp     []ResponseTrackingGuardianFollowUpResponse `json:"guardian_follow_up"`
+}
+
+type ResponseTrackingOutput struct{ Body ResponseTrackingResponse }
+
 type PreferenceFormOutput struct{ Body PreferenceFormResponse }
 type GuardianPreferenceFormsOutput struct {
 	Body GuardianPreferenceFormsResponse
@@ -204,6 +248,14 @@ type RankedChoiceAdministratorSubmitInput struct {
 	Body struct {
 		Responses []RankedChoiceAnswerInput `json:"responses" minItems:"1"`
 	}
+}
+
+type InterestProfileResponseTrackingInput struct {
+	InterestProfilePreferenceFormPathInput
+}
+
+type RankedChoiceResponseTrackingInput struct {
+	RankedChoicePreferenceFormPathInput
 }
 
 func (h *PreferenceHandler) GuardianForms(ctx context.Context, _ *struct{}) (*GuardianPreferenceFormsOutput, error) {
@@ -386,6 +438,36 @@ func (h *PreferenceHandler) AdministratorRankedSubmit(ctx context.Context, input
 	return &PreferenceFormOutput{Body: preferenceFormResponse(form, true)}, nil
 }
 
+func (h *PreferenceHandler) InterestProfileResponseTracking(ctx context.Context, input *InterestProfileResponseTrackingInput) (*ResponseTrackingOutput, error) {
+	account, err := programAccount(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if h == nil || h.service == nil || input == nil {
+		return nil, preferenceServiceUnavailable()
+	}
+	tracking, err := h.service.GetInterestProfileResponseTracking(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), ids.XID(input.SurveyID))
+	if err != nil {
+		return nil, preferenceProblem(err)
+	}
+	return &ResponseTrackingOutput{Body: responseTrackingResponse(tracking)}, nil
+}
+
+func (h *PreferenceHandler) RankedChoiceResponseTracking(ctx context.Context, input *RankedChoiceResponseTrackingInput) (*ResponseTrackingOutput, error) {
+	account, err := programAccount(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if h == nil || h.service == nil || input == nil {
+		return nil, preferenceServiceUnavailable()
+	}
+	tracking, err := h.service.GetRankedChoiceResponseTracking(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), ids.XID(input.SessionID))
+	if err != nil {
+		return nil, preferenceProblem(err)
+	}
+	return &ResponseTrackingOutput{Body: responseTrackingResponse(tracking)}, nil
+}
+
 func preferenceFormResponse(form preference.PreferenceForm, includeStudentName bool) PreferenceFormResponse {
 	var sessionID *string
 	if form.SessionID != "" {
@@ -421,6 +503,41 @@ func preferenceFormResponse(form preference.PreferenceForm, includeStudentName b
 		result.RankedAnswers = append(result.RankedAnswers, PreferenceFormRankedAnswerResponse{OfferingID: string(answer.OfferingID), Answer: string(answer.Answer), Rank: answer.Rank})
 	}
 	return result
+}
+
+func responseTrackingResponse(value preference.ResponseTracking) ResponseTrackingResponse {
+	result := ResponseTrackingResponse{
+		InstrumentType: string(value.InstrumentType), InstrumentID: string(value.InstrumentID), InstrumentName: value.InstrumentName,
+		SchoolYearID: string(value.SchoolYearID), ProgramID: string(value.ProgramID), TotalStudents: value.TotalStudents,
+		RespondedStudents: value.RespondedStudents, CompletionPercentage: value.CompletionPercentage,
+		GradeBreakdown:    make([]ResponseTrackingBreakdownResponse, 0, len(value.GradeBreakdown)),
+		HomeroomBreakdown: make([]ResponseTrackingBreakdownResponse, 0, len(value.HomeroomBreakdown)),
+		NonResponders:     make([]ResponseTrackingNonResponderResponse, 0, len(value.NonResponders)),
+		GuardianFollowUp:  make([]ResponseTrackingGuardianFollowUpResponse, 0, len(value.GuardianFollowUp)),
+	}
+	for _, row := range value.GradeBreakdown {
+		result.GradeBreakdown = append(result.GradeBreakdown, responseTrackingBreakdownResponse(row))
+	}
+	for _, row := range value.HomeroomBreakdown {
+		result.HomeroomBreakdown = append(result.HomeroomBreakdown, responseTrackingBreakdownResponse(row))
+	}
+	for _, row := range value.NonResponders {
+		result.NonResponders = append(result.NonResponders, ResponseTrackingNonResponderResponse{
+			StudentID: string(row.StudentID), DisplayName: row.DisplayName, GradeLevelID: optionalXIDString(row.GradeLevelID),
+			GradeLabel: row.GradeLabel, HomeroomID: string(row.HomeroomID), HomeroomName: row.HomeroomName, ContactStatus: row.ContactStatus,
+		})
+	}
+	for _, row := range value.GuardianFollowUp {
+		result.GuardianFollowUp = append(result.GuardianFollowUp, ResponseTrackingGuardianFollowUpResponse{
+			AdultID: string(row.AdultID), AdultName: row.AdultName, Email: row.Email, StudentID: string(row.StudentID),
+			StudentName: row.StudentName, ContactStatus: row.ContactStatus,
+		})
+	}
+	return result
+}
+
+func responseTrackingBreakdownResponse(value preference.ResponseTrackingBreakdown) ResponseTrackingBreakdownResponse {
+	return ResponseTrackingBreakdownResponse{ID: value.ID, Label: value.Label, TotalStudents: value.TotalStudents, RespondedStudents: value.RespondedStudents, CompletionPercentage: value.CompletionPercentage}
 }
 
 func interestAnswers(values []InterestProfileAnswerInput) []data.InterestProfileAnswer {

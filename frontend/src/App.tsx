@@ -41,6 +41,11 @@ import {
 } from "@/features/programs/ProgramPages";
 import { ProgramAccessCodesPage } from "@/features/programs/ProgramAccessCodesPage";
 import {
+  InterestProfileResponseTrackingPage,
+  RankedChoiceResponseTrackingPage,
+  ResponseTrackingIndexPage,
+} from "@/features/programs/ResponseTrackingPages";
+import {
   AdministratorPreferencePage,
   GuardianPreferencePage,
   StudentCodeInterestProfilePage,
@@ -107,6 +112,18 @@ function AppRoutes() {
               <Route
                 path="programs/:programId/settings/access-codes"
                 element={<ProgramAccessCodesPage />}
+              />
+              <Route
+                path="programs/:programId/settings/response-tracking"
+                element={<ResponseTrackingIndexPage />}
+              />
+              <Route
+                path="programs/:programId/settings/response-tracking/surveys/:surveyId"
+                element={<InterestProfileResponseTrackingPage />}
+              />
+              <Route
+                path="programs/:programId/settings/response-tracking/sessions/:sessionId"
+                element={<RankedChoiceResponseTrackingPage />}
               />
               <Route
                 path="programs/:programId/settings/assignment-planner"

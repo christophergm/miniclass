@@ -525,6 +525,102 @@ func TestPreferenceFormsRespectGuardianScopeAndSupportEverySubmissionMode(t *tes
 	require.Len(t, updatedRankedForm.RankedAnswers, 2)
 }
 
+func TestResponseTrackingUsesStudentDenominatorAndGuardianFollowUp(t *testing.T) {
+	harness := testharness.Open(t)
+	ctx := harness.Context
+	organizationID := harness.MintOrganization(t)
+	organizer := audit.Actor{Type: audit.ActorTypeSystem, Label: "synthetic response tracking organizer"}
+	respondent := audit.Actor{Type: audit.ActorTypeLink, Label: "synthetic response tracking respondent"}
+	factory := factories.New(harness.Database, string(organizationID), organizer)
+	fixture := createPreferenceFixture(t, harness, factory, "response tracking")
+	secondStudent, err := factory.CreateStudent(ctx, fixture.year.ID, people.StudentCreateInput{LegalGivenName: "Synthetic", LegalFamilyName: "Tracking Second", GradeLevelID: &fixture.grade.ID, HomeroomID: fixture.student.HomeroomID})
+	require.NoError(t, err)
+	thirdStudent, err := factory.CreateStudent(ctx, fixture.year.ID, people.StudentCreateInput{LegalGivenName: "Synthetic", LegalFamilyName: "Tracking Third", GradeLevelID: &fixture.grade.ID, HomeroomID: fixture.student.HomeroomID})
+	require.NoError(t, err)
+	for _, student := range []data.Student{secondStudent, thirdStudent} {
+		_, err = factory.AddProgramMembership(ctx, fixture.year.ID, fixture.program.ID, student.ID)
+		require.NoError(t, err)
+	}
+	guardianEmail := "synthetic-tracking-guardian@example.test"
+	firstGuardian, err := factory.CreateAdult(ctx, fixture.year.ID, people.AdultCreateInput{LegalGivenName: "Synthetic", LegalFamilyName: "Tracking Guardian One", Email: &guardianEmail})
+	require.NoError(t, err)
+	secondGuardian, err := factory.CreateAdult(ctx, fixture.year.ID, people.AdultCreateInput{LegalGivenName: "Synthetic", LegalFamilyName: "Tracking Guardian Two"})
+	require.NoError(t, err)
+	for _, adult := range []data.Adult{firstGuardian, secondGuardian} {
+		_, err = factory.CreateGuardianRelationship(ctx, fixture.year.ID, people.GuardianRelationshipCreateInput{AdultID: adult.ID, StudentID: secondStudent.ID, RelationshipType: data.GuardianRelationshipParent})
+		require.NoError(t, err)
+	}
+
+	service := preference.New(harness.Database)
+	survey, err := service.CreateInterestProfileSurvey(ctx, string(organizationID), organizer, fixture.year.ID, fixture.program.ID, preference.InterestProfileSurveyInput{
+		Name: "Synthetic Response Tracking Survey", Audience: preference.InterestProfileSurveyAudienceInput{Type: data.SurveyAudienceAllMembers},
+		Questions: []preference.InterestProfileSurveyQuestionInput{{InterestAreaID: fixture.area.ID}},
+	})
+	require.NoError(t, err)
+	closingAt := time.Now().UTC().Add(time.Hour)
+	openedSurvey, err := service.TransitionInterestProfileSurvey(ctx, string(organizationID), organizer, fixture.year.ID, fixture.program.ID, survey.Survey.ID, preference.InterestProfileSurveyTransitionInput{State: data.InterestProfileSurveyOpen, ClosingAt: &closingAt})
+	require.NoError(t, err)
+	codes := make(map[ids.XID]string, len(openedSurvey.AccessCodes))
+	for _, code := range openedSurvey.AccessCodes {
+		codes[code.StudentID] = code.Code
+	}
+	for _, student := range []data.Student{fixture.student, secondStudent} {
+		_, err = service.SubmitInterestProfileSurvey(ctx, string(organizationID), respondent, preference.InterestProfileSurveySubmissionInput{
+			SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SurveyID: survey.Survey.ID, StudentID: student.ID,
+			Code: codes[student.ID], Channel: data.PreferenceChannelStudentCode,
+			Answers: []data.InterestProfileAnswer{{InterestAreaID: fixture.area.ID, Rating: data.InterestProfileInterested}},
+		})
+		require.NoError(t, err)
+	}
+
+	tracking, err := service.GetInterestProfileResponseTracking(ctx, string(organizationID), fixture.year.ID, fixture.program.ID, survey.Survey.ID)
+	require.NoError(t, err)
+	require.Equal(t, 3, tracking.TotalStudents)
+	require.Equal(t, 2, tracking.RespondedStudents)
+	require.InDelta(t, 66.666666, tracking.CompletionPercentage, 0.000001)
+	require.Len(t, tracking.NonResponders, 1)
+	require.Equal(t, thirdStudent.ID, tracking.NonResponders[0].StudentID)
+	require.Equal(t, preference.ResponseTrackingUnreachable, tracking.NonResponders[0].ContactStatus)
+	require.Empty(t, tracking.GuardianFollowUp)
+	require.Equal(t, 3, tracking.GradeBreakdown[0].TotalStudents)
+
+	session, err := factory.CreateSession(ctx, fixture.year.ID, fixture.program.ID, "Synthetic Response Tracking Session", []time.Time{time.Date(2026, 11, 27, 0, 0, 0, 0, time.UTC)})
+	require.NoError(t, err)
+	offering, err := factory.CreateOffering(ctx, fixture.year.ID, fixture.program.ID, session.ID, "Synthetic Tracking Offering", "Synthetic tracking offering", nil, 10, fixture.grade.ID, fixture.grade.ID, "", "", "", nil)
+	require.NoError(t, err)
+	_, err = factory.ConfigureRankedChoice(ctx, fixture.year.ID, fixture.program.ID, session.ID, 1, time.Now().UTC().Add(time.Hour))
+	require.NoError(t, err)
+	_, err = factory.TransitionSession(ctx, fixture.year.ID, fixture.program.ID, session.ID, data.SessionCatalogPublished, false, "", nil)
+	require.NoError(t, err)
+	openedSession, err := factory.TransitionSession(ctx, fixture.year.ID, fixture.program.ID, session.ID, data.SessionVotingOpen, false, "", nil)
+	require.NoError(t, err)
+	var rankedCode string
+	for _, code := range openedSession.AccessCodes {
+		if code.StudentID == fixture.student.ID {
+			rankedCode = code.Code
+		}
+	}
+	require.NotEmpty(t, rankedCode)
+	_, err = service.SubmitRankedChoices(ctx, string(organizationID), respondent, preference.RankedChoiceSubmissionInput{
+		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SessionID: session.ID, StudentID: fixture.student.ID,
+		Code: rankedCode, Channel: data.PreferenceChannelStudentCode,
+		Responses: []data.RankedChoiceResponseInput{{OfferingID: offering.ID, Answer: data.RankedChoiceInterested}},
+	})
+	require.NoError(t, err)
+
+	rankedTracking, err := service.GetRankedChoiceResponseTracking(ctx, string(organizationID), fixture.year.ID, fixture.program.ID, session.ID)
+	require.NoError(t, err)
+	require.Equal(t, 3, rankedTracking.TotalStudents)
+	require.Equal(t, 1, rankedTracking.RespondedStudents)
+	require.Len(t, rankedTracking.NonResponders, 2)
+	require.Len(t, rankedTracking.GuardianFollowUp, 2)
+	require.ElementsMatch(t, []string{preference.ResponseTrackingGuardianPending, preference.ResponseTrackingGuardianNoEmail}, []string{rankedTracking.GuardianFollowUp[0].ContactStatus, rankedTracking.GuardianFollowUp[1].ContactStatus})
+
+	foreignOrganizationID := harness.MintOrganization(t)
+	_, err = service.GetInterestProfileResponseTracking(ctx, string(foreignOrganizationID), fixture.year.ID, fixture.program.ID, survey.Survey.ID)
+	require.Error(t, err)
+}
+
 type preferenceFixture struct {
 	year       data.SchoolYear
 	grade      data.GradeLevel

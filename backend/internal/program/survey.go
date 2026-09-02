@@ -55,6 +55,10 @@ func (s *Service) SubmitInterestProfileSurvey(ctx context.Context, organizationI
 	return preference.New(s.database).SubmitInterestProfileSurvey(ctx, organizationID, actor, input)
 }
 
+func (s *Service) GetInterestProfileResponseTracking(ctx context.Context, organizationID string, schoolYearID, programID, surveyID ids.XID) (preference.ResponseTracking, error) {
+	return preference.New(s.database).GetInterestProfileResponseTracking(ctx, organizationID, schoolYearID, programID, surveyID)
+}
+
 func (s *Service) ListGuardianPreferenceForms(ctx context.Context, organizationID string, schoolYearID, adultID ids.XID) (preference.GuardianPreferenceForms, error) {
 	return preference.New(s.database).ListGuardianPreferenceForms(ctx, organizationID, schoolYearID, adultID)
 }
@@ -69,4 +73,8 @@ func (s *Service) GetRankedChoiceFormByCode(ctx context.Context, organizationID 
 
 func (s *Service) SubmitRankedChoices(ctx context.Context, organizationID string, actor audit.Actor, input preference.RankedChoiceSubmissionInput) (data.RankedChoiceSubmission, error) {
 	return preference.New(s.database).SubmitRankedChoices(ctx, organizationID, actor, input)
+}
+
+func (s *Service) GetRankedChoiceResponseTracking(ctx context.Context, organizationID string, schoolYearID, programID, sessionID ids.XID) (preference.ResponseTracking, error) {
+	return preference.New(s.database).GetRankedChoiceResponseTracking(ctx, organizationID, schoolYearID, programID, sessionID)
 }
