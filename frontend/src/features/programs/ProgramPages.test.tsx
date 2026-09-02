@@ -630,9 +630,17 @@ describe("SessionPage", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "Transition reason" }), {
       target: { value: "Reopen for correction" },
     });
+    fireEvent.change(screen.getByLabelText("New voting deadline"), {
+      target: { value: "2026-10-10T10:00" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Confirm transition" }));
     expect(mocks.transition).toHaveBeenLastCalledWith(
-      { state: "voting_open", reason: "Reopen for correction", confirm: true },
+      {
+        state: "voting_open",
+        reason: "Reopen for correction",
+        confirm: true,
+        voting_deadline: new Date("2026-10-10T10:00").toISOString(),
+      },
       expect.any(Object),
     );
   });
