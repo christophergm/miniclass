@@ -309,3 +309,10 @@
 - Open items: inspect the integrated Phase 4 surfaces, implement scoped fixes and regressions, run all ten validation stages, then push a PR referencing #191 and verify current-head CI/review state.
 - Validation: pending implementation; `git diff --check` will run before handoff.
 - Skill draft: no — implementation has not yet exposed a broadly reusable procedure beyond the existing project guidance.
+## Issue #202
+
+- Scope: fix adult-authentication rollback enum restoration without editing the merged migration.
+- Key files: `backend/migrations/20260904115900_fix_adult_auth_down_enum.sql` and `backend/scripts/migration-round-trip.sh`.
+- Implementation: added an ordered compatibility migration whose Down renames the adult-auth rollback's restored `household_submission` value back to `guardian_submission`; round-trip now inserts a synthetic guardian access token before rollback.
+- Validation: `bash -n backend/scripts/migration-round-trip.sh`, `make -C backend format`, and `git diff --check` pass. Database round-trip requires unavailable configured PostgreSQL URLs and must run in CI.
+- Open items: commit/push, open PR referencing `Fixes #202`, verify all ten current-head checks and review state, then update the Workpad.
