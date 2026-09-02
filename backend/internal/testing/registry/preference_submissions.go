@@ -332,7 +332,7 @@ func insertRankedChoiceResponseWithForeignParent(ctx context.Context, harness *t
 	if err != nil {
 		return err
 	}
-	submission, err := fixture.factory.SubmitRankedChoices(ctx, preference.RankedChoiceSubmissionInput{SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SessionID: fixture.session.ID, StudentID: fixture.student.ID, Channel: data.PreferenceChannelStudentCode, Responses: []data.RankedChoiceResponseInput{{OfferingID: fixture.offering.ID, Answer: data.RankedChoiceInterested}}})
+	submission, err := fixture.factory.SubmitRankedChoices(ctx, preference.RankedChoiceSubmissionInput{SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SessionID: fixture.session.ID, StudentID: fixture.student.ID, Code: fixture.accessCode, Channel: data.PreferenceChannelStudentCode, Responses: []data.RankedChoiceResponseInput{{OfferingID: fixture.offering.ID, Answer: data.RankedChoiceInterested}}})
 	if err != nil {
 		return err
 	}
