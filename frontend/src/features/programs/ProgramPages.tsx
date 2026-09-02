@@ -1556,10 +1556,7 @@ export function SessionPage() {
         deadline: new Date(sessionDraft.rankedChoiceDeadline ?? "").toISOString(),
       };
     }
-    updateSession.mutate(
-      value,
-      { onSuccess: () => setSessionEditorOpen(false) },
-    );
+    updateSession.mutate(value, { onSuccess: () => setSessionEditorOpen(false) });
   };
   const openCreateNonParticipation = () => {
     setNonParticipationDraft({ studentId: "", reason: "" });
