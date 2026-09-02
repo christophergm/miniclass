@@ -1,6 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Link, Outlet, useOutletContext, useParams } from "react-router-dom";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ModalForm } from "@/components/ui/modal-form";
@@ -49,14 +50,12 @@ function fieldError(error: unknown, field: string): string | undefined {
 
 function StateBadge({ state, className }: { state: SchoolYearState; className?: string }) {
   return (
-    <span
-      className={
-        className ??
-        "rounded-full bg-secondary px-2 py-1 text-xs font-medium capitalize text-secondary-foreground"
-      }
+    <Badge
+      className={`capitalize ${className ?? ""}`}
+      variant={state === "active" ? "success" : "secondary"}
     >
       {state}
-    </span>
+    </Badge>
   );
 }
 
@@ -269,10 +268,7 @@ export function SchoolYearSettingsPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <StateBadge
-            className="rounded-full bg-secondary px-3 py-1 text-sm font-medium capitalize text-secondary-foreground"
-            state={year.state}
-          />
+          <StateBadge className="px-3 py-1 text-sm" state={year.state} />
           <Button onClick={openEditor} type="button" variant="outline">
             Edit
           </Button>

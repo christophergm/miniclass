@@ -1,3 +1,4 @@
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -129,11 +130,7 @@ export function HealthCheck() {
             <h2 id="health-status-heading" className="text-base font-semibold">
               {isHealthy ? "All systems operational" : "Backend needs attention"}
             </h2>
-            <span
-              className={`rounded-full px-2 py-1 text-xs font-medium ${isHealthy ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}
-            >
-              {titleCase(data.status)}
-            </span>
+            <Badge variant={isHealthy ? "success" : "warning"}>{titleCase(data.status)}</Badge>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
             The latest health check completed successfully.
