@@ -3,6 +3,7 @@ import { Link, useOutletContext, useParams } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { ModalForm } from "@/components/ui/modal-form";
 import { ApiError } from "@/lib/api";
@@ -411,26 +412,26 @@ function SurveyForm({
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block text-sm font-medium" htmlFor="survey-opens-at">
           Opens at (optional)
-          <Input
+          <DatePicker
             aria-label="Opens at"
             className="mt-2"
             disabled={readOnly}
             id="survey-opens-at"
-            onChange={(event) => onChange({ ...value, opensAt: event.target.value })}
-            type="datetime-local"
+            onChange={(opensAt) => onChange({ ...value, opensAt })}
             value={value.opensAt}
+            withTime
           />
         </label>
         <label className="block text-sm font-medium" htmlFor="survey-closes-at">
           Closes at (required to open)
-          <Input
+          <DatePicker
             aria-label="Closes at"
             className="mt-2"
             disabled={readOnly}
             id="survey-closes-at"
-            onChange={(event) => onChange({ ...value, closesAt: event.target.value })}
-            type="datetime-local"
+            onChange={(closesAt) => onChange({ ...value, closesAt })}
             value={value.closesAt}
+            withTime
           />
         </label>
       </div>
@@ -544,13 +545,13 @@ function LifecycleForm({
       </p>
       <label className="block text-sm font-medium">
         New closing time
-        <Input
+        <DatePicker
           aria-label="New closing time"
           className="mt-2"
-          onChange={(event) => onChange({ ...value, closingAt: event.target.value })}
+          onChange={(closingAt) => onChange({ ...value, closingAt })}
           required
-          type="datetime-local"
           value={value.closingAt}
+          withTime
         />
       </label>
       {action === "reopen" && (
