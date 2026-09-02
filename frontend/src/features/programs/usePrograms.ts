@@ -392,7 +392,11 @@ export function useUpdateSession(schoolYearID: string, programID: string) {
       value,
     }: {
       sessionID: string;
-      value: { name?: string; meeting_dates?: string[] };
+      value: {
+        name?: string;
+        meeting_dates?: string[];
+        ranked_choice?: { rank_depth: number; deadline: string };
+      };
     }) => resourceApi.updateSession(schoolYearID, programID, sessionID, value),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: sessionsKey(schoolYearID, programID) });

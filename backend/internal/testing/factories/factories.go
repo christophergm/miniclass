@@ -70,6 +70,28 @@ func (f *Factory) CreateSession(ctx context.Context, schoolYearID, programID ids
 	return f.programs.CreateSession(ctx, f.organizationID, f.actor, schoolYearID, programID, name, dates)
 }
 
+// ConfigureRankedChoice enables ranked-choice collection for a planning or
+// catalog-published session.
+func (f *Factory) ConfigureRankedChoice(ctx context.Context, schoolYearID, programID, sessionID ids.XID, rankDepth int, deadline time.Time) (data.Session, error) {
+	if err := f.validate(); err != nil {
+		return data.Session{}, err
+	}
+	return f.programs.UpdateSession(ctx, f.organizationID, f.actor, schoolYearID, programID, sessionID, program.SessionUpdate{
+		RankedChoice: &data.RankedChoiceConfiguration{RankDepth: rankDepth, Deadline: &deadline},
+	})
+}
+
+// TransitionSession applies a lifecycle transition through the normal
+// audited service path.
+func (f *Factory) TransitionSession(ctx context.Context, schoolYearID, programID, sessionID ids.XID, nextState data.SessionState, confirm bool, reason string, votingDeadline *time.Time) (program.SessionTransitionResult, error) {
+	if err := f.validate(); err != nil {
+		return program.SessionTransitionResult{}, err
+	}
+	return f.programs.TransitionSession(ctx, f.organizationID, f.actor, schoolYearID, programID, sessionID, program.SessionTransitionInput{
+		NextState: nextState, Confirm: confirm, Reason: reason, VotingDeadline: votingDeadline,
+	})
+}
+
 // CreateMeetingDate adds one date to an existing session.
 func (f *Factory) CreateMeetingDate(ctx context.Context, schoolYearID, programID, sessionID ids.XID, date time.Time) (data.MeetingDate, error) {
 	if err := f.validate(); err != nil {

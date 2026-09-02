@@ -23,10 +23,21 @@ type SessionResponse struct {
 	Name                  string                              `json:"name"`
 	State                 string                              `json:"state" enum:"planning,catalog_published,voting_open,voting_closed,assigning,published,complete"`
 	DraftAssignmentsStale bool                                `json:"draft_assignments_stale" doc:"True when retained draft assignments were computed from superseded inputs."`
+	RankedChoice          *RankedChoiceConfigurationResponse  `json:"ranked_choice,omitempty" doc:"Optional ranked-choice collection configuration."`
 	MeetingDates          []string                            `json:"meeting_dates" format:"date"`
 	FeasibilityWarnings   []CatalogFeasibilityWarningResponse `json:"feasibility_warnings" doc:"Non-blocking catalog warnings for authoring."`
 	CreatedAt             time.Time                           `json:"created_at"`
 	UpdatedAt             time.Time                           `json:"updated_at"`
+}
+
+type RankedChoiceConfigurationResponse struct {
+	RankDepth int       `json:"rank_depth" minimum:"1" doc:"Maximum number of ranked positions accepted."`
+	Deadline  time.Time `json:"deadline" format:"date-time" doc:"UTC instant after which submissions are refused."`
+}
+
+type RankedChoiceConfigurationInput struct {
+	RankDepth int       `json:"rank_depth" minimum:"1"`
+	Deadline  time.Time `json:"deadline" format:"date-time"`
 }
 
 type MeetingDateResponse struct {
@@ -54,6 +65,11 @@ type SessionTransitionResponse struct {
 	Applied              bool                               `json:"applied"`
 	RequiresConfirmation bool                               `json:"requires_confirmation"`
 	Warnings             []SessionTransitionWarningResponse `json:"warnings"`
+	AccessCodes          []RankedChoiceAccessCodeResponse   `json:"access_codes" doc:"Plaintext student access codes issued when voting opens; shown only once."`
+}
+type RankedChoiceAccessCodeResponse struct {
+	StudentID string `json:"student_id" doc:"Opaque student identifier."`
+	Code      string `json:"code" doc:"High-entropy student access code. Store it securely; it is shown only once."`
 }
 type SessionTransitionOutput struct{ Body SessionTransitionResponse }
 type MeetingDateListOutput struct{ Body []MeetingDateResponse }
@@ -77,16 +93,18 @@ type CreateSessionInput struct {
 type UpdateSessionInput struct {
 	SessionPathInput
 	Body struct {
-		Name         *string   `json:"name,omitempty" minLength:"1"`
-		MeetingDates *[]string `json:"meeting_dates,omitempty" minItems:"1" format:"date"`
+		Name         *string                         `json:"name,omitempty" minLength:"1"`
+		MeetingDates *[]string                       `json:"meeting_dates,omitempty" minItems:"1" format:"date"`
+		RankedChoice *RankedChoiceConfigurationInput `json:"ranked_choice,omitempty"`
 	}
 }
 type TransitionSessionInput struct {
 	SessionPathInput
 	Body struct {
-		State   string `json:"state" enum:"planning,catalog_published,voting_open,voting_closed,assigning,published,complete" minLength:"1"`
-		Reason  string `json:"reason,omitempty" doc:"Required when confirming a backward transition."`
-		Confirm bool   `json:"confirm,omitempty" doc:"Apply a backward transition after reviewing its warnings."`
+		State          string     `json:"state" enum:"planning,catalog_published,voting_open,voting_closed,assigning,published,complete" minLength:"1"`
+		Reason         string     `json:"reason,omitempty" doc:"Required when confirming a backward transition."`
+		Confirm        bool       `json:"confirm,omitempty" doc:"Apply a backward transition after reviewing its warnings."`
+		VotingDeadline *time.Time `json:"voting_deadline,omitempty" format:"date-time" doc:"New deadline required when reopening ranked-choice voting."`
 	}
 }
 type MeetingDatePathInput struct {
@@ -187,7 +205,15 @@ func (h *ProgramHandler) UpdateSession(ctx context.Context, input *UpdateSession
 		}
 		dates = &parsed
 	}
-	row, err := h.service.UpdateSession(ctx, string(account.OrganizationID), programActor(account), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), ids.XID(input.SessionID), programservice.SessionUpdate{Name: input.Body.Name, Dates: dates})
+	var rankedChoice *data.RankedChoiceConfiguration
+	if input.Body.RankedChoice != nil {
+		rankedChoice = &data.RankedChoiceConfiguration{RankDepth: input.Body.RankedChoice.RankDepth}
+		if !input.Body.RankedChoice.Deadline.IsZero() {
+			deadline := input.Body.RankedChoice.Deadline
+			rankedChoice.Deadline = &deadline
+		}
+	}
+	row, err := h.service.UpdateSession(ctx, string(account.OrganizationID), programActor(account), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), ids.XID(input.SessionID), programservice.SessionUpdate{Name: input.Body.Name, Dates: dates, RankedChoice: rankedChoice})
 	if err != nil {
 		return nil, sessionProblem(err)
 	}
@@ -221,7 +247,7 @@ func (h *ProgramHandler) TransitionSession(ctx context.Context, input *Transitio
 		return nil, sessionNotFound()
 	}
 	result, err := h.service.TransitionSession(ctx, string(account.OrganizationID), programActor(account), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), ids.XID(input.SessionID), programservice.SessionTransitionInput{
-		NextState: data.SessionState(input.Body.State), Reason: input.Body.Reason, Confirm: input.Body.Confirm,
+		NextState: data.SessionState(input.Body.State), Reason: input.Body.Reason, Confirm: input.Body.Confirm, VotingDeadline: input.Body.VotingDeadline,
 	})
 	if err != nil {
 		return nil, sessionProblem(err)
@@ -230,9 +256,13 @@ func (h *ProgramHandler) TransitionSession(ctx context.Context, input *Transitio
 	for _, warning := range result.Warnings {
 		warnings = append(warnings, SessionTransitionWarningResponse{Code: warning.Code, Message: warning.Message, InvalidationSummary: warning.InvalidationSummary})
 	}
+	accessCodes := make([]RankedChoiceAccessCodeResponse, 0, len(result.AccessCodes))
+	for _, accessCode := range result.AccessCodes {
+		accessCodes = append(accessCodes, RankedChoiceAccessCodeResponse{StudentID: string(accessCode.StudentID), Code: accessCode.Code})
+	}
 	return &SessionTransitionOutput{Body: SessionTransitionResponse{
 		Session: sessionResponse(result.Session), FromState: string(result.FromState), ToState: string(result.ToState),
-		Applied: result.Applied, RequiresConfirmation: result.RequiresConfirmation, Warnings: warnings,
+		Applied: result.Applied, RequiresConfirmation: result.RequiresConfirmation, Warnings: warnings, AccessCodes: accessCodes,
 	}}, nil
 }
 
@@ -327,7 +357,11 @@ func sessionResponse(row data.Session) SessionResponse {
 	for _, date := range row.MeetingDates {
 		dates = append(dates, date.Format("2006-01-02"))
 	}
-	return SessionResponse{ID: string(row.ID), OrganizationID: string(row.OrganizationID), SchoolYearID: string(row.SchoolYearID), ProgramID: string(row.ProgramID), Name: row.Name, State: string(row.State), DraftAssignmentsStale: row.DraftAssignmentsStale, MeetingDates: dates, FeasibilityWarnings: []CatalogFeasibilityWarningResponse{}, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+	var rankedChoice *RankedChoiceConfigurationResponse
+	if row.RankedChoice != nil && row.RankedChoice.Deadline != nil {
+		rankedChoice = &RankedChoiceConfigurationResponse{RankDepth: row.RankedChoice.RankDepth, Deadline: *row.RankedChoice.Deadline}
+	}
+	return SessionResponse{ID: string(row.ID), OrganizationID: string(row.OrganizationID), SchoolYearID: string(row.SchoolYearID), ProgramID: string(row.ProgramID), Name: row.Name, State: string(row.State), DraftAssignmentsStale: row.DraftAssignmentsStale, RankedChoice: rankedChoice, MeetingDates: dates, FeasibilityWarnings: []CatalogFeasibilityWarningResponse{}, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
 }
 
 func meetingDateResponse(row data.MeetingDate) MeetingDateResponse {
@@ -382,6 +416,10 @@ func sessionProblem(err error) error {
 		return problems.New(http.StatusBadRequest, problems.SessionTransitionReasonRequired, err.Error())
 	case errors.Is(err, programservice.ErrSessionReadOnly):
 		return problems.New(http.StatusConflict, problems.SessionReadOnly, err.Error())
+	case errors.Is(err, programservice.ErrRankedChoiceConfigurationLocked), errors.Is(err, programservice.ErrSessionRankedChoiceNotConfigured):
+		return problems.New(http.StatusConflict, problems.ProgramConflict, err.Error())
+	case errors.Is(err, programservice.ErrRankedChoiceRankDepthInvalid), errors.Is(err, programservice.ErrRankedChoiceDeadlineRequired), errors.Is(err, programservice.ErrRankedChoiceDeadlineInvalid), errors.Is(err, programservice.ErrSessionVotingDeadlineRequired), errors.Is(err, programservice.ErrSessionVotingDeadlineInvalid):
+		return problems.New(http.StatusBadRequest, problems.ProgramConflict, err.Error())
 	case errors.As(err, &pgErr) && pgErr.Code == "23505":
 		return problems.New(http.StatusConflict, problems.ProgramConflict, "the session or meeting date already exists in this program")
 	case errors.Is(err, programservice.ErrSessionNoChanges), errors.Is(err, programservice.ErrMeetingDateNoChanges), errors.Is(err, programservice.ErrSessionRequiresMeetingDate), strings.Contains(err.Error(), "name is required"), strings.Contains(err.Error(), "valid date"):

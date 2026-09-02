@@ -119,7 +119,12 @@ function stateLabel(value: string) {
   return value.replace(/_/g, " ").replace(/\b\w/g, (letter: string) => letter.toUpperCase());
 }
 
-type SessionDraft = { name: string; meetingDates: string[] };
+type SessionDraft = {
+  name: string;
+  meetingDates: string[];
+  rankedChoiceRankDepth?: string;
+  rankedChoiceDeadline?: string;
+};
 
 function MeetingDateDraftList({
   dates,
@@ -195,6 +200,7 @@ function SessionForm({
   pending,
   error,
   submitLabel,
+  showRankedChoiceConfig = false,
 }: {
   value: SessionDraft;
   onChange: (value: SessionDraft) => void;
@@ -202,6 +208,7 @@ function SessionForm({
   pending: boolean;
   error: unknown;
   submitLabel: string;
+  showRankedChoiceConfig?: boolean;
 }) {
   return (
     <form className="space-y-4" onSubmit={onSubmit}>
@@ -227,6 +234,43 @@ function SessionForm({
           />
         </div>
       </div>
+      {showRankedChoiceConfig && (
+        <div className="space-y-3 rounded-md border p-4">
+          <div>
+            <p className="text-sm font-medium">Ranked-choice voting</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Configure this before opening voting. The deadline is interpreted as UTC.
+            </p>
+          </div>
+          <label className="block text-sm font-medium">
+            Maximum ranked positions
+            <Input
+              aria-label="Maximum ranked positions"
+              className="mt-2"
+              min="1"
+              onChange={(event) =>
+                onChange({ ...value, rankedChoiceRankDepth: event.target.value })
+              }
+              required={Boolean(value.rankedChoiceDeadline)}
+              type="number"
+              value={value.rankedChoiceRankDepth ?? ""}
+            />
+          </label>
+          <label className="block text-sm font-medium">
+            Voting deadline (UTC)
+            <Input
+              aria-label="Voting deadline"
+              className="mt-2"
+              onChange={(event) =>
+                onChange({ ...value, rankedChoiceDeadline: event.target.value })
+              }
+              required={Boolean(value.rankedChoiceRankDepth)}
+              type="datetime-local"
+              value={value.rankedChoiceDeadline ?? ""}
+            />
+          </label>
+        </div>
+      )}
       <Button
         disabled={
           pending ||
@@ -1416,6 +1460,7 @@ export function SessionPage() {
   const updateSession = useUpdateSession(schoolYearId ?? "", programId ?? "");
   const [transitionState, setTransitionState] = useState("");
   const [transitionReason, setTransitionReason] = useState("");
+  const [votingDeadline, setVotingDeadline] = useState("");
   const [transitionPreview, setTransitionPreview] = useState<{
     state: string;
     warnings: { message: string; invalidation_summary?: string[] | null }[];
@@ -1462,6 +1507,9 @@ export function SessionPage() {
         state: transitionState as Session["state"],
         reason: transitionReason || undefined,
         confirm,
+        ...(votingDeadline && {
+          voting_deadline: new Date(votingDeadline).toISOString(),
+        }),
       },
       {
         onSuccess: (result) => {
@@ -1471,6 +1519,7 @@ export function SessionPage() {
             setTransitionPreview(null);
             setTransitionReason("");
             setTransitionState("");
+            setVotingDeadline("");
           }
         },
       },
@@ -1482,18 +1531,33 @@ export function SessionPage() {
   const closeTransitionPreview = () => {
     setTransitionPreview(null);
     setTransitionReason("");
+    setVotingDeadline("");
   };
   const openSessionEditor = () => {
-    setSessionDraft({ name: current.name, meetingDates: [...(current.meeting_dates ?? [])] });
+    setSessionDraft({
+      name: current.name,
+      meetingDates: [...(current.meeting_dates ?? [])],
+      rankedChoiceRankDepth: current.ranked_choice?.rank_depth?.toString() ?? "",
+      rankedChoiceDeadline: current.ranked_choice?.deadline
+        ? new Date(current.ranked_choice.deadline).toISOString().slice(0, 16)
+        : "",
+    });
     setSessionEditorOpen(true);
   };
   const submitSession = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const value: Parameters<typeof updateSession.mutate>[0] = {
+      sessionID: sessionId,
+      value: { name: sessionDraft.name.trim(), meeting_dates: sessionDraft.meetingDates },
+    };
+    if (sessionDraft.rankedChoiceRankDepth || sessionDraft.rankedChoiceDeadline) {
+      value.value.ranked_choice = {
+        rank_depth: Number(sessionDraft.rankedChoiceRankDepth),
+        deadline: new Date(sessionDraft.rankedChoiceDeadline ?? "").toISOString(),
+      };
+    }
     updateSession.mutate(
-      {
-        sessionID: sessionId,
-        value: { name: sessionDraft.name.trim(), meeting_dates: sessionDraft.meetingDates },
-      },
+      value,
       { onSuccess: () => setSessionEditorOpen(false) },
     );
   };
@@ -1550,6 +1614,8 @@ export function SessionPage() {
                 const value = event.target.value;
                 setTransitionState(value === current.state ? "" : value);
                 setTransitionPreview(null);
+                setTransitionReason("");
+                setVotingDeadline("");
               }}
               value={transitionState || current.state}
             >
@@ -1633,9 +1699,29 @@ export function SessionPage() {
                 value={transitionReason}
               />
             </label>
+            {current.state === "voting_closed" && transitionPreview.state === "voting_open" && (
+              <label className="mt-4 block font-medium">
+                New voting deadline (UTC)
+                <Input
+                  aria-label="New voting deadline"
+                  className="mt-1"
+                  disabled={readOnly}
+                  onChange={(event) => setVotingDeadline(event.target.value)}
+                  required
+                  type="datetime-local"
+                  value={votingDeadline}
+                />
+              </label>
+            )}
             <div className="mt-3 flex gap-2">
               <Button
-                disabled={!transitionReason.trim() || transition.isPending}
+                disabled={
+                  !transitionReason.trim() ||
+                  (current.state === "voting_closed" &&
+                    transitionPreview.state === "voting_open" &&
+                    !votingDeadline) ||
+                  transition.isPending
+                }
                 onClick={() => performTransition(true)}
                 type="button"
               >
@@ -1703,12 +1789,18 @@ export function SessionPage() {
           sessionEditorOpen &&
           (sessionDraft.name !== current.name ||
             JSON.stringify(sessionDraft.meetingDates) !==
-              JSON.stringify(current.meeting_dates ?? []))
+              JSON.stringify(current.meeting_dates ?? []) ||
+            sessionDraft.rankedChoiceRankDepth !==
+              (current.ranked_choice?.rank_depth?.toString() ?? "") ||
+            sessionDraft.rankedChoiceDeadline !==
+              (current.ranked_choice?.deadline
+                ? new Date(current.ranked_choice.deadline).toISOString().slice(0, 16)
+                : ""))
         }
         onClose={() => setSessionEditorOpen(false)}
         open={sessionEditorOpen}
         title="Edit session"
-        description="The name and meeting dates save together. Keep at least one date."
+        description="The name, meeting dates, and optional voting configuration save together. Keep at least one date."
       >
         <SessionForm
           error={updateSession.error}
@@ -1716,6 +1808,7 @@ export function SessionPage() {
           onSubmit={submitSession}
           pending={updateSession.isPending}
           submitLabel="Save session"
+          showRankedChoiceConfig
           value={sessionDraft}
         />
       </ModalForm>

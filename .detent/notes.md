@@ -230,3 +230,12 @@
   main CI applies while the PR is open. Detent owns the completion-lane transition.
 - Skill draft: no — this is a one-off contract clarification using existing ADR/spec conventions; no
   broadly reusable procedure was discovered.
+
+## Current work — issue #186
+
+- Scope: Integrate ranked-choice windows with session lifecycle per SPEC §§13.3, 13.7–13.8, and 14.1, 14.3–14.6; dependency #185 is closed and merged on origin/main.
+- Key files: `backend/migrations/20260903090000_ranked_choice_sessions.sql`, `backend/internal/data/session.go`, `backend/internal/data/ranked_choice.go`, `backend/internal/preference/service.go`, `backend/internal/preference/ranked_choice.go`, `backend/internal/program/session.go`, `backend/internal/program/session_lifecycle.go`, session API/generated artifacts, frontend session lifecycle/configuration, and preference/Layer 2 tests.
+- Implementation: optional per-session rank depth/deadline, VotingOpen/deadline/participant enforcement, hashed session/student access codes issued on opening, duplicate-rank validation before persistence, append-only latest-valid submissions, reopening warning/reason/new deadline, and registry/RLS/closed-year coverage.
+- Validation: focused Go/API/integration compilation, full `GOTOOLCHAIN=local go test -race ./... -count=1`, `make format`, `make lint-backend`, generation execution, and `git diff --check` pass. `make test-backend`/`make check` stop at Docker address-pool exhaustion; migration round-trip lacks its configured URL; frontend tests/build lack `openapi-typescript`; frontend lint lacks configured Biome plugin; smoke lacks `.env`.
+- Open items: commit/push, open non-draft PR with `Fixes #186`, verify current-head CI/reviews, then update the Workpad completion status. No dependency blocker or human action is declared.
+- Skill draft: no — the existing tenant-entity and PostgreSQL isolation-harness procedures cover the reusable method; no new broadly reusable procedure was discovered.

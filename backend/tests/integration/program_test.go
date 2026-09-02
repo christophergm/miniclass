@@ -278,6 +278,8 @@ func TestSessionLifecycleTransitionsWarnPreserveDraftsAndAudit(t *testing.T) {
 	require.NoError(t, err)
 	_, err = factory.CreateOffering(ctx, year.ID, programRow.ID, session.ID, "Synthetic offering", "Synthetic description", nil, 12, minimumGrade.ID, maximumGrade.ID, "Synthetic room", "Synthetic entrance", "Synthetic directions", nil)
 	require.NoError(t, err)
+	_, err = factory.ConfigureRankedChoice(ctx, year.ID, programRow.ID, session.ID, 1, time.Now().UTC().Add(time.Hour))
+	require.NoError(t, err)
 
 	for _, next := range []data.SessionState{data.SessionVotingOpen, data.SessionVotingClosed, data.SessionAssigning, data.SessionPublished} {
 		result = transition(next, false, "")

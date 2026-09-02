@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"slices"
 	"sort"
+	"strings"
+	"time"
 
 	"github.com/chrismott/miniclass/internal/audit"
 	"github.com/chrismott/miniclass/internal/data"
@@ -16,10 +18,17 @@ import (
 )
 
 var (
-	ErrPreferenceServiceNil     = errors.New("preference service is nil")
-	ErrRankedChoiceNotComplete  = errors.New("ranked choice response is not complete")
-	ErrRankedChoiceInvalid      = errors.New("ranked choice response is invalid")
-	ErrInterestAreaNotInProgram = errors.New("interest area is not in the program")
+	ErrPreferenceServiceNil        = errors.New("preference service is nil")
+	ErrRankedChoiceNotComplete     = errors.New("ranked choice response is not complete")
+	ErrRankedChoiceInvalid         = errors.New("ranked choice response is invalid")
+	ErrRankedChoiceNotConfigured   = errors.New("ranked-choice voting is not configured for this session")
+	ErrRankedChoiceNotAccepting    = errors.New("ranked-choice voting is not accepting submissions")
+	ErrRankedChoiceDeadlinePassed  = errors.New("ranked-choice voting deadline has passed")
+	ErrRankedChoiceCodeRequired    = errors.New("ranked-choice student-code access requires a code")
+	ErrRankedChoiceCodeInvalid     = errors.New("ranked-choice student-code access code is invalid or revoked")
+	ErrRankedChoiceStudentMismatch = errors.New("ranked-choice access code is not bound to this student")
+	ErrRankedChoiceStudentExcluded = errors.New("student is not participating in this session")
+	ErrInterestAreaNotInProgram    = errors.New("interest area is not in the program")
 )
 
 type Service struct{ database *data.DB }
@@ -40,6 +49,7 @@ type RankedChoiceSubmissionInput struct {
 	ProgramID    ids.XID
 	SessionID    ids.XID
 	StudentID    ids.XID
+	Code         string
 	Channel      data.PreferenceSubmissionChannel
 	ActorAdultID *ids.XID
 	Responses    []data.RankedChoiceResponseInput
@@ -109,14 +119,51 @@ func (s *Service) SubmitRankedChoices(ctx context.Context, organizationID string
 	}
 	var result data.RankedChoiceSubmission
 	err := s.database.InTenant(ctx, organizationID, actor, func(ctx context.Context, tx *data.Tx) error {
+		session, err := tx.GetSessionForUpdate(ctx, input.SchoolYearID, input.ProgramID, input.SessionID)
+		if err != nil {
+			return err
+		}
+		if session.RankedChoice == nil {
+			return ErrRankedChoiceNotConfigured
+		}
+		if session.State != data.SessionVotingOpen {
+			return ErrRankedChoiceNotAccepting
+		}
+		now := time.Now().UTC()
+		if session.RankedChoice.Deadline == nil || !now.Before(*session.RankedChoice.Deadline) {
+			return ErrRankedChoiceDeadlinePassed
+		}
+		studentID := input.StudentID
+		if input.Channel == data.PreferenceChannelStudentCode {
+			if strings.TrimSpace(input.Code) == "" {
+				return ErrRankedChoiceCodeRequired
+			}
+			resolvedStudentID, err := tx.FindActiveRankedChoiceAccessCode(ctx, input.SchoolYearID, input.ProgramID, input.SessionID, rankedChoiceCodeHash(input.Code))
+			if err != nil {
+				if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+					return err
+				}
+				return ErrRankedChoiceCodeInvalid
+			}
+			if studentID != "" && studentID != resolvedStudentID {
+				return ErrRankedChoiceStudentMismatch
+			}
+			studentID = resolvedStudentID
+		}
+		if studentID == "" {
+			return errors.New("submit ranked choices: student id is required")
+		}
+		if err := ensureRankedChoiceParticipant(ctx, tx, input.SchoolYearID, input.ProgramID, input.SessionID, studentID); err != nil {
+			return err
+		}
 		offerings, err := tx.ListOfferings(ctx, input.SchoolYearID, input.ProgramID, input.SessionID)
 		if err != nil {
 			return err
 		}
-		if err := ValidateRankedChoiceResponseSet(input.Responses, offerings); err != nil {
+		if err := ValidateRankedChoiceResponseSetWithDepth(input.Responses, offerings, session.RankedChoice.RankDepth); err != nil {
 			return err
 		}
-		created, _, err := tx.CreateRankedChoiceSubmission(ctx, input.SchoolYearID, input.ProgramID, input.SessionID, input.StudentID, input.Channel, input.ActorAdultID, input.Responses)
+		created, _, err := tx.CreateRankedChoiceSubmission(ctx, input.SchoolYearID, input.ProgramID, input.SessionID, studentID, input.Channel, input.ActorAdultID, input.Responses)
 		if err != nil {
 			return err
 		}
@@ -220,11 +267,21 @@ func ProfileValueForArea(areaID ids.XID, submissions []data.InterestProfileSubmi
 // session catalog before any submission row is written. This is what prevents
 // a malformed re-submission from replacing the latest valid response.
 func ValidateRankedChoiceResponseSet(responses []data.RankedChoiceResponseInput, offerings []data.Offering) error {
+	return ValidateRankedChoiceResponseSetWithDepth(responses, offerings, len(offerings))
+}
+
+// ValidateRankedChoiceResponseSetWithDepth verifies a complete response
+// against the session catalog and its configured ranked depth before any
+// submission row is written.
+func ValidateRankedChoiceResponseSetWithDepth(responses []data.RankedChoiceResponseInput, offerings []data.Offering, rankDepth int) error {
 	if len(offerings) == 0 {
 		return fmt.Errorf("%w: the session has no offerings", ErrRankedChoiceNotComplete)
 	}
 	if len(responses) != len(offerings) {
 		return fmt.Errorf("%w: expected one response for each of %d offerings, got %d", ErrRankedChoiceNotComplete, len(offerings), len(responses))
+	}
+	if rankDepth < 1 {
+		return fmt.Errorf("%w: ranked-choice rank depth must be positive", ErrRankedChoiceInvalid)
 	}
 	known := make(map[ids.XID]struct{}, len(offerings))
 	for _, offering := range offerings {
@@ -245,7 +302,11 @@ func ValidateRankedChoiceResponseSet(responses []data.RankedChoiceResponseInput,
 			if response.Rank == nil || *response.Rank < 1 {
 				return fmt.Errorf("%w: ranked answer requires a positive rank", ErrRankedChoiceInvalid)
 			}
-			if *response.Rank > len(offerings) {
+			maxRank := rankDepth
+			if maxRank > len(offerings) {
+				maxRank = len(offerings)
+			}
+			if *response.Rank > maxRank {
 				return fmt.Errorf("%w: rank %d exceeds the number of offerings", ErrRankedChoiceInvalid, *response.Rank)
 			}
 			if _, ok := seenRanks[*response.Rank]; ok {
@@ -277,8 +338,38 @@ func validateInterestProfileInput(input InterestProfileSubmissionInput) error {
 }
 
 func validateRankedChoiceInput(input RankedChoiceSubmissionInput) error {
-	if input.SchoolYearID == "" || input.ProgramID == "" || input.SessionID == "" || input.StudentID == "" {
-		return errors.New("submit ranked choices: school year, program, session, and student ids are required")
+	if input.SchoolYearID == "" || input.ProgramID == "" || input.SessionID == "" {
+		return errors.New("submit ranked choices: school year, program, and session ids are required")
+	}
+	if input.Channel != data.PreferenceChannelStudentCode && input.StudentID == "" {
+		return errors.New("submit ranked choices: student id is required")
+	}
+	return nil
+}
+
+func ensureRankedChoiceParticipant(ctx context.Context, tx *data.Tx, schoolYearID, programID, sessionID, studentID ids.XID) error {
+	memberships, err := tx.ListProgramMemberships(ctx, schoolYearID, programID)
+	if err != nil {
+		return err
+	}
+	found := false
+	for _, membership := range memberships {
+		if membership.StudentID == studentID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return ErrRankedChoiceStudentExcluded
+	}
+	nonParticipations, err := tx.ListSessionNonParticipations(ctx, schoolYearID, programID, sessionID)
+	if err != nil {
+		return err
+	}
+	for _, row := range nonParticipations {
+		if row.StudentID == studentID {
+			return ErrRankedChoiceStudentExcluded
+		}
 	}
 	return nil
 }

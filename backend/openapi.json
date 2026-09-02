@@ -2685,6 +2685,64 @@
         ],
         "type": "object"
       },
+      "RankedChoiceAccessCodeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "description": "High-entropy student access code. Store it securely; it is shown only once.",
+            "type": "string"
+          },
+          "student_id": {
+            "description": "Opaque student identifier.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "student_id",
+          "code"
+        ],
+        "type": "object"
+      },
+      "RankedChoiceConfigurationInput": {
+        "additionalProperties": false,
+        "properties": {
+          "deadline": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "rank_depth": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rank_depth",
+          "deadline"
+        ],
+        "type": "object"
+      },
+      "RankedChoiceConfigurationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "deadline": {
+            "description": "UTC instant after which submissions are refused.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "rank_depth": {
+            "description": "Maximum number of ranked positions accepted.",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rank_depth",
+          "deadline"
+        ],
+        "type": "object"
+      },
       "RecordPreview": {
         "additionalProperties": false,
         "properties": {
@@ -3061,6 +3119,10 @@
             "description": "Opaque program identifier.",
             "type": "string"
           },
+          "ranked_choice": {
+            "$ref": "#/components/schemas/RankedChoiceConfigurationResponse",
+            "description": "Optional ranked-choice collection configuration."
+          },
           "school_year_id": {
             "description": "Opaque school-year identifier.",
             "type": "string"
@@ -3108,6 +3170,16 @@
             "format": "uri",
             "readOnly": true,
             "type": "string"
+          },
+          "access_codes": {
+            "description": "Plaintext student access codes issued when voting opens; shown only once.",
+            "items": {
+              "$ref": "#/components/schemas/RankedChoiceAccessCodeResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "applied": {
             "type": "boolean"
@@ -3158,7 +3230,8 @@
           "to_state",
           "applied",
           "requires_confirmation",
-          "warnings"
+          "warnings",
+          "access_codes"
         ],
         "type": "object"
       },
@@ -3366,6 +3439,11 @@
               "complete"
             ],
             "minLength": 1,
+            "type": "string"
+          },
+          "voting_deadline": {
+            "description": "New deadline required when reopening ranked-choice voting.",
+            "format": "date-time",
             "type": "string"
           }
         },
@@ -3660,6 +3738,9 @@
           "name": {
             "minLength": 1,
             "type": "string"
+          },
+          "ranked_choice": {
+            "$ref": "#/components/schemas/RankedChoiceConfigurationInput"
           }
         },
         "type": "object"
