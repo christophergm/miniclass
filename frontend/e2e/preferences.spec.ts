@@ -65,8 +65,8 @@ test("a guardian can submit for each scoped student on a phone", async ({ page }
 
   await page.goto("/guardian/preferences");
   await expect(page.getByRole("heading", { name: "Preference forms" })).toBeVisible();
-  await expect(page.getByText("Synthetic One")).toBeVisible();
-  await expect(page.getByText("Synthetic Two")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Synthetic One", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Synthetic Two", exact: true })).toBeVisible();
   await page
     .getByRole("region", { name: firstForm.name + " form" })
     .getByLabel("Interested", { exact: true })
