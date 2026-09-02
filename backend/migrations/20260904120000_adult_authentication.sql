@@ -154,5 +154,6 @@ alter table access_tokens_adult_auth_down
     alter column purpose type access_token_purpose_original using purpose::text::access_token_purpose_original;
 alter type access_token_purpose rename to access_token_purpose_adult_auth_down;
 alter type access_token_purpose_original rename to access_token_purpose;
+alter type access_token_purpose owner to miniclass_migrator;
 alter table access_tokens_adult_auth_down rename to access_tokens;
 drop type access_token_purpose_adult_auth_down;
