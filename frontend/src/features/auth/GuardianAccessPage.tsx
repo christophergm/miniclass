@@ -14,9 +14,7 @@ export function GuardianAccessPage() {
   const [organizationID, setOrganizationID] = useState(
     () => searchParams.get("organization_id") ?? "",
   );
-  const [schoolYearID, setSchoolYearID] = useState(
-    () => searchParams.get("school_year_id") ?? "",
-  );
+  const [schoolYearID, setSchoolYearID] = useState(() => searchParams.get("school_year_id") ?? "");
   const [email, setEmail] = useState(() => searchParams.get("email") ?? "");
   const [challengeID, setChallengeID] = useState<string | null>(null);
   const [code, setCode] = useState("");
@@ -141,10 +139,7 @@ export function GuardianAccessPage() {
         </form>
       ) : (
         <form className="mt-6 space-y-4" onSubmit={requestOTP}>
-          <label
-            className="block space-y-2 text-sm font-medium"
-            htmlFor="guardian-organization-id"
-          >
+          <label className="block space-y-2 text-sm font-medium" htmlFor="guardian-organization-id">
             Organization ID
             <Input
               id="guardian-organization-id"
@@ -153,10 +148,7 @@ export function GuardianAccessPage() {
               onChange={(event) => setOrganizationID(event.target.value)}
             />
           </label>
-          <label
-            className="block space-y-2 text-sm font-medium"
-            htmlFor="guardian-school-year-id"
-          >
+          <label className="block space-y-2 text-sm font-medium" htmlFor="guardian-school-year-id">
             School year ID
             <Input
               id="guardian-school-year-id"

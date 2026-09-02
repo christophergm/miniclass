@@ -83,11 +83,10 @@ export function MfaPage() {
           <p className="text-sm text-muted-foreground">
             Save these recovery codes somewhere secure. Each code works once.
           </p>
-          <ul
-            className="grid grid-cols-2 gap-2 font-mono text-xs"
-            aria-label="MFA recovery codes"
-          >
-            {enrollment.recovery_codes?.map((code) => <li key={code}>{code}</li>)}
+          <ul className="grid grid-cols-2 gap-2 font-mono text-xs" aria-label="MFA recovery codes">
+            {enrollment.recovery_codes?.map((code) => (
+              <li key={code}>{code}</li>
+            ))}
           </ul>
         </section>
       )}

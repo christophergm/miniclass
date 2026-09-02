@@ -18,6 +18,13 @@ alter table access_tokens
     add column last_seen_at timestamptz,
     add column mfa_generation integer;
 
+-- Existing parent tables use FORCE RLS and their policies require a tenant
+-- setting. The migrator must validate these new composite references across
+-- every tenant, so temporarily restore the owner visibility used by earlier
+-- schema migrations.
+alter table adults no force row level security;
+alter table school_years no force row level security;
+
 alter table access_tokens
     add constraint access_tokens_attempts_check check (attempts >= 0),
     add constraint access_tokens_verifier_hash_check check (verifier_hash is null or octet_length(verifier_hash) = 32),
@@ -37,6 +44,9 @@ create index access_tokens_adult_otp_rate_idx
 create index access_tokens_session_user_idx
     on access_tokens (purpose, user_id)
     where purpose = 'administrative_session' and revoked_at is null;
+
+alter table adults force row level security;
+alter table school_years force row level security;
 
 create table adult_account_links (
     id public.xid20 primary key default public.xid(),
