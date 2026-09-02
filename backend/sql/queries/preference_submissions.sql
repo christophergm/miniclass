@@ -59,6 +59,27 @@ from ranked_choice_responses
 where organization_id = $1 and school_year_id = $2 and program_id = $3 and session_id = $4 and submission_id = $5
 order by offering_id, id;
 
+-- name: CreateRankedChoiceAccessCode :one
+insert into ranked_choice_access_codes (organization_id, school_year_id, program_id, session_id, student_id, code_hash)
+values ($1, $2, $3, $4, $5, $6)
+returning id, organization_id, school_year_id, program_id, session_id, student_id, issued_at, revoked_at;
+
+-- name: ListActiveRankedChoiceAccessCodes :many
+select id, organization_id, school_year_id, program_id, session_id, student_id, issued_at, revoked_at
+from ranked_choice_access_codes
+where organization_id = $1 and school_year_id = $2 and program_id = $3 and session_id = $4 and revoked_at is null
+order by student_id, id;
+
+-- name: FindActiveRankedChoiceAccessCode :one
+select student_id
+from ranked_choice_access_codes
+where organization_id = $1 and school_year_id = $2 and program_id = $3 and session_id = $4 and code_hash = $5 and revoked_at is null;
+
+-- name: RevokeRankedChoiceAccessCodes :execrows
+update ranked_choice_access_codes
+set revoked_at = coalesce(revoked_at, now())
+where organization_id = $1 and school_year_id = $2 and program_id = $3 and session_id = $4 and revoked_at is null;
+
 -- name: GetLatestRankedChoiceSubmission :one
 select id, organization_id, school_year_id, program_id, session_id, student_id, channel, actor_type, actor_user_id, actor_adult_id, actor_label, submitted_at, created_at
 from ranked_choice_submissions
@@ -108,4 +129,20 @@ order by school_year_id, program_id, session_id, submission_id, offering_id, id;
 -- name: FindRankedChoiceResponseForRegistry :one
 select id, organization_id, school_year_id, program_id, session_id, submission_id, offering_id, response, rank, created_at
 from ranked_choice_responses
+where id = $1 and organization_id = $2;
+
+-- name: ListAllRankedChoiceAccessCodesForRegistry :many
+select id, organization_id, school_year_id, program_id, session_id, student_id, issued_at, revoked_at
+from ranked_choice_access_codes
+where organization_id = $1
+order by school_year_id, program_id, session_id, student_id, id;
+
+-- name: FindRankedChoiceAccessCodeForRegistry :one
+select id, organization_id, school_year_id, program_id, session_id, student_id, issued_at, revoked_at
+from ranked_choice_access_codes
+where id = $1 and organization_id = $2;
+
+-- name: RevokeRankedChoiceAccessCodeForRegistry :execrows
+update ranked_choice_access_codes
+set revoked_at = coalesce(revoked_at, now())
 where id = $1 and organization_id = $2;

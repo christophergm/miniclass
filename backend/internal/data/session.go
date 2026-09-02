@@ -26,6 +26,14 @@ const (
 	SessionComplete         SessionState = "complete"
 )
 
+// RankedChoiceConfiguration controls the optional catalog voting window for a
+// session. A nil configuration means the session uses interest profiles or
+// organizer decisions without ranked-choice collection.
+type RankedChoiceConfiguration struct {
+	RankDepth int
+	Deadline  *time.Time
+}
+
 // Session is one ordered unit of programme activity within a school year.
 // MeetingDates is populated by the programme service for API responses; dates
 // remain a separate table so each date can later carry availability data.
@@ -37,6 +45,7 @@ type Session struct {
 	Name                  string
 	State                 SessionState
 	DraftAssignmentsStale bool
+	RankedChoice          *RankedChoiceConfiguration
 	MeetingDates          []time.Time
 	CreatedAt             time.Time
 	UpdatedAt             time.Time
@@ -65,7 +74,7 @@ func (tx *Tx) CreateSession(ctx context.Context, schoolYearID, programID ids.XID
 	if err != nil {
 		return Session{}, wrapProgramMutationError("create session", err)
 	}
-	return session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.State, row.DraftAssignmentsStale, row.CreatedAt, row.UpdatedAt)
+	return session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.State, row.DraftAssignmentsStale, row.RankedChoiceEnabled, row.RankedChoiceRankDepth, row.RankedChoiceDeadline, row.CreatedAt, row.UpdatedAt)
 }
 
 func (tx *Tx) ListSessions(ctx context.Context, schoolYearID, programID ids.XID) ([]Session, error) {
@@ -75,7 +84,7 @@ func (tx *Tx) ListSessions(ctx context.Context, schoolYearID, programID ids.XID)
 	}
 	result := make([]Session, 0, len(rows))
 	for _, row := range rows {
-		value, err := session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.State, row.DraftAssignmentsStale, row.CreatedAt, row.UpdatedAt)
+		value, err := session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.State, row.DraftAssignmentsStale, row.RankedChoiceEnabled, row.RankedChoiceRankDepth, row.RankedChoiceDeadline, row.CreatedAt, row.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -89,7 +98,7 @@ func (tx *Tx) GetSession(ctx context.Context, schoolYearID, programID, id ids.XI
 	if err != nil {
 		return Session{}, fmt.Errorf("get session: %w", err)
 	}
-	return session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.State, row.DraftAssignmentsStale, row.CreatedAt, row.UpdatedAt)
+	return session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.State, row.DraftAssignmentsStale, row.RankedChoiceEnabled, row.RankedChoiceRankDepth, row.RankedChoiceDeadline, row.CreatedAt, row.UpdatedAt)
 }
 
 // GetSessionForUpdate serializes lifecycle changes so two organizers cannot
@@ -99,19 +108,33 @@ func (tx *Tx) GetSessionForUpdate(ctx context.Context, schoolYearID, programID, 
 	if err != nil {
 		return Session{}, fmt.Errorf("get session for update: %w", err)
 	}
-	return session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.State, row.DraftAssignmentsStale, row.CreatedAt, row.UpdatedAt)
+	return session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.State, row.DraftAssignmentsStale, row.RankedChoiceEnabled, row.RankedChoiceRankDepth, row.RankedChoiceDeadline, row.CreatedAt, row.UpdatedAt)
 }
 
-func (tx *Tx) UpdateSession(ctx context.Context, schoolYearID, programID, id ids.XID, name string) (Session, error) {
+func (tx *Tx) UpdateSession(ctx context.Context, schoolYearID, programID, id ids.XID, name string, rankedChoice *RankedChoiceConfiguration) (Session, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return Session{}, errors.New("update session: name is required")
 	}
-	row, err := tx.queries.UpdateSession(ctx, db.UpdateSessionParams{ID: id, Name: name, OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID})
+	enabled, rankDepth, deadline := rankedChoiceParams(rankedChoice)
+	row, err := tx.queries.UpdateSession(ctx, db.UpdateSessionParams{
+		ID: id, Name: name, OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID,
+		RankedChoiceEnabled: enabled, RankedChoiceRankDepth: rankDepth, RankedChoiceDeadline: deadline,
+	})
 	if err != nil {
 		return Session{}, wrapProgramMutationError("update session", err)
 	}
-	return session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.State, row.DraftAssignmentsStale, row.CreatedAt, row.UpdatedAt)
+	return session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.State, row.DraftAssignmentsStale, row.RankedChoiceEnabled, row.RankedChoiceRankDepth, row.RankedChoiceDeadline, row.CreatedAt, row.UpdatedAt)
+}
+
+func (tx *Tx) UpdateSessionRankedChoiceDeadline(ctx context.Context, schoolYearID, programID, id ids.XID, deadline time.Time) (Session, error) {
+	row, err := tx.queries.UpdateSessionRankedChoiceDeadline(ctx, db.UpdateSessionRankedChoiceDeadlineParams{
+		ID: id, RankedChoiceDeadline: pgtype.Timestamptz{Time: deadline, Valid: true}, OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID,
+	})
+	if err != nil {
+		return Session{}, wrapProgramMutationError("update session ranked-choice deadline", err)
+	}
+	return session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.State, row.DraftAssignmentsStale, row.RankedChoiceEnabled, row.RankedChoiceRankDepth, row.RankedChoiceDeadline, row.CreatedAt, row.UpdatedAt)
 }
 
 func (tx *Tx) UpdateSessionLifecycle(ctx context.Context, schoolYearID, programID, id ids.XID, state SessionState, draftAssignmentsStale bool) (Session, error) {
@@ -122,7 +145,7 @@ func (tx *Tx) UpdateSessionLifecycle(ctx context.Context, schoolYearID, programI
 	if err != nil {
 		return Session{}, wrapProgramMutationError("update session lifecycle", err)
 	}
-	return session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.State, row.DraftAssignmentsStale, row.CreatedAt, row.UpdatedAt)
+	return session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.State, row.DraftAssignmentsStale, row.RankedChoiceEnabled, row.RankedChoiceRankDepth, row.RankedChoiceDeadline, row.CreatedAt, row.UpdatedAt)
 }
 
 func (tx *Tx) DeleteSession(ctx context.Context, schoolYearID, programID, id ids.XID) (bool, error) {
@@ -197,7 +220,7 @@ func (tx *Tx) ListAllSessionsForRegistry(ctx context.Context) ([]Session, error)
 	}
 	result := make([]Session, 0, len(rows))
 	for _, row := range rows {
-		value, err := session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.State, row.DraftAssignmentsStale, row.CreatedAt, row.UpdatedAt)
+		value, err := session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.State, row.DraftAssignmentsStale, row.RankedChoiceEnabled, row.RankedChoiceRankDepth, row.RankedChoiceDeadline, row.CreatedAt, row.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -214,7 +237,7 @@ func (tx *Tx) FindSessionForRegistry(ctx context.Context, id ids.XID) (Session, 
 		}
 		return Session{}, fmt.Errorf("find session for registry: %w", err)
 	}
-	return session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.State, row.DraftAssignmentsStale, row.CreatedAt, row.UpdatedAt)
+	return session(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.Name, row.State, row.DraftAssignmentsStale, row.RankedChoiceEnabled, row.RankedChoiceRankDepth, row.RankedChoiceDeadline, row.CreatedAt, row.UpdatedAt)
 }
 
 func (tx *Tx) UpdateSessionForRegistry(ctx context.Context, id ids.XID, name string) (bool, error) {
@@ -276,7 +299,7 @@ func (tx *Tx) DeleteMeetingDateForRegistry(ctx context.Context, id ids.XID) (boo
 	return rows == 1, nil
 }
 
-func session(id ids.XID, organizationID, schoolYearID, programID ids.XID, name string, state db.SessionState, draftAssignmentsStale bool, createdAtValue, updatedAtValue pgtype.Timestamptz) (Session, error) {
+func session(id ids.XID, organizationID, schoolYearID, programID ids.XID, name string, state db.SessionState, draftAssignmentsStale, rankedChoiceEnabled bool, rankedChoiceRankDepth pgtype.Int4, rankedChoiceDeadline pgtype.Timestamptz, createdAtValue, updatedAtValue pgtype.Timestamptz) (Session, error) {
 	createdAt, err := programTime(createdAtValue, "created_at")
 	if err != nil {
 		return Session{}, err
@@ -285,7 +308,29 @@ func session(id ids.XID, organizationID, schoolYearID, programID ids.XID, name s
 	if err != nil {
 		return Session{}, err
 	}
-	return Session{ID: id, OrganizationID: organizationID, SchoolYearID: schoolYearID, ProgramID: programID, Name: name, State: SessionState(state), DraftAssignmentsStale: draftAssignmentsStale, CreatedAt: createdAt, UpdatedAt: updatedAt}, nil
+	var rankedChoice *RankedChoiceConfiguration
+	if rankedChoiceEnabled {
+		if !rankedChoiceRankDepth.Valid || rankedChoiceRankDepth.Int32 < 1 || !rankedChoiceDeadline.Valid {
+			return Session{}, errors.New("session row: ranked-choice configuration is incomplete")
+		}
+		deadline := rankedChoiceDeadline.Time
+		rankedChoice = &RankedChoiceConfiguration{RankDepth: int(rankedChoiceRankDepth.Int32), Deadline: &deadline}
+	}
+	return Session{ID: id, OrganizationID: organizationID, SchoolYearID: schoolYearID, ProgramID: programID, Name: name, State: SessionState(state), DraftAssignmentsStale: draftAssignmentsStale, RankedChoice: rankedChoice, CreatedAt: createdAt, UpdatedAt: updatedAt}, nil
+}
+
+func rankedChoiceParams(config *RankedChoiceConfiguration) (bool, pgtype.Int4, pgtype.Timestamptz) {
+	if config == nil {
+		return false, pgtype.Int4{}, pgtype.Timestamptz{}
+	}
+	return true, pgtype.Int4{Int32: int32(config.RankDepth), Valid: true}, nullableSessionTime(config.Deadline)
+}
+
+func nullableSessionTime(value *time.Time) pgtype.Timestamptz {
+	if value == nil {
+		return pgtype.Timestamptz{}
+	}
+	return pgtype.Timestamptz{Time: *value, Valid: true}
 }
 
 func meetingDate(row db.MeetingDate) (MeetingDate, error) {

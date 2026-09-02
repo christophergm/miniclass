@@ -12,22 +12,27 @@ import (
 	"github.com/chrismott/miniclass/internal/audit"
 	"github.com/chrismott/miniclass/internal/data"
 	"github.com/chrismott/miniclass/internal/ids"
+	"github.com/chrismott/miniclass/internal/preference"
 )
 
 var (
-	ErrSessionTransitionInvalid        = errors.New("session transition is not permitted")
-	ErrSessionTransitionGate           = errors.New("session transition gate failed")
-	ErrSessionTransitionReasonRequired = errors.New("a reason is required to confirm a backward session transition")
-	ErrSessionReadOnly                 = errors.New("the session is complete and read-only")
+	ErrSessionTransitionInvalid         = errors.New("session transition is not permitted")
+	ErrSessionTransitionGate            = errors.New("session transition gate failed")
+	ErrSessionTransitionReasonRequired  = errors.New("a reason is required to confirm a backward session transition")
+	ErrSessionReadOnly                  = errors.New("the session is complete and read-only")
+	ErrSessionRankedChoiceNotConfigured = errors.New("ranked-choice voting is not configured for this session")
+	ErrSessionVotingDeadlineRequired    = errors.New("a new ranked-choice voting deadline is required when reopening voting")
+	ErrSessionVotingDeadlineInvalid     = errors.New("ranked-choice voting deadline must be in the future")
 )
 
 // SessionTransitionInput is the organizer's requested lifecycle change. A
 // backward transition is previewed when Confirm is false, so the caller can
 // show the invalidation summary before applying the change.
 type SessionTransitionInput struct {
-	NextState data.SessionState
-	Reason    string
-	Confirm   bool
+	NextState      data.SessionState
+	Reason         string
+	Confirm        bool
+	VotingDeadline *time.Time
 }
 
 // SessionTransitionWarning describes a non-blocking consequence of a
@@ -49,6 +54,7 @@ type SessionTransitionResult struct {
 	Applied              bool
 	RequiresConfirmation bool
 	Warnings             []SessionTransitionWarning
+	AccessCodes          []preference.RankedChoiceAccessCode
 }
 
 // SessionTransitionPlan is the pure state-machine decision. It is deliberately
@@ -166,7 +172,7 @@ func (s *Service) TransitionSession(ctx context.Context, organizationID string, 
 			if err != nil {
 				return err
 			}
-			plan, err := sessionTransitionPlan(ctx, tx, current, input.NextState)
+			plan, err := sessionTransitionPlan(ctx, tx, current, input)
 			if err != nil {
 				return err
 			}
@@ -194,12 +200,24 @@ func (s *Service) TransitionSession(ctx context.Context, organizationID string, 
 		if err != nil {
 			return err
 		}
-		plan, err := sessionTransitionPlan(ctx, tx, current, input.NextState)
+		plan, err := sessionTransitionPlan(ctx, tx, current, input)
 		if err != nil {
 			return err
 		}
 		if plan.Backward && strings.TrimSpace(input.Reason) == "" {
 			return ErrSessionTransitionReasonRequired
+		}
+		if current.State == data.SessionVotingClosed && input.NextState == data.SessionVotingOpen {
+			if input.VotingDeadline == nil {
+				return ErrSessionVotingDeadlineRequired
+			}
+			if !input.VotingDeadline.After(time.Now().UTC()) {
+				return ErrSessionVotingDeadlineInvalid
+			}
+			current, err = tx.UpdateSessionRankedChoiceDeadline(ctx, schoolYearID, programID, sessionID, *input.VotingDeadline)
+			if err != nil {
+				return err
+			}
 		}
 		updated, err := tx.UpdateSessionLifecycle(ctx, schoolYearID, programID, sessionID, input.NextState, current.DraftAssignmentsStale || plan.MarkDraftAssignmentsStale)
 		if err != nil {
@@ -209,6 +227,22 @@ func (s *Service) TransitionSession(ctx context.Context, organizationID string, 
 			return err
 		}
 		result = SessionTransitionResult{Session: updated, FromState: plan.FromState, ToState: plan.ToState, Applied: true, Warnings: plan.Warnings}
+		if input.NextState == data.SessionVotingOpen {
+			activeCodes, err := tx.ListActiveRankedChoiceAccessCodes(ctx, schoolYearID, programID, sessionID)
+			if err != nil {
+				return err
+			}
+			if len(activeCodes) == 0 {
+				students, err := tx.ListParticipatingStudentIDs(ctx, schoolYearID, programID, sessionID)
+				if err != nil {
+					return err
+				}
+				result.AccessCodes, err = preference.IssueRankedChoiceAccessCodes(ctx, tx, updated, students)
+				if err != nil {
+					return err
+				}
+			}
+		}
 		id, year := updated.ID, updated.SchoolYearID
 		return tx.Record(ctx, audit.Entry{
 			Action:        audit.ActionSessionStateTransition,
@@ -225,12 +259,34 @@ func (s *Service) TransitionSession(ctx context.Context, organizationID string, 
 	return result, nil
 }
 
-func sessionTransitionPlan(ctx context.Context, tx *data.Tx, current data.Session, next data.SessionState) (SessionTransitionPlan, error) {
+func sessionTransitionPlan(ctx context.Context, tx *data.Tx, current data.Session, input SessionTransitionInput) (SessionTransitionPlan, error) {
 	offeringCount, err := tx.CountOfferings(ctx, current.SchoolYearID, current.ProgramID, current.ID)
 	if err != nil {
 		return SessionTransitionPlan{}, err
 	}
-	return PlanSessionTransition(current.State, next, offeringCount, current.DraftAssignmentsStale)
+	plan, err := PlanSessionTransition(current.State, input.NextState, offeringCount, current.DraftAssignmentsStale)
+	if err != nil {
+		return SessionTransitionPlan{}, err
+	}
+	if current.State == data.SessionCatalogPublished && input.NextState == data.SessionVotingOpen {
+		if current.RankedChoice == nil {
+			return SessionTransitionPlan{}, ErrSessionRankedChoiceNotConfigured
+		}
+		if current.RankedChoice.Deadline == nil || !current.RankedChoice.Deadline.After(time.Now().UTC()) {
+			return SessionTransitionPlan{}, ErrSessionVotingDeadlineInvalid
+		}
+	}
+	if current.State == data.SessionVotingClosed && input.NextState == data.SessionVotingOpen {
+		if current.RankedChoice == nil {
+			return SessionTransitionPlan{}, ErrSessionRankedChoiceNotConfigured
+		}
+		plan.Warnings = append(plan.Warnings, SessionTransitionWarning{
+			Code:                "ranked-choice-reopened",
+			Message:             "Ranked-choice voting is reopening with a new deadline; retained draft assignments remain subject to the stale-input warning.",
+			InvalidationSummary: []string{"Students can submit a new complete response before the new voting deadline."},
+		})
+	}
+	return plan, nil
 }
 
 func loadSessionTransitionDates(ctx context.Context, tx *data.Tx, session *data.Session) error {

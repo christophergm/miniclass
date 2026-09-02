@@ -10,6 +10,7 @@ import (
 	"github.com/chrismott/miniclass/internal/ids"
 	"github.com/chrismott/miniclass/internal/people"
 	"github.com/chrismott/miniclass/internal/preference"
+	"github.com/chrismott/miniclass/internal/program"
 	testharness "github.com/chrismott/miniclass/internal/testing"
 	"github.com/chrismott/miniclass/internal/testing/factories"
 	"github.com/stretchr/testify/require"
@@ -86,11 +87,19 @@ func TestInvalidRankedChoiceSubmissionDoesNotReplaceValidResponse(t *testing.T) 
 	require.NoError(t, err)
 	offeringB, err := factory.CreateOffering(ctx, fixture.year.ID, fixture.program.ID, session.ID, "Synthetic Offering B", "Synthetic description B", nil, 10, fixture.grade.ID, fixture.grade.ID, "", "", "", nil)
 	require.NoError(t, err)
+	_, err = factory.ConfigureRankedChoice(ctx, fixture.year.ID, fixture.program.ID, session.ID, 1, time.Now().UTC().Add(time.Hour))
+	require.NoError(t, err)
+	_, err = factory.TransitionSession(ctx, fixture.year.ID, fixture.program.ID, session.ID, data.SessionCatalogPublished, false, "", nil)
+	require.NoError(t, err)
+	opened, err := factory.TransitionSession(ctx, fixture.year.ID, fixture.program.ID, session.ID, data.SessionVotingOpen, false, "", nil)
+	require.NoError(t, err)
+	require.Len(t, opened.AccessCodes, 1)
+	accessCode := opened.AccessCodes[0].Code
 	service := preference.New(harness.Database)
 	rankOne := 1
 	valid, err := service.SubmitRankedChoices(ctx, string(organizationID), actor, preference.RankedChoiceSubmissionInput{
 		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SessionID: session.ID, StudentID: fixture.student.ID,
-		Channel: data.PreferenceChannelStudentCode,
+		Code: accessCode, Channel: data.PreferenceChannelStudentCode,
 		Responses: []data.RankedChoiceResponseInput{
 			{OfferingID: offeringA.ID, Answer: data.RankedChoiceRanked, Rank: &rankOne},
 			{OfferingID: offeringB.ID, Answer: data.RankedChoiceInterested},
@@ -101,7 +110,7 @@ func TestInvalidRankedChoiceSubmissionDoesNotReplaceValidResponse(t *testing.T) 
 	duplicateRank := 1
 	_, err = service.SubmitRankedChoices(ctx, string(organizationID), actor, preference.RankedChoiceSubmissionInput{
 		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SessionID: session.ID, StudentID: fixture.student.ID,
-		Channel: data.PreferenceChannelStudentCode,
+		Code: accessCode, Channel: data.PreferenceChannelStudentCode,
 		Responses: []data.RankedChoiceResponseInput{
 			{OfferingID: offeringA.ID, Answer: data.RankedChoiceRanked, Rank: &duplicateRank},
 			{OfferingID: offeringB.ID, Answer: data.RankedChoiceRanked, Rank: &duplicateRank},
@@ -118,6 +127,59 @@ func TestInvalidRankedChoiceSubmissionDoesNotReplaceValidResponse(t *testing.T) 
 	entries, err := harness.Database.ListAuditLog(ctx, string(organizationID), data.AuditLogFilter{ObjectType: &objectType, PageSize: 100})
 	require.NoError(t, err)
 	require.Len(t, entries, 1)
+}
+
+func TestRankedChoiceWindowFollowsSessionLifecycle(t *testing.T) {
+	harness := testharness.Open(t)
+	ctx := harness.Context
+	organizationID := harness.MintOrganization(t)
+	actor := audit.Actor{Type: audit.ActorTypeLink, Label: "synthetic ranked-choice lifecycle respondent"}
+	factory := factories.New(harness.Database, string(organizationID), actor)
+	fixture := createPreferenceFixture(t, harness, factory, "ranked-window")
+	session, err := factory.CreateSession(ctx, fixture.year.ID, fixture.program.ID, "Synthetic Voting Window", []time.Time{time.Date(2026, 11, 13, 0, 0, 0, 0, time.UTC)})
+	require.NoError(t, err)
+	offering, err := factory.CreateOffering(ctx, fixture.year.ID, fixture.program.ID, session.ID, "Synthetic Voting Offering", "Synthetic description", nil, 10, fixture.grade.ID, fixture.grade.ID, "", "", "", nil)
+	require.NoError(t, err)
+	deadline := time.Now().UTC().Add(time.Hour)
+	_, err = factory.ConfigureRankedChoice(ctx, fixture.year.ID, fixture.program.ID, session.ID, 1, deadline)
+	require.NoError(t, err)
+	_, err = factory.TransitionSession(ctx, fixture.year.ID, fixture.program.ID, session.ID, data.SessionCatalogPublished, false, "", nil)
+	require.NoError(t, err)
+	opened, err := factory.TransitionSession(ctx, fixture.year.ID, fixture.program.ID, session.ID, data.SessionVotingOpen, false, "", nil)
+	require.NoError(t, err)
+	require.Len(t, opened.AccessCodes, 1)
+
+	_, err = factory.TransitionSession(ctx, fixture.year.ID, fixture.program.ID, session.ID, data.SessionAssigning, false, "", nil)
+	require.ErrorIs(t, err, program.ErrSessionTransitionInvalid)
+
+	service := preference.New(harness.Database)
+	_, err = service.SubmitRankedChoices(ctx, string(organizationID), actor, preference.RankedChoiceSubmissionInput{
+		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SessionID: session.ID,
+		Code: opened.AccessCodes[0].Code, Channel: data.PreferenceChannelStudentCode,
+		Responses: []data.RankedChoiceResponseInput{{OfferingID: offering.ID, Answer: data.RankedChoiceInterested}},
+	})
+	require.NoError(t, err)
+
+	_, err = factory.TransitionSession(ctx, fixture.year.ID, fixture.program.ID, session.ID, data.SessionVotingClosed, false, "", nil)
+	require.NoError(t, err)
+	_, err = service.SubmitRankedChoices(ctx, string(organizationID), actor, preference.RankedChoiceSubmissionInput{
+		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SessionID: session.ID,
+		Code: opened.AccessCodes[0].Code, Channel: data.PreferenceChannelStudentCode,
+		Responses: []data.RankedChoiceResponseInput{{OfferingID: offering.ID, Answer: data.RankedChoiceInterested}},
+	})
+	require.ErrorIs(t, err, preference.ErrRankedChoiceNotAccepting)
+
+	preview, err := factory.TransitionSession(ctx, fixture.year.ID, fixture.program.ID, session.ID, data.SessionVotingOpen, false, "", nil)
+	require.NoError(t, err)
+	require.False(t, preview.Applied)
+	require.Contains(t, transitionWarningCodes(preview.Warnings), "ranked-choice-reopened")
+	newDeadline := time.Now().UTC().Add(2 * time.Hour)
+	reopened, err := factory.TransitionSession(ctx, fixture.year.ID, fixture.program.ID, session.ID, data.SessionVotingOpen, true, "reopening for late response", &newDeadline)
+	require.NoError(t, err)
+	require.True(t, reopened.Applied)
+	require.Empty(t, reopened.AccessCodes, "reopening preserves the existing bound grant")
+	require.NotNil(t, reopened.Session.RankedChoice)
+	require.WithinDuration(t, newDeadline, *reopened.Session.RankedChoice.Deadline, time.Second)
 }
 
 func TestInterestProfileSurveyLifecycleFreezesAudienceAndRetainsScale(t *testing.T) {

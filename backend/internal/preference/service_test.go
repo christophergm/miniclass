@@ -70,3 +70,15 @@ func TestValidateRankedChoiceResponseSetRequiresCompleteUniqueResponses(t *testi
 	}
 	require.ErrorIs(t, ValidateRankedChoiceResponseSet(foreign, offerings), ErrRankedChoiceInvalid)
 }
+
+func TestValidateRankedChoiceResponseSetHonorsSessionRankDepth(t *testing.T) {
+	offerings := []data.Offering{{ID: "offering-a"}, {ID: "offering-b"}}
+	rankTwo := 2
+	responses := []data.RankedChoiceResponseInput{
+		{OfferingID: "offering-a", Answer: data.RankedChoiceRanked, Rank: &rankTwo},
+		{OfferingID: "offering-b", Answer: data.RankedChoiceInterested},
+	}
+
+	require.ErrorIs(t, ValidateRankedChoiceResponseSetWithDepth(responses, offerings, 1), ErrRankedChoiceInvalid)
+	require.NoError(t, ValidateRankedChoiceResponseSetWithDepth(responses, offerings, 2))
+}

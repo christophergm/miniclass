@@ -865,6 +865,18 @@ type ProgramObjectiveWeight struct {
 	UpdatedAt                     pgtype.Timestamptz `json:"updated_at"`
 }
 
+type RankedChoiceAccessCode struct {
+	ID             ids.XID            `json:"id"`
+	OrganizationID ids.XID            `json:"organization_id"`
+	SchoolYearID   ids.XID            `json:"school_year_id"`
+	ProgramID      ids.XID            `json:"program_id"`
+	SessionID      ids.XID            `json:"session_id"`
+	StudentID      ids.XID            `json:"student_id"`
+	CodeHash       string             `json:"code_hash"`
+	IssuedAt       pgtype.Timestamptz `json:"issued_at"`
+	RevokedAt      pgtype.Timestamptz `json:"revoked_at"`
+}
+
 type RankedChoiceResponse struct {
 	ID             ids.XID            `json:"id"`
 	OrganizationID ids.XID            `json:"organization_id"`
@@ -913,6 +925,9 @@ type Session struct {
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
 	DraftAssignmentsStale bool               `json:"draft_assignments_stale"`
+	RankedChoiceEnabled   bool               `json:"ranked_choice_enabled"`
+	RankedChoiceRankDepth pgtype.Int4        `json:"ranked_choice_rank_depth"`
+	RankedChoiceDeadline  pgtype.Timestamptz `json:"ranked_choice_deadline"`
 }
 
 type SessionNonParticipation struct {

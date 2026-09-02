@@ -14,14 +14,19 @@ import (
 )
 
 var (
-	ErrSessionNoChanges           = errors.New("session update has no changes")
-	ErrMeetingDateNoChanges       = errors.New("meeting date update has no changes")
-	ErrSessionRequiresMeetingDate = errors.New("a session must have at least one meeting date")
+	ErrSessionNoChanges                = errors.New("session update has no changes")
+	ErrMeetingDateNoChanges            = errors.New("meeting date update has no changes")
+	ErrSessionRequiresMeetingDate      = errors.New("a session must have at least one meeting date")
+	ErrRankedChoiceConfigurationLocked = errors.New("ranked-choice configuration is locked after voting opens")
+	ErrRankedChoiceRankDepthInvalid    = errors.New("ranked-choice rank depth must be positive")
+	ErrRankedChoiceDeadlineRequired    = errors.New("ranked-choice voting deadline is required")
+	ErrRankedChoiceDeadlineInvalid     = errors.New("ranked-choice voting deadline must be in the future")
 )
 
 type SessionUpdate struct {
-	Name  *string
-	Dates *[]time.Time
+	Name         *string
+	Dates        *[]time.Time
+	RankedChoice *data.RankedChoiceConfiguration
 }
 
 func (s *Service) CreateSession(ctx context.Context, organizationID string, actor audit.Actor, schoolYearID, programID ids.XID, name string, dates []time.Time) (data.Session, error) {
@@ -145,10 +150,21 @@ func (s *Service) UpdateSession(ctx context.Context, organizationID string, acto
 			}
 			changed = !sameMeetingDates(currentDates, *input.Dates) || changed
 		}
+		rankedChoice := current.RankedChoice
+		if input.RankedChoice != nil {
+			if current.State != data.SessionPlanning && current.State != data.SessionCatalogPublished {
+				return ErrRankedChoiceConfigurationLocked
+			}
+			if err := validateRankedChoiceConfiguration(input.RankedChoice, time.Now().UTC()); err != nil {
+				return err
+			}
+			rankedChoice = cloneRankedChoiceConfiguration(input.RankedChoice)
+			changed = !sameRankedChoiceConfiguration(current.RankedChoice, rankedChoice) || changed
+		}
 		if !changed {
 			return ErrSessionNoChanges
 		}
-		result, err = tx.UpdateSession(ctx, schoolYearID, programID, sessionID, name)
+		result, err = tx.UpdateSession(ctx, schoolYearID, programID, sessionID, name, rankedChoice)
 		if err != nil {
 			return err
 		}
@@ -185,6 +201,47 @@ func (s *Service) UpdateSession(ctx context.Context, organizationID string, acto
 		return data.Session{}, fmt.Errorf("update session: %w", err)
 	}
 	return result, nil
+}
+
+func validateRankedChoiceConfiguration(config *data.RankedChoiceConfiguration, now time.Time) error {
+	if config == nil {
+		return nil
+	}
+	if config.RankDepth < 1 {
+		return ErrRankedChoiceRankDepthInvalid
+	}
+	if config.Deadline == nil {
+		return ErrRankedChoiceDeadlineRequired
+	}
+	if !config.Deadline.After(now) {
+		return ErrRankedChoiceDeadlineInvalid
+	}
+	return nil
+}
+
+func cloneRankedChoiceConfiguration(config *data.RankedChoiceConfiguration) *data.RankedChoiceConfiguration {
+	if config == nil {
+		return nil
+	}
+	clone := *config
+	if config.Deadline != nil {
+		deadline := *config.Deadline
+		clone.Deadline = &deadline
+	}
+	return &clone
+}
+
+func sameRankedChoiceConfiguration(a, b *data.RankedChoiceConfiguration) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	if a.RankDepth != b.RankDepth {
+		return false
+	}
+	if a.Deadline == nil || b.Deadline == nil {
+		return a.Deadline == nil && b.Deadline == nil
+	}
+	return a.Deadline.Equal(*b.Deadline)
 }
 
 func (s *Service) DeleteSession(ctx context.Context, organizationID string, actor audit.Actor, schoolYearID, programID, sessionID ids.XID) error {
