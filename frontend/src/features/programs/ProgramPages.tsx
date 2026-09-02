@@ -261,9 +261,7 @@ function SessionForm({
             <Input
               aria-label="Voting deadline"
               className="mt-2"
-              onChange={(event) =>
-                onChange({ ...value, rankedChoiceDeadline: event.target.value })
-              }
+              onChange={(event) => onChange({ ...value, rankedChoiceDeadline: event.target.value })}
               required={Boolean(value.rankedChoiceRankDepth)}
               type="datetime-local"
               value={value.rankedChoiceDeadline ?? ""}
