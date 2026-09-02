@@ -125,6 +125,7 @@ func TestInterestProfileSurveyLifecycleFreezesAudienceAndRetainsScale(t *testing
 	ctx := harness.Context
 	organizationID := harness.MintOrganization(t)
 	actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "synthetic survey organizer"}
+	respondentActor := audit.Actor{Type: audit.ActorTypeLink, Label: "synthetic survey respondent"}
 	factory := factories.New(harness.Database, string(organizationID), actor)
 	fixture := createPreferenceFixture(t, harness, factory, "survey")
 	secondStudent, err := factory.CreateStudent(ctx, fixture.year.ID, people.StudentCreateInput{LegalGivenName: "Synthetic", LegalFamilyName: "Second Survey", GradeLevelID: &fixture.grade.ID, HomeroomID: fixture.student.HomeroomID})
@@ -174,7 +175,7 @@ func TestInterestProfileSurveyLifecycleFreezesAudienceAndRetainsScale(t *testing
 	closed, err := service.TransitionInterestProfileSurvey(ctx, string(organizationID), actor, fixture.year.ID, fixture.program.ID, survey.Survey.ID, preference.InterestProfileSurveyTransitionInput{State: data.InterestProfileSurveyClosed, Reason: "synthetic close"})
 	require.NoError(t, err)
 	require.Equal(t, data.InterestProfileSurveyClosed, closed.Survey.Survey.State)
-	_, err = service.SubmitInterestProfileSurvey(ctx, string(organizationID), actor, preference.InterestProfileSurveySubmissionInput{
+	_, err = service.SubmitInterestProfileSurvey(ctx, string(organizationID), respondentActor, preference.InterestProfileSurveySubmissionInput{
 		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SurveyID: survey.Survey.ID, Code: codes[fixture.student.ID], Channel: data.PreferenceChannelStudentCode,
 		Answers: []data.InterestProfileAnswer{{InterestAreaID: fixture.area.ID, Rating: data.InterestProfileInterested}},
 	})
@@ -187,7 +188,7 @@ func TestInterestProfileSurveyLifecycleFreezesAudienceAndRetainsScale(t *testing
 	require.Contains(t, reopened.Warnings, preference.SurveyWarningReopened)
 	require.Empty(t, reopened.AccessCodes, "reopening without regeneration reuses the existing codes")
 
-	firstSubmission, err := service.SubmitInterestProfileSurvey(ctx, string(organizationID), actor, preference.InterestProfileSurveySubmissionInput{
+	firstSubmission, err := service.SubmitInterestProfileSurvey(ctx, string(organizationID), respondentActor, preference.InterestProfileSurveySubmissionInput{
 		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SurveyID: survey.Survey.ID, Code: codes[fixture.student.ID], Channel: data.PreferenceChannelStudentCode,
 		Answers: []data.InterestProfileAnswer{{InterestAreaID: fixture.area.ID, Rating: data.InterestProfileVeryInterested}},
 	})
@@ -199,7 +200,7 @@ func TestInterestProfileSurveyLifecycleFreezesAudienceAndRetainsScale(t *testing
 	require.NoError(t, err)
 	require.Len(t, regenerated, 2)
 	require.NotEqual(t, codes[fixture.student.ID], regenerated[0].Code)
-	_, err = service.SubmitInterestProfileSurvey(ctx, string(organizationID), actor, preference.InterestProfileSurveySubmissionInput{
+	_, err = service.SubmitInterestProfileSurvey(ctx, string(organizationID), respondentActor, preference.InterestProfileSurveySubmissionInput{
 		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SurveyID: survey.Survey.ID, Code: codes[fixture.student.ID], Channel: data.PreferenceChannelStudentCode,
 		Answers: []data.InterestProfileAnswer{{InterestAreaID: fixture.area.ID, Rating: data.InterestProfileInterested}},
 	})
