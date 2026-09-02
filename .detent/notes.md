@@ -290,3 +290,11 @@
 - Open items: add final Workpad evidence, commit/push, open PR with `Fixes #199`, verify current-head CI/reviews, and hand off through Detent’s review lane.
 - Blockers: none.
 - Skill draft: no — this is a focused frontend authoring flow using existing API/hooks and modal/access-code patterns; no broadly reusable procedure was discovered.
+## Current work — issue #191
+
+- Scope: complete Phase 4 integration, accessibility, security validation, generated-client wiring, and documentation consistency per SPEC §§5.2, 9.2–9.4, 13, 14.3, 19.5, 22.4–22.5 and ADR 0013.
+- Dependency: #190 and #199 are closed and their pull requests are merged; the native `blocked_by` relation is terminal.
+- Repository state: rebased onto `origin/main` after the Phase 4 dependencies landed; implementation and validation are in progress.
+- Open items: inspect the integrated Phase 4 surfaces, implement scoped fixes and regressions, run all ten validation stages, then push a PR referencing #191 and verify current-head CI/review state.
+- Validation: pending implementation; `git diff --check` will run before handoff.
+- Skill draft: no — implementation has not yet exposed a broadly reusable procedure beyond the existing project guidance.
