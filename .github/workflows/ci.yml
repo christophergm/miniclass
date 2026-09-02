@@ -153,6 +153,12 @@ jobs:
       - name: Run frontend tests
         working-directory: frontend
         run: bun run test -- --run
+      - name: Install Chromium for mobile E2E tests
+        working-directory: frontend
+        run: bunx playwright install --with-deps chromium
+      - name: Run frontend mobile E2E tests
+        working-directory: frontend
+        run: bun run test:e2e
 
   frontend-build:
     name: Frontend build

@@ -3,6 +3,7 @@ import { useOutletContext, useParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import type { SchoolYear } from "@/lib/apiResources";
+import { useAccount } from "@/lib/hooks/useAccount";
 import { AccessCodeDistribution, type AccessCodeEntry } from "./AccessCodeDistribution";
 import { useProgramName } from "./useProgramName";
 import {
@@ -16,6 +17,7 @@ export function ProgramAccessCodesPage() {
   const year = useOutletContext<SchoolYear>();
   const readOnly = year.state === "closed";
   const programName = useProgramName(schoolYearId, programId);
+  const account = useAccount();
   const surveys = useInterestProfileSurveys(schoolYearId, programId);
   const regenerate = useRegenerateInterestProfileSurveyCodes(schoolYearId ?? "", programId ?? "");
   const revoke = useRevokeInterestProfileSurveyCodes(schoolYearId ?? "", programId ?? "");
@@ -67,6 +69,9 @@ export function ProgramAccessCodesPage() {
                                 display_name: code.display_name,
                                 homeroom: code.homeroom,
                                 code: code.code ?? "",
+                                respond_path: account.data?.organization.id
+                                  ? `/respond/interest-profile-surveys/${schoolYearId}/${programId}/${survey.id}?organization_id=${encodeURIComponent(account.data.organization.id)}&code=${encodeURIComponent(code.code ?? "")}`
+                                  : undefined,
                               }))
                               .filter((code) => code.code),
                           }),

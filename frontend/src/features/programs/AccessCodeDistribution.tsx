@@ -7,6 +7,7 @@ export type AccessCodeEntry = {
   display_name?: string;
   homeroom?: string;
   code: string;
+  respond_path?: string;
 };
 
 export function AccessCodeDistribution({
@@ -55,6 +56,14 @@ export function AccessCodeDistribution({
                 >
                   <div className="font-medium">{entry.display_name ?? entry.student_id}</div>
                   <div className="mt-1 font-mono text-lg tracking-widest">{entry.code}</div>
+                  {entry.respond_path && (
+                    <a
+                      className="mt-2 inline-block text-sm font-medium text-primary hover:underline print:hidden"
+                      href={entry.respond_path}
+                    >
+                      Open preference form
+                    </a>
+                  )}
                 </div>
               ))}
             </div>

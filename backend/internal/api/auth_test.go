@@ -193,6 +193,10 @@ func TestEveryRegisteredOperationDeclaresCapabilityMetadata(t *testing.T) {
 		"GET /api/health":                  true,
 		"POST /api/auth/adult/otp/request": true,
 		"POST /api/auth/adult/otp/verify":  true,
+		"POST /api/respondent/interest-profile-surveys/{schoolYearID}/{programID}/{surveyID}/form":   true,
+		"POST /api/respondent/interest-profile-surveys/{schoolYearID}/{programID}/{surveyID}/submit": true,
+		"POST /api/respondent/sessions/{schoolYearID}/{programID}/{sessionID}/form":                  true,
+		"POST /api/respondent/sessions/{schoolYearID}/{programID}/{sessionID}/submit":                true,
 	}
 
 	document := NewOpenAPI(RouterOptions{})

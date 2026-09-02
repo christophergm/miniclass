@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   resourceApi,
+  type PreferenceInterestAnswerInput,
+  type PreferenceRankedAnswerInput,
   type InterestProfileSurveyInput,
   type InterestProfileSurveyTransitionInput,
 } from "@/lib/apiResources";
@@ -84,6 +86,263 @@ export function useInterestProfileSurvey(
         surveyID as string,
       ),
     retry: false,
+  });
+}
+
+export const guardianPreferenceFormsKey = ["guardian-preference-forms"] as const;
+
+export function useGuardianPreferenceForms() {
+  return useQuery({
+    queryKey: guardianPreferenceFormsKey,
+    queryFn: () => resourceApi.listGuardianPreferenceForms(),
+    retry: false,
+  });
+}
+
+export function useStudentCodeInterestProfileForm(
+  schoolYearID: string | undefined,
+  programID: string | undefined,
+  surveyID: string | undefined,
+  organizationID: string | undefined,
+  code: string | undefined,
+) {
+  return useQuery({
+    enabled: Boolean(schoolYearID && programID && surveyID && organizationID && code),
+    queryKey: [
+      "student-code-interest-profile-form",
+      schoolYearID,
+      programID,
+      surveyID,
+      organizationID,
+      code,
+    ],
+    queryFn: () =>
+      resourceApi.getStudentCodeInterestProfileForm(
+        schoolYearID as string,
+        programID as string,
+        surveyID as string,
+        organizationID as string,
+        code as string,
+      ),
+    retry: false,
+  });
+}
+
+export function useStudentCodeRankedChoiceForm(
+  schoolYearID: string | undefined,
+  programID: string | undefined,
+  sessionID: string | undefined,
+  organizationID: string | undefined,
+  code: string | undefined,
+) {
+  return useQuery({
+    enabled: Boolean(schoolYearID && programID && sessionID && organizationID && code),
+    queryKey: [
+      "student-code-ranked-choice-form",
+      schoolYearID,
+      programID,
+      sessionID,
+      organizationID,
+      code,
+    ],
+    queryFn: () =>
+      resourceApi.getStudentCodeRankedChoiceForm(
+        schoolYearID as string,
+        programID as string,
+        sessionID as string,
+        organizationID as string,
+        code as string,
+      ),
+    retry: false,
+  });
+}
+
+export function useSubmitStudentCodeInterestProfile(
+  schoolYearID: string,
+  programID: string,
+  surveyID: string,
+  organizationID: string,
+  code: string,
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (answers: PreferenceInterestAnswerInput[]) =>
+      resourceApi.submitStudentCodeInterestProfile(
+        schoolYearID,
+        programID,
+        surveyID,
+        organizationID,
+        code,
+        answers,
+      ),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: [
+          "student-code-interest-profile-form",
+          schoolYearID,
+          programID,
+          surveyID,
+          organizationID,
+          code,
+        ],
+      }),
+  });
+}
+
+export function useSubmitStudentCodeRankedChoice(
+  schoolYearID: string,
+  programID: string,
+  sessionID: string,
+  organizationID: string,
+  code: string,
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (responses: PreferenceRankedAnswerInput[]) =>
+      resourceApi.submitStudentCodeRankedChoice(
+        schoolYearID,
+        programID,
+        sessionID,
+        organizationID,
+        code,
+        responses,
+      ),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: [
+          "student-code-ranked-choice-form",
+          schoolYearID,
+          programID,
+          sessionID,
+          organizationID,
+          code,
+        ],
+      }),
+  });
+}
+
+export function useSubmitGuardianInterestProfile() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      schoolYearID,
+      programID,
+      surveyID,
+      studentID,
+      answers,
+    }: {
+      schoolYearID: string;
+      programID: string;
+      surveyID: string;
+      studentID: string;
+      answers: PreferenceInterestAnswerInput[];
+    }) =>
+      resourceApi.submitGuardianInterestProfile(
+        schoolYearID,
+        programID,
+        surveyID,
+        studentID,
+        answers,
+      ),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: guardianPreferenceFormsKey }),
+  });
+}
+
+export function useSubmitGuardianRankedChoice() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      schoolYearID,
+      programID,
+      sessionID,
+      studentID,
+      responses,
+    }: {
+      schoolYearID: string;
+      programID: string;
+      sessionID: string;
+      studentID: string;
+      responses: PreferenceRankedAnswerInput[];
+    }) =>
+      resourceApi.submitGuardianRankedChoice(
+        schoolYearID,
+        programID,
+        sessionID,
+        studentID,
+        responses,
+      ),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: guardianPreferenceFormsKey }),
+  });
+}
+
+export function useAdministratorPreferenceForm(
+  input: {
+    type: "interest_profile" | "ranked_choice";
+    school_year_id: string;
+    program_id: string;
+    instrument_id: string;
+    student_id: string;
+  } | null,
+) {
+  return useQuery({
+    enabled: input !== null,
+    queryKey: ["administrator-preference-form", input],
+    queryFn: () => resourceApi.getAdministratorPreferenceForm(input as NonNullable<typeof input>),
+    retry: false,
+  });
+}
+
+export function useSubmitAdministratorInterestProfile() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      schoolYearID,
+      programID,
+      surveyID,
+      studentID,
+      answers,
+    }: {
+      schoolYearID: string;
+      programID: string;
+      surveyID: string;
+      studentID: string;
+      answers: PreferenceInterestAnswerInput[];
+    }) =>
+      resourceApi.submitAdministratorInterestProfile(
+        schoolYearID,
+        programID,
+        surveyID,
+        studentID,
+        answers,
+      ),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["administrator-preference-form"] }),
+  });
+}
+
+export function useSubmitAdministratorRankedChoice() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      schoolYearID,
+      programID,
+      sessionID,
+      studentID,
+      responses,
+    }: {
+      schoolYearID: string;
+      programID: string;
+      sessionID: string;
+      studentID: string;
+      responses: PreferenceRankedAnswerInput[];
+    }) =>
+      resourceApi.submitAdministratorRankedChoice(
+        schoolYearID,
+        programID,
+        sessionID,
+        studentID,
+        responses,
+      ),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["administrator-preference-form"] }),
   });
 }
 

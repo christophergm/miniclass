@@ -43,6 +43,10 @@ export type InterestProfileSurveyTransitionInput =
 export type InterestProfileSurveyTransition = Schemas["InterestProfileSurveyTransitionResponse"];
 export type InterestProfileSurveyCodes = Schemas["InterestProfileSurveyCodeResponse"];
 export type RankedChoiceAccessCode = Schemas["RankedChoiceAccessCodeResponse"];
+export type PreferenceForm = Schemas["PreferenceFormResponse"];
+export type GuardianPreferenceForms = Schemas["GuardianPreferenceFormsResponse"];
+export type PreferenceInterestAnswerInput = Schemas["InterestProfileAnswerInput"];
+export type PreferenceRankedAnswerInput = Schemas["RankedChoiceAnswerInput"];
 export type AdultOTPRequest = Schemas["RequestAdultOTPOutputBody"];
 export type GuardianSession = Schemas["GuardianSessionResponse"];
 export type MFAEnrollment = Schemas["MFAEnrollmentOutputBody"];
@@ -128,6 +132,12 @@ export const resourceApi = {
         body: { name },
       }),
     ),
+  listStudents: (schoolYearID: string) =>
+    unwrapList(
+      api.GET("/api/school-years/{schoolYearID}/students", {
+        params: { path: { schoolYearID }, query: { include_deleted: false } },
+      }),
+    ),
   listInterestAreas: (schoolYearID: string, programID: string, includeRetired = true) =>
     unwrapList(
       api.GET("/api/school-years/{schoolYearID}/programs/{programID}/interest-areas", {
@@ -211,6 +221,134 @@ export const resourceApi = {
       api.POST(
         "/api/school-years/{schoolYearID}/programs/{programID}/interest-profile-surveys/{surveyID}/revoke-codes",
         { params: { path: { schoolYearID, programID, surveyID } }, body: { reason } },
+      ),
+    ),
+
+  getStudentCodeInterestProfileForm: (
+    schoolYearID: string,
+    programID: string,
+    surveyID: string,
+    organizationID: string,
+    code: string,
+  ) =>
+    unwrap(
+      api.POST(
+        "/api/respondent/interest-profile-surveys/{schoolYearID}/{programID}/{surveyID}/form",
+        {
+          params: { path: { schoolYearID, programID, surveyID } },
+          body: { organization_id: organizationID, code },
+        },
+      ),
+    ),
+  submitStudentCodeInterestProfile: (
+    schoolYearID: string,
+    programID: string,
+    surveyID: string,
+    organizationID: string,
+    code: string,
+    answers: PreferenceInterestAnswerInput[],
+  ) =>
+    unwrap(
+      api.POST(
+        "/api/respondent/interest-profile-surveys/{schoolYearID}/{programID}/{surveyID}/submit",
+        {
+          params: { path: { schoolYearID, programID, surveyID } },
+          body: { organization_id: organizationID, code, answers: answers ?? [] },
+        },
+      ),
+    ),
+  getStudentCodeRankedChoiceForm: (
+    schoolYearID: string,
+    programID: string,
+    sessionID: string,
+    organizationID: string,
+    code: string,
+  ) =>
+    unwrap(
+      api.POST("/api/respondent/sessions/{schoolYearID}/{programID}/{sessionID}/form", {
+        params: { path: { schoolYearID, programID, sessionID } },
+        body: { organization_id: organizationID, code },
+      }),
+    ),
+  submitStudentCodeRankedChoice: (
+    schoolYearID: string,
+    programID: string,
+    sessionID: string,
+    organizationID: string,
+    code: string,
+    responses: PreferenceRankedAnswerInput[],
+  ) =>
+    unwrap(
+      api.POST("/api/respondent/sessions/{schoolYearID}/{programID}/{sessionID}/submit", {
+        params: { path: { schoolYearID, programID, sessionID } },
+        body: { organization_id: organizationID, code, responses: responses ?? [] },
+      }),
+    ),
+  listGuardianPreferenceForms: () => unwrap(api.GET("/api/guardian/preference-forms")),
+  submitGuardianInterestProfile: (
+    schoolYearID: string,
+    programID: string,
+    surveyID: string,
+    studentID: string,
+    answers: PreferenceInterestAnswerInput[],
+  ) =>
+    unwrap(
+      api.POST(
+        "/api/guardian/interest-profile-surveys/{schoolYearID}/{programID}/{surveyID}/students/{studentID}",
+        {
+          params: { path: { schoolYearID, programID, surveyID, studentID } },
+          body: { answers: answers ?? [] },
+        },
+      ),
+    ),
+  submitGuardianRankedChoice: (
+    schoolYearID: string,
+    programID: string,
+    sessionID: string,
+    studentID: string,
+    responses: PreferenceRankedAnswerInput[],
+  ) =>
+    unwrap(
+      api.POST(
+        "/api/guardian/sessions/{schoolYearID}/{programID}/{sessionID}/students/{studentID}",
+        {
+          params: { path: { schoolYearID, programID, sessionID, studentID } },
+          body: { responses: responses ?? [] },
+        },
+      ),
+    ),
+  getAdministratorPreferenceForm: (value: Schemas["AdministratorPreferenceFormInputBody"]) =>
+    unwrap(api.POST("/api/administrator/preference-form", { body: value })),
+  submitAdministratorInterestProfile: (
+    schoolYearID: string,
+    programID: string,
+    surveyID: string,
+    studentID: string,
+    answers: PreferenceInterestAnswerInput[],
+  ) =>
+    unwrap(
+      api.POST(
+        "/api/administrator/interest-profile-surveys/{schoolYearID}/{programID}/{surveyID}/students/{studentID}",
+        {
+          params: { path: { schoolYearID, programID, surveyID, studentID } },
+          body: { answers: answers ?? [] },
+        },
+      ),
+    ),
+  submitAdministratorRankedChoice: (
+    schoolYearID: string,
+    programID: string,
+    sessionID: string,
+    studentID: string,
+    responses: PreferenceRankedAnswerInput[],
+  ) =>
+    unwrap(
+      api.POST(
+        "/api/administrator/sessions/{schoolYearID}/{programID}/{sessionID}/students/{studentID}",
+        {
+          params: { path: { schoolYearID, programID, sessionID, studentID } },
+          body: { responses: responses ?? [] },
+        },
       ),
     ),
   createInterestArea: (schoolYearID: string, programID: string, label: string) =>

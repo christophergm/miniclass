@@ -28,8 +28,10 @@ var (
 	ErrRankedChoiceCodeInvalid     = errors.New("ranked-choice student-code access code is invalid or revoked")
 	ErrRankedChoiceStudentMismatch = errors.New("ranked-choice access code is not bound to this student")
 	ErrRankedChoiceStudentExcluded = errors.New("student is not participating in this session")
+	ErrRankedChoiceGuardianScope   = errors.New("student is outside the guardian scope")
 	ErrAccessCodeReasonRequired    = errors.New("access-code changes require a reason")
 	ErrInterestAreaNotInProgram    = errors.New("interest area is not in the program")
+	ErrSurveyStudentExcluded       = errors.New("student is not in the survey audience")
 )
 
 type Service struct{ database *data.DB }
@@ -46,14 +48,15 @@ type InterestProfileSubmissionInput struct {
 }
 
 type RankedChoiceSubmissionInput struct {
-	SchoolYearID ids.XID
-	ProgramID    ids.XID
-	SessionID    ids.XID
-	StudentID    ids.XID
-	Code         string
-	Channel      data.PreferenceSubmissionChannel
-	ActorAdultID *ids.XID
-	Responses    []data.RankedChoiceResponseInput
+	SchoolYearID    ids.XID
+	ProgramID       ids.XID
+	SessionID       ids.XID
+	StudentID       ids.XID
+	Code            string
+	Channel         data.PreferenceSubmissionChannel
+	ActorAdultID    *ids.XID
+	GuardianAdultID *ids.XID
+	Responses       []data.RankedChoiceResponseInput
 }
 
 func (s *Service) SubmitInterestProfile(ctx context.Context, organizationID string, actor audit.Actor, input InterestProfileSubmissionInput) (data.InterestProfileSubmission, error) {
@@ -153,6 +156,14 @@ func (s *Service) SubmitRankedChoices(ctx context.Context, organizationID string
 		}
 		if studentID == "" {
 			return errors.New("submit ranked choices: student id is required")
+		}
+		if input.Channel == data.PreferenceChannelGuardian {
+			if input.GuardianAdultID == nil || input.ActorAdultID == nil || *input.GuardianAdultID != *input.ActorAdultID {
+				return ErrRankedChoiceGuardianScope
+			}
+			if err := ensureGuardianStudent(ctx, tx, input.SchoolYearID, *input.GuardianAdultID, studentID); err != nil {
+				return err
+			}
 		}
 		if err := ensureRankedChoiceParticipant(ctx, tx, input.SchoolYearID, input.ProgramID, input.SessionID, studentID); err != nil {
 			return err

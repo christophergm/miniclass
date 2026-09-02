@@ -40,6 +40,12 @@ import {
   SessionPage,
 } from "@/features/programs/ProgramPages";
 import { ProgramAccessCodesPage } from "@/features/programs/ProgramAccessCodesPage";
+import {
+  AdministratorPreferencePage,
+  GuardianPreferencePage,
+  StudentCodeInterestProfilePage,
+  StudentCodeRankedChoicePage,
+} from "@/features/preferences/PreferencePages";
 
 function App() {
   return (
@@ -68,6 +74,15 @@ function AppRoutes() {
           the contract note in ClaimInvitationPage. */}
       <Route path="/claim" element={<ClaimInvitationPage />} />
       <Route path="/guardian" element={<GuardianAccessPage />} />
+      <Route path="/guardian/preferences" element={<GuardianPreferencePage />} />
+      <Route
+        path="/respond/interest-profile-surveys/:schoolYearId/:programId/:surveyId"
+        element={<StudentCodeInterestProfilePage />}
+      />
+      <Route
+        path="/respond/sessions/:schoolYearId/:programId/:sessionId"
+        element={<StudentCodeRankedChoicePage />}
+      />
       <Route path="/mfa" element={<MfaPage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
@@ -149,6 +164,7 @@ function AppRoutes() {
           <Route path="/adults/:personId" element={<AdultDetailPage />} />
           <Route path="/audit-log" element={<AuditLog />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/preferences/admin" element={<AdministratorPreferencePage />} />
         </Route>
       </Route>
       <Route path="*" element={<NotFoundPage />} />
