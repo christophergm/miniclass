@@ -1,3 +1,12 @@
+## Current work — issue #184
+
+- Scope: retained interest-profile and ranked-choice preference submissions per SPEC §§8.3, 13.1–13.5, 13.7; dependency #183 is closed and merged on origin/main.
+- Key files: `backend/migrations/20260901090000_preference_submissions.sql`, `backend/sql/queries/preference_submissions.sql`, `backend/internal/data/preference.go`, `backend/internal/preference/service.go`, registry/factory files, and `backend/tests/integration/preference_test.go`.
+- Implementation: four append-only year-scoped tables with opaque student/program/session/area/offering composite FKs, actor/channel/timestamp attribution, forced RLS, closed-year guards, insert/select privileges, effective profile overlay, complete ranked-choice validation, deterministic latest response, audit action, generated sqlc, and Layer 2 registry coverage.
+- Validation: full `GOTOOLCHAIN=local go test -race ./... -count=1`, `make format`, `make lint-backend`, `make generate`, and `git diff --check` pass. `make test-migrations` is unavailable because `MIGRATION_ROUNDTRIP_DATABASE_URL` is unset; run all ten CI gates after push.
+- Open items: run `make check`/remaining local gates, commit with Conventional Commit subject ending `( #184 )` without the extra space, push, open non-draft PR with `Fixes #184`, verify current-head CI/reviews, and update the Workpad completion block.
+- Skill draft: no — the existing tenant-entity and isolation-harness guidance covered the reusable procedure; no new broadly reusable method was discovered.
+
 ## Current work — issue #163
 
 - Scope: Dedicated offering create/edit pages from the session summary, labeled one-property-per-row form, and “Maximum enrollment” UI terminology per SPEC §§8.4, 14.2, 16.1, 16.3, 16.5, 22.4.
