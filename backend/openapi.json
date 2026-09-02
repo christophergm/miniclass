@@ -296,6 +296,7 @@
               "survey_definition_change",
               "survey_lifecycle",
               "survey_code_change",
+              "ranked_choice_code_change",
               "session_state_transition",
               "offering_edit_after_publish",
               "tag_definition_change",
@@ -1641,11 +1642,45 @@
         },
         "type": "object"
       },
+      "InterestProfileSurveyCodeChangeInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/InterestProfileSurveyCodeChangeInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "reason": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "type": "object"
+      },
       "InterestProfileSurveyCodeResponse": {
         "additionalProperties": false,
         "properties": {
           "code": {
             "description": "Plaintext code is returned only when newly issued.",
+            "type": "string"
+          },
+          "display_name": {
+            "description": "Student name for organizer distribution only.",
+            "type": "string"
+          },
+          "homeroom": {
+            "description": "Homeroom label for organizer distribution only.",
+            "type": "string"
+          },
+          "homeroom_id": {
+            "description": "Opaque homeroom identifier.",
             "type": "string"
           },
           "issued_at": {
@@ -2975,11 +3010,45 @@
         ],
         "type": "object"
       },
+      "RankedChoiceAccessCodeChangeInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/RankedChoiceAccessCodeChangeInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "reason": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "type": "object"
+      },
       "RankedChoiceAccessCodeResponse": {
         "additionalProperties": false,
         "properties": {
           "code": {
             "description": "High-entropy student access code. Store it securely; it is shown only once.",
+            "type": "string"
+          },
+          "display_name": {
+            "description": "Student name for organizer distribution only.",
+            "type": "string"
+          },
+          "homeroom": {
+            "description": "Homeroom label for organizer distribution only.",
+            "type": "string"
+          },
+          "homeroom_id": {
+            "description": "Opaque homeroom identifier.",
             "type": "string"
           },
           "student_id": {
@@ -9337,6 +9406,16 @@
             },
             "description": "OK"
           },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
           "404": {
             "content": {
               "application/problem+json": {
@@ -9384,6 +9463,114 @@
           }
         ],
         "summary": "Regenerate interest-profile survey access codes",
+        "x-required-capability": "manage_roster"
+      }
+    },
+    "/api/school-years/{schoolYearID}/programs/{programID}/interest-profile-surveys/{surveyID}/revoke-codes": {
+      "post": {
+        "operationId": "revoke-interest-profile-survey-codes",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "schoolYearID",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "programID",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque survey identifier.",
+            "in": "path",
+            "name": "surveyID",
+            "required": true,
+            "schema": {
+              "description": "Opaque survey identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InterestProfileSurveyCodeChangeInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Revoke interest-profile survey access codes",
         "x-required-capability": "manage_roster"
       }
     },
@@ -12454,6 +12641,243 @@
           }
         ],
         "summary": "Edit a session offering",
+        "x-required-capability": "manage_catalog"
+      }
+    },
+    "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/regenerate-codes": {
+      "post": {
+        "operationId": "regenerate-ranked-choice-access-codes",
+        "parameters": [
+          {
+            "description": "Opaque school-year identifier.",
+            "in": "path",
+            "name": "schoolYearID",
+            "required": true,
+            "schema": {
+              "description": "Opaque school-year identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque program identifier.",
+            "in": "path",
+            "name": "programID",
+            "required": true,
+            "schema": {
+              "description": "Opaque program identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque session identifier.",
+            "in": "path",
+            "name": "sessionID",
+            "required": true,
+            "schema": {
+              "description": "Opaque session identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RankedChoiceAccessCodeChangeInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RankedChoiceAccessCodeResponse"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Regenerate ranked-choice access codes",
+        "x-required-capability": "manage_catalog"
+      }
+    },
+    "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/revoke-codes": {
+      "post": {
+        "operationId": "revoke-ranked-choice-access-codes",
+        "parameters": [
+          {
+            "description": "Opaque school-year identifier.",
+            "in": "path",
+            "name": "schoolYearID",
+            "required": true,
+            "schema": {
+              "description": "Opaque school-year identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque program identifier.",
+            "in": "path",
+            "name": "programID",
+            "required": true,
+            "schema": {
+              "description": "Opaque program identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque session identifier.",
+            "in": "path",
+            "name": "sessionID",
+            "required": true,
+            "schema": {
+              "description": "Opaque session identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RankedChoiceAccessCodeChangeInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Revoke ranked-choice access codes",
         "x-required-capability": "manage_catalog"
       }
     },

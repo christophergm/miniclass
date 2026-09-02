@@ -208,6 +208,8 @@ vi.mock("./usePrograms", () => {
     })),
     useDeleteOffering: mutation(),
     useTransitionSession: mutation(mocks.transition),
+    useRegenerateRankedChoiceAccessCodes: mutation(),
+    useRevokeRankedChoiceAccessCodes: mutation(),
     useCreateSessionNonParticipation: mutation(),
     useUpdateSessionNonParticipation: mutation(),
     useDeleteSessionNonParticipation: mutation(),

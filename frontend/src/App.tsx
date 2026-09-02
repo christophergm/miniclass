@@ -39,6 +39,7 @@ import {
   SessionObjectiveWeightsPage,
   SessionPage,
 } from "@/features/programs/ProgramPages";
+import { ProgramAccessCodesPage } from "@/features/programs/ProgramAccessCodesPage";
 
 function App() {
   return (
@@ -87,6 +88,10 @@ function AppRoutes() {
               <Route
                 path="programs/:programId/settings/interest-areas"
                 element={<ProgramInterestAreasPage />}
+              />
+              <Route
+                path="programs/:programId/settings/access-codes"
+                element={<ProgramAccessCodesPage />}
               />
               <Route
                 path="programs/:programId/settings/assignment-planner"

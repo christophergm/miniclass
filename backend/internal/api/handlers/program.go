@@ -65,6 +65,9 @@ type ProgramService interface {
 	DeleteInterestProfileSurvey(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID) error
 	TransitionInterestProfileSurvey(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, preference.InterestProfileSurveyTransitionInput) (preference.InterestProfileSurveyTransitionResult, error)
 	RegenerateInterestProfileSurveyCodes(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, string) ([]preference.SurveyAccessCode, error)
+	RevokeInterestProfileSurveyCodes(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, string) error
+	RegenerateRankedChoiceAccessCodes(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, string) ([]preference.RankedChoiceAccessCode, error)
+	RevokeRankedChoiceAccessCodes(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, string) error
 }
 
 type ProgramResponse struct {

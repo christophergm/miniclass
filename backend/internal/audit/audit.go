@@ -45,6 +45,7 @@ const (
 	ActionSurveyDefinitionChange    Action = "survey_definition_change"
 	ActionSurveyLifecycle           Action = "survey_lifecycle"
 	ActionSurveyCodeChange          Action = "survey_code_change"
+	ActionRankedChoiceCodeChange    Action = "ranked_choice_code_change"
 	ActionSessionStateTransition    Action = "session_state_transition"
 	ActionOfferingEdit              Action = "offering_edit_after_publish"
 	ActionTagDefinitionChange       Action = "tag_definition_change"
@@ -99,6 +100,7 @@ var actions = []Action{
 	ActionSurveyDefinitionChange,
 	ActionSurveyLifecycle,
 	ActionSurveyCodeChange,
+	ActionRankedChoiceCodeChange,
 	ActionSessionStateTransition,
 	ActionOfferingEdit,
 	ActionTagDefinitionChange,

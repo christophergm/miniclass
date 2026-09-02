@@ -28,6 +28,7 @@ var (
 	ErrRankedChoiceCodeInvalid     = errors.New("ranked-choice student-code access code is invalid or revoked")
 	ErrRankedChoiceStudentMismatch = errors.New("ranked-choice access code is not bound to this student")
 	ErrRankedChoiceStudentExcluded = errors.New("student is not participating in this session")
+	ErrAccessCodeReasonRequired    = errors.New("access-code changes require a reason")
 	ErrInterestAreaNotInProgram    = errors.New("interest area is not in the program")
 )
 

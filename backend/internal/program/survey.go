@@ -37,3 +37,7 @@ func (s *Service) TransitionInterestProfileSurvey(ctx context.Context, organizat
 func (s *Service) RegenerateInterestProfileSurveyCodes(ctx context.Context, organizationID string, actor audit.Actor, schoolYearID, programID, surveyID ids.XID, reason string) ([]preference.SurveyAccessCode, error) {
 	return preference.New(s.database).RegenerateInterestProfileSurveyCodes(ctx, organizationID, actor, schoolYearID, programID, surveyID, reason)
 }
+
+func (s *Service) RevokeInterestProfileSurveyCodes(ctx context.Context, organizationID string, actor audit.Actor, schoolYearID, programID, surveyID ids.XID, reason string) error {
+	return preference.New(s.database).RevokeInterestProfileSurveyCodes(ctx, organizationID, actor, schoolYearID, programID, surveyID, reason)
+}
