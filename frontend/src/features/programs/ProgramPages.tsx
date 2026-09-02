@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { ModalForm } from "@/components/ui/modal-form";
 import {
@@ -170,15 +171,12 @@ function MeetingDateDraftList({
       <div className="space-y-2">
         {dates.map((date, index) => (
           <div className="flex items-center gap-2" key={`${date}-${index}`}>
-            <Input
+            <DatePicker
               aria-label={`Meeting date ${index + 1}`}
-              onChange={(event) =>
-                onChange(
-                  dates.map((item, itemIndex) => (itemIndex === index ? event.target.value : item)),
-                )
+              onChange={(value) =>
+                onChange(dates.map((item, itemIndex) => (itemIndex === index ? value : item)))
               }
               required
-              type="date"
               value={date}
             />
             <Button
@@ -195,12 +193,7 @@ function MeetingDateDraftList({
         ))}
       </div>
       <div className="flex gap-2">
-        <Input
-          aria-label="New meeting date"
-          onChange={(event) => setNewDate(event.target.value)}
-          type="date"
-          value={newDate}
-        />
+        <DatePicker aria-label="New meeting date" onChange={setNewDate} value={newDate} />
         <Button disabled={!newDate} onClick={addDate} type="button" variant="outline">
           Add date
         </Button>
@@ -274,13 +267,13 @@ function SessionForm({
           </label>
           <label className="block text-sm font-medium">
             Voting deadline (UTC)
-            <Input
+            <DatePicker
               aria-label="Voting deadline"
               className="mt-2"
-              onChange={(event) => onChange({ ...value, rankedChoiceDeadline: event.target.value })}
+              onChange={(rankedChoiceDeadline) => onChange({ ...value, rankedChoiceDeadline })}
               required={Boolean(value.rankedChoiceRankDepth)}
-              type="datetime-local"
               value={value.rankedChoiceDeadline ?? ""}
+              withTime
             />
           </label>
         </div>
@@ -1823,14 +1816,14 @@ export function SessionPage() {
             {current.state === "voting_closed" && transitionPreview.state === "voting_open" && (
               <label className="mt-4 block font-medium">
                 New voting deadline (UTC)
-                <Input
+                <DatePicker
                   aria-label="New voting deadline"
                   className="mt-1"
                   disabled={readOnly}
-                  onChange={(event) => setVotingDeadline(event.target.value)}
+                  onChange={setVotingDeadline}
                   required
-                  type="datetime-local"
                   value={votingDeadline}
+                  withTime
                 />
               </label>
             )}
