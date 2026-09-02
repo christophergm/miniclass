@@ -92,7 +92,7 @@ function InterestProfileEditor({
   error?: string | null;
   submitLabel: string;
 }) {
-  const questions = form.questions ?? [];
+  const questions = useMemo(() => form.questions ?? [], [form.questions]);
   const options = form.scale_options ?? [];
   const [ratings, setRatings] = useState<Record<string, string>>({});
 
@@ -200,7 +200,7 @@ function RankedChoiceEditor({
   error?: string | null;
   submitLabel: string;
 }) {
-  const offerings = form.offerings ?? [];
+  const offerings = useMemo(() => form.offerings ?? [], [form.offerings]);
   const rankDepth = form.rank_depth ?? 0;
   const [drafts, setDrafts] = useState<Record<string, RankedDraft>>({});
 
@@ -217,7 +217,7 @@ function RankedChoiceEditor({
       };
     }
     setDrafts(initial);
-  }, [form]);
+  }, [form.ranked_answers, offerings]);
 
   const rankedValues = Object.values(drafts)
     .filter((draft) => draft.answer === "ranked")
