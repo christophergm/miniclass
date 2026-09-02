@@ -40,6 +40,7 @@ import {
   SessionPage,
 } from "@/features/programs/ProgramPages";
 import { ProgramAccessCodesPage } from "@/features/programs/ProgramAccessCodesPage";
+import { InterestProfileSurveysPage } from "@/features/programs/InterestProfileSurveyPages";
 import {
   InterestProfileResponseTrackingPage,
   RankedChoiceResponseTrackingPage,
@@ -112,6 +113,10 @@ function AppRoutes() {
               <Route
                 path="programs/:programId/settings/access-codes"
                 element={<ProgramAccessCodesPage />}
+              />
+              <Route
+                path="programs/:programId/settings/interest-profile-surveys"
+                element={<InterestProfileSurveysPage />}
               />
               <Route
                 path="programs/:programId/settings/response-tracking"

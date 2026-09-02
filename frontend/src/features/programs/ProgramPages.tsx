@@ -704,6 +704,11 @@ export function ProgramSettingsPage() {
       path: "interest-areas",
     },
     {
+      title: "Interest-profile surveys",
+      description: "Compose surveys, choose their audience, and manage response windows.",
+      path: "interest-profile-surveys",
+    },
+    {
       title: "Preference access codes",
       description: "Regenerate and print student codes for open interest surveys.",
       path: "access-codes",

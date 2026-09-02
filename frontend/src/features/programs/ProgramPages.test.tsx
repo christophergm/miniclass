@@ -537,6 +537,10 @@ describe("program navigation", () => {
       "href",
       "/y/year-1/programs/program-1/settings/interest-areas",
     );
+    expect(screen.getByRole("link", { name: /Open Interest-profile surveys →/ })).toHaveAttribute(
+      "href",
+      "/y/year-1/programs/program-1/settings/interest-profile-surveys",
+    );
     expect(screen.getByRole("link", { name: /Open Assignment planner →/ })).toHaveAttribute(
       "href",
       "/y/year-1/programs/program-1/settings/assignment-planner",

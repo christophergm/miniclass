@@ -281,3 +281,12 @@
 - Blockers: none.
 - Telemetry: first PR CI run took 2m15s overall; quiet-window wait 0s; slow checks were Backend tests 2m15s, Generated code drift 1m30s, and Developer tooling 1m13s. Local aggregate gate stopped before stages; fresh-head CI is pending after the formatter fix.
 - Skill draft: no — this is a focused reporting projection using existing tenant-data, access, and submission conventions; no new broadly reusable procedure was discovered.
+## Current work — issue #199
+
+- Scope: administrator-facing interest-profile survey authoring UI per SPEC §§13.5–13.6, 13.8, 19.5, and 22.4; dependency #190 is merged on origin/main.
+- Key files: `frontend/src/features/programs/InterestProfileSurveyPages.tsx`, its test, `frontend/src/features/programs/ProgramPages.tsx`, and `frontend/src/App.tsx`.
+- Implementation: program-settings survey management route; accessible create/edit modals; ordered active-area selection; all/explicit/grade/response-state audiences; response window and rating-scale configuration; draft delete/duplicate; open/close/reopen lifecycle controls with reason/code-rotation support and warning display; post-open definition lock; access-code and response-tracking links; closed-year read-only behavior.
+- Validation: `make lint-backend`, `make format`, backend generation/drift, Biome formatting, syntax transpilation, and `git diff --check` pass. Frontend tests/build stop before execution because `openapi-typescript` is absent; frontend lint stops because the isolated environment has no frontend dependencies/Bun Biome plugin. Full CI remains required after push.
+- Open items: add final Workpad evidence, commit/push, open PR with `Fixes #199`, verify current-head CI/reviews, and hand off through Detent’s review lane.
+- Blockers: none.
+- Skill draft: no — this is a focused frontend authoring flow using existing API/hooks and modal/access-code patterns; no broadly reusable procedure was discovered.
