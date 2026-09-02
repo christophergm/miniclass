@@ -4,7 +4,9 @@
 - Key files: `backend/migrations/20260901090000_preference_submissions.sql`, `backend/sql/queries/preference_submissions.sql`, `backend/internal/data/preference.go`, `backend/internal/preference/service.go`, registry/factory files, and `backend/tests/integration/preference_test.go`.
 - Implementation: four append-only year-scoped tables with opaque student/program/session/area/offering composite FKs, actor/channel/timestamp attribution, forced RLS, closed-year guards, insert/select privileges, effective profile overlay, complete ranked-choice validation, deterministic latest response, audit action, generated sqlc, and Layer 2 registry coverage.
 - Validation: full `GOTOOLCHAIN=local go test -race ./... -count=1`, `make format`, `make lint-backend`, `make generate`, and `git diff --check` pass. `make test-migrations` is unavailable because `MIGRATION_ROUNDTRIP_DATABASE_URL` is unset; run all ten CI gates after push.
-- Open items: run `make check`/remaining local gates, commit with Conventional Commit subject ending `( #184 )` without the extra space, push, open non-draft PR with `Fixes #184`, verify current-head CI/reviews, and update the Workpad completion block.
+- Repository/PR: commit `07f0e43` is pushed to PR #193, which is open, non-draft, merge-clean, and references `Fixes #184`; no actionable reviews or inline comments.
+- Validation: all ten required PR checks pass on head `07f0e43`; PR CI duration 113s; slow checks were Backend tests and Generated code drift (110s each), then Backend lint (82s). Local `make check` stops at Docker address-pool exhaustion, while local migration/frontend/smoke gates lack configured dependencies as recorded in the Workpad. Post-commit `make generate && git diff --exit-code && git diff --check` passes.
+- Open items: none; Detent owns the completion-lane transition.
 - Skill draft: no — the existing tenant-entity and isolation-harness guidance covered the reusable procedure; no new broadly reusable method was discovered.
 
 ## Current work — issue #163
