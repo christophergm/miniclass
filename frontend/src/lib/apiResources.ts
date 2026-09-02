@@ -38,7 +38,8 @@ export type ProgramObjectiveWeights = Schemas["ProgramObjectiveWeightsResponse"]
 export type SessionObjectiveWeights = Schemas["SessionObjectiveWeightsResponse"];
 export type InterestProfileSurvey = Schemas["InterestProfileSurveyResponse"];
 export type InterestProfileSurveyInput = Schemas["InterestProfileSurveyInputBody"];
-export type InterestProfileSurveyTransitionInput = Schemas["TransitionInterestProfileSurveyInputBody"];
+export type InterestProfileSurveyTransitionInput =
+  Schemas["TransitionInterestProfileSurveyInputBody"];
 export type InterestProfileSurveyTransition = Schemas["InterestProfileSurveyTransitionResponse"];
 export type InterestProfileSurveyCodes = Schemas["InterestProfileSurveyCodeResponse"];
 
@@ -92,10 +93,9 @@ export const resourceApi = {
     ),
   listInterestProfileSurveys: (schoolYearID: string, programID: string) =>
     unwrapList(
-      api.GET(
-        "/api/school-years/{schoolYearID}/programs/{programID}/interest-profile-surveys",
-        { params: { path: { schoolYearID, programID } } },
-      ),
+      api.GET("/api/school-years/{schoolYearID}/programs/{programID}/interest-profile-surveys", {
+        params: { path: { schoolYearID, programID } },
+      }),
     ),
   createInterestProfileSurvey: (
     schoolYearID: string,
@@ -103,10 +103,10 @@ export const resourceApi = {
     value: InterestProfileSurveyInput,
   ) =>
     unwrap(
-      api.POST(
-        "/api/school-years/{schoolYearID}/programs/{programID}/interest-profile-surveys",
-        { params: { path: { schoolYearID, programID } }, body: value },
-      ),
+      api.POST("/api/school-years/{schoolYearID}/programs/{programID}/interest-profile-surveys", {
+        params: { path: { schoolYearID, programID } },
+        body: value,
+      }),
     ),
   getInterestProfileSurvey: (schoolYearID: string, programID: string, surveyID: string) =>
     unwrap(

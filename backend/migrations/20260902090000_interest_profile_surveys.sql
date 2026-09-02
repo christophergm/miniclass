@@ -142,6 +142,10 @@ create table interest_profile_survey_access_codes (
     constraint interest_profile_survey_access_codes_hash_check check (btrim(code_hash) <> '')
 );
 
+-- The migrator owns this existing FORCE RLS table. Temporarily remove the
+-- owner exception while PostgreSQL validates the new composite foreign key;
+-- migration sessions do not have an app.organization_id setting.
+alter table interest_profile_submissions no force row level security;
 alter table interest_profile_submissions
     add column survey_id public.xid20,
     add constraint interest_profile_submissions_survey_fk foreign key (survey_id, organization_id, school_year_id, program_id)
@@ -187,6 +191,7 @@ alter table interest_profile_survey_access_codes force row level security;
 create policy interest_profile_survey_access_codes_tenant_isolation on interest_profile_survey_access_codes
     using (organization_id = current_setting('app.organization_id')::public.xid20)
     with check (organization_id = current_setting('app.organization_id')::public.xid20);
+alter table interest_profile_submissions force row level security;
 
 create trigger interest_profile_surveys_set_updated_at before update on interest_profile_surveys for each row execute function public.set_updated_at();
 create trigger interest_profile_survey_questions_set_updated_at before update on interest_profile_survey_questions for each row execute function public.set_updated_at();
@@ -222,8 +227,10 @@ drop index if exists interest_profile_survey_access_codes_lookup_idx;
 drop index if exists interest_profile_survey_audience_snapshots_lookup_idx;
 drop index if exists interest_profile_survey_audience_students_lookup_idx;
 drop index if exists interest_profile_submissions_survey_idx;
+alter table interest_profile_submissions no force row level security;
 alter table interest_profile_submissions drop constraint if exists interest_profile_submissions_survey_fk;
 alter table interest_profile_submissions drop column if exists survey_id;
+alter table interest_profile_submissions force row level security;
 drop table interest_profile_survey_access_codes;
 drop table interest_profile_survey_audience_snapshots;
 drop table interest_profile_survey_scale_options;

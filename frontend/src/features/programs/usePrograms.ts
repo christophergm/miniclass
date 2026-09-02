@@ -278,7 +278,9 @@ export function useCreateInterestProfileSurvey(schoolYearID: string, programID: 
     mutationFn: (value: InterestProfileSurveyInput) =>
       resourceApi.createInterestProfileSurvey(schoolYearID, programID, value),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: interestProfileSurveysKey(schoolYearID, programID) }),
+      queryClient.invalidateQueries({
+        queryKey: interestProfileSurveysKey(schoolYearID, programID),
+      }),
   });
 }
 
@@ -288,7 +290,9 @@ export function useUpdateInterestProfileSurvey(schoolYearID: string, programID: 
     mutationFn: ({ surveyID, value }: { surveyID: string; value: InterestProfileSurveyInput }) =>
       resourceApi.updateInterestProfileSurvey(schoolYearID, programID, surveyID, value),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: interestProfileSurveysKey(schoolYearID, programID) });
+      queryClient.invalidateQueries({
+        queryKey: interestProfileSurveysKey(schoolYearID, programID),
+      });
       queryClient.invalidateQueries({
         queryKey: interestProfileSurveyKey(schoolYearID, programID, variables.surveyID),
       });
@@ -302,7 +306,9 @@ export function useDeleteInterestProfileSurvey(schoolYearID: string, programID: 
     mutationFn: (surveyID: string) =>
       resourceApi.deleteInterestProfileSurvey(schoolYearID, programID, surveyID),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: interestProfileSurveysKey(schoolYearID, programID) }),
+      queryClient.invalidateQueries({
+        queryKey: interestProfileSurveysKey(schoolYearID, programID),
+      }),
   });
 }
 
@@ -317,7 +323,9 @@ export function useTransitionInterestProfileSurvey(schoolYearID: string, program
       value: InterestProfileSurveyTransitionInput;
     }) => resourceApi.transitionInterestProfileSurvey(schoolYearID, programID, surveyID, value),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: interestProfileSurveysKey(schoolYearID, programID) });
+      queryClient.invalidateQueries({
+        queryKey: interestProfileSurveysKey(schoolYearID, programID),
+      });
       queryClient.invalidateQueries({
         queryKey: interestProfileSurveyKey(schoolYearID, programID, variables.surveyID),
       });
