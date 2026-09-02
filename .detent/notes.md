@@ -312,7 +312,7 @@
 ## Issue #202
 
 - Scope: fix adult-authentication rollback enum restoration without editing the merged migration.
-- Key files: `backend/migrations/20260904115900_fix_adult_auth_down_enum.sql` and `backend/scripts/migration-round-trip.sh`.
-- Implementation: added an ordered compatibility migration whose Down renames the adult-auth rollback's restored `household_submission` value back to `guardian_submission`; round-trip now inserts a synthetic guardian access token before rollback.
+- Key files: `backend/migrations/20260904130000_fix_adult_auth_down_enum.sql` and `backend/scripts/migration-round-trip.sh`.
+- Implementation: added a higher-numbered compatibility migration whose Down performs the corrected adult-auth rollback with `guardian_submission`, then removes the merged migration's Goose version row so older Downs continue; round-trip now inserts a synthetic guardian access token before rollback.
 - Validation: `bash -n backend/scripts/migration-round-trip.sh`, `make -C backend format`, and `git diff --check` pass. Database round-trip requires unavailable configured PostgreSQL URLs and must run in CI.
-- Open items: commit/push, open PR referencing `Fixes #202`, verify all ten current-head checks and review state, then update the Workpad.
+- Open items: verify all ten current-head checks and review state, then update the Workpad.
