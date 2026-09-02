@@ -1,3 +1,14 @@
+## Current work — issue #191
+
+- Scope: complete Phase 4 integration, accessibility, security validation, generated-client wiring, and documentation consistency per SPEC §§5.2, 9.2–9.4, 13, 14.3, 19.5, 22.4–22.5 and ADR 0013.
+- Dependency: #190 and #199 are closed and their pull requests are merged; the native `blocked_by` relation is terminal. Branch is rebased onto current `origin/main`.
+- Implementation: added explicit duplicate-email neutrality, OTP expiry, idle/absolute guardian-session expiry, live guardian-scope removal, and session revocation regressions; added ranked-choice mobile E2E coverage, a mobile accessibility baseline, response-tracking UI coverage, and generated-resource path coverage; documented the Phase 4 validation record in `PLAN.md`.
+- Validation: race-enabled full backend tests, `make format`, `make lint-backend`, `make generate`, generated-code drift, and `git diff --check` pass locally. Root `make check` stops at Docker address-pool exhaustion; migration round-trip lacks its configured URL; frontend gates lack installed dependencies; smoke lacks `.env`. PR #203 has passed all ten required CI checks on the latest source head.
+- Out-of-scope: populated adult-auth migration rollback enum mismatch filed as Backlog issue #202 with `detent-agent` effort `medium`.
+- Repository/PR: PR #203 is open, non-draft, merge-clean, references `Fixes #191`, and has no actionable reviews or inline comments. Detent owns the completion-lane transition.
+- Open items: none.
+- Skill draft: no — this pass used existing project test and validation conventions without discovering a broadly reusable procedure.
+
 ## Current work — issue #185
 
 - Scope: admin-managed interest-profile surveys and lifecycle per SPEC §§13.5–13.6; dependency #184 is closed and merged on origin/main.
@@ -290,3 +301,11 @@
 - Open items: add final Workpad evidence, commit/push, open PR with `Fixes #199`, verify current-head CI/reviews, and hand off through Detent’s review lane.
 - Blockers: none.
 - Skill draft: no — this is a focused frontend authoring flow using existing API/hooks and modal/access-code patterns; no broadly reusable procedure was discovered.
+## Current work — issue #191
+
+- Scope: complete Phase 4 integration, accessibility, security validation, generated-client wiring, and documentation consistency per SPEC §§5.2, 9.2–9.4, 13, 14.3, 19.5, 22.4–22.5 and ADR 0013.
+- Dependency: #190 and #199 are closed and their pull requests are merged; the native `blocked_by` relation is terminal.
+- Repository state: rebased onto `origin/main` after the Phase 4 dependencies landed; implementation and validation are in progress.
+- Open items: inspect the integrated Phase 4 surfaces, implement scoped fixes and regressions, run all ten validation stages, then push a PR referencing #191 and verify current-head CI/review state.
+- Validation: pending implementation; `git diff --check` will run before handoff.
+- Skill draft: no — implementation has not yet exposed a broadly reusable procedure beyond the existing project guidance.

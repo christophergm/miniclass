@@ -58,12 +58,11 @@ func TestAdultOTPGuardianScopeAndMFAStepUp(t *testing.T) {
 		values ($1, $2, 'owner')`, organizationID, userID)
 	require.NoError(t, err)
 
-	var deliveredCode string
+	deliveredCodes := map[string]string{}
 	deliveryCount := 0
 	store := identity.NewStoreWithOTPDelivery(harness.Database, []byte("integration-auth-key"), func(_ context.Context, deliveredEmail, code string) error {
 		deliveryCount++
-		require.Equal(t, email, deliveredEmail)
-		deliveredCode = code
+		deliveredCodes[deliveredEmail] = code
 		return nil
 	})
 
@@ -75,6 +74,7 @@ func TestAdultOTPGuardianScopeAndMFAStepUp(t *testing.T) {
 	require.True(t, requested.Accepted)
 	require.NotEmpty(t, requested.ChallengeID)
 	require.Equal(t, 1, deliveryCount)
+	deliveredCode := deliveredCodes[email]
 	require.Len(t, deliveredCode, 6)
 	require.NotEqual(t, deliveredCode, requested.ChallengeID)
 
@@ -97,13 +97,48 @@ func TestAdultOTPGuardianScopeAndMFAStepUp(t *testing.T) {
 	_, err = store.VerifyAdultOTP(ctx, auth.OTPVerification{ChallengeID: requested.ChallengeID, Code: deliveredCode, Now: now})
 	require.ErrorIs(t, err, auth.ErrOTPInvalid)
 
+	duplicate, err := factory.CreateAdult(ctx, year.ID, people.AdultCreateInput{
+		LegalGivenName: "Synthetic", LegalFamilyName: "Duplicate Guardian", Email: &email,
+	})
+	require.NoError(t, err)
+	require.NotEqual(t, adult.ID, duplicate.ID)
+	duplicateRequest, err := store.RequestAdultOTP(ctx, auth.OTPRequest{
+		OrganizationID: organizationID, SchoolYearID: year.ID, Email: email, Now: now,
+	})
+	require.NoError(t, err)
+	require.True(t, duplicateRequest.Accepted)
+	require.NotEmpty(t, duplicateRequest.ChallengeID)
+	require.Equal(t, 1, deliveryCount, "duplicate email must not trigger delivery")
+	_, err = store.VerifyAdultOTP(ctx, auth.OTPVerification{ChallengeID: duplicateRequest.ChallengeID, Code: deliveredCode, Now: now})
+	require.ErrorIs(t, err, auth.ErrOTPInvalid, "duplicate email must not create a usable challenge")
+
+	expiredEmail := "expired-guardian@example.test"
+	expiredAdult, err := factory.CreateAdult(ctx, year.ID, people.AdultCreateInput{
+		LegalGivenName: "Synthetic", LegalFamilyName: "Expired Guardian", Email: &expiredEmail,
+	})
+	require.NoError(t, err)
+	_, err = factory.CreateGuardianRelationship(ctx, year.ID, people.GuardianRelationshipCreateInput{
+		AdultID: expiredAdult.ID, StudentID: student.ID, RelationshipType: data.GuardianRelationshipParent,
+	})
+	require.NoError(t, err)
+	expiredRequest, err := store.RequestAdultOTP(ctx, auth.OTPRequest{
+		OrganizationID: organizationID, SchoolYearID: year.ID, Email: expiredEmail, Now: now,
+	})
+	require.NoError(t, err)
+	require.True(t, expiredRequest.Accepted)
+	require.Equal(t, 2, deliveryCount)
+	_, err = store.VerifyAdultOTP(ctx, auth.OTPVerification{
+		ChallengeID: expiredRequest.ChallengeID, Code: deliveredCodes[expiredEmail], Now: now.Add(11 * time.Minute),
+	})
+	require.ErrorIs(t, err, auth.ErrOTPInvalid, "expired OTP must not be usable")
+
 	unknown, err := store.RequestAdultOTP(ctx, auth.OTPRequest{
 		OrganizationID: organizationID, SchoolYearID: year.ID, Email: "unknown@example.test", Now: now,
 	})
 	require.NoError(t, err)
 	require.True(t, unknown.Accepted)
 	require.NotEmpty(t, unknown.ChallengeID)
-	require.Equal(t, 1, deliveryCount)
+	require.Equal(t, 2, deliveryCount)
 
 	link, err := store.CreateAdultAccountLink(ctx, auth.AdultAccountLinkInput{
 		OrganizationID: organizationID, SchoolYearID: year.ID, AdultID: adult.ID, UserID: ids.XID(userID), Actor: actor,
@@ -132,6 +167,40 @@ func TestAdultOTPGuardianScopeAndMFAStepUp(t *testing.T) {
 	stepUp, err := store.VerifyMFAForGuardian(ctx, guardian, code, "", now)
 	require.NoError(t, err)
 	require.Equal(t, ids.XID(userID), stepUp.UserID)
+
+	idleExpiredSession, err := store.CreateGuardianSessionForAccount(ctx, ids.XID(userID), organizationID, year.ID, now)
+	require.NoError(t, err)
+	_, err = harness.Migrator.Exec(ctx, `
+		update access_tokens
+		set idle_expires_at = $1
+		where id = $2`, now.Add(-time.Minute), idleExpiredSession.SessionID)
+	require.NoError(t, err)
+	_, err = store.ResolveSession(ctx, idleExpiredSession.Bearer)
+	require.ErrorIs(t, err, auth.ErrSessionInvalid, "idle-expired guardian session must be rejected")
+
+	absoluteExpiredSession, err := store.CreateGuardianSessionForAccount(ctx, ids.XID(userID), organizationID, year.ID, now)
+	require.NoError(t, err)
+	_, err = harness.Migrator.Exec(ctx, `
+		update access_tokens
+		set expires_at = $1
+		where id = $2`, now.Add(-time.Minute), absoluteExpiredSession.SessionID)
+	require.NoError(t, err)
+	_, err = store.ResolveSession(ctx, absoluteExpiredSession.Bearer)
+	require.ErrorIs(t, err, auth.ErrSessionInvalid, "absolutely expired guardian session must be rejected")
+
+	peopleService := people.New(harness.Database)
+	relationships, err := peopleService.ListGuardianRelationships(ctx, string(organizationID), year.ID, data.GuardianRelationshipFilter{AdultID: adult.ID})
+	require.NoError(t, err)
+	require.Len(t, relationships, 1)
+	require.NoError(t, peopleService.DeleteGuardianRelationship(ctx, string(organizationID), year.ID, relationships[0].ID, actor))
+	resolvedAfterRemoval, err := store.ResolveSession(ctx, session.Bearer)
+	require.NoError(t, err)
+	guardianAfterRemoval, ok := resolvedAfterRemoval.(auth.GuardianPrincipal)
+	require.True(t, ok)
+	require.Empty(t, guardianAfterRemoval.StudentIDs, "guardian session scope must be resolved from current relationships")
+	require.NoError(t, store.RevokeSession(ctx, guardianSession.Bearer))
+	_, err = store.ResolveSession(ctx, guardianSession.Bearer)
+	require.ErrorIs(t, err, auth.ErrSessionInvalid, "revoked guardian session must be rejected")
 
 	recoverySession, err := store.VerifyMFA(ctx, auth.MFAVerification{
 		UserID: ids.XID(userID), OrganizationID: organizationID, RecoveryCode: enrollment.RecoveryCodes[0], Now: now,

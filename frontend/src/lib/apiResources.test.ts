@@ -159,3 +159,43 @@ describe("catalog feasibility", () => {
     );
   });
 });
+
+describe("phase 4 generated resources", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("routes respondent and tracking calls through the generated API contract", async () => {
+    const requests: Request[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = input instanceof Request ? input : new Request(input, init);
+        requests.push(request);
+        return new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }),
+    );
+
+    await resourceApi.getStudentCodeRankedChoiceForm(
+      "year-1",
+      "program-1",
+      "session-1",
+      "org-1",
+      "code-1",
+    );
+    await resourceApi.getInterestProfileResponseTracking("year-1", "program-1", "survey-1");
+    await resourceApi.getRankedChoiceResponseTracking("year-1", "program-1", "session-1");
+
+    expect(requests.map((request) => request.method)).toEqual(["POST", "GET", "GET"]);
+    expect(requests[0].url).toContain("/api/respondent/sessions/year-1/program-1/session-1/form");
+    expect(requests[1].url).toContain(
+      "/api/school-years/year-1/programs/program-1/interest-profile-surveys/survey-1/response-tracking",
+    );
+    expect(requests[2].url).toContain(
+      "/api/school-years/year-1/programs/program-1/sessions/session-1/response-tracking",
+    );
+  });
+});

@@ -474,6 +474,11 @@ history import is intentionally out of scope; all preference data is collected n
 - No preference import is implemented; a program with no placement history starts normally and reports
   fairness/variety history as unavailable until native completed sessions accumulate.
 
+**Phase 4 validation record:** The backend integration suite covers tenant isolation, authorization,
+OTP/MFA and access-code lifecycle boundaries, lifecycle windows, attribution, and student-centric
+tracking. The frontend test suite covers the generated API wrappers, mobile guardian/student
+submission flows, and the accessibility baseline at `frontend/e2e/accessibility.spec.ts`.
+
 ---
 
 ### Phase 5 — Engine v0
