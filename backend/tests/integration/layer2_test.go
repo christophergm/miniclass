@@ -42,26 +42,28 @@ func TestLayerTwoEntityIsolation(t *testing.T) {
 			require.NoError(t, err)
 			require.False(t, fetched, "foreign organization can fetch the entity by id")
 
-			var updated bool
-			actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "layer 2 update probe"}
-			err = harness.Database.InTenant(ctx, string(organizationB), actor, func(ctx context.Context, tx *data.Tx) error {
-				var err error
-				updated, err = entity.UpdateByID(ctx, tx, id)
-				tx.NoAuditRequired("layer 2 cross-organization update probe")
-				return err
-			})
-			require.NoError(t, err)
-			require.False(t, updated, "foreign organization can update the entity")
+			if !entity.Immutable {
+				var updated bool
+				actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "layer 2 update probe"}
+				err = harness.Database.InTenant(ctx, string(organizationB), actor, func(ctx context.Context, tx *data.Tx) error {
+					var err error
+					updated, err = entity.UpdateByID(ctx, tx, id)
+					tx.NoAuditRequired("layer 2 cross-organization update probe")
+					return err
+				})
+				require.NoError(t, err)
+				require.False(t, updated, "foreign organization can update the entity")
 
-			var deleted bool
-			err = harness.Database.InTenant(ctx, string(organizationB), actor, func(ctx context.Context, tx *data.Tx) error {
-				var err error
-				deleted, err = entity.DeleteByID(ctx, tx, id)
-				tx.NoAuditRequired("layer 2 cross-organization delete probe")
-				return err
-			})
-			require.NoError(t, err)
-			require.False(t, deleted, "foreign organization can delete the entity")
+				var deleted bool
+				err = harness.Database.InTenant(ctx, string(organizationB), actor, func(ctx context.Context, tx *data.Tx) error {
+					var err error
+					deleted, err = entity.DeleteByID(ctx, tx, id)
+					tx.NoAuditRequired("layer 2 cross-organization delete probe")
+					return err
+				})
+				require.NoError(t, err)
+				require.False(t, deleted, "foreign organization can delete the entity")
+			}
 
 			err = entity.InsertWithForeignParent(ctx, harness, organizationA, organizationB)
 			require.Error(t, err, "foreign parent insert unexpectedly succeeded")
@@ -75,7 +77,7 @@ func TestLayerTwoRegistryIsDeterministic(t *testing.T) {
 	require.NotEmpty(t, entries)
 
 	// Ensure essential tables are present and year-scoped where appropriate.
-	for _, table := range []string{"school_years", "grade_levels", "homerooms", "adults", "students", "guardian_relationships", "programs", "program_memberships", "interest_areas", "sessions", "meeting_dates", "offerings", "session_non_participations", "program_objective_weights", "session_objective_weight_overrides"} {
+	for _, table := range []string{"school_years", "grade_levels", "homerooms", "adults", "students", "guardian_relationships", "programs", "program_memberships", "interest_areas", "sessions", "meeting_dates", "offerings", "session_non_participations", "program_objective_weights", "session_objective_weight_overrides", "interest_profile_submissions", "interest_profile_responses", "ranked_choice_submissions", "ranked_choice_responses"} {
 		entry, ok := registry.ForTable(table)
 		require.True(t, ok, table+" is missing from the registry")
 		require.Equal(t, table, entry.TableName)
@@ -120,4 +122,10 @@ func TestLayerTwoRegistryIsDeterministic(t *testing.T) {
 	sessionObjectiveWeightOverrides, ok := registry.ForTable("session_objective_weight_overrides")
 	require.True(t, ok)
 	require.True(t, sessionObjectiveWeightOverrides.YearScoped)
+	for _, table := range []string{"interest_profile_submissions", "interest_profile_responses", "ranked_choice_submissions", "ranked_choice_responses"} {
+		entry, ok := registry.ForTable(table)
+		require.True(t, ok)
+		require.True(t, entry.YearScoped)
+		require.True(t, entry.Immutable)
+	}
 }

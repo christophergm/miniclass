@@ -18,6 +18,7 @@ import (
 type Entity struct {
 	TableName               string
 	YearScoped              bool
+	Immutable               bool
 	Factory                 func(context.Context, *testharness.Harness, ids.XID) (ids.XID, error)
 	ReadIDs                 func(context.Context, *data.Tx) ([]ids.XID, error)
 	FetchByID               func(context.Context, *data.Tx, ids.XID) (bool, error)

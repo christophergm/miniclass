@@ -187,6 +187,50 @@ func (ns NullGuardianRelationshipType) Value() (driver.Value, error) {
 	return string(ns.GuardianRelationshipType), nil
 }
 
+type InterestProfileRating string
+
+const (
+	InterestProfileRatingVeryInterested InterestProfileRating = "very_interested"
+	InterestProfileRatingInterested     InterestProfileRating = "interested"
+	InterestProfileRatingNotInterested  InterestProfileRating = "not_interested"
+	InterestProfileRatingUnrated        InterestProfileRating = "unrated"
+)
+
+func (e *InterestProfileRating) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = InterestProfileRating(s)
+	case string:
+		*e = InterestProfileRating(s)
+	default:
+		return fmt.Errorf("unsupported scan type for InterestProfileRating: %T", src)
+	}
+	return nil
+}
+
+type NullInterestProfileRating struct {
+	InterestProfileRating InterestProfileRating `json:"interest_profile_rating"`
+	Valid                 bool                  `json:"valid"` // Valid is true if InterestProfileRating is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullInterestProfileRating) Scan(value interface{}) error {
+	if value == nil {
+		ns.InterestProfileRating, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.InterestProfileRating.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullInterestProfileRating) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.InterestProfileRating), nil
+}
+
 type OrganizationRole string
 
 const (
@@ -228,6 +272,93 @@ func (ns NullOrganizationRole) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.OrganizationRole), nil
+}
+
+type PreferenceSubmissionChannel string
+
+const (
+	PreferenceSubmissionChannelGuardian              PreferenceSubmissionChannel = "guardian"
+	PreferenceSubmissionChannelStudentCode           PreferenceSubmissionChannel = "student_code"
+	PreferenceSubmissionChannelAdministratorOnBehalf PreferenceSubmissionChannel = "administrator_on_behalf"
+)
+
+func (e *PreferenceSubmissionChannel) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = PreferenceSubmissionChannel(s)
+	case string:
+		*e = PreferenceSubmissionChannel(s)
+	default:
+		return fmt.Errorf("unsupported scan type for PreferenceSubmissionChannel: %T", src)
+	}
+	return nil
+}
+
+type NullPreferenceSubmissionChannel struct {
+	PreferenceSubmissionChannel PreferenceSubmissionChannel `json:"preference_submission_channel"`
+	Valid                       bool                        `json:"valid"` // Valid is true if PreferenceSubmissionChannel is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullPreferenceSubmissionChannel) Scan(value interface{}) error {
+	if value == nil {
+		ns.PreferenceSubmissionChannel, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.PreferenceSubmissionChannel.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullPreferenceSubmissionChannel) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.PreferenceSubmissionChannel), nil
+}
+
+type RankedChoiceAnswer string
+
+const (
+	RankedChoiceAnswerRanked        RankedChoiceAnswer = "ranked"
+	RankedChoiceAnswerInterested    RankedChoiceAnswer = "interested"
+	RankedChoiceAnswerNotInterested RankedChoiceAnswer = "not_interested"
+	RankedChoiceAnswerNoResponse    RankedChoiceAnswer = "no_response"
+)
+
+func (e *RankedChoiceAnswer) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = RankedChoiceAnswer(s)
+	case string:
+		*e = RankedChoiceAnswer(s)
+	default:
+		return fmt.Errorf("unsupported scan type for RankedChoiceAnswer: %T", src)
+	}
+	return nil
+}
+
+type NullRankedChoiceAnswer struct {
+	RankedChoiceAnswer RankedChoiceAnswer `json:"ranked_choice_answer"`
+	Valid              bool               `json:"valid"` // Valid is true if RankedChoiceAnswer is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullRankedChoiceAnswer) Scan(value interface{}) error {
+	if value == nil {
+		ns.RankedChoiceAnswer, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.RankedChoiceAnswer.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullRankedChoiceAnswer) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.RankedChoiceAnswer), nil
 }
 
 type SchoolYearState string
@@ -410,6 +541,32 @@ type InterestArea struct {
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
+type InterestProfileResponse struct {
+	ID             ids.XID               `json:"id"`
+	OrganizationID ids.XID               `json:"organization_id"`
+	SchoolYearID   ids.XID               `json:"school_year_id"`
+	ProgramID      ids.XID               `json:"program_id"`
+	SubmissionID   ids.XID               `json:"submission_id"`
+	InterestAreaID ids.XID               `json:"interest_area_id"`
+	Response       InterestProfileRating `json:"response"`
+	CreatedAt      pgtype.Timestamptz    `json:"created_at"`
+}
+
+type InterestProfileSubmission struct {
+	ID             ids.XID                     `json:"id"`
+	OrganizationID ids.XID                     `json:"organization_id"`
+	SchoolYearID   ids.XID                     `json:"school_year_id"`
+	ProgramID      ids.XID                     `json:"program_id"`
+	StudentID      ids.XID                     `json:"student_id"`
+	Channel        PreferenceSubmissionChannel `json:"channel"`
+	ActorType      AuditActorType              `json:"actor_type"`
+	ActorUserID    *ids.XID                    `json:"actor_user_id"`
+	ActorAdultID   *ids.XID                    `json:"actor_adult_id"`
+	ActorLabel     string                      `json:"actor_label"`
+	SubmittedAt    pgtype.Timestamptz          `json:"submitted_at"`
+	CreatedAt      pgtype.Timestamptz          `json:"created_at"`
+}
+
 type MeetingDate struct {
 	ID             ids.XID            `json:"id"`
 	OrganizationID ids.XID            `json:"organization_id"`
@@ -499,6 +656,35 @@ type ProgramObjectiveWeight struct {
 	TagBalancePenalty             float64            `json:"tag_balance_penalty"`
 	CreatedAt                     pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt                     pgtype.Timestamptz `json:"updated_at"`
+}
+
+type RankedChoiceResponse struct {
+	ID             ids.XID            `json:"id"`
+	OrganizationID ids.XID            `json:"organization_id"`
+	SchoolYearID   ids.XID            `json:"school_year_id"`
+	ProgramID      ids.XID            `json:"program_id"`
+	SessionID      ids.XID            `json:"session_id"`
+	SubmissionID   ids.XID            `json:"submission_id"`
+	OfferingID     ids.XID            `json:"offering_id"`
+	Response       RankedChoiceAnswer `json:"response"`
+	Rank           pgtype.Int4        `json:"rank"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type RankedChoiceSubmission struct {
+	ID             ids.XID                     `json:"id"`
+	OrganizationID ids.XID                     `json:"organization_id"`
+	SchoolYearID   ids.XID                     `json:"school_year_id"`
+	ProgramID      ids.XID                     `json:"program_id"`
+	SessionID      ids.XID                     `json:"session_id"`
+	StudentID      ids.XID                     `json:"student_id"`
+	Channel        PreferenceSubmissionChannel `json:"channel"`
+	ActorType      AuditActorType              `json:"actor_type"`
+	ActorUserID    *ids.XID                    `json:"actor_user_id"`
+	ActorAdultID   *ids.XID                    `json:"actor_adult_id"`
+	ActorLabel     string                      `json:"actor_label"`
+	SubmittedAt    pgtype.Timestamptz          `json:"submitted_at"`
+	CreatedAt      pgtype.Timestamptz          `json:"created_at"`
 }
 
 type SchoolYear struct {

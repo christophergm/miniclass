@@ -12,6 +12,7 @@ import (
 	"github.com/chrismott/miniclass/internal/data"
 	"github.com/chrismott/miniclass/internal/ids"
 	"github.com/chrismott/miniclass/internal/people"
+	"github.com/chrismott/miniclass/internal/preference"
 	"github.com/chrismott/miniclass/internal/program"
 	"github.com/chrismott/miniclass/internal/schoolyear"
 	"github.com/chrismott/miniclass/internal/vocabulary"
@@ -26,6 +27,7 @@ type Factory struct {
 	schoolYears    *schoolyear.Service
 	vocabulary     *vocabulary.Service
 	programs       *program.Service
+	preferences    *preference.Service
 }
 
 // New returns builders for one organization. A zero actor is replaced with a
@@ -41,6 +43,7 @@ func New(database *data.DB, organizationID string, actor audit.Actor) *Factory {
 		schoolYears:    schoolyear.New(database),
 		vocabulary:     vocabulary.New(database),
 		programs:       program.New(database),
+		preferences:    preference.New(database),
 	}
 }
 
@@ -99,8 +102,26 @@ func (f *Factory) AddProgramMembership(ctx context.Context, schoolYearID, progra
 	return f.programs.AddMembership(ctx, f.organizationID, f.actor, schoolYearID, programID, studentID)
 }
 
+// SubmitInterestProfile records a synthetic preference through the normal
+// audited service path.
+func (f *Factory) SubmitInterestProfile(ctx context.Context, input preference.InterestProfileSubmissionInput) (data.InterestProfileSubmission, error) {
+	if err := f.validate(); err != nil {
+		return data.InterestProfileSubmission{}, err
+	}
+	return f.preferences.SubmitInterestProfile(ctx, f.organizationID, f.actor, input)
+}
+
+// SubmitRankedChoices records a synthetic catalog response through the normal
+// audited service path.
+func (f *Factory) SubmitRankedChoices(ctx context.Context, input preference.RankedChoiceSubmissionInput) (data.RankedChoiceSubmission, error) {
+	if err := f.validate(); err != nil {
+		return data.RankedChoiceSubmission{}, err
+	}
+	return f.preferences.SubmitRankedChoices(ctx, f.organizationID, f.actor, input)
+}
+
 func (f *Factory) validate() error {
-	if f == nil || f.people == nil || f.schoolYears == nil || f.vocabulary == nil || f.programs == nil {
+	if f == nil || f.people == nil || f.schoolYears == nil || f.vocabulary == nil || f.programs == nil || f.preferences == nil {
 		return errors.New("factory is nil")
 	}
 	if f.organizationID == "" {

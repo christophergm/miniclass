@@ -212,6 +212,7 @@
               "meeting_date_change",
               "objective_weights_change",
               "session_non_participation",
+              "preference_submission",
               "session_state_transition",
               "offering_edit_after_publish",
               "tag_definition_change",

@@ -41,6 +41,7 @@ const (
 	ActionMeetingDateChange         Action = "meeting_date_change"
 	ActionObjectiveWeightsChange    Action = "objective_weights_change"
 	ActionSessionNonParticipation   Action = "session_non_participation"
+	ActionPreferenceSubmission      Action = "preference_submission"
 	ActionSessionStateTransition    Action = "session_state_transition"
 	ActionOfferingEdit              Action = "offering_edit_after_publish"
 	ActionTagDefinitionChange       Action = "tag_definition_change"
@@ -84,6 +85,7 @@ var actions = []Action{
 	ActionMeetingDateChange,
 	ActionObjectiveWeightsChange,
 	ActionSessionNonParticipation,
+	ActionPreferenceSubmission,
 	ActionSessionStateTransition,
 	ActionOfferingEdit,
 	ActionTagDefinitionChange,
