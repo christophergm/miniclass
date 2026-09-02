@@ -117,7 +117,11 @@ describe("preference pages", () => {
 
   it("renders every currently scoped guardian student as an independent form", () => {
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
-    render(<GuardianPreferencePage />);
+    render(
+      <MemoryRouter>
+        <GuardianPreferencePage />
+      </MemoryRouter>,
+    );
 
     expect(screen.getByText("Synthetic Student")).toBeInTheDocument();
     fireEvent.click(screen.getByLabelText("Interested", { selector: "input" }));

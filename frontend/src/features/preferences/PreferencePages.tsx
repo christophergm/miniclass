@@ -399,13 +399,16 @@ export function AdministratorPreferencePage() {
   const formQuery = useAdministratorPreferenceForm(formInput);
   const interestSubmit = useSubmitAdministratorInterestProfile();
   const rankedSubmit = useSubmitAdministratorRankedChoice();
-  const years = yearsQuery.data ?? [];
-  const programs = programsQuery.data ?? [];
-  const students = studentsQuery.data ?? [];
-  const instruments =
-    type === "interest_profile"
-      ? (surveysQuery.data ?? []).filter((survey) => survey.state === "open")
-      : (sessionsQuery.data ?? []).filter((session) => session.state === "voting_open");
+  const years = useMemo(() => yearsQuery.data ?? [], [yearsQuery.data]);
+  const programs = useMemo(() => programsQuery.data ?? [], [programsQuery.data]);
+  const students = useMemo(() => studentsQuery.data ?? [], [studentsQuery.data]);
+  const instruments = useMemo(
+    () =>
+      type === "interest_profile"
+        ? (surveysQuery.data ?? []).filter((survey) => survey.state === "open")
+        : (sessionsQuery.data ?? []).filter((session) => session.state === "voting_open"),
+    [sessionsQuery.data, surveysQuery.data, type],
+  );
 
   useEffect(() => {
     if (!schoolYearID && years[0]) setSchoolYearID(years[0].id);
