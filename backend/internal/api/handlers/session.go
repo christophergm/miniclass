@@ -446,6 +446,16 @@ func meetingDateNotFound() error {
 	return problems.New(http.StatusNotFound, problems.ResourceNotFound, "meeting date not found")
 }
 
+func sessionTransitionGateDetail(err error) string {
+	const prefix = "session transition gate failed: "
+	for current := err; current != nil; current = errors.Unwrap(current) {
+		if detail, ok := strings.CutPrefix(current.Error(), prefix); ok {
+			return detail
+		}
+	}
+	return programservice.ErrSessionTransitionGate.Error()
+}
+
 func sessionProblem(err error) error {
 	var pgErr *pgconn.PgError
 	switch {
@@ -458,7 +468,7 @@ func sessionProblem(err error) error {
 	case errors.Is(err, programservice.ErrSessionTransitionInvalid):
 		return problems.New(http.StatusConflict, problems.SessionTransitionInvalid, err.Error())
 	case errors.Is(err, programservice.ErrSessionTransitionGate):
-		return problems.New(http.StatusConflict, problems.SessionTransitionGate, err.Error())
+		return problems.New(http.StatusConflict, problems.SessionTransitionGate, sessionTransitionGateDetail(err))
 	case errors.Is(err, programservice.ErrSessionTransitionReasonRequired):
 		return problems.New(http.StatusBadRequest, problems.SessionTransitionReasonRequired, err.Error())
 	case errors.Is(err, programservice.ErrSessionReadOnly):
