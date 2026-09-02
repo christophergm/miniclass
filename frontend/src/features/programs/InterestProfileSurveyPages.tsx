@@ -514,7 +514,7 @@ function SurveyForm({
           The server will validate areas, audience filters, and the response window.
         </span>
       </div>
-      {error && <Problem error={error} fallback="Unable to save the survey." />}
+      {error != null ? <Problem error={error} fallback="Unable to save the survey." /> : null}
     </form>
   );
 }
@@ -566,6 +566,7 @@ function LifecycleForm({
       )}
       <label className="flex items-start gap-2 text-sm">
         <input
+          aria-label="Regenerate access codes"
           checked={value.regenerateCodes}
           onChange={(event) => onChange({ ...value, regenerateCodes: event.target.checked })}
           type="checkbox"
@@ -583,7 +584,9 @@ function LifecycleForm({
       >
         {pending ? "Applying…" : action === "open" ? "Open survey" : "Reopen survey"}
       </Button>
-      {error && <Problem error={error} fallback="Unable to change the survey lifecycle." />}
+      {error != null ? (
+        <Problem error={error} fallback="Unable to change the survey lifecycle." />
+      ) : null}
     </form>
   );
 }

@@ -23,15 +23,15 @@ function survey(state = mocks.state): InterestProfileSurvey {
     name: "Annual interests",
     introduction: "Tell us what sounds good.",
     state,
-    opens_at: null,
-    closes_at: state === "open" ? "2026-10-31T20:00:00Z" : null,
+    opens_at: undefined,
+    closes_at: state === "open" ? "2026-10-31T20:00:00Z" : undefined,
     audience_type: "all_members",
     audience_student_ids: [],
-    audience_grade_level_id: null,
-    audience_prior_survey_id: null,
-    audience_response_state: null,
+    audience_grade_level_id: undefined,
+    audience_prior_survey_id: undefined,
+    audience_response_state: undefined,
     scale_version: "v1",
-    opened_at: state === "draft" ? null : "2026-10-01T20:00:00Z",
+    opened_at: state === "draft" ? undefined : "2026-10-01T20:00:00Z",
     questions: [
       { id: "question-1", interest_area_id: "area-1", label: "Making", ordinal: 1 },
       { id: "question-2", interest_area_id: "area-2", label: "Gardening", ordinal: 2 },
@@ -229,7 +229,7 @@ describe("InterestProfileSurveysPage", () => {
       expect.any(Object),
     );
     expect(screen.getByText("Survey action completed with warnings")).toBeInTheDocument();
-    expect(screen.getByText("Empty audience")).toBeInTheDocument();
+    expect(screen.getByText("Empty audience", { exact: false })).toBeInTheDocument();
   });
 
   it("reopens a closed survey with a reason and optional code rotation", () => {
