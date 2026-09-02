@@ -213,6 +213,9 @@
               "objective_weights_change",
               "session_non_participation",
               "preference_submission",
+              "survey_definition_change",
+              "survey_lifecycle",
+              "survey_code_change",
               "session_state_transition",
               "offering_edit_after_publish",
               "tag_definition_change",
@@ -1353,6 +1356,413 @@
         ],
         "type": "object"
       },
+      "InterestProfileSurveyAudienceInput": {
+        "additionalProperties": false,
+        "properties": {
+          "grade_level_id": {
+            "description": "Opaque grade-level identifier.",
+            "type": "string"
+          },
+          "prior_survey_id": {
+            "description": "Opaque earlier survey identifier.",
+            "type": "string"
+          },
+          "response_state": {
+            "enum": [
+              "responded",
+              "not_responded"
+            ],
+            "type": "string"
+          },
+          "student_ids": {
+            "description": "Opaque student identifiers for an explicit audience.",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "type": {
+            "enum": [
+              "all_members",
+              "explicit_students",
+              "grade_level",
+              "response_state"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "InterestProfileSurveyCodeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "description": "Plaintext code is returned only when newly issued.",
+            "type": "string"
+          },
+          "issued_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "student_id": {
+            "description": "Opaque student identifier.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "student_id"
+        ],
+        "type": "object"
+      },
+      "InterestProfileSurveyInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/InterestProfileSurveyInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "audience": {
+            "$ref": "#/components/schemas/InterestProfileSurveyAudienceInput"
+          },
+          "closes_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "introduction": {
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "opens_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/InterestProfileSurveyQuestionInput"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "scale_options": {
+            "items": {
+              "$ref": "#/components/schemas/InterestProfileSurveyScaleOptionInput"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "scale_version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "audience"
+        ],
+        "type": "object"
+      },
+      "InterestProfileSurveyQuestionInput": {
+        "additionalProperties": false,
+        "properties": {
+          "interest_area_id": {
+            "description": "Opaque interest-area identifier.",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "interest_area_id"
+        ],
+        "type": "object"
+      },
+      "InterestProfileSurveyQuestionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Opaque survey-question identifier.",
+            "type": "string"
+          },
+          "interest_area_id": {
+            "description": "Opaque interest-area identifier.",
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "ordinal": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "interest_area_id",
+          "ordinal",
+          "label"
+        ],
+        "type": "object"
+      },
+      "InterestProfileSurveyResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/InterestProfileSurveyResponse.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "active_codes": {
+            "items": {
+              "$ref": "#/components/schemas/InterestProfileSurveyCodeResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "audience_grade_level_id": {
+            "description": "Opaque grade-level identifier.",
+            "type": "string"
+          },
+          "audience_prior_survey_id": {
+            "description": "Opaque earlier survey identifier.",
+            "type": "string"
+          },
+          "audience_response_state": {
+            "enum": [
+              "responded",
+              "not_responded"
+            ],
+            "type": "string"
+          },
+          "audience_snapshot": {
+            "description": "Opaque student identifiers frozen when the survey opened.",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "audience_student_ids": {
+            "description": "Opaque student identifiers in an explicit audience.",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "audience_type": {
+            "enum": [
+              "all_members",
+              "explicit_students",
+              "grade_level",
+              "response_state"
+            ],
+            "type": "string"
+          },
+          "closes_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "description": "Opaque survey identifier.",
+            "type": "string"
+          },
+          "introduction": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "opened_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "opens_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "organization_id": {
+            "description": "Opaque organization identifier.",
+            "type": "string"
+          },
+          "program_id": {
+            "description": "Opaque program identifier.",
+            "type": "string"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/InterestProfileSurveyQuestionResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "scale_options": {
+            "items": {
+              "$ref": "#/components/schemas/InterestProfileSurveyScaleOptionResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "scale_version": {
+            "type": "string"
+          },
+          "school_year_id": {
+            "description": "Opaque school-year identifier.",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "draft",
+              "open",
+              "closed"
+            ],
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "organization_id",
+          "school_year_id",
+          "program_id",
+          "name",
+          "introduction",
+          "state",
+          "audience_type",
+          "audience_student_ids",
+          "scale_version",
+          "questions",
+          "scale_options",
+          "audience_snapshot",
+          "active_codes",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "InterestProfileSurveyScaleOptionInput": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "ordinal": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "value": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "label"
+        ],
+        "type": "object"
+      },
+      "InterestProfileSurveyScaleOptionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Opaque scale-option identifier.",
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "ordinal": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "value",
+          "label",
+          "ordinal"
+        ],
+        "type": "object"
+      },
+      "InterestProfileSurveyTransitionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/InterestProfileSurveyTransitionResponse.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "access_codes": {
+            "items": {
+              "$ref": "#/components/schemas/InterestProfileSurveyCodeResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "survey": {
+            "$ref": "#/components/schemas/InterestProfileSurveyResponse"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "survey",
+          "warnings",
+          "access_codes"
+        ],
+        "type": "object"
+      },
       "InvitationResponse": {
         "additionalProperties": false,
         "properties": {
@@ -2320,6 +2730,24 @@
         ],
         "type": "object"
       },
+      "RegenerateInterestProfileSurveyCodesInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/RegenerateInterestProfileSurveyCodesInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "ReorderGradeLevelsInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -2869,6 +3297,41 @@
           "display_name",
           "created_at",
           "updated_at"
+        ],
+        "type": "object"
+      },
+      "TransitionInterestProfileSurveyInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/TransitionInterestProfileSurveyInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "closing_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "regenerate_codes": {
+            "type": "boolean"
+          },
+          "state": {
+            "enum": [
+              "open",
+              "closed"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
         ],
         "type": "object"
       },
@@ -7143,6 +7606,698 @@
           }
         ],
         "summary": "Edit, retire, or reactivate a program interest area",
+        "x-required-capability": "manage_roster"
+      }
+    },
+    "/api/school-years/{schoolYearID}/programs/{programID}/interest-profile-surveys": {
+      "get": {
+        "operationId": "list-interest-profile-surveys",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "schoolYearID",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "programID",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/InterestProfileSurveyResponse"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List interest-profile surveys",
+        "x-required-capability": "manage_roster"
+      },
+      "post": {
+        "operationId": "create-interest-profile-survey",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "schoolYearID",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "programID",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InterestProfileSurveyInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InterestProfileSurveyResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Create an interest-profile survey",
+        "x-required-capability": "manage_roster"
+      }
+    },
+    "/api/school-years/{schoolYearID}/programs/{programID}/interest-profile-surveys/{surveyID}": {
+      "delete": {
+        "operationId": "delete-interest-profile-survey",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "schoolYearID",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "programID",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque survey identifier.",
+            "in": "path",
+            "name": "surveyID",
+            "required": true,
+            "schema": {
+              "description": "Opaque survey identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Delete an interest-profile survey",
+        "x-required-capability": "manage_roster"
+      },
+      "get": {
+        "operationId": "get-interest-profile-survey",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "schoolYearID",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "programID",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque survey identifier.",
+            "in": "path",
+            "name": "surveyID",
+            "required": true,
+            "schema": {
+              "description": "Opaque survey identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InterestProfileSurveyResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get an interest-profile survey",
+        "x-required-capability": "manage_roster"
+      },
+      "patch": {
+        "operationId": "update-interest-profile-survey",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "schoolYearID",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "programID",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque survey identifier.",
+            "in": "path",
+            "name": "surveyID",
+            "required": true,
+            "schema": {
+              "description": "Opaque survey identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InterestProfileSurveyInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InterestProfileSurveyResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Edit an interest-profile survey",
+        "x-required-capability": "manage_roster"
+      }
+    },
+    "/api/school-years/{schoolYearID}/programs/{programID}/interest-profile-surveys/{surveyID}/regenerate-codes": {
+      "post": {
+        "operationId": "regenerate-interest-profile-survey-codes",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "schoolYearID",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "programID",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque survey identifier.",
+            "in": "path",
+            "name": "surveyID",
+            "required": true,
+            "schema": {
+              "description": "Opaque survey identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegenerateInterestProfileSurveyCodesInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/InterestProfileSurveyCodeResponse"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Regenerate interest-profile survey access codes",
+        "x-required-capability": "manage_roster"
+      }
+    },
+    "/api/school-years/{schoolYearID}/programs/{programID}/interest-profile-surveys/{surveyID}/transition": {
+      "post": {
+        "operationId": "transition-interest-profile-survey",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "schoolYearID",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "programID",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque survey identifier.",
+            "in": "path",
+            "name": "surveyID",
+            "required": true,
+            "schema": {
+              "description": "Opaque survey identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionInterestProfileSurveyInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InterestProfileSurveyTransitionResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Transition an interest-profile survey",
         "x-required-capability": "manage_roster"
       }
     },

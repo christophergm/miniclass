@@ -42,6 +42,9 @@ const (
 	ActionObjectiveWeightsChange    Action = "objective_weights_change"
 	ActionSessionNonParticipation   Action = "session_non_participation"
 	ActionPreferenceSubmission      Action = "preference_submission"
+	ActionSurveyDefinitionChange    Action = "survey_definition_change"
+	ActionSurveyLifecycle           Action = "survey_lifecycle"
+	ActionSurveyCodeChange          Action = "survey_code_change"
 	ActionSessionStateTransition    Action = "session_state_transition"
 	ActionOfferingEdit              Action = "offering_edit_after_publish"
 	ActionTagDefinitionChange       Action = "tag_definition_change"
@@ -86,6 +89,9 @@ var actions = []Action{
 	ActionObjectiveWeightsChange,
 	ActionSessionNonParticipation,
 	ActionPreferenceSubmission,
+	ActionSurveyDefinitionChange,
+	ActionSurveyLifecycle,
+	ActionSurveyCodeChange,
 	ActionSessionStateTransition,
 	ActionOfferingEdit,
 	ActionTagDefinitionChange,

@@ -231,6 +231,135 @@ func (ns NullInterestProfileRating) Value() (driver.Value, error) {
 	return string(ns.InterestProfileRating), nil
 }
 
+type InterestProfileSurveyAudienceType string
+
+const (
+	InterestProfileSurveyAudienceTypeAllMembers       InterestProfileSurveyAudienceType = "all_members"
+	InterestProfileSurveyAudienceTypeExplicitStudents InterestProfileSurveyAudienceType = "explicit_students"
+	InterestProfileSurveyAudienceTypeGradeLevel       InterestProfileSurveyAudienceType = "grade_level"
+	InterestProfileSurveyAudienceTypeResponseState    InterestProfileSurveyAudienceType = "response_state"
+)
+
+func (e *InterestProfileSurveyAudienceType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = InterestProfileSurveyAudienceType(s)
+	case string:
+		*e = InterestProfileSurveyAudienceType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for InterestProfileSurveyAudienceType: %T", src)
+	}
+	return nil
+}
+
+type NullInterestProfileSurveyAudienceType struct {
+	InterestProfileSurveyAudienceType InterestProfileSurveyAudienceType `json:"interest_profile_survey_audience_type"`
+	Valid                             bool                              `json:"valid"` // Valid is true if InterestProfileSurveyAudienceType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullInterestProfileSurveyAudienceType) Scan(value interface{}) error {
+	if value == nil {
+		ns.InterestProfileSurveyAudienceType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.InterestProfileSurveyAudienceType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullInterestProfileSurveyAudienceType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.InterestProfileSurveyAudienceType), nil
+}
+
+type InterestProfileSurveyResponseState string
+
+const (
+	InterestProfileSurveyResponseStateResponded    InterestProfileSurveyResponseState = "responded"
+	InterestProfileSurveyResponseStateNotResponded InterestProfileSurveyResponseState = "not_responded"
+)
+
+func (e *InterestProfileSurveyResponseState) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = InterestProfileSurveyResponseState(s)
+	case string:
+		*e = InterestProfileSurveyResponseState(s)
+	default:
+		return fmt.Errorf("unsupported scan type for InterestProfileSurveyResponseState: %T", src)
+	}
+	return nil
+}
+
+type NullInterestProfileSurveyResponseState struct {
+	InterestProfileSurveyResponseState InterestProfileSurveyResponseState `json:"interest_profile_survey_response_state"`
+	Valid                              bool                               `json:"valid"` // Valid is true if InterestProfileSurveyResponseState is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullInterestProfileSurveyResponseState) Scan(value interface{}) error {
+	if value == nil {
+		ns.InterestProfileSurveyResponseState, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.InterestProfileSurveyResponseState.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullInterestProfileSurveyResponseState) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.InterestProfileSurveyResponseState), nil
+}
+
+type InterestProfileSurveyState string
+
+const (
+	InterestProfileSurveyStateDraft  InterestProfileSurveyState = "draft"
+	InterestProfileSurveyStateOpen   InterestProfileSurveyState = "open"
+	InterestProfileSurveyStateClosed InterestProfileSurveyState = "closed"
+)
+
+func (e *InterestProfileSurveyState) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = InterestProfileSurveyState(s)
+	case string:
+		*e = InterestProfileSurveyState(s)
+	default:
+		return fmt.Errorf("unsupported scan type for InterestProfileSurveyState: %T", src)
+	}
+	return nil
+}
+
+type NullInterestProfileSurveyState struct {
+	InterestProfileSurveyState InterestProfileSurveyState `json:"interest_profile_survey_state"`
+	Valid                      bool                       `json:"valid"` // Valid is true if InterestProfileSurveyState is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullInterestProfileSurveyState) Scan(value interface{}) error {
+	if value == nil {
+		ns.InterestProfileSurveyState, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.InterestProfileSurveyState.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullInterestProfileSurveyState) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.InterestProfileSurveyState), nil
+}
+
 type OrganizationRole string
 
 const (
@@ -565,6 +694,84 @@ type InterestProfileSubmission struct {
 	ActorLabel     string                      `json:"actor_label"`
 	SubmittedAt    pgtype.Timestamptz          `json:"submitted_at"`
 	CreatedAt      pgtype.Timestamptz          `json:"created_at"`
+	SurveyID       *ids.XID                    `json:"survey_id"`
+}
+
+type InterestProfileSurvey struct {
+	ID                    ids.XID                                `json:"id"`
+	OrganizationID        ids.XID                                `json:"organization_id"`
+	SchoolYearID          ids.XID                                `json:"school_year_id"`
+	ProgramID             ids.XID                                `json:"program_id"`
+	Name                  string                                 `json:"name"`
+	Introduction          string                                 `json:"introduction"`
+	State                 InterestProfileSurveyState             `json:"state"`
+	OpensAt               pgtype.Timestamptz                     `json:"opens_at"`
+	ClosesAt              pgtype.Timestamptz                     `json:"closes_at"`
+	AudienceType          InterestProfileSurveyAudienceType      `json:"audience_type"`
+	AudienceGradeLevelID  *ids.XID                               `json:"audience_grade_level_id"`
+	AudiencePriorSurveyID *ids.XID                               `json:"audience_prior_survey_id"`
+	AudienceResponseState NullInterestProfileSurveyResponseState `json:"audience_response_state"`
+	ScaleVersion          string                                 `json:"scale_version"`
+	OpenedAt              pgtype.Timestamptz                     `json:"opened_at"`
+	CreatedAt             pgtype.Timestamptz                     `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz                     `json:"updated_at"`
+}
+
+type InterestProfileSurveyAccessCode struct {
+	ID             ids.XID            `json:"id"`
+	OrganizationID ids.XID            `json:"organization_id"`
+	SchoolYearID   ids.XID            `json:"school_year_id"`
+	ProgramID      ids.XID            `json:"program_id"`
+	SurveyID       ids.XID            `json:"survey_id"`
+	StudentID      ids.XID            `json:"student_id"`
+	CodeHash       string             `json:"code_hash"`
+	IssuedAt       pgtype.Timestamptz `json:"issued_at"`
+	RevokedAt      pgtype.Timestamptz `json:"revoked_at"`
+}
+
+type InterestProfileSurveyAudienceSnapshot struct {
+	ID             ids.XID            `json:"id"`
+	OrganizationID ids.XID            `json:"organization_id"`
+	SchoolYearID   ids.XID            `json:"school_year_id"`
+	ProgramID      ids.XID            `json:"program_id"`
+	SurveyID       ids.XID            `json:"survey_id"`
+	StudentID      ids.XID            `json:"student_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type InterestProfileSurveyAudienceStudent struct {
+	ID             ids.XID            `json:"id"`
+	OrganizationID ids.XID            `json:"organization_id"`
+	SchoolYearID   ids.XID            `json:"school_year_id"`
+	ProgramID      ids.XID            `json:"program_id"`
+	SurveyID       ids.XID            `json:"survey_id"`
+	StudentID      ids.XID            `json:"student_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type InterestProfileSurveyQuestion struct {
+	ID             ids.XID            `json:"id"`
+	OrganizationID ids.XID            `json:"organization_id"`
+	SchoolYearID   ids.XID            `json:"school_year_id"`
+	ProgramID      ids.XID            `json:"program_id"`
+	SurveyID       ids.XID            `json:"survey_id"`
+	InterestAreaID ids.XID            `json:"interest_area_id"`
+	Ordinal        int32              `json:"ordinal"`
+	Label          string             `json:"label"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type InterestProfileSurveyScaleOption struct {
+	ID             ids.XID            `json:"id"`
+	OrganizationID ids.XID            `json:"organization_id"`
+	SchoolYearID   ids.XID            `json:"school_year_id"`
+	ProgramID      ids.XID            `json:"program_id"`
+	SurveyID       ids.XID            `json:"survey_id"`
+	Value          string             `json:"value"`
+	Label          string             `json:"label"`
+	Ordinal        int32              `json:"ordinal"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
 type MeetingDate struct {

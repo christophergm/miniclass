@@ -1,6 +1,5 @@
-// Package preference owns retained preference submissions and their effective
-// value rules. Survey lifecycle and access-token issuance remain separate
-// Phase 4 work.
+// Package preference owns retained preference submissions, survey lifecycle,
+// and their effective value rules.
 package preference
 
 import (

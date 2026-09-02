@@ -12,6 +12,7 @@ import (
 	"github.com/chrismott/miniclass/internal/auth"
 	"github.com/chrismott/miniclass/internal/data"
 	"github.com/chrismott/miniclass/internal/ids"
+	"github.com/chrismott/miniclass/internal/preference"
 	programservice "github.com/chrismott/miniclass/internal/program"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -57,6 +58,13 @@ type ProgramService interface {
 	GetSessionObjectiveWeights(context.Context, string, ids.XID, ids.XID, ids.XID) (data.ObjectiveWeightsView, error)
 	UpdateSessionObjectiveWeights(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, data.ObjectiveWeightOverrides, string) (data.ObjectiveWeightsView, error)
 	ClearSessionObjectiveWeights(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID) (data.ObjectiveWeightsView, error)
+	CreateInterestProfileSurvey(context.Context, string, audit.Actor, ids.XID, ids.XID, preference.InterestProfileSurveyInput) (preference.InterestProfileSurveyView, error)
+	ListInterestProfileSurveys(context.Context, string, ids.XID, ids.XID) ([]preference.InterestProfileSurveyView, error)
+	GetInterestProfileSurvey(context.Context, string, ids.XID, ids.XID, ids.XID) (preference.InterestProfileSurveyView, error)
+	UpdateInterestProfileSurvey(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, preference.InterestProfileSurveyUpdate) (preference.InterestProfileSurveyView, error)
+	DeleteInterestProfileSurvey(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID) error
+	TransitionInterestProfileSurvey(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, preference.InterestProfileSurveyTransitionInput) (preference.InterestProfileSurveyTransitionResult, error)
+	RegenerateInterestProfileSurveyCodes(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, string) ([]preference.SurveyAccessCode, error)
 }
 
 type ProgramResponse struct {
