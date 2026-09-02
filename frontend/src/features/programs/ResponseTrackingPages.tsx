@@ -165,9 +165,7 @@ function ResponseTrackingDetail({ tracking }: { tracking: ResponseTracking }) {
           <p className="mt-2 text-3xl font-semibold">{tracking.responded_students}</p>
         </Card>
         <Card title="Completion">
-          <p className="mt-2 text-3xl font-semibold">
-            {percent(tracking.completion_percentage)}
-          </p>
+          <p className="mt-2 text-3xl font-semibold">{percent(tracking.completion_percentage)}</p>
         </Card>
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
@@ -252,9 +250,7 @@ export function InterestProfileResponseTrackingPage() {
       <h1 className="mt-3 text-3xl font-semibold tracking-tight">
         {query.data?.instrument_name ?? "Interest-profile survey"}
       </h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        {programName} · student completion
-      </p>
+      <p className="mt-2 text-sm text-muted-foreground">{programName} · student completion</p>
       {query.isLoading && (
         <p className="mt-6" role="status">
           Loading response tracking…
@@ -286,9 +282,7 @@ export function RankedChoiceResponseTrackingPage() {
       <h1 className="mt-3 text-3xl font-semibold tracking-tight">
         {query.data?.instrument_name ?? "Ranked-choice session"}
       </h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        {programName} · student completion
-      </p>
+      <p className="mt-2 text-sm text-muted-foreground">{programName} · student completion</p>
       {query.isLoading && (
         <p className="mt-6" role="status">
           Loading response tracking…

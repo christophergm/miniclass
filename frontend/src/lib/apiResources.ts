@@ -352,11 +352,7 @@ export const resourceApi = {
         },
       ),
     ),
-  getInterestProfileResponseTracking: (
-    schoolYearID: string,
-    programID: string,
-    surveyID: string,
-  ) =>
+  getInterestProfileResponseTracking: (schoolYearID: string, programID: string, surveyID: string) =>
     unwrap(
       api.GET(
         "/api/school-years/{schoolYearID}/programs/{programID}/interest-profile-surveys/{surveyID}/response-tracking",
