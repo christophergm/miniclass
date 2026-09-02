@@ -10,6 +10,7 @@ export default defineConfig({
     baseURL: "http://127.0.0.1:4173",
     trace: "on-first-retry",
     ...devices["iPhone 13"],
+    browserName: "chromium",
   },
   webServer: {
     command: "bun run generate:api && bunx --bun vite --host 127.0.0.1 --port 4173",
