@@ -106,7 +106,7 @@ func verifySchemaContract(t *testing.T, harness *testharness.Harness) {
 	t.Helper()
 	// This literal is intentionally the complete non-tenant allowlist from ADR
 	// 0007. Adding a name here must be a visible, spec-cited change.
-	nonTenantTables := []string{"organizations", "users", "organization_members", "access_tokens"}
+	nonTenantTables := []string{"organizations", "users", "organization_members", "access_tokens", "mfa_recovery_codes"}
 	allowlist := make(map[string]struct{}, len(nonTenantTables))
 	for _, table := range nonTenantTables {
 		allowlist[table] = struct{}{}

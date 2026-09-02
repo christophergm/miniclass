@@ -1,4 +1,4 @@
-// Package identity is the unscoped data accessor for the four identity
+// Package identity is the unscoped data accessor for the identity
 // tables. It never sets app.organization_id and cannot be used to reach the
 // tenant domain through its transaction handle.
 package identity
@@ -41,15 +41,25 @@ type Organization struct {
 // AccessToken is the persisted portion of a token. The bearer value is never
 // present here; only its SHA-256 digest is accepted by the data layer.
 type AccessToken struct {
-	ID         ids.XID
-	TokenHash  []byte
-	Purpose    string
-	ExpiresAt  time.Time
-	RevokedAt  *time.Time
-	ConsumedAt *time.Time
-	Generation int
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
+	ID                 ids.XID
+	TokenHash          []byte
+	Purpose            string
+	ExpiresAt          time.Time
+	RevokedAt          *time.Time
+	ConsumedAt         *time.Time
+	Generation         int
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+	OrganizationID     *ids.XID
+	SchoolYearID       *ids.XID
+	AdultID            *ids.XID
+	UserID             *ids.XID
+	VerifierHash       []byte
+	RequestedEmailHash []byte
+	Attempts           int
+	IdleExpiresAt      *time.Time
+	LastSeenAt         *time.Time
+	MfaGeneration      *int
 }
 
 // OrganizationMember is the application-facing membership record.
@@ -71,6 +81,9 @@ type User struct {
 	Email           string
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
+	MFASecret       []byte
+	MFAEnrolledAt   *time.Time
+	MFAGeneration   int
 }
 
 // Membership is the organization and role selected for an account request.
@@ -207,6 +220,36 @@ func (s *DB) ResolveAccount(ctx context.Context, providerSubject string) (Accoun
 			CreatedAt:        row.MembershipCreatedAt.Time,
 			UpdatedAt:        row.MembershipUpdatedAt.Time,
 		},
+	}, nil
+}
+
+// ResolveAccountByUserID is used when an application-issued administrative
+// session has already authenticated the local user but has no provider JWT.
+func (s *DB) ResolveAccountByUserID(ctx context.Context, userID ids.XID) (Account, error) {
+	if s == nil || s.pool == nil {
+		return Account{}, errors.New("resolve account by user id: data accessor is nil")
+	}
+	if strings.TrimSpace(string(userID)) == "" {
+		return Account{}, errors.New("resolve account by user id: user id is empty")
+	}
+	var rows []db.GetAccountMembershipsByUserIDRow
+	if err := s.InReadTx(ctx, func(ctx context.Context, tx *Tx) error {
+		var err error
+		rows, err = tx.queries.GetAccountMembershipsByUserID(ctx, userID)
+		return err
+	}); err != nil {
+		return Account{}, fmt.Errorf("resolve account by user id: %w", err)
+	}
+	if len(rows) == 0 {
+		return Account{}, ErrNoOrganization
+	}
+	if len(rows) != 1 {
+		return Account{}, ErrMultipleOrganizations
+	}
+	row := rows[0]
+	return Account{
+		User:       User{ID: row.UserID, ProviderSubject: row.ProviderSubject, Email: row.Email, CreatedAt: row.UserCreatedAt.Time, UpdatedAt: row.UserUpdatedAt.Time},
+		Membership: Membership{ID: row.MembershipID, OrganizationID: row.OrganizationID, OrganizationName: row.OrganizationName, Role: string(row.Role), CreatedAt: row.MembershipCreatedAt.Time, UpdatedAt: row.MembershipUpdatedAt.Time},
 	}, nil
 }
 
@@ -502,16 +545,42 @@ func accessToken(row db.AccessToken) (AccessToken, error) {
 		return AccessToken{}, err
 	}
 	return AccessToken{
-		ID:         row.ID,
-		TokenHash:  append([]byte(nil), row.TokenHash...),
-		Purpose:    string(row.Purpose),
-		ExpiresAt:  expiresAt,
-		RevokedAt:  nullableTime(row.RevokedAt),
-		ConsumedAt: nullableTime(row.ConsumedAt),
-		Generation: int(row.Generation),
-		CreatedAt:  createdAt,
-		UpdatedAt:  updatedAt,
+		ID:                 row.ID,
+		TokenHash:          append([]byte(nil), row.TokenHash...),
+		Purpose:            string(row.Purpose),
+		ExpiresAt:          expiresAt,
+		RevokedAt:          nullableTime(row.RevokedAt),
+		ConsumedAt:         nullableTime(row.ConsumedAt),
+		Generation:         int(row.Generation),
+		CreatedAt:          createdAt,
+		UpdatedAt:          updatedAt,
+		OrganizationID:     nullableID(row.OrganizationID),
+		SchoolYearID:       nullableID(row.SchoolYearID),
+		AdultID:            nullableID(row.AdultID),
+		UserID:             nullableID(row.UserID),
+		VerifierHash:       append([]byte(nil), row.VerifierHash...),
+		RequestedEmailHash: append([]byte(nil), row.RequestedEmailHash...),
+		Attempts:           int(row.Attempts),
+		IdleExpiresAt:      nullableTime(row.IdleExpiresAt),
+		LastSeenAt:         nullableTime(row.LastSeenAt),
+		MfaGeneration:      nullableInt(row.MfaGeneration),
 	}, nil
+}
+
+func nullableID(value *ids.XID) *ids.XID {
+	if value == nil || *value == "" {
+		return nil
+	}
+	result := *value
+	return &result
+}
+
+func nullableInt(value pgtype.Int4) *int {
+	if !value.Valid {
+		return nil
+	}
+	result := int(value.Int32)
+	return &result
 }
 
 func organizationMember(row db.OrganizationMember) (OrganizationMember, error) {

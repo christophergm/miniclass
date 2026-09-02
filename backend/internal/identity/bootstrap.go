@@ -2,6 +2,7 @@ package identity
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"net/url"
@@ -22,15 +23,32 @@ const defaultInvitationLifetime = 48 * time.Hour
 type Store struct {
 	database       *identitydata.DB
 	tenantDatabase *data.DB
+	authKey        []byte
+	otpDelivery    auth.OTPDelivery
 }
 
 // NewStore creates the identity data boundary from the application's database
 // owner. Identity callers never need to import internal/data/identity.
 func NewStore(database *data.DB) *Store {
+	return NewStoreWithAuth(database, nil, nil)
+}
+
+// NewStoreWithAuth creates the identity store with the key material and
+// transactional OTP delivery boundary used by Phase 4.
+func NewStoreWithAuth(database *data.DB, authKey []byte, delivery auth.OTPDelivery) *Store {
 	if database == nil {
 		return nil
 	}
-	return &Store{database: identitydata.New(database.Pool()), tenantDatabase: database}
+	if len(authKey) == 0 {
+		fallback := sha256.Sum256([]byte("miniclass-development-adult-auth-key"))
+		authKey = fallback[:]
+	}
+	key := append([]byte(nil), authKey...)
+	if len(key) != 32 {
+		digest := sha256.Sum256(key)
+		key = digest[:]
+	}
+	return &Store{database: identitydata.New(database.Pool()), tenantDatabase: database, authKey: key, otpDelivery: delivery}
 }
 
 // ResolveAccount maps a verified provider subject to one local membership.

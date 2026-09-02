@@ -9,6 +9,7 @@ import type {
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const devToken = import.meta.env.VITE_DEV_TOKEN;
+const applicationSessionKey = "miniclass.application-session";
 
 // This exact anon key value selects the local fake-auth client below; see the
 // Frontend section of the root .env.
@@ -33,6 +34,7 @@ export function onSessionEnded(listener: SessionEndedListener): () => void {
 }
 
 export function reportSessionEnded(reason: SessionEndedReason): void {
+  clearApplicationSession();
   for (const listener of sessionEndedListeners) {
     listener(reason);
   }
@@ -208,12 +210,44 @@ if (isLocalDevAuth) {
 // caller cannot acquire the habit of fetching without one — which is exactly
 // how the roster pages ended up unauthenticated.
 export async function getAccessToken(): Promise<string | null> {
+  try {
+    const applicationToken = sessionStorage.getItem(applicationSessionKey);
+    if (applicationToken) return applicationToken;
+  } catch {
+    // Storage can be unavailable in hardened/private browser contexts. The
+    // provider session remains a valid fallback in that case.
+  }
   if (!supabase) {
     return null;
   }
 
   const { data } = await supabase.auth.getSession();
   return data.session?.access_token ?? null;
+}
+
+export function setApplicationSession(token: string): void {
+  try {
+    sessionStorage.setItem(applicationSessionKey, token);
+  } catch {
+    // The API will reject the next request if this browser cannot retain the
+    // bounded session; no token is written to a less protected location.
+  }
+}
+
+export function clearApplicationSession(): void {
+  try {
+    sessionStorage.removeItem(applicationSessionKey);
+  } catch {
+    // Nothing else can be cleared when storage is unavailable.
+  }
+}
+
+export function hasApplicationSession(): boolean {
+  try {
+    return Boolean(sessionStorage.getItem(applicationSessionKey));
+  } catch {
+    return false;
+  }
 }
 
 export type AuthClient = Pick<SupabaseClient, "auth">;

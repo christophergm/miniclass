@@ -1,11 +1,13 @@
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 
 import { AppShell } from "@/components/AppShell";
-import type { AuthClient } from "@/lib/auth";
+import { hasApplicationSession, type AuthClient } from "@/lib/auth";
 import { AuthProvider } from "@/lib/hooks/AuthProvider";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { HealthCheck } from "@/features/health/HealthCheck";
 import { ClaimInvitationPage } from "@/features/auth/ClaimInvitationPage";
+import { GuardianAccessPage } from "@/features/auth/GuardianAccessPage";
+import { MfaPage } from "@/features/auth/MfaPage";
 import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage";
 import { SignInPage } from "@/features/auth/SignInPage";
 import { NotFoundPage } from "@/features/errors/NotFoundPage";
@@ -64,6 +66,8 @@ function AppRoutes() {
       {/* The token is a query parameter, matching identity.addTokenToURL. See
           the contract note in ClaimInvitationPage. */}
       <Route path="/claim" element={<ClaimInvitationPage />} />
+      <Route path="/guardian" element={<GuardianAccessPage />} />
+      <Route path="/mfa" element={<MfaPage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
           <Route path="/years" element={<SchoolYearListPage />} />
@@ -162,7 +166,7 @@ function ProtectedRoute() {
     );
   }
 
-  if (!session) {
+  if (!session && !hasApplicationSession()) {
     const redirect = `${location.pathname}${location.search}`;
     return <Navigate replace to={`/sign-in?redirect=${encodeURIComponent(redirect)}`} />;
   }

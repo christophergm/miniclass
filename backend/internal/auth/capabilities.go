@@ -20,6 +20,8 @@ const (
 	CapabilityManageAssignments    Capability = "manage_assignments"
 	CapabilityManagePublishing     Capability = "manage_publishing"
 	CapabilityReadAuditLog         Capability = "read_audit_log"
+	CapabilityGuardianAccess       Capability = "guardian_access"
+	CapabilitySession              Capability = "session_authenticated"
 	CapabilityAuthenticated        Capability = "authenticated"
 	// CapabilityPublic declares that an operation is deliberately
 	// unauthenticated. It exists so that "no authentication" is something an
@@ -115,6 +117,21 @@ func HasRoleCapability(role OrganizationRole, capability Capability) bool {
 	return roleCapabilities[role][capability]
 }
 
+// RequiresMFA identifies capabilities that expose administrative data or
+// mutations. Provider identity may begin MFA enrollment, but an
+// application-issued session with a fresh MFA proof is required for these
+// capabilities.
+func RequiresMFA(capability Capability) bool {
+	switch capability {
+	case CapabilityManageAdministrators, CapabilityDeletePersonalData, CapabilityManageSchoolYear,
+		CapabilityManageRoster, CapabilityManageCatalog, CapabilityManageAssignments,
+		CapabilityManagePublishing, CapabilityReadAuditLog:
+		return true
+	default:
+		return false
+	}
+}
+
 // Principal is the common authorization surface for account and future link
 // principals. Callers ask for capabilities rather than inspecting roles.
 type Principal interface {
@@ -145,15 +162,20 @@ type AccountMembership struct {
 // AccountPrincipal is the Phase 1 administrator principal resolved from a
 // verified provider subject and exactly one application membership.
 type AccountPrincipal struct {
-	UserID         ids.XID
-	Subject        string
-	Email          string
-	OrganizationID ids.XID
-	Organization   string
-	Role           OrganizationRole
+	UserID           ids.XID
+	Subject          string
+	Email            string
+	OrganizationID   ids.XID
+	Organization     string
+	Role             OrganizationRole
+	MFAAuthenticated bool
+	SessionID        ids.XID
 }
 
 func (p AccountPrincipal) HasCapability(capability Capability) bool {
+	if capability == CapabilitySession {
+		return true
+	}
 	return HasRoleCapability(p.Role, capability)
 }
 
@@ -163,6 +185,21 @@ func (p AccountPrincipal) EmailAddress() string         { return p.Email }
 func (p AccountPrincipal) OrganizationName() string     { return p.Organization }
 func (p AccountPrincipal) OrganizationIDValue() ids.XID { return p.OrganizationID }
 func (p AccountPrincipal) RoleName() OrganizationRole   { return p.Role }
+
+// GuardianPrincipal is the narrow principal created by an adult OTP. Its
+// student scope is refreshed from live relationships by the session resolver.
+type GuardianPrincipal struct {
+	AdultID        ids.XID
+	OrganizationID ids.XID
+	SchoolYearID   ids.XID
+	SessionID      ids.XID
+	Email          string
+	StudentIDs     []ids.XID
+}
+
+func (p GuardianPrincipal) HasCapability(capability Capability) bool {
+	return capability == CapabilityGuardianAccess || capability == CapabilitySession
+}
 
 // MatrixCells returns every cell in stable order, useful for exhaustive tests.
 func MatrixCells() []struct {

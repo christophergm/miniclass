@@ -17,3 +17,16 @@ func TestPublicCapabilityIsNeitherGrantedNorPartOfTheMatrix(t *testing.T) {
 		t.Fatal("an unknown role was granted the public capability")
 	}
 }
+
+func TestRequiresMFAForAdministrativeCapabilities(t *testing.T) {
+	for _, capability := range MatrixCapabilities() {
+		if !RequiresMFA(capability) {
+			t.Fatalf("administrative capability %q does not require MFA", capability)
+		}
+	}
+	for _, capability := range []Capability{CapabilityAuthenticated, CapabilityGuardianAccess, CapabilitySession, CapabilityPublic} {
+		if RequiresMFA(capability) {
+			t.Fatalf("non-administrative capability %q unexpectedly requires MFA", capability)
+		}
+	}
+}

@@ -63,6 +63,13 @@ const (
 	ActionPermissionChange          Action = "permission_change"
 	ActionAdministratorAdd          Action = "administrator_add"
 	ActionAdministratorRemove       Action = "administrator_remove"
+	ActionOTPRequested              Action = "otp_requested"
+	ActionOTPVerified               Action = "otp_verified"
+	ActionMFAEnrolled               Action = "mfa_enrolled"
+	ActionMFAVerified               Action = "mfa_verified"
+	ActionMFAReset                  Action = "mfa_reset"
+	ActionAdultAccountLink          Action = "adult_account_link"
+	ActionAuthenticationModeChange  Action = "authentication_mode_change"
 )
 
 // actions is the published vocabulary in declaration order. The OpenAPI enum
@@ -110,6 +117,13 @@ var actions = []Action{
 	ActionPermissionChange,
 	ActionAdministratorAdd,
 	ActionAdministratorRemove,
+	ActionOTPRequested,
+	ActionOTPVerified,
+	ActionMFAEnrolled,
+	ActionMFAVerified,
+	ActionMFAReset,
+	ActionAdultAccountLink,
+	ActionAuthenticationModeChange,
 }
 
 // Actions returns the audit vocabulary in declaration order.

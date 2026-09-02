@@ -189,7 +189,11 @@ func TestEveryRegisteredOperationDeclaresCapabilityMetadata(t *testing.T) {
 	// Exhaustive list of operations that may be reached with no principal.
 	// Every entry is a decision to expose an endpoint to the internet, so this
 	// test fails on a new public operation until someone adds it here.
-	allowedPublicOperations := map[string]bool{"GET /api/health": true}
+	allowedPublicOperations := map[string]bool{
+		"GET /api/health":                  true,
+		"POST /api/auth/adult/otp/request": true,
+		"POST /api/auth/adult/otp/verify":  true,
+	}
 
 	document := NewOpenAPI(RouterOptions{})
 	encoded, err := json.Marshal(document)

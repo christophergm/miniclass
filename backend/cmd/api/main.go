@@ -62,13 +62,19 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	if err != nil {
 		return fmt.Errorf("configure authentication: %w", err)
 	}
+	var otpDelivery auth.OTPDelivery
+	if cfg.AuthSMTPAddress != "" && cfg.AuthSMTPFrom != "" {
+		otpDelivery = identity.SMTPOTPDelivery{Address: cfg.AuthSMTPAddress, Username: cfg.AuthSMTPUsername, Password: cfg.AuthSMTPPassword, From: cfg.AuthSMTPFrom}
+	}
+	identityStore := identity.NewStoreWithAuth(database, []byte(cfg.AuthMFAEncryptionKey), otpDelivery)
 
 	importService := ingest.NewPreviewService(database)
 	server := api.NewServerWithConfig(
 		*cfg,
 		api.WithDatabase(database),
 		api.WithAuditLog(database),
-		api.WithIdentity(identity.NewStore(database)),
+		api.WithIdentity(identityStore),
+		api.WithAdultAuth(identityStore),
 		api.WithSchoolYears(schoolyear.New(database)),
 		api.WithVocabularies(vocabulary.New(database)),
 		api.WithAdults(people.New(database)),

@@ -15,11 +15,14 @@ import (
 type AccessTokenPurpose string
 
 const (
-	AccessTokenPurposeAdminInvitation    AccessTokenPurpose = "admin_invitation"
-	AccessTokenPurposeGuardianSubmission AccessTokenPurpose = "guardian_submission"
-	AccessTokenPurposeClassLeader        AccessTokenPurpose = "class_leader"
-	AccessTokenPurposeHomeroomTeacher    AccessTokenPurpose = "homeroom_teacher"
-	AccessTokenPurposePublishedArtifact  AccessTokenPurpose = "published_artifact"
+	AccessTokenPurposeAdminInvitation       AccessTokenPurpose = "admin_invitation"
+	AccessTokenPurposeGuardianSubmission    AccessTokenPurpose = "guardian_submission"
+	AccessTokenPurposeClassLeader           AccessTokenPurpose = "class_leader"
+	AccessTokenPurposeHomeroomTeacher       AccessTokenPurpose = "homeroom_teacher"
+	AccessTokenPurposePublishedArtifact     AccessTokenPurpose = "published_artifact"
+	AccessTokenPurposeAdultOtp              AccessTokenPurpose = "adult_otp"
+	AccessTokenPurposeGuardianSession       AccessTokenPurpose = "guardian_session"
+	AccessTokenPurposeAdministrativeSession AccessTokenPurpose = "administrative_session"
 )
 
 func (e *AccessTokenPurpose) Scan(src interface{}) error {
@@ -581,15 +584,25 @@ func (ns NullSessionState) Value() (driver.Value, error) {
 }
 
 type AccessToken struct {
-	ID         ids.XID            `json:"id"`
-	TokenHash  []byte             `json:"token_hash"`
-	Purpose    AccessTokenPurpose `json:"purpose"`
-	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
-	RevokedAt  pgtype.Timestamptz `json:"revoked_at"`
-	ConsumedAt pgtype.Timestamptz `json:"consumed_at"`
-	Generation int32              `json:"generation"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	ID                 ids.XID            `json:"id"`
+	TokenHash          []byte             `json:"token_hash"`
+	Purpose            AccessTokenPurpose `json:"purpose"`
+	ExpiresAt          pgtype.Timestamptz `json:"expires_at"`
+	RevokedAt          pgtype.Timestamptz `json:"revoked_at"`
+	ConsumedAt         pgtype.Timestamptz `json:"consumed_at"`
+	Generation         int32              `json:"generation"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	OrganizationID     *ids.XID           `json:"organization_id"`
+	SchoolYearID       *ids.XID           `json:"school_year_id"`
+	AdultID            *ids.XID           `json:"adult_id"`
+	UserID             *ids.XID           `json:"user_id"`
+	VerifierHash       []byte             `json:"verifier_hash"`
+	RequestedEmailHash []byte             `json:"requested_email_hash"`
+	Attempts           int32              `json:"attempts"`
+	IdleExpiresAt      pgtype.Timestamptz `json:"idle_expires_at"`
+	LastSeenAt         pgtype.Timestamptz `json:"last_seen_at"`
+	MfaGeneration      pgtype.Int4        `json:"mfa_generation"`
 }
 
 type Adult struct {
@@ -606,6 +619,16 @@ type Adult struct {
 	DeletedAt           pgtype.Timestamptz           `json:"deleted_at"`
 	CreatedAt           pgtype.Timestamptz           `json:"created_at"`
 	UpdatedAt           pgtype.Timestamptz           `json:"updated_at"`
+}
+
+type AdultAccountLink struct {
+	ID             ids.XID            `json:"id"`
+	OrganizationID ids.XID            `json:"organization_id"`
+	SchoolYearID   ids.XID            `json:"school_year_id"`
+	AdultID        ids.XID            `json:"adult_id"`
+	UserID         ids.XID            `json:"user_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
 type AuditLog struct {
@@ -783,6 +806,14 @@ type MeetingDate struct {
 	MeetingDate    pgtype.Date        `json:"meeting_date"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type MfaRecoveryCode struct {
+	ID        ids.XID            `json:"id"`
+	UserID    ids.XID            `json:"user_id"`
+	CodeHash  []byte             `json:"code_hash"`
+	UsedAt    pgtype.Timestamptz `json:"used_at"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
 type Offering struct {
@@ -982,9 +1013,12 @@ type Student struct {
 }
 
 type User struct {
-	ID              ids.XID            `json:"id"`
-	ProviderSubject string             `json:"provider_subject"`
-	Email           string             `json:"email"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	ID                  ids.XID            `json:"id"`
+	ProviderSubject     string             `json:"provider_subject"`
+	Email               string             `json:"email"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	MfaSecretCiphertext []byte             `json:"mfa_secret_ciphertext"`
+	MfaEnrolledAt       pgtype.Timestamptz `json:"mfa_enrolled_at"`
+	MfaGeneration       int32              `json:"mfa_generation"`
 }

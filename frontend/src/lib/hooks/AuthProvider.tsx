@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { AuthError, Session } from "@supabase/supabase-js";
 
-import { onSessionEnded, supabase } from "@/lib/auth";
+import { clearApplicationSession, onSessionEnded, supabase } from "@/lib/auth";
 
 import { AuthContext, type AuthContextValue, type AuthProviderProps } from "./auth-context";
 
@@ -110,6 +110,7 @@ export function AuthProvider({ children, client = supabase }: AuthProviderProps)
         }
       },
       signOut: async () => {
+        clearApplicationSession();
         if (!client) {
           throw new Error("Authentication is not configured.");
         }
