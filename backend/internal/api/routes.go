@@ -142,6 +142,68 @@ func registerOperations(api huma.API, options RouterOptions) {
 		Path: apiBasePath + "/auth/adult/otp/verify", Summary: "Verify a guardian email OTP",
 		Errors: []int{http.StatusUnauthorized},
 	}, auth.CapabilityPublic, false, adultAuth.VerifyOTP)
+
+	preferenceHandler := handlers.NewPreferenceHandler(options.Programs)
+	registerOperation(api, huma.Operation{
+		OperationID: "get-student-code-interest-profile-form", Method: http.MethodPost,
+		Path:    apiBasePath + "/respondent/interest-profile-surveys/{schoolYearID}/{programID}/{surveyID}/form",
+		Summary: "Open an interest-profile form with a student access code",
+		Errors:  []int{http.StatusConflict, http.StatusNotFound},
+	}, auth.CapabilityPublic, false, preferenceHandler.StudentCodeInterestForm)
+	registerOperation(api, huma.Operation{
+		OperationID: "submit-student-code-interest-profile", Method: http.MethodPost,
+		Path:    apiBasePath + "/respondent/interest-profile-surveys/{schoolYearID}/{programID}/{surveyID}/submit",
+		Summary: "Submit an interest profile with a student access code",
+		Errors:  []int{http.StatusBadRequest, http.StatusConflict, http.StatusForbidden, http.StatusNotFound},
+	}, auth.CapabilityPublic, false, preferenceHandler.StudentCodeInterestSubmit)
+	registerOperation(api, huma.Operation{
+		OperationID: "get-student-code-ranked-choice-form", Method: http.MethodPost,
+		Path:    apiBasePath + "/respondent/sessions/{schoolYearID}/{programID}/{sessionID}/form",
+		Summary: "Open a ranked-choice form with a student access code",
+		Errors:  []int{http.StatusConflict, http.StatusNotFound},
+	}, auth.CapabilityPublic, false, preferenceHandler.StudentCodeRankedForm)
+	registerOperation(api, huma.Operation{
+		OperationID: "submit-student-code-ranked-choice", Method: http.MethodPost,
+		Path:    apiBasePath + "/respondent/sessions/{schoolYearID}/{programID}/{sessionID}/submit",
+		Summary: "Submit ranked choices with a student access code",
+		Errors:  []int{http.StatusBadRequest, http.StatusConflict, http.StatusForbidden, http.StatusNotFound},
+	}, auth.CapabilityPublic, false, preferenceHandler.StudentCodeRankedSubmit)
+	registerOperation(api, huma.Operation{
+		OperationID: "list-guardian-preference-forms", Method: http.MethodGet,
+		Path:    apiBasePath + "/guardian/preference-forms",
+		Summary: "List the current guardian preference forms",
+		Errors:  []int{http.StatusForbidden},
+	}, auth.CapabilityGuardianAccess, false, preferenceHandler.GuardianForms)
+	registerOperation(api, huma.Operation{
+		OperationID: "submit-guardian-interest-profile", Method: http.MethodPost,
+		Path:    apiBasePath + "/guardian/interest-profile-surveys/{schoolYearID}/{programID}/{surveyID}/students/{studentID}",
+		Summary: "Submit an interest profile for a guardian-scoped student",
+		Errors:  []int{http.StatusBadRequest, http.StatusConflict, http.StatusForbidden, http.StatusNotFound},
+	}, auth.CapabilityGuardianAccess, false, preferenceHandler.GuardianInterestSubmit)
+	registerOperation(api, huma.Operation{
+		OperationID: "submit-guardian-ranked-choice", Method: http.MethodPost,
+		Path:    apiBasePath + "/guardian/sessions/{schoolYearID}/{programID}/{sessionID}/students/{studentID}",
+		Summary: "Submit ranked choices for a guardian-scoped student",
+		Errors:  []int{http.StatusBadRequest, http.StatusConflict, http.StatusForbidden, http.StatusNotFound},
+	}, auth.CapabilityGuardianAccess, false, preferenceHandler.GuardianRankedSubmit)
+	registerOperation(api, huma.Operation{
+		OperationID: "get-administrator-preference-form", Method: http.MethodPost,
+		Path:    apiBasePath + "/administrator/preference-form",
+		Summary: "Open a preference form for an administrator-selected student",
+		Errors:  []int{http.StatusBadRequest, http.StatusConflict, http.StatusNotFound},
+	}, auth.CapabilityManageRoster, false, preferenceHandler.AdministratorForm)
+	registerOperation(api, huma.Operation{
+		OperationID: "submit-administrator-interest-profile", Method: http.MethodPost,
+		Path:    apiBasePath + "/administrator/interest-profile-surveys/{schoolYearID}/{programID}/{surveyID}/students/{studentID}",
+		Summary: "Submit an interest profile on behalf of a student",
+		Errors:  []int{http.StatusBadRequest, http.StatusConflict, http.StatusNotFound},
+	}, auth.CapabilityManageRoster, false, preferenceHandler.AdministratorInterestSubmit)
+	registerOperation(api, huma.Operation{
+		OperationID: "submit-administrator-ranked-choice", Method: http.MethodPost,
+		Path:    apiBasePath + "/administrator/sessions/{schoolYearID}/{programID}/{sessionID}/students/{studentID}",
+		Summary: "Submit ranked choices on behalf of a student",
+		Errors:  []int{http.StatusBadRequest, http.StatusConflict, http.StatusNotFound},
+	}, auth.CapabilityManageRoster, false, preferenceHandler.AdministratorRankedSubmit)
 	registerOperation(api, huma.Operation{
 		OperationID: "get-guardian-auth-context", Method: http.MethodGet,
 		Path: apiBasePath + "/auth/guardian", Summary: "Read the current guardian scope",

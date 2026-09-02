@@ -57,6 +57,12 @@ export function AppShell() {
             </Link>
             <Link
               className="text-sm font-medium text-muted-foreground hover:text-foreground"
+              to="/preferences/admin"
+            >
+              Submit preferences
+            </Link>
+            <Link
+              className="text-sm font-medium text-muted-foreground hover:text-foreground"
               to="/mfa"
             >
               Security

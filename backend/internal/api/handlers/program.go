@@ -68,6 +68,13 @@ type ProgramService interface {
 	RevokeInterestProfileSurveyCodes(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, string) error
 	RegenerateRankedChoiceAccessCodes(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, string) ([]preference.RankedChoiceAccessCode, error)
 	RevokeRankedChoiceAccessCodes(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, string) error
+	GetInterestProfileForm(context.Context, string, ids.XID, ids.XID, ids.XID, ids.XID) (preference.PreferenceForm, error)
+	GetInterestProfileFormByCode(context.Context, string, ids.XID, ids.XID, ids.XID, string) (preference.PreferenceForm, error)
+	SubmitInterestProfileSurvey(context.Context, string, audit.Actor, preference.InterestProfileSurveySubmissionInput) (data.InterestProfileSubmission, error)
+	ListGuardianPreferenceForms(context.Context, string, ids.XID, ids.XID) (preference.GuardianPreferenceForms, error)
+	GetRankedChoiceForm(context.Context, string, ids.XID, ids.XID, ids.XID, ids.XID) (preference.PreferenceForm, error)
+	GetRankedChoiceFormByCode(context.Context, string, ids.XID, ids.XID, ids.XID, string) (preference.PreferenceForm, error)
+	SubmitRankedChoices(context.Context, string, audit.Actor, preference.RankedChoiceSubmissionInput) (data.RankedChoiceSubmission, error)
 }
 
 type ProgramResponse struct {

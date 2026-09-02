@@ -413,9 +413,6 @@ func (s *Service) SubmitInterestProfileSurvey(ctx context.Context, organizationI
 	if s == nil || s.database == nil {
 		return data.InterestProfileSubmission{}, ErrPreferenceServiceNil
 	}
-	if strings.TrimSpace(input.Code) == "" {
-		return data.InterestProfileSubmission{}, ErrSurveyCodeInvalid
-	}
 	var result data.InterestProfileSubmission
 	err := s.database.InTenant(ctx, organizationID, actor, func(ctx context.Context, tx *data.Tx) error {
 		survey, err := tx.GetInterestProfileSurvey(ctx, input.SchoolYearID, input.ProgramID, input.SurveyID)
@@ -426,12 +423,36 @@ func (s *Service) SubmitInterestProfileSurvey(ctx context.Context, organizationI
 		if effectiveSurveyState(survey, now) != data.InterestProfileSurveyOpen || (survey.OpensAt != nil && now.Before(*survey.OpensAt)) || survey.ClosesAt == nil || !now.Before(*survey.ClosesAt) {
 			return ErrSurveyNotAcceptingSubmissions
 		}
-		studentID, err := tx.FindActiveInterestProfileSurveyAccessCode(ctx, input.SchoolYearID, input.ProgramID, input.SurveyID, surveyCodeHash(input.Code))
-		if err != nil {
-			if errors.Is(err, context.Canceled) {
+		studentID := input.StudentID
+		if input.Channel == data.PreferenceChannelStudentCode {
+			if strings.TrimSpace(input.Code) == "" {
+				return ErrSurveyCodeInvalid
+			}
+			resolvedStudentID, err := tx.FindActiveInterestProfileSurveyAccessCode(ctx, input.SchoolYearID, input.ProgramID, input.SurveyID, surveyCodeHash(input.Code))
+			if err != nil {
+				if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+					return err
+				}
+				return ErrSurveyCodeInvalid
+			}
+			if studentID != "" && studentID != resolvedStudentID {
+				return ErrSurveyCodeInvalid
+			}
+			studentID = resolvedStudentID
+		}
+		if studentID == "" {
+			return errors.New("submit interest profile survey: student id is required")
+		}
+		if input.Channel == data.PreferenceChannelGuardian {
+			if input.GuardianAdultID == nil || input.ActorAdultID == nil || *input.GuardianAdultID != *input.ActorAdultID {
+				return ErrPreferenceStudentOutOfScope
+			}
+			if err := ensureGuardianStudent(ctx, tx, input.SchoolYearID, *input.GuardianAdultID, studentID); err != nil {
 				return err
 			}
-			return ErrSurveyCodeInvalid
+		}
+		if err := ensureSurveyStudent(ctx, tx, input.SchoolYearID, input.ProgramID, input.SurveyID, studentID); err != nil {
+			return err
 		}
 		areas, err := tx.ListInterestProfileSurveyQuestions(ctx, input.SchoolYearID, input.ProgramID, input.SurveyID)
 		if err != nil {
@@ -460,13 +481,15 @@ func (s *Service) SubmitInterestProfileSurvey(ctx context.Context, organizationI
 }
 
 type InterestProfileSurveySubmissionInput struct {
-	SchoolYearID ids.XID
-	ProgramID    ids.XID
-	SurveyID     ids.XID
-	Code         string
-	Channel      data.PreferenceSubmissionChannel
-	ActorAdultID *ids.XID
-	Answers      []data.InterestProfileAnswer
+	SchoolYearID    ids.XID
+	ProgramID       ids.XID
+	SurveyID        ids.XID
+	StudentID       ids.XID
+	Code            string
+	Channel         data.PreferenceSubmissionChannel
+	ActorAdultID    *ids.XID
+	GuardianAdultID *ids.XID
+	Answers         []data.InterestProfileAnswer
 }
 
 func openSurvey(ctx context.Context, tx *data.Tx, current data.InterestProfileSurvey, input InterestProfileSurveyTransitionInput, now time.Time, result *InterestProfileSurveyTransitionResult) error {

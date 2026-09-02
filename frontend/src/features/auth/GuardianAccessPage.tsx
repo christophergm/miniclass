@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { errorMessage } from "./auth-utils";
 
 export function GuardianAccessPage() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [organizationID, setOrganizationID] = useState(
     () => searchParams.get("organization_id") ?? "",
   );
@@ -49,6 +50,7 @@ export function GuardianAccessPage() {
       const response = await resourceApi.verifyAdultOTP(challengeID, code.trim());
       setApplicationSession(response.session_token);
       setSession(response);
+      navigate("/guardian/preferences", { replace: true });
     } catch (reason) {
       setError(errorMessage(reason));
     } finally {

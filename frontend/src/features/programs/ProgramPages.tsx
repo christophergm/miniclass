@@ -1517,6 +1517,11 @@ export function SessionPage() {
     );
   const current = session.data;
   const currentWarnings = feasibility.data?.warnings ?? current.feasibility_warnings ?? [];
+  const withRankedChoiceRespondPath = (codes: AccessCodeEntry[]) =>
+    codes.map((code) => ({
+      ...code,
+      respond_path: `/respond/sessions/${schoolYearId}/${programId}/${sessionId}?organization_id=${encodeURIComponent(current.organization_id)}&code=${encodeURIComponent(code.code)}`,
+    }));
   const performTransition = (confirm: boolean) => {
     if (!transitionState) return;
     transition.mutate(
@@ -1530,7 +1535,8 @@ export function SessionPage() {
       },
       {
         onSuccess: (result) => {
-          if (result.access_codes?.length) setAccessCodes(result.access_codes);
+          if (result.access_codes?.length)
+            setAccessCodes(withRankedChoiceRespondPath(result.access_codes));
           if (result.requires_confirmation && !confirm)
             setTransitionPreview({ state: transitionState, warnings: result.warnings ?? [] });
           else {
@@ -1554,7 +1560,9 @@ export function SessionPage() {
     );
     if (!reason?.trim()) return;
     if (action === "regenerate")
-      regenerateCodes.mutate(reason, { onSuccess: (codes) => setAccessCodes(codes) });
+      regenerateCodes.mutate(reason, {
+        onSuccess: (codes) => setAccessCodes(withRankedChoiceRespondPath(codes)),
+      });
     else revokeCodes.mutate(reason, { onSuccess: () => setAccessCodes([]) });
   };
   const closeTransitionPreview = () => {

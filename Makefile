@@ -136,8 +136,8 @@ test: test-backend test-frontend ## Run both test suites
 test-backend: db-up ## Run the Go unit and integration tests
 	@$(MAKE) -C backend test
 
-test-frontend: ## Run the frontend tests once
-	@cd frontend && bun run test -- --run
+test-frontend: ## Run the frontend unit and mobile E2E tests once
+	@cd frontend && bun run test -- --run && bun run test:e2e
 
 test-migrations: ## Apply, roll back, and reapply every migration on a scratch database
 	@$(MAKE) -C backend migration-round-trip

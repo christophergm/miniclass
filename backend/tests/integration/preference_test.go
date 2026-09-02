@@ -394,6 +394,137 @@ func TestInterestProfileSurveyAllowsEmptyAudienceAndStopsAtDeadline(t *testing.T
 	require.ErrorIs(t, err, preference.ErrSurveyNotAcceptingSubmissions)
 }
 
+func TestPreferenceFormsRespectGuardianScopeAndSupportEverySubmissionMode(t *testing.T) {
+	harness := testharness.Open(t)
+	ctx := harness.Context
+	organizationID := harness.MintOrganization(t)
+	organizer := audit.Actor{Type: audit.ActorTypeSystem, Label: "synthetic preference form organizer"}
+	respondent := audit.Actor{Type: audit.ActorTypeLink, Label: "synthetic preference form respondent"}
+	factory := factories.New(harness.Database, string(organizationID), organizer)
+	fixture := createPreferenceFixture(t, harness, factory, "forms")
+
+	otherStudent, err := factory.CreateStudent(ctx, fixture.year.ID, people.StudentCreateInput{LegalGivenName: "Synthetic", LegalFamilyName: "Other Guardian", GradeLevelID: &fixture.grade.ID, HomeroomID: fixture.student.HomeroomID})
+	require.NoError(t, err)
+	noGuardianStudent, err := factory.CreateStudent(ctx, fixture.year.ID, people.StudentCreateInput{LegalGivenName: "Synthetic", LegalFamilyName: "No Guardian", GradeLevelID: &fixture.grade.ID, HomeroomID: fixture.student.HomeroomID})
+	require.NoError(t, err)
+	for _, student := range []data.Student{otherStudent, noGuardianStudent} {
+		_, err = factory.AddProgramMembership(ctx, fixture.year.ID, fixture.program.ID, student.ID)
+		require.NoError(t, err)
+	}
+	firstAdult, err := factory.CreateAdult(ctx, fixture.year.ID, people.AdultCreateInput{LegalGivenName: "Synthetic", LegalFamilyName: "First Guardian"})
+	require.NoError(t, err)
+	secondAdult, err := factory.CreateAdult(ctx, fixture.year.ID, people.AdultCreateInput{LegalGivenName: "Synthetic", LegalFamilyName: "Second Guardian"})
+	require.NoError(t, err)
+	_, err = factory.CreateGuardianRelationship(ctx, fixture.year.ID, people.GuardianRelationshipCreateInput{AdultID: firstAdult.ID, StudentID: fixture.student.ID, RelationshipType: data.GuardianRelationshipParent})
+	require.NoError(t, err)
+	_, err = factory.CreateGuardianRelationship(ctx, fixture.year.ID, people.GuardianRelationshipCreateInput{AdultID: secondAdult.ID, StudentID: otherStudent.ID, RelationshipType: data.GuardianRelationshipParent})
+	require.NoError(t, err)
+
+	service := preference.New(harness.Database)
+	survey, err := service.CreateInterestProfileSurvey(ctx, string(organizationID), organizer, fixture.year.ID, fixture.program.ID, preference.InterestProfileSurveyInput{
+		Name:      "Synthetic Respondent Interest Form",
+		Audience:  preference.InterestProfileSurveyAudienceInput{Type: data.SurveyAudienceAllMembers},
+		Questions: []preference.InterestProfileSurveyQuestionInput{{InterestAreaID: fixture.area.ID}, {InterestAreaID: fixture.secondArea.ID}},
+	})
+	require.NoError(t, err)
+	closingAt := time.Now().UTC().Add(time.Hour)
+	openedSurvey, err := service.TransitionInterestProfileSurvey(ctx, string(organizationID), organizer, fixture.year.ID, fixture.program.ID, survey.Survey.ID, preference.InterestProfileSurveyTransitionInput{State: data.InterestProfileSurveyOpen, ClosingAt: &closingAt})
+	require.NoError(t, err)
+	require.Len(t, openedSurvey.AccessCodes, 3)
+	codes := make(map[ids.XID]string, len(openedSurvey.AccessCodes))
+	for _, code := range openedSurvey.AccessCodes {
+		codes[code.StudentID] = code.Code
+	}
+
+	guardianForms, err := service.ListGuardianPreferenceForms(ctx, string(organizationID), fixture.year.ID, firstAdult.ID)
+	require.NoError(t, err)
+	require.Len(t, guardianForms.Students, 1)
+	require.Equal(t, fixture.student.ID, guardianForms.Students[0].StudentID)
+	require.Len(t, guardianForms.Students[0].Forms, 1)
+	require.Equal(t, preference.FormTypeInterestProfile, guardianForms.Students[0].Forms[0].Type)
+
+	otherGuardianForms, err := service.ListGuardianPreferenceForms(ctx, string(organizationID), fixture.year.ID, secondAdult.ID)
+	require.NoError(t, err)
+	require.Len(t, otherGuardianForms.Students, 1)
+	require.Equal(t, otherStudent.ID, otherGuardianForms.Students[0].StudentID)
+
+	codeForm, err := service.GetInterestProfileFormByCode(ctx, string(organizationID), fixture.year.ID, fixture.program.ID, survey.Survey.ID, codes[fixture.student.ID])
+	require.NoError(t, err)
+	require.Equal(t, fixture.student.ID, codeForm.StudentID)
+	require.NotEmpty(t, codeForm.StudentName)
+
+	firstRating := data.InterestProfileVeryInterested
+	_, err = service.SubmitInterestProfileSurvey(ctx, string(organizationID), respondent, preference.InterestProfileSurveySubmissionInput{
+		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SurveyID: survey.Survey.ID, StudentID: fixture.student.ID,
+		Channel: data.PreferenceChannelGuardian, ActorAdultID: &firstAdult.ID, GuardianAdultID: &firstAdult.ID,
+		Answers: []data.InterestProfileAnswer{{InterestAreaID: fixture.area.ID, Rating: firstRating}},
+	})
+	require.NoError(t, err)
+	secondRating := data.InterestProfileInterested
+	_, err = service.SubmitInterestProfileSurvey(ctx, string(organizationID), respondent, preference.InterestProfileSurveySubmissionInput{
+		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SurveyID: survey.Survey.ID, StudentID: fixture.student.ID,
+		Channel: data.PreferenceChannelGuardian, ActorAdultID: &firstAdult.ID, GuardianAdultID: &firstAdult.ID,
+		Answers: []data.InterestProfileAnswer{{InterestAreaID: fixture.secondArea.ID, Rating: secondRating}},
+	})
+	require.NoError(t, err)
+	updatedForm, err := service.GetInterestProfileForm(ctx, string(organizationID), fixture.year.ID, fixture.program.ID, survey.Survey.ID, fixture.student.ID)
+	require.NoError(t, err)
+	require.Equal(t, firstRating, *updatedForm.InterestAnswers[0].Rating)
+	require.Equal(t, secondRating, *updatedForm.InterestAnswers[1].Rating)
+
+	_, err = service.SubmitInterestProfileSurvey(ctx, string(organizationID), respondent, preference.InterestProfileSurveySubmissionInput{
+		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SurveyID: survey.Survey.ID, StudentID: fixture.student.ID,
+		Channel: data.PreferenceChannelGuardian, ActorAdultID: &secondAdult.ID, GuardianAdultID: &secondAdult.ID,
+		Answers: []data.InterestProfileAnswer{{InterestAreaID: fixture.area.ID, Rating: data.InterestProfileNotInterested}},
+	})
+	require.ErrorIs(t, err, preference.ErrPreferenceStudentOutOfScope)
+
+	var adminID ids.XID
+	err = harness.Migrator.QueryRow(ctx, `insert into users (provider_subject, email) values ($1, $2) returning id`, "synthetic-preference-admin", "synthetic-preference-admin@example.test").Scan(&adminID)
+	require.NoError(t, err)
+	adminActor := audit.Actor{Type: audit.ActorTypeUser, UserID: &adminID, Label: "synthetic-admin@example.test"}
+	_, err = service.SubmitInterestProfileSurvey(ctx, string(organizationID), adminActor, preference.InterestProfileSurveySubmissionInput{
+		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SurveyID: survey.Survey.ID, StudentID: noGuardianStudent.ID,
+		Channel: data.PreferenceChannelAdministratorOnBehalf,
+		Answers: []data.InterestProfileAnswer{{InterestAreaID: fixture.area.ID, Rating: data.InterestProfileNotInterested}},
+	})
+	require.NoError(t, err)
+
+	session, err := factory.CreateSession(ctx, fixture.year.ID, fixture.program.ID, "Synthetic Preference Session", []time.Time{time.Date(2026, 11, 6, 0, 0, 0, 0, time.UTC)})
+	require.NoError(t, err)
+	offeringA, err := factory.CreateOffering(ctx, fixture.year.ID, fixture.program.ID, session.ID, "Synthetic Course A", "Synthetic course A", nil, 10, fixture.grade.ID, fixture.grade.ID, "Room A", "", "", nil)
+	require.NoError(t, err)
+	offeringB, err := factory.CreateOffering(ctx, fixture.year.ID, fixture.program.ID, session.ID, "Synthetic Course B", "Synthetic course B", nil, 10, fixture.grade.ID, fixture.grade.ID, "Room B", "", "", nil)
+	require.NoError(t, err)
+	_, err = factory.ConfigureRankedChoice(ctx, fixture.year.ID, fixture.program.ID, session.ID, 1, time.Now().UTC().Add(time.Hour))
+	require.NoError(t, err)
+	_, err = factory.TransitionSession(ctx, fixture.year.ID, fixture.program.ID, session.ID, data.SessionCatalogPublished, false, "", nil)
+	require.NoError(t, err)
+	openedSession, err := factory.TransitionSession(ctx, fixture.year.ID, fixture.program.ID, session.ID, data.SessionVotingOpen, false, "", nil)
+	require.NoError(t, err)
+	require.NotEmpty(t, openedSession.AccessCodes)
+	var rankedCode string
+	for _, code := range openedSession.AccessCodes {
+		if code.StudentID == fixture.student.ID {
+			rankedCode = code.Code
+		}
+	}
+	require.NotEmpty(t, rankedCode)
+	rankedForm, err := service.GetRankedChoiceFormByCode(ctx, string(organizationID), fixture.year.ID, fixture.program.ID, session.ID, rankedCode)
+	require.NoError(t, err)
+	require.Len(t, rankedForm.Offerings, 2)
+	position := 1
+	_, err = service.SubmitRankedChoices(ctx, string(organizationID), respondent, preference.RankedChoiceSubmissionInput{
+		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SessionID: session.ID, StudentID: fixture.student.ID,
+		Channel: data.PreferenceChannelGuardian, ActorAdultID: &firstAdult.ID, GuardianAdultID: &firstAdult.ID,
+		Responses: []data.RankedChoiceResponseInput{{OfferingID: offeringA.ID, Answer: data.RankedChoiceRanked, Rank: &position}, {OfferingID: offeringB.ID, Answer: data.RankedChoiceInterested}},
+	})
+	require.NoError(t, err)
+	updatedRankedForm, err := service.GetRankedChoiceForm(ctx, string(organizationID), fixture.year.ID, fixture.program.ID, session.ID, fixture.student.ID)
+	require.NoError(t, err)
+	require.Len(t, updatedRankedForm.RankedAnswers, 2)
+}
+
 type preferenceFixture struct {
 	year       data.SchoolYear
 	grade      data.GradeLevel

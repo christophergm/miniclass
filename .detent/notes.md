@@ -259,3 +259,12 @@
 - Repository/PR: commits `9aaf38c`, `afafffe`, and `8c8aba3` are pushed to open, non-draft PR [#197](https://github.com/christophergm/miniclass/pull/197), which references `Fixes #188`, is merge-clean, and has no actionable reviews or inline comments. Quiet-window wait: 0s; local merge-gate `git diff --check`: under 1s; no post-merge main CI applies while the PR is open.
 - Open items: none; Detent owns the completion-lane transition.
 - Skill draft: no — the existing access/auth and tenant-isolation procedures cover this implementation; no broadly reusable method was discovered.
+
+## Current work — issue #189
+
+- Scope: guardian, student-code, and administrator-on-behalf interest-profile and ranked-choice submission flows per SPEC §§6.2, 6.5, 13.7–13.8, 22.4; dependency #188 is merged.
+- Key files: `backend/internal/preference/forms.go`, `backend/internal/api/handlers/preference.go`, `backend/internal/api/routes.go`, `backend/tests/integration/preference_test.go`, `frontend/src/features/preferences/`, `frontend/src/lib/apiResources.ts`, `frontend/src/features/programs/usePrograms.ts`, and `frontend/e2e/preferences.spec.ts`.
+- Implementation: instrument-bound form read models, live guardian scope checks, student-code and administrator submission attribution, effective interest-profile prefill, ranked-choice replacement, restricted student surfaces, administrator selection, access-code links, and mobile-first guardian/student editors.
+- Validation: focused and full race-enabled backend tests, `make format`, `make lint-backend`, `make generate`, backend generated-code drift, direct Biome format, and `git diff --check` pass. `make check` stops at Docker network creation because all predefined address pools are exhausted; migration round-trip lacks `MIGRATION_ROUNDTRIP_DATABASE_URL`; frontend gates need CI-installed dependencies; smoke lacks `.env`. Playwright mobile coverage is wired into the Frontend tests CI stage with mocked API data.
+- Open items: commit/push, open a non-draft PR referencing `Fixes #189`, verify current-head CI and review comments, then complete the Workpad handoff. No dependency blocker or human action is declared.
+- Skill draft: no — the existing auth, tenant-data, and isolation guidance covered the reusable method; no new broadly reusable procedure was discovered.
