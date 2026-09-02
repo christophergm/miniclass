@@ -12,6 +12,17 @@ import (
 // student-centric response report. Responded is computed in SQL with an
 // exists predicate, so repeated submissions and repeated guardian links
 // cannot duplicate the student denominator.
+type ResponseTrackingSummary struct {
+	InstrumentType    string
+	InstrumentID      ids.XID
+	InstrumentName    string
+	State             string
+	SchoolYearID      ids.XID
+	ProgramID         ids.XID
+	TotalStudents     int
+	RespondedStudents int
+}
+
 type ResponseTrackingStudentRow struct {
 	ID                 ids.XID
 	OrganizationID     ids.XID
@@ -24,6 +35,27 @@ type ResponseTrackingStudentRow struct {
 	HomeroomID         ids.XID
 	HomeroomName       string
 	Responded          bool
+}
+
+func (tx *Tx) ListResponseTrackingSummaries(ctx context.Context, schoolYearID, programID ids.XID) ([]ResponseTrackingSummary, error) {
+	rows, err := tx.queries.ListResponseTrackingSummaries(ctx, db.ListResponseTrackingSummariesParams{
+		OrganizationID: tx.organizationID,
+		SchoolYearID:   schoolYearID,
+		ProgramID:      programID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list response tracking summaries: %w", err)
+	}
+	result := make([]ResponseTrackingSummary, 0, len(rows))
+	for _, row := range rows {
+		result = append(result, ResponseTrackingSummary{
+			InstrumentType: row.InstrumentType, InstrumentID: row.InstrumentID,
+			InstrumentName: row.InstrumentName, State: string(row.State),
+			SchoolYearID: row.SchoolYearID, ProgramID: row.ProgramID,
+			TotalStudents: int(row.TotalStudents), RespondedStudents: int(row.RespondedStudents),
+		})
+	}
+	return result, nil
 }
 
 func (tx *Tx) ListInterestProfileResponseTrackingStudents(ctx context.Context, schoolYearID, programID, surveyID ids.XID) ([]ResponseTrackingStudentRow, error) {

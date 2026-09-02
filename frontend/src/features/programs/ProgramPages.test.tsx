@@ -90,6 +90,19 @@ vi.mock("./usePrograms", () => {
       isError: false,
       error: null,
     })),
+    useResponseTrackingSummaries: query([
+      {
+        instrument_type: "ranked_choice_session",
+        instrument_id: "session-1",
+        instrument_name: "Autumn session",
+        state: "voting_open",
+        school_year_id: "year-1",
+        program_id: "program-1",
+        total_students: 1,
+        responded_students: 1,
+        completion_percentage: 100,
+      },
+    ]),
     useSessions: query([
       {
         id: "session-1",
@@ -98,8 +111,9 @@ vi.mock("./usePrograms", () => {
         program_id: "program-1",
         name: "Autumn session",
         ordinal: 1,
-        state: "planning",
+        state: "voting_open",
         draft_assignments_stale: false,
+        ranked_choice: { rank_depth: 3, deadline: "2026-10-10T12:00:00Z" },
         meeting_dates: ["2026-10-02"],
         feasibility_warnings: [],
         created_at: "",
@@ -520,6 +534,14 @@ describe("program navigation", () => {
       "href",
       "/y/year-1/programs/program-1/settings",
     );
+    expect(screen.getByRole("link", { name: "Response tracking" })).toHaveAttribute(
+      "href",
+      "/y/year-1/programs/program-1/response-tracking",
+    );
+    expect(screen.getByRole("link", { name: "Responses: 100% (1/1)" })).toHaveAttribute(
+      "href",
+      "/y/year-1/programs/program-1/response-tracking/sessions/session-1",
+    );
     expect(screen.queryByRole("heading", { name: "Program membership" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Interest areas" })).not.toBeInTheDocument();
     expect(screen.queryByText("All programs")).not.toBeInTheDocument();
@@ -529,6 +551,7 @@ describe("program navigation", () => {
     renderProgramSettings();
 
     expect(screen.getByRole("heading", { name: "Enrichment settings" })).toBeInTheDocument();
+    expect(screen.queryByText("Response tracking")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Open Membership →/ })).toHaveAttribute(
       "href",
       "/y/year-1/programs/program-1/settings/membership",
@@ -588,6 +611,7 @@ describe("SessionPage", () => {
       "href",
       "/y/year-1/programs/program-1/sessions/session-1/assignment-planner",
     );
+    expect(screen.queryByRole("link", { name: "Response tracking" })).not.toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { name: "Session objective overrides" }),
     ).not.toBeInTheDocument();

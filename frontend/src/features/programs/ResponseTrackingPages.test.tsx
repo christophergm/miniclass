@@ -2,13 +2,41 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
-import { InterestProfileResponseTrackingPage } from "./ResponseTrackingPages";
+import {
+  InterestProfileResponseTrackingPage,
+  RankedChoiceResponseTrackingPage,
+  ResponseTrackingIndexPage,
+} from "./ResponseTrackingPages";
 
 vi.mock("./useProgramName", () => ({
   useProgramName: vi.fn(() => "Clubs"),
 }));
 
 vi.mock("./usePrograms", () => ({
+  useInterestProfileSurveys: vi.fn(() => ({
+    data: [],
+    isLoading: false,
+    isError: false,
+    error: null,
+  })),
+  useResponseTrackingSummaries: vi.fn(() => ({
+    data: [
+      {
+        instrument_type: "ranked_choice_session",
+        instrument_id: "session-1",
+        instrument_name: "Autumn clubs",
+        state: "voting_open",
+        school_year_id: "year-1",
+        program_id: "program-1",
+        total_students: 10,
+        responded_students: 7,
+        completion_percentage: 70,
+      },
+    ],
+    isLoading: false,
+    isError: false,
+    error: null,
+  })),
   useInterestProfileResponseTracking: vi.fn(() => ({
     data: {
       instrument_type: "interest_profile_survey",
@@ -80,6 +108,46 @@ vi.mock("./usePrograms", () => ({
 }));
 
 describe("response tracking pages", () => {
+  it("renders human-readable ranked-choice session states", () => {
+    render(
+      <MemoryRouter initialEntries={["/tracking/year-1/program-1"]}>
+        <Routes>
+          <Route
+            element={<ResponseTrackingIndexPage />}
+            path="/tracking/:schoolYearId/:programId"
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole("navigation", { name: "Program breadcrumb" })).toBeInTheDocument();
+    expect(screen.queryByText(/Back to Clubs settings/)).not.toBeInTheDocument();
+    expect(screen.getByText("Voting Open")).toBeInTheDocument();
+    expect(screen.getByText("70%")).toHaveClass("font-semibold");
+    expect(screen.getByRole("link", { name: /Autumn clubs/ })).toHaveTextContent("70% (7/10)");
+    expect(screen.queryByText("voting_open")).not.toBeInTheDocument();
+  });
+
+  it("uses breadcrumbs on ranked-choice response tracking details", () => {
+    render(
+      <MemoryRouter initialEntries={["/tracking/year-1/program-1/session-1"]}>
+        <Routes>
+          <Route
+            element={<RankedChoiceResponseTrackingPage />}
+            path="/tracking/:schoolYearId/:programId/:sessionId"
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole("navigation", { name: "Program breadcrumb" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Response tracking" })).toHaveAttribute(
+      "href",
+      "/y/year-1/programs/program-1/response-tracking",
+    );
+    expect(screen.queryByText("← Back to response tracking")).not.toBeInTheDocument();
+  });
+
   it("renders student totals and separate follow-up rows for multiple guardians", () => {
     render(
       <MemoryRouter initialEntries={["/tracking/year-1/program-1/survey-1"]}>

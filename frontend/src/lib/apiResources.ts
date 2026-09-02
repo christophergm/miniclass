@@ -46,6 +46,7 @@ export type RankedChoiceAccessCode = Schemas["RankedChoiceAccessCodeResponse"];
 export type PreferenceForm = Schemas["PreferenceFormResponse"];
 export type GuardianPreferenceForms = Schemas["GuardianPreferenceFormsResponse"];
 export type ResponseTracking = Schemas["ResponseTrackingResponse"];
+export type ResponseTrackingSummary = Schemas["ResponseTrackingSummaryResponse"];
 export type PreferenceInterestAnswerInput = Schemas["InterestProfileAnswerInput"];
 export type PreferenceRankedAnswerInput = Schemas["RankedChoiceAnswerInput"];
 export type AdultOTPRequest = Schemas["RequestAdultOTPOutputBody"];
@@ -351,6 +352,12 @@ export const resourceApi = {
           body: { responses: responses ?? [] },
         },
       ),
+    ),
+  listResponseTrackingSummaries: (schoolYearID: string, programID: string) =>
+    unwrapList(
+      api.GET("/api/school-years/{schoolYearID}/programs/{programID}/response-tracking/summary", {
+        params: { path: { schoolYearID, programID } },
+      }),
     ),
   getInterestProfileResponseTracking: (schoolYearID: string, programID: string, surveyID: string) =>
     unwrap(

@@ -835,7 +835,7 @@ export function InterestProfileSurveysPage() {
               </Link>
               <Link
                 className="font-medium text-primary hover:underline"
-                to={`/y/${schoolYearId}/programs/${programId}/settings/response-tracking/surveys/${survey.id}`}
+                to={`/y/${schoolYearId}/programs/${programId}/response-tracking/surveys/${survey.id}`}
               >
                 View response tracking
               </Link>

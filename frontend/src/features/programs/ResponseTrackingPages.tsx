@@ -2,6 +2,14 @@ import type { ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import {
   Table,
   TableBody,
   TableCell,
@@ -13,9 +21,8 @@ import type { ResponseTracking } from "@/lib/apiResources";
 import { useProgramName } from "./useProgramName";
 import {
   useInterestProfileResponseTracking,
-  useInterestProfileSurveys,
   useRankedChoiceResponseTracking,
-  useSessions,
+  useResponseTrackingSummaries,
 } from "./usePrograms";
 
 function PageFrame({ children }: { children: ReactNode }) {
@@ -46,23 +53,26 @@ function percent(value: number) {
   return `${value.toFixed(1).replace(/\.0$/, "")}%`;
 }
 
+function stateLabel(value: string) {
+  return value.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 export function ResponseTrackingIndexPage() {
   const { schoolYearId, programId } = useParams<{
     schoolYearId: string;
     programId: string;
   }>();
   const programName = useProgramName(schoolYearId, programId);
-  const surveys = useInterestProfileSurveys(schoolYearId, programId);
-  const sessions = useSessions(schoolYearId, programId);
+  const summaries = useResponseTrackingSummaries(schoolYearId, programId);
   if (!schoolYearId || !programId) return <PageFrame>Program is required.</PageFrame>;
-  if (surveys.isLoading || sessions.isLoading) {
+  if (summaries.isLoading) {
     return (
       <PageFrame>
         <p role="status">Loading response tracking…</p>
       </PageFrame>
     );
   }
-  if (surveys.isError || sessions.isError) {
+  if (summaries.isError) {
     return (
       <PageFrame>
         <ErrorMessage />
@@ -71,48 +81,85 @@ export function ResponseTrackingIndexPage() {
   }
   return (
     <PageFrame>
-      <Link
-        className="text-sm font-medium text-primary hover:underline"
-        to={`/y/${schoolYearId}/programs/${programId}/settings`}
-      >
-        ← Back to {programName} settings
-      </Link>
+      <Breadcrumb aria-label="Program breadcrumb">
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link to={`/y/${schoolYearId}/programs`}>Programs</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link to={`/y/${schoolYearId}/programs/${programId}`}>{programName}</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>Response tracking</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
       <h1 className="mt-3 text-3xl font-semibold tracking-tight">Response tracking</h1>
       <p className="mt-2 text-sm text-muted-foreground">
         Student completion and follow-up views for this programme.
       </p>
       <Card title="Interest-profile surveys">
         <div className="mt-4 space-y-2">
-          {(surveys.data ?? []).map((survey) => (
-            <Link
-              className="block rounded-md border p-3 hover:bg-accent/50"
-              key={survey.id}
-              to={`/y/${schoolYearId}/programs/${programId}/settings/response-tracking/surveys/${survey.id}`}
-            >
-              <span className="font-medium">{survey.name}</span>
-              <span className="ml-2 text-sm text-muted-foreground">{survey.state}</span>
-            </Link>
-          ))}
-          {surveys.data?.length === 0 && (
-            <p className="text-sm text-muted-foreground">No surveys have been created.</p>
-          )}
+          {(summaries.data ?? [])
+            .filter((summary) => summary.instrument_type === "interest_profile_survey")
+            .map((summary) => (
+              <Link
+                className="flex items-center justify-between gap-4 rounded-md border p-3 hover:bg-accent/50"
+                key={summary.instrument_id}
+                to={`/y/${schoolYearId}/programs/${programId}/response-tracking/surveys/${summary.instrument_id}`}
+              >
+                <div className="min-w-0">
+                  <span className="font-medium">{summary.instrument_name}</span>
+                  <span className="ml-2 text-sm text-muted-foreground">
+                    {stateLabel(summary.state)}
+                  </span>
+                </div>
+                <span className="shrink-0 text-sm text-muted-foreground">
+                  <span className="font-semibold text-foreground">
+                    {percent(summary.completion_percentage)}
+                  </span>{" "}
+                  ({summary.responded_students}/{summary.total_students})
+                </span>
+              </Link>
+            ))}
+          {(summaries.data ?? []).every(
+            (summary) => summary.instrument_type !== "interest_profile_survey",
+          ) && <p className="text-sm text-muted-foreground">No surveys have been created.</p>}
         </div>
       </Card>
       <Card title="Ranked-choice sessions">
         <div className="mt-4 space-y-2">
-          {(sessions.data ?? [])
-            .filter((session) => session.ranked_choice)
-            .map((session) => (
+          {(summaries.data ?? [])
+            .filter((summary) => summary.instrument_type === "ranked_choice_session")
+            .map((summary) => (
               <Link
-                className="block rounded-md border p-3 hover:bg-accent/50"
-                key={session.id}
-                to={`/y/${schoolYearId}/programs/${programId}/settings/response-tracking/sessions/${session.id}`}
+                className="flex items-center justify-between gap-4 rounded-md border p-3 hover:bg-accent/50"
+                key={summary.instrument_id}
+                to={`/y/${schoolYearId}/programs/${programId}/response-tracking/sessions/${summary.instrument_id}`}
               >
-                <span className="font-medium">{session.name}</span>
-                <span className="ml-2 text-sm text-muted-foreground">{session.state}</span>
+                <div className="min-w-0">
+                  <span className="font-medium">{summary.instrument_name}</span>
+                  <span className="ml-2 text-sm text-muted-foreground">
+                    {stateLabel(summary.state)}
+                  </span>
+                </div>
+                <span className="shrink-0 text-sm text-muted-foreground">
+                  <span className="font-semibold text-foreground">
+                    {percent(summary.completion_percentage)}
+                  </span>{" "}
+                  ({summary.responded_students}/{summary.total_students})
+                </span>
               </Link>
             ))}
-          {sessions.data?.every((session) => !session.ranked_choice) && (
+          {(summaries.data ?? []).every(
+            (summary) => summary.instrument_type !== "ranked_choice_session",
+          ) && (
             <p className="text-sm text-muted-foreground">
               No ranked-choice sessions have been configured.
             </p>
@@ -243,7 +290,7 @@ export function InterestProfileResponseTrackingPage() {
     <PageFrame>
       <Link
         className="text-sm font-medium text-primary hover:underline"
-        to={`/y/${schoolYearId}/programs/${programId}/settings/response-tracking`}
+        to={`/y/${schoolYearId}/programs/${programId}/response-tracking`}
       >
         ← Back to response tracking
       </Link>
@@ -273,12 +320,35 @@ export function RankedChoiceResponseTrackingPage() {
   if (!schoolYearId || !programId || !sessionId) return <PageFrame>Session is required.</PageFrame>;
   return (
     <PageFrame>
-      <Link
-        className="text-sm font-medium text-primary hover:underline"
-        to={`/y/${schoolYearId}/programs/${programId}/settings/response-tracking`}
-      >
-        ← Back to response tracking
-      </Link>
+      <Breadcrumb aria-label="Program breadcrumb">
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link to={`/y/${schoolYearId}/programs`}>Programs</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link to={`/y/${schoolYearId}/programs/${programId}`}>{programName}</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link to={`/y/${schoolYearId}/programs/${programId}/response-tracking`}>
+                Response tracking
+              </Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>
+              {query.data?.instrument_name ?? "Ranked-choice session"}
+            </BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
       <h1 className="mt-3 text-3xl font-semibold tracking-tight">
         {query.data?.instrument_name ?? "Ranked-choice session"}
       </h1>

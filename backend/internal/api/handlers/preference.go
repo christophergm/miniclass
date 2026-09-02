@@ -116,6 +116,22 @@ type ResponseTrackingGuardianFollowUpResponse struct {
 	ContactStatus string  `json:"contact_status" enum:"no_email,not_responded"`
 }
 
+type ResponseTrackingSummaryResponse struct {
+	InstrumentType       string  `json:"instrument_type" enum:"interest_profile_survey,ranked_choice_session"`
+	InstrumentID         string  `json:"instrument_id" doc:"Opaque survey or session identifier."`
+	InstrumentName       string  `json:"instrument_name"`
+	State                string  `json:"state"`
+	SchoolYearID         string  `json:"school_year_id" doc:"Opaque school-year identifier."`
+	ProgramID            string  `json:"program_id" doc:"Opaque program identifier."`
+	TotalStudents        int     `json:"total_students"`
+	RespondedStudents    int     `json:"responded_students"`
+	CompletionPercentage float64 `json:"completion_percentage" minimum:"0" maximum:"100"`
+}
+
+type ResponseTrackingSummaryOutput struct {
+	Body []ResponseTrackingSummaryResponse
+}
+
 type ResponseTrackingResponse struct {
 	InstrumentType       string                                     `json:"instrument_type" enum:"interest_profile_survey,ranked_choice_session"`
 	InstrumentID         string                                     `json:"instrument_id" doc:"Opaque survey or session identifier."`
@@ -436,6 +452,30 @@ func (h *PreferenceHandler) AdministratorRankedSubmit(ctx context.Context, input
 		return nil, preferenceProblem(err)
 	}
 	return &PreferenceFormOutput{Body: preferenceFormResponse(form, true)}, nil
+}
+
+func (h *PreferenceHandler) ResponseTrackingSummaries(ctx context.Context, input *PreferenceFormPathInput) (*ResponseTrackingSummaryOutput, error) {
+	account, err := programAccount(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if h == nil || h.service == nil || input == nil {
+		return nil, preferenceServiceUnavailable()
+	}
+	summaries, err := h.service.ListResponseTrackingSummaries(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID))
+	if err != nil {
+		return nil, preferenceProblem(err)
+	}
+	result := make([]ResponseTrackingSummaryResponse, 0, len(summaries))
+	for _, summary := range summaries {
+		result = append(result, ResponseTrackingSummaryResponse{
+			InstrumentType: string(summary.InstrumentType), InstrumentID: string(summary.InstrumentID),
+			InstrumentName: summary.InstrumentName, State: summary.State, SchoolYearID: string(summary.SchoolYearID),
+			ProgramID: string(summary.ProgramID), TotalStudents: summary.TotalStudents,
+			RespondedStudents: summary.RespondedStudents, CompletionPercentage: summary.CompletionPercentage,
+		})
+	}
+	return &ResponseTrackingSummaryOutput{Body: result}, nil
 }
 
 func (h *PreferenceHandler) InterestProfileResponseTracking(ctx context.Context, input *InterestProfileResponseTrackingInput) (*ResponseTrackingOutput, error) {
