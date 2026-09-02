@@ -29,11 +29,7 @@ export function AccessCodeDistribution({
   }
   const rooms = [...grouped.entries()].sort(([left], [right]) => left.localeCompare(right));
   for (const [, entries] of rooms) {
-    entries.sort((left, right) =>
-      (left.display_name ?? left.student_id).localeCompare(
-        right.display_name ?? right.student_id,
-      ),
-    );
+    entries.sort((left, right) => (left.display_name ?? left.student_id).localeCompare(right.display_name ?? right.student_id));
   }
   return (
     <section className="mt-6 rounded-lg border bg-card p-5 shadow-sm print:border-0 print:shadow-none">

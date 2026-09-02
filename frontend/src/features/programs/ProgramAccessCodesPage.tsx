@@ -31,8 +31,8 @@ export function ProgramAccessCodesPage() {
       <p className="text-sm text-muted-foreground">{programName} settings</p>
       <h1 className="mt-2 text-3xl font-semibold tracking-tight">Preference access codes</h1>
       <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-        Codes are high-entropy, bound to one student and instrument, and shown only when
-        generated. No email is sent automatically.
+        Codes are high-entropy, bound to one student and instrument, and shown only when generated.
+        No email is sent automatically.
       </p>
       {readOnly && (
         <p className="mt-6 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm">
