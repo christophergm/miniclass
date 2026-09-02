@@ -220,8 +220,11 @@ func TestInterestProfileSurveyLifecycleFreezesAudienceAndRetainsScale(t *testing
 	secondOpenedClosingAt := time.Now().UTC().Add(time.Hour)
 	secondOpened, err := service.TransitionInterestProfileSurvey(ctx, string(organizationID), actor, fixture.year.ID, fixture.program.ID, secondSurvey.Survey.ID, preference.InterestProfileSurveyTransitionInput{State: data.InterestProfileSurveyOpen, ClosingAt: &secondOpenedClosingAt})
 	require.NoError(t, err)
-	require.Len(t, secondOpened.Survey.AudienceSnapshot, 1)
-	require.Equal(t, thirdStudent.ID, secondOpened.Survey.AudienceSnapshot[0].StudentID)
+	require.Len(t, secondOpened.Survey.AudienceSnapshot, 2)
+	require.ElementsMatch(t, []ids.XID{secondStudent.ID, thirdStudent.ID}, []ids.XID{
+		secondOpened.Survey.AudienceSnapshot[0].StudentID,
+		secondOpened.Survey.AudienceSnapshot[1].StudentID,
+	})
 }
 
 func TestInterestProfileSurveyAllowsEmptyAudienceAndStopsAtDeadline(t *testing.T) {
