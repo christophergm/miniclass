@@ -42,6 +42,7 @@ export type InterestProfileSurveyTransitionInput =
   Schemas["TransitionInterestProfileSurveyInputBody"];
 export type InterestProfileSurveyTransition = Schemas["InterestProfileSurveyTransitionResponse"];
 export type InterestProfileSurveyCodes = Schemas["InterestProfileSurveyCodeResponse"];
+export type RankedChoiceAccessCode = Schemas["RankedChoiceAccessCodeResponse"];
 export type AdultOTPRequest = Schemas["RequestAdultOTPOutputBody"];
 export type GuardianSession = Schemas["GuardianSessionResponse"];
 export type MFAEnrollment = Schemas["MFAEnrollmentOutputBody"];
@@ -200,6 +201,18 @@ export const resourceApi = {
         { params: { path: { schoolYearID, programID, surveyID } }, body: { reason } },
       ),
     ),
+  revokeInterestProfileSurveyCodes: (
+    schoolYearID: string,
+    programID: string,
+    surveyID: string,
+    reason: string,
+  ) =>
+    unwrapNoContent(
+      api.POST(
+        "/api/school-years/{schoolYearID}/programs/{programID}/interest-profile-surveys/{surveyID}/revoke-codes",
+        { params: { path: { schoolYearID, programID, surveyID } }, body: { reason } },
+      ),
+    ),
   createInterestArea: (schoolYearID: string, programID: string, label: string) =>
     unwrap(
       api.POST("/api/school-years/{schoolYearID}/programs/{programID}/interest-areas", {
@@ -304,6 +317,30 @@ export const resourceApi = {
       api.POST(
         "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/transition",
         { params: { path: { schoolYearID, programID, sessionID } }, body: value },
+      ),
+    ),
+  regenerateRankedChoiceAccessCodes: (
+    schoolYearID: string,
+    programID: string,
+    sessionID: string,
+    reason: string,
+  ) =>
+    unwrapList(
+      api.POST(
+        "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/regenerate-codes",
+        { params: { path: { schoolYearID, programID, sessionID } }, body: { reason } },
+      ),
+    ),
+  revokeRankedChoiceAccessCodes: (
+    schoolYearID: string,
+    programID: string,
+    sessionID: string,
+    reason: string,
+  ) =>
+    unwrapNoContent(
+      api.POST(
+        "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/revoke-codes",
+        { params: { path: { schoolYearID, programID, sessionID } }, body: { reason } },
       ),
     ),
   getCatalogFeasibility: (schoolYearID: string, programID: string, sessionID: string) =>

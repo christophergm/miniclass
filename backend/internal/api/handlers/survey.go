@@ -84,9 +84,12 @@ type InterestProfileSurveyScaleOptionResponse struct {
 }
 
 type InterestProfileSurveyCodeResponse struct {
-	StudentID string     `json:"student_id" doc:"Opaque student identifier."`
-	Code      string     `json:"code,omitempty" doc:"Plaintext code is returned only when newly issued."`
-	IssuedAt  *time.Time `json:"issued_at,omitempty" format:"date-time"`
+	StudentID   string     `json:"student_id" doc:"Opaque student identifier."`
+	DisplayName string     `json:"display_name,omitempty" doc:"Student name for organizer distribution only."`
+	HomeroomID  string     `json:"homeroom_id,omitempty" doc:"Opaque homeroom identifier."`
+	Homeroom    string     `json:"homeroom,omitempty" doc:"Homeroom label for organizer distribution only."`
+	Code        string     `json:"code,omitempty" doc:"Plaintext code is returned only when newly issued."`
+	IssuedAt    *time.Time `json:"issued_at,omitempty" format:"date-time"`
 }
 
 type InterestProfileSurveyListOutput struct {
@@ -133,6 +136,12 @@ type RegenerateInterestProfileSurveyCodesInput struct {
 }
 type InterestProfileSurveyCodesOutput struct {
 	Body []InterestProfileSurveyCodeResponse
+}
+type InterestProfileSurveyCodeChangeInput struct {
+	InterestProfileSurveyPathInput
+	Body struct {
+		Reason string `json:"reason" minLength:"1"`
+	}
 }
 
 func (h *ProgramHandler) ListInterestProfileSurveys(ctx context.Context, input *ListInterestProfileSurveysInput) (*InterestProfileSurveyListOutput, error) {
@@ -227,7 +236,7 @@ func (h *ProgramHandler) TransitionInterestProfileSurvey(ctx context.Context, in
 	}
 	codes := make([]InterestProfileSurveyCodeResponse, 0, len(result.AccessCodes))
 	for _, code := range result.AccessCodes {
-		codes = append(codes, InterestProfileSurveyCodeResponse{StudentID: string(code.StudentID), Code: code.Code})
+		codes = append(codes, InterestProfileSurveyCodeResponse{StudentID: string(code.StudentID), DisplayName: code.DisplayName, HomeroomID: string(code.HomeroomID), Homeroom: code.Homeroom, Code: code.Code})
 	}
 	return &InterestProfileSurveyTransitionOutput{Body: InterestProfileSurveyTransitionResponse{Survey: surveyResponse(result.Survey), Warnings: result.Warnings, AccessCodes: codes}}, nil
 }
@@ -246,9 +255,23 @@ func (h *ProgramHandler) RegenerateInterestProfileSurveyCodes(ctx context.Contex
 	}
 	codes := make([]InterestProfileSurveyCodeResponse, 0, len(result))
 	for _, code := range result {
-		codes = append(codes, InterestProfileSurveyCodeResponse{StudentID: string(code.StudentID), Code: code.Code})
+		codes = append(codes, InterestProfileSurveyCodeResponse{StudentID: string(code.StudentID), DisplayName: code.DisplayName, HomeroomID: string(code.HomeroomID), Homeroom: code.Homeroom, Code: code.Code})
 	}
 	return &InterestProfileSurveyCodesOutput{Body: codes}, nil
+}
+
+func (h *ProgramHandler) RevokeInterestProfileSurveyCodes(ctx context.Context, input *InterestProfileSurveyCodeChangeInput) (*ProgramDeleteOutput, error) {
+	account, err := programAccount(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if h == nil || h.service == nil || input == nil {
+		return nil, surveyNotFound()
+	}
+	if err := h.service.RevokeInterestProfileSurveyCodes(ctx, string(account.OrganizationID), programActor(account), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), ids.XID(input.SurveyID), input.Body.Reason); err != nil {
+		return nil, surveyProblem(err)
+	}
+	return &ProgramDeleteOutput{}, nil
 }
 
 func surveyInput(input InterestProfileSurveyInputBody) preference.InterestProfileSurveyInput {
@@ -321,6 +344,8 @@ func surveyProblem(err error) error {
 	switch {
 	case errors.Is(err, pgx.ErrNoRows), strings.Contains(err.Error(), "interest profile survey not found"):
 		return surveyNotFound()
+	case errors.Is(err, preference.ErrAccessCodeReasonRequired):
+		return problems.New(http.StatusBadRequest, problems.ProgramConflict, err.Error())
 	case data.IsSchoolYearClosed(err):
 		return problems.New(http.StatusConflict, problems.SchoolYearClosed, "the school year is closed and cannot be changed")
 	case errors.Is(err, preference.ErrSurveyDefinitionLocked), errors.Is(err, preference.ErrSurveyHasSubmissions), errors.Is(err, preference.ErrSurveyTransitionInvalid), errors.Is(err, preference.ErrSurveyNotAcceptingSubmissions):

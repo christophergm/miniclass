@@ -78,8 +78,11 @@ type InterestProfileSurveyTransitionInput struct {
 }
 
 type SurveyAccessCode struct {
-	StudentID ids.XID
-	Code      string
+	StudentID   ids.XID
+	Code        string
+	DisplayName string
+	HomeroomID  ids.XID
+	Homeroom    string
 }
 
 type InterestProfileSurveyView struct {
@@ -356,14 +359,17 @@ func (s *Service) RegenerateInterestProfileSurveyCodes(ctx context.Context, orga
 	if s == nil || s.database == nil {
 		return nil, ErrPreferenceServiceNil
 	}
+	if strings.TrimSpace(reason) == "" {
+		return nil, ErrAccessCodeReasonRequired
+	}
 	var result []SurveyAccessCode
 	err := s.database.InTenant(ctx, organizationID, actor, func(ctx context.Context, tx *data.Tx) error {
 		survey, err := tx.GetInterestProfileSurvey(ctx, schoolYearID, programID, surveyID)
 		if err != nil {
 			return err
 		}
-		if effectiveSurveyState(survey, time.Now().UTC()) == data.InterestProfileSurveyDraft {
-			return ErrSurveyTransitionInvalid
+		if effectiveSurveyState(survey, time.Now().UTC()) != data.InterestProfileSurveyOpen {
+			return ErrSurveyNotAcceptingSubmissions
 		}
 		result, err = regenerateCodes(ctx, tx, survey)
 		if err != nil {
@@ -376,6 +382,31 @@ func (s *Service) RegenerateInterestProfileSurveyCodes(ctx context.Context, orga
 		return nil, fmt.Errorf("regenerate interest profile survey codes: %w", err)
 	}
 	return result, nil
+}
+
+func (s *Service) RevokeInterestProfileSurveyCodes(ctx context.Context, organizationID string, actor audit.Actor, schoolYearID, programID, surveyID ids.XID, reason string) error {
+	if s == nil || s.database == nil {
+		return ErrPreferenceServiceNil
+	}
+	if strings.TrimSpace(reason) == "" {
+		return ErrAccessCodeReasonRequired
+	}
+	err := s.database.InTenant(ctx, organizationID, actor, func(ctx context.Context, tx *data.Tx) error {
+		survey, err := tx.GetInterestProfileSurvey(ctx, schoolYearID, programID, surveyID)
+		if err != nil {
+			return err
+		}
+		count, err := tx.RevokeInterestProfileSurveyAccessCodes(ctx, schoolYearID, programID, surveyID)
+		if err != nil {
+			return err
+		}
+		year := survey.SchoolYearID
+		return tx.Record(ctx, audit.Entry{Action: audit.ActionSurveyCodeChange, ObjectType: "interest_profile_survey_access_code", ObjectID: &surveyID, SchoolYearID: &year, Reason: strings.TrimSpace(reason), ChangeSummary: mustJSON(map[string]any{"revoked": count})})
+	})
+	if err != nil {
+		return fmt.Errorf("revoke interest profile survey codes: %w", err)
+	}
+	return nil
 }
 
 func (s *Service) SubmitInterestProfileSurvey(ctx context.Context, organizationID string, actor audit.Actor, input InterestProfileSurveySubmissionInput) (data.InterestProfileSubmission, error) {
@@ -565,7 +596,11 @@ func issueCodes(ctx context.Context, tx *data.Tx, survey data.InterestProfileSur
 		if _, err := tx.CreateInterestProfileSurveyAccessCode(ctx, survey.SchoolYearID, survey.ProgramID, survey.ID, studentID, surveyCodeHash(code)); err != nil {
 			return nil, err
 		}
-		result = append(result, SurveyAccessCode{StudentID: studentID, Code: code})
+		recipient, err := accessCodeRecipient(ctx, tx, survey.SchoolYearID, studentID)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, SurveyAccessCode{StudentID: studentID, Code: code, DisplayName: recipient.DisplayName, HomeroomID: recipient.HomeroomID, Homeroom: recipient.Homeroom})
 	}
 	return result, nil
 }

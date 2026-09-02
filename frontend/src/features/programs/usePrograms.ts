@@ -340,6 +340,25 @@ export function useRegenerateInterestProfileSurveyCodes(schoolYearID: string, pr
       resourceApi.regenerateInterestProfileSurveyCodes(schoolYearID, programID, surveyID, reason),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
+        queryKey: interestProfileSurveysKey(schoolYearID, programID),
+      });
+      queryClient.invalidateQueries({
+        queryKey: interestProfileSurveyKey(schoolYearID, programID, variables.surveyID),
+      });
+    },
+  });
+}
+
+export function useRevokeInterestProfileSurveyCodes(schoolYearID: string, programID: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ surveyID, reason }: { surveyID: string; reason: string }) =>
+      resourceApi.revokeInterestProfileSurveyCodes(schoolYearID, programID, surveyID, reason),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: interestProfileSurveysKey(schoolYearID, programID),
+      });
+      queryClient.invalidateQueries({
         queryKey: interestProfileSurveyKey(schoolYearID, programID, variables.surveyID),
       });
     },
@@ -616,6 +635,28 @@ export function useTransitionSession(schoolYearID: string, programID: string, se
         queryKey: [...sessionsKey(schoolYearID, programID), sessionID],
       });
     },
+  });
+}
+
+export function useRegenerateRankedChoiceAccessCodes(
+  schoolYearID: string,
+  programID: string,
+  sessionID: string,
+) {
+  return useMutation({
+    mutationFn: (reason: string) =>
+      resourceApi.regenerateRankedChoiceAccessCodes(schoolYearID, programID, sessionID, reason),
+  });
+}
+
+export function useRevokeRankedChoiceAccessCodes(
+  schoolYearID: string,
+  programID: string,
+  sessionID: string,
+) {
+  return useMutation({
+    mutationFn: (reason: string) =>
+      resourceApi.revokeRankedChoiceAccessCodes(schoolYearID, programID, sessionID, reason),
   });
 }
 

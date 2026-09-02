@@ -34,6 +34,7 @@ import { activeGradeLevels } from "@/lib/apiResources";
 import { usePeople } from "@/features/people/roster-queries";
 import { useVocabulary } from "@/lib/hooks/useVocabulary";
 import { OfferingSummary } from "./OfferingPages";
+import { AccessCodeDistribution, type AccessCodeEntry } from "./AccessCodeDistribution";
 
 import {
   useAddProgramMembership,
@@ -60,6 +61,8 @@ import {
   useUpdateSessionNonParticipation,
   useUpdateSessionObjectiveWeights,
   useMissingGradeCount,
+  useRegenerateRankedChoiceAccessCodes,
+  useRevokeRankedChoiceAccessCodes,
 } from "./usePrograms";
 
 function PageFrame({ children }: { children: ReactNode }) {
@@ -699,6 +702,11 @@ export function ProgramSettingsPage() {
       title: "Interest areas",
       description: "Manage the ordered vocabulary used by this programme.",
       path: "interest-areas",
+    },
+    {
+      title: "Preference access codes",
+      description: "Regenerate and print student codes for open interest surveys.",
+      path: "access-codes",
     },
     {
       title: "Assignment planner",
@@ -1440,6 +1448,16 @@ export function SessionPage() {
   const memberships = useProgramMemberships(schoolYearId, programId);
   const exclusions = useSessionNonParticipations(schoolYearId, programId, sessionId);
   const transition = useTransitionSession(schoolYearId ?? "", programId ?? "", sessionId ?? "");
+  const regenerateCodes = useRegenerateRankedChoiceAccessCodes(
+    schoolYearId ?? "",
+    programId ?? "",
+    sessionId ?? "",
+  );
+  const revokeCodes = useRevokeRankedChoiceAccessCodes(
+    schoolYearId ?? "",
+    programId ?? "",
+    sessionId ?? "",
+  );
   const createExclusion = useCreateSessionNonParticipation(
     schoolYearId ?? "",
     programId ?? "",
@@ -1465,6 +1483,7 @@ export function SessionPage() {
   } | null>(null);
   const [sessionEditorOpen, setSessionEditorOpen] = useState(false);
   const [sessionDraft, setSessionDraft] = useState<SessionDraft>({ name: "", meetingDates: [] });
+  const [accessCodes, setAccessCodes] = useState<AccessCodeEntry[]>([]);
   const [nonParticipationEditor, setNonParticipationEditor] = useState<
     "create" | SessionNonParticipation | null
   >(null);
@@ -1511,6 +1530,7 @@ export function SessionPage() {
       },
       {
         onSuccess: (result) => {
+          if (result.access_codes?.length) setAccessCodes(result.access_codes);
           if (result.requires_confirmation && !confirm)
             setTransitionPreview({ state: transitionState, warnings: result.warnings ?? [] });
           else {
@@ -1526,6 +1546,17 @@ export function SessionPage() {
   const transitionNeedsConfirmation =
     transitionState !== "" && requiresTransitionConfirmation(current.state, transitionState);
   const availableStates = [current.state, ...(nextStates[current.state] ?? [])];
+  const changeCodes = (action: "regenerate" | "revoke") => {
+    const reason = window.prompt(
+      action === "regenerate"
+        ? "Why regenerate these student codes?"
+        : "Why revoke these student codes?",
+    );
+    if (!reason?.trim()) return;
+    if (action === "regenerate")
+      regenerateCodes.mutate(reason, { onSuccess: (codes) => setAccessCodes(codes) });
+    else revokeCodes.mutate(reason, { onSuccess: () => setAccessCodes([]) });
+  };
   const closeTransitionPreview = () => {
     setTransitionPreview(null);
     setTransitionReason("");
@@ -1654,6 +1685,42 @@ export function SessionPage() {
           and must be regenerated before publication.
         </p>
       )}
+      {current.ranked_choice && current.state === "voting_open" && !readOnly && (
+        <Card
+          title="Student voting access codes"
+          description="Codes are shown only when issued. Print or distribute this list securely; no email is sent automatically."
+        >
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button
+              disabled={regenerateCodes.isPending}
+              onClick={() => changeCodes("regenerate")}
+              type="button"
+              variant="outline"
+            >
+              Regenerate all codes
+            </Button>
+            <Button
+              disabled={revokeCodes.isPending}
+              onClick={() => changeCodes("revoke")}
+              type="button"
+              variant="destructive"
+            >
+              Revoke all codes
+            </Button>
+          </div>
+          {(regenerateCodes.isError || revokeCodes.isError) && (
+            <Problem
+              error={regenerateCodes.error || revokeCodes.error}
+              fallback="Unable to change student access codes."
+            />
+          )}
+        </Card>
+      )}
+      <AccessCodeDistribution
+        codes={accessCodes}
+        description="Keep this one-time distribution list private. Student codes are bound to this session and cannot be reused elsewhere."
+        title="New student access-code list"
+      />
       <Warnings warnings={currentWarnings} />
       {transition.isError && (
         <Problem error={transition.error} fallback="Unable to change session state." />

@@ -182,6 +182,73 @@ func TestRankedChoiceWindowFollowsSessionLifecycle(t *testing.T) {
 	require.WithinDuration(t, newDeadline, *reopened.Session.RankedChoice.Deadline, time.Second)
 }
 
+func TestRankedChoiceAccessCodeRegenerationAndRevocation(t *testing.T) {
+	harness := testharness.Open(t)
+	ctx := harness.Context
+	organizationID := harness.MintOrganization(t)
+	actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "synthetic code organizer"}
+	factory := factories.New(harness.Database, string(organizationID), actor)
+	fixture := createPreferenceFixture(t, harness, factory, "code rotation")
+	session, err := factory.CreateSession(ctx, fixture.year.ID, fixture.program.ID, "Synthetic Code Rotation Session", []time.Time{time.Date(2026, 11, 20, 0, 0, 0, 0, time.UTC)})
+	require.NoError(t, err)
+	offering, err := factory.CreateOffering(ctx, fixture.year.ID, fixture.program.ID, session.ID, "Synthetic Code Rotation Offering", "Synthetic description", nil, 10, fixture.grade.ID, fixture.grade.ID, "", "", "", nil)
+	require.NoError(t, err)
+	_, err = factory.ConfigureRankedChoice(ctx, fixture.year.ID, fixture.program.ID, session.ID, 1, time.Now().UTC().Add(time.Hour))
+	require.NoError(t, err)
+	_, err = factory.TransitionSession(ctx, fixture.year.ID, fixture.program.ID, session.ID, data.SessionCatalogPublished, false, "", nil)
+	require.NoError(t, err)
+	opened, err := factory.TransitionSession(ctx, fixture.year.ID, fixture.program.ID, session.ID, data.SessionVotingOpen, false, "", nil)
+	require.NoError(t, err)
+	require.Len(t, opened.AccessCodes, 1)
+	originalCode := opened.AccessCodes[0].Code
+	service := preference.New(harness.Database)
+
+	_, err = service.SubmitRankedChoices(ctx, string(organizationID), actor, preference.RankedChoiceSubmissionInput{
+		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SessionID: session.ID,
+		Code: "guess", Channel: data.PreferenceChannelStudentCode,
+		Responses: []data.RankedChoiceResponseInput{{OfferingID: offering.ID, Answer: data.RankedChoiceInterested}},
+	})
+	require.ErrorIs(t, err, preference.ErrRankedChoiceCodeInvalid)
+
+	_, err = service.SubmitRankedChoices(ctx, string(organizationID), actor, preference.RankedChoiceSubmissionInput{
+		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SessionID: session.ID,
+		StudentID: ids.XID("synthetic-other-student"), Code: originalCode, Channel: data.PreferenceChannelStudentCode,
+		Responses: []data.RankedChoiceResponseInput{{OfferingID: offering.ID, Answer: data.RankedChoiceInterested}},
+	})
+	require.ErrorIs(t, err, preference.ErrRankedChoiceStudentMismatch)
+
+	foreignOrganizationID := harness.MintOrganization(t)
+	_, err = service.SubmitRankedChoices(ctx, string(foreignOrganizationID), actor, preference.RankedChoiceSubmissionInput{
+		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SessionID: session.ID,
+		Code: originalCode, Channel: data.PreferenceChannelStudentCode,
+		Responses: []data.RankedChoiceResponseInput{{OfferingID: offering.ID, Answer: data.RankedChoiceInterested}},
+	})
+	require.Error(t, err)
+
+	regenerated, err := service.RegenerateRankedChoiceAccessCodes(ctx, string(organizationID), actor, fixture.year.ID, fixture.program.ID, session.ID, "synthetic replacement")
+	require.NoError(t, err)
+	require.Len(t, regenerated, 1)
+	require.NotEqual(t, originalCode, regenerated[0].Code)
+	require.Equal(t, fixture.student.ID, regenerated[0].StudentID)
+	require.NotEmpty(t, regenerated[0].DisplayName)
+	require.NotEmpty(t, regenerated[0].Homeroom)
+
+	_, err = service.SubmitRankedChoices(ctx, string(organizationID), actor, preference.RankedChoiceSubmissionInput{
+		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SessionID: session.ID,
+		Code: originalCode, Channel: data.PreferenceChannelStudentCode,
+		Responses: []data.RankedChoiceResponseInput{{OfferingID: offering.ID, Answer: data.RankedChoiceInterested}},
+	})
+	require.ErrorIs(t, err, preference.ErrRankedChoiceCodeInvalid)
+
+	require.NoError(t, service.RevokeRankedChoiceAccessCodes(ctx, string(organizationID), actor, fixture.year.ID, fixture.program.ID, session.ID, "synthetic revoke"))
+	_, err = service.SubmitRankedChoices(ctx, string(organizationID), actor, preference.RankedChoiceSubmissionInput{
+		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SessionID: session.ID,
+		Code: regenerated[0].Code, Channel: data.PreferenceChannelStudentCode,
+		Responses: []data.RankedChoiceResponseInput{{OfferingID: offering.ID, Answer: data.RankedChoiceInterested}},
+	})
+	require.ErrorIs(t, err, preference.ErrRankedChoiceCodeInvalid)
+}
+
 func TestInterestProfileSurveyLifecycleFreezesAudienceAndRetainsScale(t *testing.T) {
 	harness := testharness.Open(t)
 	ctx := harness.Context
@@ -264,6 +331,12 @@ func TestInterestProfileSurveyLifecycleFreezesAudienceAndRetainsScale(t *testing
 	require.NotEqual(t, codes[fixture.student.ID], regenerated[0].Code)
 	_, err = service.SubmitInterestProfileSurvey(ctx, string(organizationID), respondentActor, preference.InterestProfileSurveySubmissionInput{
 		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SurveyID: survey.Survey.ID, Code: codes[fixture.student.ID], Channel: data.PreferenceChannelStudentCode,
+		Answers: []data.InterestProfileAnswer{{InterestAreaID: fixture.area.ID, Rating: data.InterestProfileInterested}},
+	})
+	require.ErrorIs(t, err, preference.ErrSurveyCodeInvalid)
+	require.NoError(t, service.RevokeInterestProfileSurveyCodes(ctx, string(organizationID), actor, fixture.year.ID, fixture.program.ID, survey.Survey.ID, "synthetic revoke"))
+	_, err = service.SubmitInterestProfileSurvey(ctx, string(organizationID), respondentActor, preference.InterestProfileSurveySubmissionInput{
+		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SurveyID: survey.Survey.ID, Code: regenerated[0].Code, Channel: data.PreferenceChannelStudentCode,
 		Answers: []data.InterestProfileAnswer{{InterestAreaID: fixture.area.ID, Rating: data.InterestProfileInterested}},
 	})
 	require.ErrorIs(t, err, preference.ErrSurveyCodeInvalid)

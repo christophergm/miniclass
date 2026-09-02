@@ -11,7 +11,16 @@ import (
 	"github.com/chrismott/miniclass/internal/audit"
 	"github.com/chrismott/miniclass/internal/data"
 	"github.com/chrismott/miniclass/internal/ids"
+	"github.com/chrismott/miniclass/internal/preference"
 )
+
+func (s *Service) RegenerateRankedChoiceAccessCodes(ctx context.Context, organizationID string, actor audit.Actor, schoolYearID, programID, sessionID ids.XID, reason string) ([]preference.RankedChoiceAccessCode, error) {
+	return preference.New(s.database).RegenerateRankedChoiceAccessCodes(ctx, organizationID, actor, schoolYearID, programID, sessionID, reason)
+}
+
+func (s *Service) RevokeRankedChoiceAccessCodes(ctx context.Context, organizationID string, actor audit.Actor, schoolYearID, programID, sessionID ids.XID, reason string) error {
+	return preference.New(s.database).RevokeRankedChoiceAccessCodes(ctx, organizationID, actor, schoolYearID, programID, sessionID, reason)
+}
 
 var (
 	ErrSessionNoChanges                = errors.New("session update has no changes")

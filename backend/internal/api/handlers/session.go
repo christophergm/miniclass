@@ -10,6 +10,7 @@ import (
 	"github.com/chrismott/miniclass/internal/api/problems"
 	"github.com/chrismott/miniclass/internal/data"
 	"github.com/chrismott/miniclass/internal/ids"
+	"github.com/chrismott/miniclass/internal/preference"
 	programservice "github.com/chrismott/miniclass/internal/program"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -68,8 +69,17 @@ type SessionTransitionResponse struct {
 	AccessCodes          []RankedChoiceAccessCodeResponse   `json:"access_codes" doc:"Plaintext student access codes issued when voting opens; shown only once."`
 }
 type RankedChoiceAccessCodeResponse struct {
-	StudentID string `json:"student_id" doc:"Opaque student identifier."`
-	Code      string `json:"code" doc:"High-entropy student access code. Store it securely; it is shown only once."`
+	StudentID   string `json:"student_id" doc:"Opaque student identifier."`
+	DisplayName string `json:"display_name,omitempty" doc:"Student name for organizer distribution only."`
+	HomeroomID  string `json:"homeroom_id,omitempty" doc:"Opaque homeroom identifier."`
+	Homeroom    string `json:"homeroom,omitempty" doc:"Homeroom label for organizer distribution only."`
+	Code        string `json:"code" doc:"High-entropy student access code. Store it securely; it is shown only once."`
+}
+type RankedChoiceAccessCodeChangeInput struct {
+	SessionPathInput
+	Body struct {
+		Reason string `json:"reason" minLength:"1"`
+	}
 }
 type SessionTransitionOutput struct{ Body SessionTransitionResponse }
 type MeetingDateListOutput struct{ Body []MeetingDateResponse }
@@ -258,12 +268,49 @@ func (h *ProgramHandler) TransitionSession(ctx context.Context, input *Transitio
 	}
 	accessCodes := make([]RankedChoiceAccessCodeResponse, 0, len(result.AccessCodes))
 	for _, accessCode := range result.AccessCodes {
-		accessCodes = append(accessCodes, RankedChoiceAccessCodeResponse{StudentID: string(accessCode.StudentID), Code: accessCode.Code})
+		accessCodes = append(accessCodes, RankedChoiceAccessCodeResponse{StudentID: string(accessCode.StudentID), DisplayName: accessCode.DisplayName, HomeroomID: string(accessCode.HomeroomID), Homeroom: accessCode.Homeroom, Code: accessCode.Code})
 	}
 	return &SessionTransitionOutput{Body: SessionTransitionResponse{
 		Session: sessionResponse(result.Session), FromState: string(result.FromState), ToState: string(result.ToState),
 		Applied: result.Applied, RequiresConfirmation: result.RequiresConfirmation, Warnings: warnings, AccessCodes: accessCodes,
 	}}, nil
+}
+
+type RankedChoiceAccessCodeListOutput struct {
+	Body []RankedChoiceAccessCodeResponse
+}
+
+func (h *ProgramHandler) RegenerateRankedChoiceAccessCodes(ctx context.Context, input *RankedChoiceAccessCodeChangeInput) (*RankedChoiceAccessCodeListOutput, error) {
+	account, err := programAccount(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if h == nil || h.service == nil || input == nil {
+		return nil, sessionNotFound()
+	}
+	result, err := h.service.RegenerateRankedChoiceAccessCodes(ctx, string(account.OrganizationID), programActor(account), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), ids.XID(input.SessionID), input.Body.Reason)
+	if err != nil {
+		return nil, sessionProblem(err)
+	}
+	codes := make([]RankedChoiceAccessCodeResponse, 0, len(result))
+	for _, code := range result {
+		codes = append(codes, RankedChoiceAccessCodeResponse{StudentID: string(code.StudentID), DisplayName: code.DisplayName, HomeroomID: string(code.HomeroomID), Homeroom: code.Homeroom, Code: code.Code})
+	}
+	return &RankedChoiceAccessCodeListOutput{Body: codes}, nil
+}
+
+func (h *ProgramHandler) RevokeRankedChoiceAccessCodes(ctx context.Context, input *RankedChoiceAccessCodeChangeInput) (*ProgramDeleteOutput, error) {
+	account, err := programAccount(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if h == nil || h.service == nil || input == nil {
+		return nil, sessionNotFound()
+	}
+	if err := h.service.RevokeRankedChoiceAccessCodes(ctx, string(account.OrganizationID), programActor(account), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), ids.XID(input.SessionID), input.Body.Reason); err != nil {
+		return nil, sessionProblem(err)
+	}
+	return &ProgramDeleteOutput{}, nil
 }
 
 func (h *ProgramHandler) ListMeetingDates(ctx context.Context, input *SessionPathInput) (*MeetingDateListOutput, error) {
@@ -417,6 +464,10 @@ func sessionProblem(err error) error {
 	case errors.Is(err, programservice.ErrSessionReadOnly):
 		return problems.New(http.StatusConflict, problems.SessionReadOnly, err.Error())
 	case errors.Is(err, programservice.ErrRankedChoiceConfigurationLocked), errors.Is(err, programservice.ErrSessionRankedChoiceNotConfigured):
+		return problems.New(http.StatusConflict, problems.ProgramConflict, err.Error())
+	case errors.Is(err, preference.ErrAccessCodeReasonRequired):
+		return problems.New(http.StatusBadRequest, problems.ProgramConflict, err.Error())
+	case errors.Is(err, preference.ErrRankedChoiceNotAccepting):
 		return problems.New(http.StatusConflict, problems.ProgramConflict, err.Error())
 	case errors.Is(err, programservice.ErrRankedChoiceRankDepthInvalid), errors.Is(err, programservice.ErrRankedChoiceDeadlineRequired), errors.Is(err, programservice.ErrRankedChoiceDeadlineInvalid), errors.Is(err, programservice.ErrSessionVotingDeadlineRequired), errors.Is(err, programservice.ErrSessionVotingDeadlineInvalid):
 		return problems.New(http.StatusBadRequest, problems.ProgramConflict, err.Error())

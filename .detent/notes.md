@@ -250,3 +250,11 @@
 - Repository/PR: commits `aa40c22`, `9918305`, `e37071a`, and `2cf1783` are pushed to open non-draft PR [#196](https://github.com/christophergm/miniclass/pull/196), which references `Fixes #187`, is merge-clean, and has no reviews or inline comments. Run `33589048076` passes all ten required checks; CI duration was 2m13s. Slow checks were Backend tests (129s), Developer tooling (77s), and Backend lint (79s); Generated code drift took 108s. Quiet-window wait 0s; local merge-gate `git diff --check` under 1s; no post-merge main CI applies while the PR is open.
 - Open items: none; Detent owns the completion-lane transition. No dependency blocker or human action is declared.
 - Skill draft: no — the existing tenant-entity and PostgreSQL isolation-harness procedures covered the reusable method; no new broadly reusable procedure was discovered.
+## Current work — issue #188
+
+- Scope: student access-code distribution for interest-profile surveys and ranked-choice sessions per SPEC §§13.8, 19.5, 22.4 and ADR 0013; dependency #187 is merged.
+- Key files: `backend/internal/preference/{access_code,ranked_choice,survey}.go`, API handlers/routes, `frontend/src/features/programs/{AccessCodeDistribution,ProgramAccessCodesPage,ProgramPages}.tsx`, and generated `backend/openapi.json`.
+- Implementation: organizer-only regeneration/revocation endpoints with audited reasons, homeroom/name metadata returned only on issuance, session and survey code rotation/revocation, grouped print-friendly frontend distribution, and guessing/replay/cross-student/cross-tenant integration coverage.
+- Validation: full `GOTOOLCHAIN=local go test -race ./... -count=1`, `make format`, `make lint-backend`, `make generate` with sqlc drift clean, focused tests, and `git diff --check` pass. Local frontend gates cannot run because `openapi-typescript`/frontend dependencies are absent; migration round-trip lacks its URL; smoke lacks `.env`; Docker-backed `make test-backend` cannot allocate a network because address pools are exhausted.
+- Open items: commit/push, open a non-draft PR referencing `Fixes #188`, verify all ten current-head CI checks and review comments, then update the Workpad completion block.
+- Skill draft: no — the existing access/auth and tenant-isolation procedures cover this implementation; no broadly reusable method was discovered.
