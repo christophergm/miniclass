@@ -42,16 +42,18 @@ test("student preference form keeps an accessible mobile baseline", async ({ pag
   );
   expect(unnamedControls).toEqual([]);
 
-  const unnamedButtons = await page.locator("button").evaluateAll((buttons) =>
-    buttons
-      .filter(
-        (button) =>
-          !button.getAttribute("aria-label")?.trim() &&
-          !button.getAttribute("aria-labelledby")?.trim() &&
-          !button.textContent?.trim(),
-      )
-      .map((button) => button.outerHTML),
-  );
+	const unnamedButtons = await page
+		.locator("button")
+		.evaluateAll((buttons) =>
+			buttons
+				.filter(
+					(button) =>
+						!button.getAttribute("aria-label")?.trim() &&
+						!button.getAttribute("aria-labelledby")?.trim() &&
+						!button.textContent?.trim(),
+				)
+				.map((button) => button.outerHTML),
+		);
   expect(unnamedButtons).toEqual([]);
 
   expect(

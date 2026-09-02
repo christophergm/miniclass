@@ -138,7 +138,7 @@ func TestAdultOTPGuardianScopeAndMFAStepUp(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, unknown.Accepted)
 	require.NotEmpty(t, unknown.ChallengeID)
-	require.Equal(t, 1, deliveryCount)
+	require.Equal(t, 2, deliveryCount)
 
 	link, err := store.CreateAdultAccountLink(ctx, auth.AdultAccountLinkInput{
 		OrganizationID: organizationID, SchoolYearID: year.ID, AdultID: adult.ID, UserID: ids.XID(userID), Actor: actor,

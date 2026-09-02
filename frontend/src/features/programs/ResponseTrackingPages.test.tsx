@@ -96,12 +96,14 @@ describe("response tracking pages", () => {
     expect(screen.getByText("Eligible students")).toBeInTheDocument();
     expect(screen.getByText("50%", { selector: "p" })).toBeInTheDocument();
     expect(screen.getByRole("table", { name: "Response tracking by grade" })).toBeInTheDocument();
-    expect(screen.getByRole("table", { name: "Response tracking by homeroom" })).toBeInTheDocument();
+	expect(
+		screen.getByRole("table", { name: "Response tracking by homeroom" }),
+	).toBeInTheDocument();
     expect(screen.getByRole("table", { name: "Named non-responders" })).toBeInTheDocument();
     expect(screen.getByRole("table", { name: "Guardian follow-up" })).toBeInTheDocument();
     expect(screen.getByText("Synthetic Guardian One")).toBeInTheDocument();
     expect(screen.getByText("Synthetic Guardian Two")).toBeInTheDocument();
-    expect(screen.getByText("No email")).toBeInTheDocument();
+	expect(screen.getAllByText("No email")).toHaveLength(2);
     expect(screen.getByText("Not responded")).toBeInTheDocument();
   });
 });
