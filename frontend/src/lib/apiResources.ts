@@ -36,6 +36,11 @@ export type ObjectiveWeightsInput = Schemas["ObjectiveWeightsInput"];
 export type ObjectiveWeightOverrides = Schemas["ObjectiveWeightOverridesResponse"];
 export type ProgramObjectiveWeights = Schemas["ProgramObjectiveWeightsResponse"];
 export type SessionObjectiveWeights = Schemas["SessionObjectiveWeightsResponse"];
+export type InterestProfileSurvey = Schemas["InterestProfileSurveyResponse"];
+export type InterestProfileSurveyInput = Schemas["InterestProfileSurveyInputBody"];
+export type InterestProfileSurveyTransitionInput = Schemas["TransitionInterestProfileSurveyInputBody"];
+export type InterestProfileSurveyTransition = Schemas["InterestProfileSurveyTransitionResponse"];
+export type InterestProfileSurveyCodes = Schemas["InterestProfileSurveyCodeResponse"];
 
 export const resourceApi = {
   getHealth: () => unwrap(api.GET("/api/health")),
@@ -84,6 +89,74 @@ export const resourceApi = {
       api.GET("/api/school-years/{schoolYearID}/programs/{programID}/interest-areas", {
         params: { path: { schoolYearID, programID }, query: { include_retired: includeRetired } },
       }),
+    ),
+  listInterestProfileSurveys: (schoolYearID: string, programID: string) =>
+    unwrapList(
+      api.GET(
+        "/api/school-years/{schoolYearID}/programs/{programID}/interest-profile-surveys",
+        { params: { path: { schoolYearID, programID } } },
+      ),
+    ),
+  createInterestProfileSurvey: (
+    schoolYearID: string,
+    programID: string,
+    value: InterestProfileSurveyInput,
+  ) =>
+    unwrap(
+      api.POST(
+        "/api/school-years/{schoolYearID}/programs/{programID}/interest-profile-surveys",
+        { params: { path: { schoolYearID, programID } }, body: value },
+      ),
+    ),
+  getInterestProfileSurvey: (schoolYearID: string, programID: string, surveyID: string) =>
+    unwrap(
+      api.GET(
+        "/api/school-years/{schoolYearID}/programs/{programID}/interest-profile-surveys/{surveyID}",
+        { params: { path: { schoolYearID, programID, surveyID } } },
+      ),
+    ),
+  updateInterestProfileSurvey: (
+    schoolYearID: string,
+    programID: string,
+    surveyID: string,
+    value: InterestProfileSurveyInput,
+  ) =>
+    unwrap(
+      api.PATCH(
+        "/api/school-years/{schoolYearID}/programs/{programID}/interest-profile-surveys/{surveyID}",
+        { params: { path: { schoolYearID, programID, surveyID } }, body: value },
+      ),
+    ),
+  deleteInterestProfileSurvey: (schoolYearID: string, programID: string, surveyID: string) =>
+    unwrapNoContent(
+      api.DELETE(
+        "/api/school-years/{schoolYearID}/programs/{programID}/interest-profile-surveys/{surveyID}",
+        { params: { path: { schoolYearID, programID, surveyID } } },
+      ),
+    ),
+  transitionInterestProfileSurvey: (
+    schoolYearID: string,
+    programID: string,
+    surveyID: string,
+    value: InterestProfileSurveyTransitionInput,
+  ) =>
+    unwrap(
+      api.POST(
+        "/api/school-years/{schoolYearID}/programs/{programID}/interest-profile-surveys/{surveyID}/transition",
+        { params: { path: { schoolYearID, programID, surveyID } }, body: value },
+      ),
+    ),
+  regenerateInterestProfileSurveyCodes: (
+    schoolYearID: string,
+    programID: string,
+    surveyID: string,
+    reason: string,
+  ) =>
+    unwrapList(
+      api.POST(
+        "/api/school-years/{schoolYearID}/programs/{programID}/interest-profile-surveys/{surveyID}/regenerate-codes",
+        { params: { path: { schoolYearID, programID, surveyID } }, body: { reason } },
+      ),
     ),
   createInterestArea: (schoolYearID: string, programID: string, label: string) =>
     unwrap(

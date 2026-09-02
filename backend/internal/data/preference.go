@@ -63,6 +63,7 @@ type InterestProfileSubmission struct {
 	OrganizationID ids.XID
 	SchoolYearID   ids.XID
 	ProgramID      ids.XID
+	SurveyID       *ids.XID
 	StudentID      ids.XID
 	Channel        PreferenceSubmissionChannel
 	ActorType      audit.ActorType
@@ -138,7 +139,7 @@ func (tx *Tx) CreateInterestProfileSubmission(ctx context.Context, schoolYearID,
 	if err != nil {
 		return InterestProfileSubmission{}, nil, fmt.Errorf("create interest profile submission: %w", err)
 	}
-	submission, err := interestProfileSubmission(row)
+	submission, err := interestProfileSubmissionValues(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.SurveyID, row.StudentID, row.Channel, row.ActorType, row.ActorUserID, row.ActorAdultID, row.ActorLabel, row.SubmittedAt, row.CreatedAt)
 	if err != nil {
 		return InterestProfileSubmission{}, nil, err
 	}
@@ -160,6 +161,49 @@ func (tx *Tx) CreateInterestProfileSubmission(ctx context.Context, schoolYearID,
 	return submission, responses, nil
 }
 
+// CreateInterestProfileSurveySubmission is the survey-bound variant of the
+// retained submission write. Keeping the survey ID on the append-only parent
+// lets later audience filters identify a response to a named instrument.
+func (tx *Tx) CreateInterestProfileSurveySubmission(ctx context.Context, schoolYearID, programID, surveyID, studentID ids.XID, channel PreferenceSubmissionChannel, actorAdultID *ids.XID, answers []InterestProfileAnswer) (InterestProfileSubmission, []InterestProfileResponse, error) {
+	if err := validateSubmissionAttribution(tx.actor, channel, actorAdultID); err != nil {
+		return InterestProfileSubmission{}, nil, err
+	}
+	if len(answers) == 0 {
+		return InterestProfileSubmission{}, nil, errors.New("create interest profile survey submission: at least one area response is required")
+	}
+	if err := validateInterestProfileAnswers(answers); err != nil {
+		return InterestProfileSubmission{}, nil, err
+	}
+	row, err := tx.queries.CreateInterestProfileSurveySubmission(ctx, db.CreateInterestProfileSurveySubmissionParams{
+		OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID, SurveyID: &surveyID, StudentID: studentID,
+		Channel: db.PreferenceSubmissionChannel(channel), ActorType: db.AuditActorType(tx.actor.Type), ActorUserID: tx.actor.UserID,
+		ActorAdultID: actorAdultID, ActorLabel: strings.TrimSpace(tx.actor.Label),
+	})
+	if err != nil {
+		return InterestProfileSubmission{}, nil, fmt.Errorf("create interest profile survey submission: %w", err)
+	}
+	submission, err := interestProfileSubmissionValues(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.SurveyID, row.StudentID, row.Channel, row.ActorType, row.ActorUserID, row.ActorAdultID, row.ActorLabel, row.SubmittedAt, row.CreatedAt)
+	if err != nil {
+		return InterestProfileSubmission{}, nil, err
+	}
+	responses := make([]InterestProfileResponse, 0, len(answers))
+	for _, answer := range answers {
+		created, err := tx.queries.CreateInterestProfileResponse(ctx, db.CreateInterestProfileResponseParams{
+			OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID,
+			SubmissionID: submission.ID, InterestAreaID: answer.InterestAreaID, Response: db.InterestProfileRating(answer.Rating),
+		})
+		if err != nil {
+			return InterestProfileSubmission{}, nil, fmt.Errorf("create interest profile survey response: %w", err)
+		}
+		value, err := interestProfileResponse(created)
+		if err != nil {
+			return InterestProfileSubmission{}, nil, err
+		}
+		responses = append(responses, value)
+	}
+	return submission, responses, nil
+}
+
 func (tx *Tx) ListInterestProfileSubmissions(ctx context.Context, schoolYearID, programID, studentID ids.XID) ([]InterestProfileSubmission, error) {
 	rows, err := tx.queries.ListInterestProfileSubmissions(ctx, db.ListInterestProfileSubmissionsParams{
 		OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID, StudentID: studentID,
@@ -169,7 +213,7 @@ func (tx *Tx) ListInterestProfileSubmissions(ctx context.Context, schoolYearID, 
 	}
 	result := make([]InterestProfileSubmission, 0, len(rows))
 	for _, row := range rows {
-		value, err := interestProfileSubmission(row)
+		value, err := interestProfileSubmissionValues(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.SurveyID, row.StudentID, row.Channel, row.ActorType, row.ActorUserID, row.ActorAdultID, row.ActorLabel, row.SubmittedAt, row.CreatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -380,16 +424,16 @@ func nullableRank(value *int) pgtype.Int4 {
 	return pgtype.Int4{Int32: int32(*value), Valid: true}
 }
 
-func interestProfileSubmission(row db.InterestProfileSubmission) (InterestProfileSubmission, error) {
-	submittedAt, err := programTime(row.SubmittedAt, "submitted_at")
+func interestProfileSubmissionValues(id, organizationID, schoolYearID, programID ids.XID, surveyID *ids.XID, studentID ids.XID, channel db.PreferenceSubmissionChannel, actorType db.AuditActorType, actorUserID, actorAdultID *ids.XID, actorLabel string, submittedAtValue, createdAtValue pgtype.Timestamptz) (InterestProfileSubmission, error) {
+	submittedAt, err := programTime(submittedAtValue, "submitted_at")
 	if err != nil {
 		return InterestProfileSubmission{}, err
 	}
-	createdAt, err := programTime(row.CreatedAt, "created_at")
+	createdAt, err := programTime(createdAtValue, "created_at")
 	if err != nil {
 		return InterestProfileSubmission{}, err
 	}
-	return InterestProfileSubmission{ID: row.ID, OrganizationID: row.OrganizationID, SchoolYearID: row.SchoolYearID, ProgramID: row.ProgramID, StudentID: row.StudentID, Channel: PreferenceSubmissionChannel(row.Channel), ActorType: audit.ActorType(row.ActorType), ActorUserID: row.ActorUserID, ActorAdultID: row.ActorAdultID, ActorLabel: row.ActorLabel, SubmittedAt: submittedAt, CreatedAt: createdAt}, nil
+	return InterestProfileSubmission{ID: id, OrganizationID: organizationID, SchoolYearID: schoolYearID, ProgramID: programID, SurveyID: surveyID, StudentID: studentID, Channel: PreferenceSubmissionChannel(channel), ActorType: audit.ActorType(actorType), ActorUserID: actorUserID, ActorAdultID: actorAdultID, ActorLabel: actorLabel, SubmittedAt: submittedAt, CreatedAt: createdAt}, nil
 }
 
 func interestProfileResponse(row db.InterestProfileResponse) (InterestProfileResponse, error) {
@@ -432,7 +476,7 @@ func (tx *Tx) ListAllInterestProfileSubmissionsForRegistry(ctx context.Context) 
 	}
 	result := make([]InterestProfileSubmission, 0, len(rows))
 	for _, row := range rows {
-		value, err := interestProfileSubmission(row)
+		value, err := interestProfileSubmissionValues(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.SurveyID, row.StudentID, row.Channel, row.ActorType, row.ActorUserID, row.ActorAdultID, row.ActorLabel, row.SubmittedAt, row.CreatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -449,7 +493,7 @@ func (tx *Tx) FindInterestProfileSubmissionForRegistry(ctx context.Context, id i
 	if err != nil {
 		return InterestProfileSubmission{}, fmt.Errorf("find interest profile submission for registry: %w", err)
 	}
-	return interestProfileSubmission(row)
+	return interestProfileSubmissionValues(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.SurveyID, row.StudentID, row.Channel, row.ActorType, row.ActorUserID, row.ActorAdultID, row.ActorLabel, row.SubmittedAt, row.CreatedAt)
 }
 
 func (tx *Tx) ListAllInterestProfileResponsesForRegistry(ctx context.Context) ([]InterestProfileResponse, error) {

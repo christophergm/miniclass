@@ -77,7 +77,7 @@ func TestLayerTwoRegistryIsDeterministic(t *testing.T) {
 	require.NotEmpty(t, entries)
 
 	// Ensure essential tables are present and year-scoped where appropriate.
-	for _, table := range []string{"school_years", "grade_levels", "homerooms", "adults", "students", "guardian_relationships", "programs", "program_memberships", "interest_areas", "sessions", "meeting_dates", "offerings", "session_non_participations", "program_objective_weights", "session_objective_weight_overrides", "interest_profile_submissions", "interest_profile_responses", "ranked_choice_submissions", "ranked_choice_responses"} {
+	for _, table := range []string{"school_years", "grade_levels", "homerooms", "adults", "students", "guardian_relationships", "programs", "program_memberships", "interest_areas", "sessions", "meeting_dates", "offerings", "session_non_participations", "program_objective_weights", "session_objective_weight_overrides", "interest_profile_submissions", "interest_profile_responses", "ranked_choice_submissions", "ranked_choice_responses", "interest_profile_surveys", "interest_profile_survey_audience_students", "interest_profile_survey_questions", "interest_profile_survey_scale_options", "interest_profile_survey_audience_snapshots", "interest_profile_survey_access_codes"} {
 		entry, ok := registry.ForTable(table)
 		require.True(t, ok, table+" is missing from the registry")
 		require.Equal(t, table, entry.TableName)
@@ -122,7 +122,7 @@ func TestLayerTwoRegistryIsDeterministic(t *testing.T) {
 	sessionObjectiveWeightOverrides, ok := registry.ForTable("session_objective_weight_overrides")
 	require.True(t, ok)
 	require.True(t, sessionObjectiveWeightOverrides.YearScoped)
-	for _, table := range []string{"interest_profile_submissions", "interest_profile_responses", "ranked_choice_submissions", "ranked_choice_responses"} {
+	for _, table := range []string{"interest_profile_submissions", "interest_profile_responses", "ranked_choice_submissions", "ranked_choice_responses", "interest_profile_survey_audience_snapshots"} {
 		entry, ok := registry.ForTable(table)
 		require.True(t, ok)
 		require.True(t, entry.YearScoped)

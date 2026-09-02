@@ -53,7 +53,7 @@ func (q *Queries) CreateInterestProfileResponse(ctx context.Context, arg CreateI
 const createInterestProfileSubmission = `-- name: CreateInterestProfileSubmission :one
 insert into interest_profile_submissions (organization_id, school_year_id, program_id, student_id, channel, actor_type, actor_user_id, actor_adult_id, actor_label)
 values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-returning id, organization_id, school_year_id, program_id, student_id, channel, actor_type, actor_user_id, actor_adult_id, actor_label, submitted_at, created_at
+returning id, organization_id, school_year_id, program_id, survey_id, student_id, channel, actor_type, actor_user_id, actor_adult_id, actor_label, submitted_at, created_at
 `
 
 type CreateInterestProfileSubmissionParams struct {
@@ -68,7 +68,23 @@ type CreateInterestProfileSubmissionParams struct {
 	ActorLabel     string                      `json:"actor_label"`
 }
 
-func (q *Queries) CreateInterestProfileSubmission(ctx context.Context, arg CreateInterestProfileSubmissionParams) (InterestProfileSubmission, error) {
+type CreateInterestProfileSubmissionRow struct {
+	ID             ids.XID                     `json:"id"`
+	OrganizationID ids.XID                     `json:"organization_id"`
+	SchoolYearID   ids.XID                     `json:"school_year_id"`
+	ProgramID      ids.XID                     `json:"program_id"`
+	SurveyID       *ids.XID                    `json:"survey_id"`
+	StudentID      ids.XID                     `json:"student_id"`
+	Channel        PreferenceSubmissionChannel `json:"channel"`
+	ActorType      AuditActorType              `json:"actor_type"`
+	ActorUserID    *ids.XID                    `json:"actor_user_id"`
+	ActorAdultID   *ids.XID                    `json:"actor_adult_id"`
+	ActorLabel     string                      `json:"actor_label"`
+	SubmittedAt    pgtype.Timestamptz          `json:"submitted_at"`
+	CreatedAt      pgtype.Timestamptz          `json:"created_at"`
+}
+
+func (q *Queries) CreateInterestProfileSubmission(ctx context.Context, arg CreateInterestProfileSubmissionParams) (CreateInterestProfileSubmissionRow, error) {
 	row := q.db.QueryRow(ctx, createInterestProfileSubmission,
 		arg.OrganizationID,
 		arg.SchoolYearID,
@@ -80,12 +96,80 @@ func (q *Queries) CreateInterestProfileSubmission(ctx context.Context, arg Creat
 		arg.ActorAdultID,
 		arg.ActorLabel,
 	)
-	var i InterestProfileSubmission
+	var i CreateInterestProfileSubmissionRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
 		&i.SchoolYearID,
 		&i.ProgramID,
+		&i.SurveyID,
+		&i.StudentID,
+		&i.Channel,
+		&i.ActorType,
+		&i.ActorUserID,
+		&i.ActorAdultID,
+		&i.ActorLabel,
+		&i.SubmittedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const createInterestProfileSurveySubmission = `-- name: CreateInterestProfileSurveySubmission :one
+insert into interest_profile_submissions (organization_id, school_year_id, program_id, survey_id, student_id, channel, actor_type, actor_user_id, actor_adult_id, actor_label)
+values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+returning id, organization_id, school_year_id, program_id, survey_id, student_id, channel, actor_type, actor_user_id, actor_adult_id, actor_label, submitted_at, created_at
+`
+
+type CreateInterestProfileSurveySubmissionParams struct {
+	OrganizationID ids.XID                     `json:"organization_id"`
+	SchoolYearID   ids.XID                     `json:"school_year_id"`
+	ProgramID      ids.XID                     `json:"program_id"`
+	SurveyID       *ids.XID                    `json:"survey_id"`
+	StudentID      ids.XID                     `json:"student_id"`
+	Channel        PreferenceSubmissionChannel `json:"channel"`
+	ActorType      AuditActorType              `json:"actor_type"`
+	ActorUserID    *ids.XID                    `json:"actor_user_id"`
+	ActorAdultID   *ids.XID                    `json:"actor_adult_id"`
+	ActorLabel     string                      `json:"actor_label"`
+}
+
+type CreateInterestProfileSurveySubmissionRow struct {
+	ID             ids.XID                     `json:"id"`
+	OrganizationID ids.XID                     `json:"organization_id"`
+	SchoolYearID   ids.XID                     `json:"school_year_id"`
+	ProgramID      ids.XID                     `json:"program_id"`
+	SurveyID       *ids.XID                    `json:"survey_id"`
+	StudentID      ids.XID                     `json:"student_id"`
+	Channel        PreferenceSubmissionChannel `json:"channel"`
+	ActorType      AuditActorType              `json:"actor_type"`
+	ActorUserID    *ids.XID                    `json:"actor_user_id"`
+	ActorAdultID   *ids.XID                    `json:"actor_adult_id"`
+	ActorLabel     string                      `json:"actor_label"`
+	SubmittedAt    pgtype.Timestamptz          `json:"submitted_at"`
+	CreatedAt      pgtype.Timestamptz          `json:"created_at"`
+}
+
+func (q *Queries) CreateInterestProfileSurveySubmission(ctx context.Context, arg CreateInterestProfileSurveySubmissionParams) (CreateInterestProfileSurveySubmissionRow, error) {
+	row := q.db.QueryRow(ctx, createInterestProfileSurveySubmission,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+		arg.ProgramID,
+		arg.SurveyID,
+		arg.StudentID,
+		arg.Channel,
+		arg.ActorType,
+		arg.ActorUserID,
+		arg.ActorAdultID,
+		arg.ActorLabel,
+	)
+	var i CreateInterestProfileSurveySubmissionRow
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.SchoolYearID,
+		&i.ProgramID,
+		&i.SurveyID,
 		&i.StudentID,
 		&i.Channel,
 		&i.ActorType,
@@ -221,7 +305,7 @@ func (q *Queries) FindInterestProfileResponseForRegistry(ctx context.Context, ar
 }
 
 const findInterestProfileSubmissionForRegistry = `-- name: FindInterestProfileSubmissionForRegistry :one
-select id, organization_id, school_year_id, program_id, student_id, channel, actor_type, actor_user_id, actor_adult_id, actor_label, submitted_at, created_at
+select id, organization_id, school_year_id, program_id, survey_id, student_id, channel, actor_type, actor_user_id, actor_adult_id, actor_label, submitted_at, created_at
 from interest_profile_submissions
 where id = $1 and organization_id = $2
 `
@@ -231,14 +315,31 @@ type FindInterestProfileSubmissionForRegistryParams struct {
 	OrganizationID ids.XID `json:"organization_id"`
 }
 
-func (q *Queries) FindInterestProfileSubmissionForRegistry(ctx context.Context, arg FindInterestProfileSubmissionForRegistryParams) (InterestProfileSubmission, error) {
+type FindInterestProfileSubmissionForRegistryRow struct {
+	ID             ids.XID                     `json:"id"`
+	OrganizationID ids.XID                     `json:"organization_id"`
+	SchoolYearID   ids.XID                     `json:"school_year_id"`
+	ProgramID      ids.XID                     `json:"program_id"`
+	SurveyID       *ids.XID                    `json:"survey_id"`
+	StudentID      ids.XID                     `json:"student_id"`
+	Channel        PreferenceSubmissionChannel `json:"channel"`
+	ActorType      AuditActorType              `json:"actor_type"`
+	ActorUserID    *ids.XID                    `json:"actor_user_id"`
+	ActorAdultID   *ids.XID                    `json:"actor_adult_id"`
+	ActorLabel     string                      `json:"actor_label"`
+	SubmittedAt    pgtype.Timestamptz          `json:"submitted_at"`
+	CreatedAt      pgtype.Timestamptz          `json:"created_at"`
+}
+
+func (q *Queries) FindInterestProfileSubmissionForRegistry(ctx context.Context, arg FindInterestProfileSubmissionForRegistryParams) (FindInterestProfileSubmissionForRegistryRow, error) {
 	row := q.db.QueryRow(ctx, findInterestProfileSubmissionForRegistry, arg.ID, arg.OrganizationID)
-	var i InterestProfileSubmission
+	var i FindInterestProfileSubmissionForRegistryRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
 		&i.SchoolYearID,
 		&i.ProgramID,
+		&i.SurveyID,
 		&i.StudentID,
 		&i.Channel,
 		&i.ActorType,
@@ -449,26 +550,43 @@ func (q *Queries) ListAllInterestProfileResponsesForRegistry(ctx context.Context
 }
 
 const listAllInterestProfileSubmissionsForRegistry = `-- name: ListAllInterestProfileSubmissionsForRegistry :many
-select id, organization_id, school_year_id, program_id, student_id, channel, actor_type, actor_user_id, actor_adult_id, actor_label, submitted_at, created_at
+select id, organization_id, school_year_id, program_id, survey_id, student_id, channel, actor_type, actor_user_id, actor_adult_id, actor_label, submitted_at, created_at
 from interest_profile_submissions
 where organization_id = $1
 order by school_year_id, program_id, student_id, submitted_at, id
 `
 
-func (q *Queries) ListAllInterestProfileSubmissionsForRegistry(ctx context.Context, organizationID ids.XID) ([]InterestProfileSubmission, error) {
+type ListAllInterestProfileSubmissionsForRegistryRow struct {
+	ID             ids.XID                     `json:"id"`
+	OrganizationID ids.XID                     `json:"organization_id"`
+	SchoolYearID   ids.XID                     `json:"school_year_id"`
+	ProgramID      ids.XID                     `json:"program_id"`
+	SurveyID       *ids.XID                    `json:"survey_id"`
+	StudentID      ids.XID                     `json:"student_id"`
+	Channel        PreferenceSubmissionChannel `json:"channel"`
+	ActorType      AuditActorType              `json:"actor_type"`
+	ActorUserID    *ids.XID                    `json:"actor_user_id"`
+	ActorAdultID   *ids.XID                    `json:"actor_adult_id"`
+	ActorLabel     string                      `json:"actor_label"`
+	SubmittedAt    pgtype.Timestamptz          `json:"submitted_at"`
+	CreatedAt      pgtype.Timestamptz          `json:"created_at"`
+}
+
+func (q *Queries) ListAllInterestProfileSubmissionsForRegistry(ctx context.Context, organizationID ids.XID) ([]ListAllInterestProfileSubmissionsForRegistryRow, error) {
 	rows, err := q.db.Query(ctx, listAllInterestProfileSubmissionsForRegistry, organizationID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []InterestProfileSubmission{}
+	items := []ListAllInterestProfileSubmissionsForRegistryRow{}
 	for rows.Next() {
-		var i InterestProfileSubmission
+		var i ListAllInterestProfileSubmissionsForRegistryRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrganizationID,
 			&i.SchoolYearID,
 			&i.ProgramID,
+			&i.SurveyID,
 			&i.StudentID,
 			&i.Channel,
 			&i.ActorType,
@@ -616,7 +734,7 @@ func (q *Queries) ListInterestProfileResponses(ctx context.Context, arg ListInte
 }
 
 const listInterestProfileSubmissions = `-- name: ListInterestProfileSubmissions :many
-select id, organization_id, school_year_id, program_id, student_id, channel, actor_type, actor_user_id, actor_adult_id, actor_label, submitted_at, created_at
+select id, organization_id, school_year_id, program_id, survey_id, student_id, channel, actor_type, actor_user_id, actor_adult_id, actor_label, submitted_at, created_at
 from interest_profile_submissions
 where organization_id = $1 and school_year_id = $2 and program_id = $3 and student_id = $4
 order by submitted_at, id
@@ -629,7 +747,23 @@ type ListInterestProfileSubmissionsParams struct {
 	StudentID      ids.XID `json:"student_id"`
 }
 
-func (q *Queries) ListInterestProfileSubmissions(ctx context.Context, arg ListInterestProfileSubmissionsParams) ([]InterestProfileSubmission, error) {
+type ListInterestProfileSubmissionsRow struct {
+	ID             ids.XID                     `json:"id"`
+	OrganizationID ids.XID                     `json:"organization_id"`
+	SchoolYearID   ids.XID                     `json:"school_year_id"`
+	ProgramID      ids.XID                     `json:"program_id"`
+	SurveyID       *ids.XID                    `json:"survey_id"`
+	StudentID      ids.XID                     `json:"student_id"`
+	Channel        PreferenceSubmissionChannel `json:"channel"`
+	ActorType      AuditActorType              `json:"actor_type"`
+	ActorUserID    *ids.XID                    `json:"actor_user_id"`
+	ActorAdultID   *ids.XID                    `json:"actor_adult_id"`
+	ActorLabel     string                      `json:"actor_label"`
+	SubmittedAt    pgtype.Timestamptz          `json:"submitted_at"`
+	CreatedAt      pgtype.Timestamptz          `json:"created_at"`
+}
+
+func (q *Queries) ListInterestProfileSubmissions(ctx context.Context, arg ListInterestProfileSubmissionsParams) ([]ListInterestProfileSubmissionsRow, error) {
 	rows, err := q.db.Query(ctx, listInterestProfileSubmissions,
 		arg.OrganizationID,
 		arg.SchoolYearID,
@@ -640,14 +774,15 @@ func (q *Queries) ListInterestProfileSubmissions(ctx context.Context, arg ListIn
 		return nil, err
 	}
 	defer rows.Close()
-	items := []InterestProfileSubmission{}
+	items := []ListInterestProfileSubmissionsRow{}
 	for rows.Next() {
-		var i InterestProfileSubmission
+		var i ListInterestProfileSubmissionsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrganizationID,
 			&i.SchoolYearID,
 			&i.ProgramID,
+			&i.SurveyID,
 			&i.StudentID,
 			&i.Channel,
 			&i.ActorType,

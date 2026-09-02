@@ -1,6 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { resourceApi } from "@/lib/apiResources";
+import {
+  resourceApi,
+  type InterestProfileSurveyInput,
+  type InterestProfileSurveyTransitionInput,
+} from "@/lib/apiResources";
 
 export const programsKey = (schoolYearID: string | undefined) =>
   ["programs", schoolYearID] as const;
@@ -37,6 +41,48 @@ export function useProgramInterestAreas(
     enabled: Boolean(schoolYearID && programID),
     queryKey: interestAreasKey(schoolYearID, programID),
     queryFn: () => resourceApi.listInterestAreas(schoolYearID as string, programID as string),
+    retry: false,
+  });
+}
+
+export const interestProfileSurveysKey = (
+  schoolYearID: string | undefined,
+  programID: string | undefined,
+) => [...programsKey(schoolYearID), programID, "interest-profile-surveys"] as const;
+
+export const interestProfileSurveyKey = (
+  schoolYearID: string | undefined,
+  programID: string | undefined,
+  surveyID: string | undefined,
+) => [...interestProfileSurveysKey(schoolYearID, programID), surveyID] as const;
+
+export function useInterestProfileSurveys(
+  schoolYearID: string | undefined,
+  programID: string | undefined,
+) {
+  return useQuery({
+    enabled: Boolean(schoolYearID && programID),
+    queryKey: interestProfileSurveysKey(schoolYearID, programID),
+    queryFn: () =>
+      resourceApi.listInterestProfileSurveys(schoolYearID as string, programID as string),
+    retry: false,
+  });
+}
+
+export function useInterestProfileSurvey(
+  schoolYearID: string | undefined,
+  programID: string | undefined,
+  surveyID: string | undefined,
+) {
+  return useQuery({
+    enabled: Boolean(schoolYearID && programID && surveyID),
+    queryKey: interestProfileSurveyKey(schoolYearID, programID, surveyID),
+    queryFn: () =>
+      resourceApi.getInterestProfileSurvey(
+        schoolYearID as string,
+        programID as string,
+        surveyID as string,
+      ),
     retry: false,
   });
 }
@@ -222,6 +268,72 @@ export function useCreateInterestArea(schoolYearID: string, programID: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: interestAreasKey(schoolYearID, programID) });
       queryClient.invalidateQueries({ queryKey: sessionsKey(schoolYearID, programID) });
+    },
+  });
+}
+
+export function useCreateInterestProfileSurvey(schoolYearID: string, programID: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (value: InterestProfileSurveyInput) =>
+      resourceApi.createInterestProfileSurvey(schoolYearID, programID, value),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: interestProfileSurveysKey(schoolYearID, programID) }),
+  });
+}
+
+export function useUpdateInterestProfileSurvey(schoolYearID: string, programID: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ surveyID, value }: { surveyID: string; value: InterestProfileSurveyInput }) =>
+      resourceApi.updateInterestProfileSurvey(schoolYearID, programID, surveyID, value),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: interestProfileSurveysKey(schoolYearID, programID) });
+      queryClient.invalidateQueries({
+        queryKey: interestProfileSurveyKey(schoolYearID, programID, variables.surveyID),
+      });
+    },
+  });
+}
+
+export function useDeleteInterestProfileSurvey(schoolYearID: string, programID: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (surveyID: string) =>
+      resourceApi.deleteInterestProfileSurvey(schoolYearID, programID, surveyID),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: interestProfileSurveysKey(schoolYearID, programID) }),
+  });
+}
+
+export function useTransitionInterestProfileSurvey(schoolYearID: string, programID: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      surveyID,
+      value,
+    }: {
+      surveyID: string;
+      value: InterestProfileSurveyTransitionInput;
+    }) => resourceApi.transitionInterestProfileSurvey(schoolYearID, programID, surveyID, value),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: interestProfileSurveysKey(schoolYearID, programID) });
+      queryClient.invalidateQueries({
+        queryKey: interestProfileSurveyKey(schoolYearID, programID, variables.surveyID),
+      });
+    },
+  });
+}
+
+export function useRegenerateInterestProfileSurveyCodes(schoolYearID: string, programID: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ surveyID, reason }: { surveyID: string; reason: string }) =>
+      resourceApi.regenerateInterestProfileSurveyCodes(schoolYearID, programID, surveyID, reason),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: interestProfileSurveyKey(schoolYearID, programID, variables.surveyID),
+      });
     },
   });
 }

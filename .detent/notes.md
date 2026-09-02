@@ -1,3 +1,12 @@
+## Current work — issue #185
+
+- Scope: admin-managed interest-profile surveys and lifecycle per SPEC §§13.5–13.6; dependency #184 is closed and merged on origin/main.
+- Key files: `backend/migrations/20260902090000_interest_profile_surveys.sql`, `backend/sql/queries/interest_profile_surveys.sql`, `backend/internal/data/survey.go`, `backend/internal/preference/survey.go`, API/program handlers, `frontend/src/lib/apiResources.ts`, and `frontend/src/features/programs/usePrograms.ts`.
+- Implementation: year-scoped survey definitions with ordered vocabulary questions, configurable frozen rating options, all/explicit/grade/response-state audiences, open-time audience snapshots, hashed high-entropy student codes, deadline-aware automatic close, reopen/regeneration semantics, survey-bound retained submissions, audit actions, API routes, generated sqlc/OpenAPI, and Layer 2 registry coverage.
+- Validation: focused survey lifecycle and empty-audience/deadline integration tests pass; backend format, lint/depguard, generated-code determinism, and `git diff --check` pass. Full backend race tests, migration round-trip, frontend gates, smoke, and all ten PR checks remain to be run after commit/push; local environment has historically lacked the migration URL/frontend tool cache and exhausted Docker address pools.
+- Open items: complete full validation, commit/push, open a non-draft PR referencing `Fixes #185`, verify current-head CI and review comments, then update the Workpad completion status.
+- Skill draft: no — the existing tenant-entity and PostgreSQL isolation-harness procedures cover the reusable method.
+
 ## Current work — issue #184
 
 - Scope: retained interest-profile and ranked-choice preference submissions per SPEC §§8.3, 13.1–13.5, 13.7; dependency #183 is closed and merged on origin/main.

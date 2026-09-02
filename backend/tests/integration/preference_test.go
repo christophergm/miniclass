@@ -7,6 +7,7 @@ import (
 
 	"github.com/chrismott/miniclass/internal/audit"
 	"github.com/chrismott/miniclass/internal/data"
+	"github.com/chrismott/miniclass/internal/ids"
 	"github.com/chrismott/miniclass/internal/people"
 	"github.com/chrismott/miniclass/internal/preference"
 	testharness "github.com/chrismott/miniclass/internal/testing"
@@ -117,6 +118,141 @@ func TestInvalidRankedChoiceSubmissionDoesNotReplaceValidResponse(t *testing.T) 
 	entries, err := harness.Database.ListAuditLog(ctx, string(organizationID), data.AuditLogFilter{ObjectType: &objectType, PageSize: 100})
 	require.NoError(t, err)
 	require.Len(t, entries, 1)
+}
+
+func TestInterestProfileSurveyLifecycleFreezesAudienceAndRetainsScale(t *testing.T) {
+	harness := testharness.Open(t)
+	ctx := harness.Context
+	organizationID := harness.MintOrganization(t)
+	actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "synthetic survey organizer"}
+	factory := factories.New(harness.Database, string(organizationID), actor)
+	fixture := createPreferenceFixture(t, harness, factory, "survey")
+	secondStudent, err := factory.CreateStudent(ctx, fixture.year.ID, people.StudentCreateInput{LegalGivenName: "Synthetic", LegalFamilyName: "Second Survey", GradeLevelID: &fixture.grade.ID, HomeroomID: fixture.student.HomeroomID})
+	require.NoError(t, err)
+	_, err = factory.AddProgramMembership(ctx, fixture.year.ID, fixture.program.ID, secondStudent.ID)
+	require.NoError(t, err)
+	service := preference.New(harness.Database)
+
+	survey, err := service.CreateInterestProfileSurvey(ctx, string(organizationID), actor, fixture.year.ID, fixture.program.ID, preference.InterestProfileSurveyInput{
+		Name:      "Synthetic Student Interest Survey",
+		Audience:  preference.InterestProfileSurveyAudienceInput{Type: data.SurveyAudienceAllMembers},
+		Questions: []preference.InterestProfileSurveyQuestionInput{{InterestAreaID: fixture.area.ID}},
+	})
+	require.NoError(t, err)
+	require.Equal(t, data.InterestProfileSurveyDraft, survey.Survey.State)
+	require.Len(t, survey.Questions, 1)
+	require.Equal(t, fixture.area.ID, survey.Questions[0].InterestAreaID)
+	require.Len(t, survey.ScaleOptions, 3)
+	require.Equal(t, "Very interested", survey.ScaleOptions[0].Label)
+
+	closingAt := time.Now().UTC().Add(time.Hour)
+	opened, err := service.TransitionInterestProfileSurvey(ctx, string(organizationID), actor, fixture.year.ID, fixture.program.ID, survey.Survey.ID, preference.InterestProfileSurveyTransitionInput{State: data.InterestProfileSurveyOpen, ClosingAt: &closingAt})
+	require.NoError(t, err)
+	require.Equal(t, data.InterestProfileSurveyOpen, opened.Survey.Survey.State)
+	require.Len(t, opened.Survey.AudienceSnapshot, 2)
+	require.Len(t, opened.AccessCodes, 2)
+	require.Empty(t, opened.Warnings)
+	codes := make(map[ids.XID]string, len(opened.AccessCodes))
+	for _, code := range opened.AccessCodes {
+		require.NotEmpty(t, code.Code)
+		codes[code.StudentID] = code.Code
+	}
+
+	thirdStudent, err := factory.CreateStudent(ctx, fixture.year.ID, people.StudentCreateInput{LegalGivenName: "Synthetic", LegalFamilyName: "Third Survey", GradeLevelID: &fixture.grade.ID, HomeroomID: fixture.student.HomeroomID})
+	require.NoError(t, err)
+	_, err = factory.AddProgramMembership(ctx, fixture.year.ID, fixture.program.ID, thirdStudent.ID)
+	require.NoError(t, err)
+	current, err := service.GetInterestProfileSurvey(ctx, string(organizationID), fixture.year.ID, fixture.program.ID, survey.Survey.ID)
+	require.NoError(t, err)
+	require.Len(t, current.AudienceSnapshot, 2, "opening must freeze the eligible audience")
+
+	_, err = service.UpdateInterestProfileSurvey(ctx, string(organizationID), actor, fixture.year.ID, fixture.program.ID, survey.Survey.ID, preference.InterestProfileSurveyUpdate{InterestProfileSurveyInput: preference.InterestProfileSurveyInput{
+		Name: "Changed after opening", Audience: preference.InterestProfileSurveyAudienceInput{Type: data.SurveyAudienceAllMembers}, Questions: []preference.InterestProfileSurveyQuestionInput{{InterestAreaID: fixture.secondArea.ID}},
+	}})
+	require.ErrorIs(t, err, preference.ErrSurveyDefinitionLocked)
+
+	closed, err := service.TransitionInterestProfileSurvey(ctx, string(organizationID), actor, fixture.year.ID, fixture.program.ID, survey.Survey.ID, preference.InterestProfileSurveyTransitionInput{State: data.InterestProfileSurveyClosed, Reason: "synthetic close"})
+	require.NoError(t, err)
+	require.Equal(t, data.InterestProfileSurveyClosed, closed.Survey.Survey.State)
+	_, err = service.SubmitInterestProfileSurvey(ctx, string(organizationID), actor, preference.InterestProfileSurveySubmissionInput{
+		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SurveyID: survey.Survey.ID, Code: codes[fixture.student.ID], Channel: data.PreferenceChannelStudentCode,
+		Answers: []data.InterestProfileAnswer{{InterestAreaID: fixture.area.ID, Rating: data.InterestProfileInterested}},
+	})
+	require.ErrorIs(t, err, preference.ErrSurveyNotAcceptingSubmissions)
+
+	reopenedClosingAt := time.Now().UTC().Add(2 * time.Hour)
+	reopened, err := service.TransitionInterestProfileSurvey(ctx, string(organizationID), actor, fixture.year.ID, fixture.program.ID, survey.Survey.ID, preference.InterestProfileSurveyTransitionInput{State: data.InterestProfileSurveyOpen, ClosingAt: &reopenedClosingAt, Reason: "synthetic reopen"})
+	require.NoError(t, err)
+	require.Equal(t, data.InterestProfileSurveyOpen, reopened.Survey.Survey.State)
+	require.Contains(t, reopened.Warnings, preference.SurveyWarningReopened)
+	require.Empty(t, reopened.AccessCodes, "reopening without regeneration reuses the existing codes")
+
+	firstSubmission, err := service.SubmitInterestProfileSurvey(ctx, string(organizationID), actor, preference.InterestProfileSurveySubmissionInput{
+		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SurveyID: survey.Survey.ID, Code: codes[fixture.student.ID], Channel: data.PreferenceChannelStudentCode,
+		Answers: []data.InterestProfileAnswer{{InterestAreaID: fixture.area.ID, Rating: data.InterestProfileVeryInterested}},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, firstSubmission.SurveyID)
+	require.Equal(t, survey.Survey.ID, *firstSubmission.SurveyID)
+
+	regenerated, err := service.RegenerateInterestProfileSurveyCodes(ctx, string(organizationID), actor, fixture.year.ID, fixture.program.ID, survey.Survey.ID, "synthetic regeneration")
+	require.NoError(t, err)
+	require.Len(t, regenerated, 2)
+	require.NotEqual(t, codes[fixture.student.ID], regenerated[0].Code)
+	_, err = service.SubmitInterestProfileSurvey(ctx, string(organizationID), actor, preference.InterestProfileSurveySubmissionInput{
+		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SurveyID: survey.Survey.ID, Code: codes[fixture.student.ID], Channel: data.PreferenceChannelStudentCode,
+		Answers: []data.InterestProfileAnswer{{InterestAreaID: fixture.area.ID, Rating: data.InterestProfileInterested}},
+	})
+	require.ErrorIs(t, err, preference.ErrSurveyCodeInvalid)
+
+	err = service.DeleteInterestProfileSurvey(ctx, string(organizationID), actor, fixture.year.ID, fixture.program.ID, survey.Survey.ID)
+	require.ErrorIs(t, err, preference.ErrSurveyHasSubmissions)
+
+	priorSurveyID := survey.Survey.ID
+	notResponded := data.SurveyNotResponded
+	secondSurvey, err := service.CreateInterestProfileSurvey(ctx, string(organizationID), actor, fixture.year.ID, fixture.program.ID, preference.InterestProfileSurveyInput{
+		Name:      "Synthetic Follow-up Survey",
+		Audience:  preference.InterestProfileSurveyAudienceInput{Type: data.SurveyAudienceResponseState, PriorSurveyID: &priorSurveyID, ResponseState: &notResponded},
+		Questions: []preference.InterestProfileSurveyQuestionInput{{InterestAreaID: fixture.secondArea.ID}},
+	})
+	require.NoError(t, err)
+	secondOpenedClosingAt := time.Now().UTC().Add(time.Hour)
+	secondOpened, err := service.TransitionInterestProfileSurvey(ctx, string(organizationID), actor, fixture.year.ID, fixture.program.ID, secondSurvey.Survey.ID, preference.InterestProfileSurveyTransitionInput{State: data.InterestProfileSurveyOpen, ClosingAt: &secondOpenedClosingAt})
+	require.NoError(t, err)
+	require.Len(t, secondOpened.Survey.AudienceSnapshot, 1)
+	require.Equal(t, thirdStudent.ID, secondOpened.Survey.AudienceSnapshot[0].StudentID)
+}
+
+func TestInterestProfileSurveyAllowsEmptyAudienceAndStopsAtDeadline(t *testing.T) {
+	harness := testharness.Open(t)
+	ctx := harness.Context
+	organizationID := harness.MintOrganization(t)
+	actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "synthetic empty survey organizer"}
+	factory := factories.New(harness.Database, string(organizationID), actor)
+	fixture := createPreferenceFixture(t, harness, factory, "empty survey")
+	service := preference.New(harness.Database)
+	survey, err := service.CreateInterestProfileSurvey(ctx, string(organizationID), actor, fixture.year.ID, fixture.program.ID, preference.InterestProfileSurveyInput{
+		Name:      "Synthetic Empty Audience Survey",
+		Audience:  preference.InterestProfileSurveyAudienceInput{Type: data.SurveyAudienceExplicitStudents},
+		Questions: []preference.InterestProfileSurveyQuestionInput{{InterestAreaID: fixture.area.ID}},
+	})
+	require.NoError(t, err)
+	closingAt := time.Now().UTC().Add(10 * time.Millisecond)
+	opened, err := service.TransitionInterestProfileSurvey(ctx, string(organizationID), actor, fixture.year.ID, fixture.program.ID, survey.Survey.ID, preference.InterestProfileSurveyTransitionInput{State: data.InterestProfileSurveyOpen, ClosingAt: &closingAt})
+	require.NoError(t, err)
+	require.Contains(t, opened.Warnings, preference.SurveyWarningEmptyAudience)
+	require.Empty(t, opened.Survey.AudienceSnapshot)
+	require.Empty(t, opened.AccessCodes)
+
+	time.Sleep(20 * time.Millisecond)
+	current, err := service.GetInterestProfileSurvey(ctx, string(organizationID), fixture.year.ID, fixture.program.ID, survey.Survey.ID)
+	require.NoError(t, err)
+	require.Equal(t, data.InterestProfileSurveyClosed, current.Survey.State)
+	_, err = service.SubmitInterestProfileSurvey(ctx, string(organizationID), actor, preference.InterestProfileSurveySubmissionInput{
+		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SurveyID: survey.Survey.ID, Code: "not-issued", Channel: data.PreferenceChannelStudentCode,
+		Answers: []data.InterestProfileAnswer{{InterestAreaID: fixture.area.ID, Rating: data.InterestProfileInterested}},
+	})
+	require.ErrorIs(t, err, preference.ErrSurveyNotAcceptingSubmissions)
 }
 
 type preferenceFixture struct {

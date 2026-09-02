@@ -1,7 +1,12 @@
 -- name: CreateInterestProfileSubmission :one
 insert into interest_profile_submissions (organization_id, school_year_id, program_id, student_id, channel, actor_type, actor_user_id, actor_adult_id, actor_label)
 values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-returning id, organization_id, school_year_id, program_id, student_id, channel, actor_type, actor_user_id, actor_adult_id, actor_label, submitted_at, created_at;
+returning id, organization_id, school_year_id, program_id, survey_id, student_id, channel, actor_type, actor_user_id, actor_adult_id, actor_label, submitted_at, created_at;
+
+-- name: CreateInterestProfileSurveySubmission :one
+insert into interest_profile_submissions (organization_id, school_year_id, program_id, survey_id, student_id, channel, actor_type, actor_user_id, actor_adult_id, actor_label)
+values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+returning id, organization_id, school_year_id, program_id, survey_id, student_id, channel, actor_type, actor_user_id, actor_adult_id, actor_label, submitted_at, created_at;
 
 -- name: CreateInterestProfileResponse :one
 insert into interest_profile_responses (organization_id, school_year_id, program_id, submission_id, interest_area_id, response)
@@ -9,7 +14,7 @@ values ($1, $2, $3, $4, $5, $6)
 returning id, organization_id, school_year_id, program_id, submission_id, interest_area_id, response, created_at;
 
 -- name: ListInterestProfileSubmissions :many
-select id, organization_id, school_year_id, program_id, student_id, channel, actor_type, actor_user_id, actor_adult_id, actor_label, submitted_at, created_at
+select id, organization_id, school_year_id, program_id, survey_id, student_id, channel, actor_type, actor_user_id, actor_adult_id, actor_label, submitted_at, created_at
 from interest_profile_submissions
 where organization_id = $1 and school_year_id = $2 and program_id = $3 and student_id = $4
 order by submitted_at, id;
@@ -62,13 +67,13 @@ order by submitted_at desc, id desc
 limit 1;
 
 -- name: ListAllInterestProfileSubmissionsForRegistry :many
-select id, organization_id, school_year_id, program_id, student_id, channel, actor_type, actor_user_id, actor_adult_id, actor_label, submitted_at, created_at
+select id, organization_id, school_year_id, program_id, survey_id, student_id, channel, actor_type, actor_user_id, actor_adult_id, actor_label, submitted_at, created_at
 from interest_profile_submissions
 where organization_id = $1
 order by school_year_id, program_id, student_id, submitted_at, id;
 
 -- name: FindInterestProfileSubmissionForRegistry :one
-select id, organization_id, school_year_id, program_id, student_id, channel, actor_type, actor_user_id, actor_adult_id, actor_label, submitted_at, created_at
+select id, organization_id, school_year_id, program_id, survey_id, student_id, channel, actor_type, actor_user_id, actor_adult_id, actor_label, submitted_at, created_at
 from interest_profile_submissions
 where id = $1 and organization_id = $2;
 
