@@ -1,6 +1,7 @@
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useOutletContext, useParams } from "react-router-dom";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ModalForm } from "@/components/ui/modal-form";
@@ -748,9 +749,9 @@ export function InterestProfileSurveysPage() {
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="font-semibold">{survey.name}</h2>
-                  <span className="rounded-full bg-secondary px-2 py-1 text-xs font-medium">
+                  <Badge variant={survey.state === "open" ? "success" : "secondary"}>
                     {stateLabel(survey.state)}
-                  </span>
+                  </Badge>
                 </div>
                 <p className="mt-2 text-sm text-muted-foreground">
                   {survey.questions?.length ?? 0} areas · {survey.active_codes?.length ?? 0} active

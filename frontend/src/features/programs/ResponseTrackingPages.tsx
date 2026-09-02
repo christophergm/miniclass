@@ -9,6 +9,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -55,6 +56,13 @@ function percent(value: number) {
 
 function stateLabel(value: string) {
   return value.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function responseTrackingBadgeVariant(state: string) {
+  if (state === "open" || state === "voting_open") return "success";
+  if (state === "catalog_published" || state === "published") return "info";
+  if (state === "voting_closed" || state === "assigning") return "warning";
+  return "secondary";
 }
 
 export function ResponseTrackingIndexPage() {
@@ -116,9 +124,9 @@ export function ResponseTrackingIndexPage() {
               >
                 <div className="min-w-0">
                   <span className="font-medium">{summary.instrument_name}</span>
-                  <span className="ml-2 text-sm text-muted-foreground">
+                  <Badge className="ml-2" variant={responseTrackingBadgeVariant(summary.state)}>
                     {stateLabel(summary.state)}
-                  </span>
+                  </Badge>
                 </div>
                 <span className="shrink-0 text-sm text-muted-foreground">
                   <span className="font-semibold text-foreground">
@@ -145,9 +153,9 @@ export function ResponseTrackingIndexPage() {
               >
                 <div className="min-w-0">
                   <span className="font-medium">{summary.instrument_name}</span>
-                  <span className="ml-2 text-sm text-muted-foreground">
+                  <Badge className="ml-2" variant={responseTrackingBadgeVariant(summary.state)}>
                     {stateLabel(summary.state)}
-                  </span>
+                  </Badge>
                 </div>
                 <span className="shrink-0 text-sm text-muted-foreground">
                   <span className="font-semibold text-foreground">

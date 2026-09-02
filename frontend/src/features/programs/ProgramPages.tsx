@@ -9,6 +9,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ModalForm } from "@/components/ui/modal-form";
@@ -121,6 +122,13 @@ function ReadOnlyNotice() {
 }
 function stateLabel(value: string) {
   return value.replace(/_/g, " ").replace(/\b\w/g, (letter: string) => letter.toUpperCase());
+}
+
+function sessionBadgeVariant(state: string) {
+  if (state === "catalog_published" || state === "published") return "info";
+  if (state === "voting_open") return "success";
+  if (state === "voting_closed" || state === "assigning") return "warning";
+  return "secondary";
 }
 
 function percent(value: number) {
@@ -627,9 +635,9 @@ export function ProgramDetailPage() {
                     <h3 className="font-medium">{session.name}</h3>
                   </Link>
                   <div className="flex flex-col items-start gap-2">
-                    <span className="rounded-full bg-secondary px-2 py-1 text-xs">
+                    <Badge variant={sessionBadgeVariant(session.state)}>
                       {stateLabel(session.state)}
-                    </span>
+                    </Badge>
                     {session.ranked_choice &&
                       session.state === "voting_open" &&
                       responseTracking && (
