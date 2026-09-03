@@ -337,4 +337,4 @@ issue lifecycle.
 
 ## License
 
-TBD
+Mini Class Planner is licensed under the [MIT License](./LICENSE).
