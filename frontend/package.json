@@ -19,6 +19,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@radix-ui/react-collapsible": "^1.1.12",
     "@radix-ui/react-popover": "^1.1.23",
     "@radix-ui/react-slot": "^1.2.3",
     "@supabase/supabase-js": "2.112.4",

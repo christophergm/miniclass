@@ -110,6 +110,47 @@ describe("ImportPage", () => {
     expect(screen.getByRole("button", { name: "Commit import" })).toBeDisabled();
   });
 
+  it("collapses Update, Conflict, and Error record lists by default", () => {
+    const result = preview({
+      counts: { ...emptyCounts, update: 1, conflict: 1, error: 1 },
+      rows: [
+        {
+          number: 1,
+          source_external_identifier: "update-1",
+          outcome: "Update",
+          records: [{ record_type: "student", source_external_identifier: "update-1", outcome: "Update" }],
+        },
+        {
+          number: 2,
+          source_external_identifier: "conflict-1",
+          outcome: "Conflict",
+          records: [{ record_type: "student", source_external_identifier: "conflict-1", outcome: "Conflict" }],
+        },
+        {
+          number: 3,
+          source_external_identifier: "error-1",
+          outcome: "Error",
+          records: [{ record_type: "student", source_external_identifier: "error-1", outcome: "Error" }],
+        },
+      ],
+    });
+    setup(result);
+    renderImport();
+
+    fireEvent.change(screen.getByLabelText("Adults and Students JSON document"), {
+      target: { files: [new File(["source"], "roster.json", { type: "application/json" })] },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Preview Adults and Students JSON file" }));
+
+    for (const title of ["Update records", "Conflict records", "Error records"]) {
+      const trigger = screen.getByRole("button", { name: new RegExp(`${title} \\(`) });
+      expect(trigger).toHaveAttribute("aria-expanded", "false");
+    }
+    expect(screen.getByRole("button", { name: "Update records (1)" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Conflict records (1)" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Error records (1)" })).toBeInTheDocument();
+  });
+
   it("puts guardian removals in their own clearly labelled section", () => {
     const result = preview({
       guardian_relationship_removals: [

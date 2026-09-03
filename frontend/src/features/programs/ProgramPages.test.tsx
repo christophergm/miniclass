@@ -265,7 +265,15 @@ vi.mock("@/lib/hooks/useVocabulary", () => ({
   })),
 }));
 vi.mock("@/features/people/roster-queries", () => ({
-  usePeople: vi.fn(() => ({ data: [], isLoading: false, isError: false, error: null })),
+  usePeople: vi.fn((kind: string) => ({
+    data:
+      kind === "student"
+        ? [{ id: "student-1" }, { id: "student-2" }]
+        : [],
+    isLoading: false,
+    isError: false,
+    error: null,
+  })),
 }));
 
 const year = (state: SchoolYear["state"]): SchoolYear => ({
@@ -492,10 +500,10 @@ describe("program year entry", () => {
     expect(screen.getByRole("heading", { name: "Programs" })).toBeInTheDocument();
   });
 
-  it("routes a year with one program to that program home", () => {
+  it("renders the programs list at the year URL when there is one program", () => {
     renderProgramYearEntry();
 
-    expect(screen.getByText("Program detail")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Programs" })).toBeInTheDocument();
   });
 
   it("renders the programs list at the year URL when there are multiple programs", () => {
@@ -539,6 +547,13 @@ describe("program navigation", () => {
     renderProgram();
 
     expect(screen.getByRole("heading", { name: "Sessions" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Students" })).toBeInTheDocument();
+    expect(screen.getByText("1")).toBeInTheDocument();
+    expect(screen.getByText("out of 2 in 2026–27")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Manage students/ })).toHaveAttribute(
+      "href",
+      "/y/year-1/programs/program-1/settings/membership",
+    );
     expect(screen.getByRole("link", { name: "Program settings" })).toHaveAttribute(
       "href",
       "/y/year-1/programs/program-1/settings",
@@ -583,7 +598,13 @@ describe("program navigation", () => {
     renderMembership();
 
     expect(screen.getByRole("heading", { name: "Membership" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Programme membership" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Program membership" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "2026–27" })).toHaveAttribute("href", "/y/year-1");
+    expect(screen.getByRole("link", { name: "Enrichment" })).toHaveAttribute(
+      "href",
+      "/y/year-1/programs/program-1",
+    );
+    expect(screen.queryByRole("link", { name: "Settings" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Sessions" })).not.toBeInTheDocument();
   });
 });
