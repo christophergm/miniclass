@@ -146,7 +146,7 @@ describe("App routing", () => {
     );
   });
 
-  // The in-year catch-all used to render SchoolYearWorkspace, so /y/year-1/typo
+  // The in-year catch-all used to render the year settings page, so /y/year-1/typo
   // answered with the year's lifecycle controls. Reaching Close year or the
   // owner-only reopen from an address that matches no page is not a fallback.
   it("reports an unknown address inside a school year without offering its lifecycle controls", async () => {
@@ -241,7 +241,7 @@ describe("App routing", () => {
     expect(await screen.findByRole("heading", { name: "Riley Stone" })).toBeInTheDocument();
     expect(
       within(screen.getByRole("banner")).getByRole("link", { name: "2026–27" }),
-    ).toHaveAttribute("href", "/y/year-1/programs");
+    ).toHaveAttribute("href", "/y/year-1");
     expect(screen.queryByRole("heading", { name: "Add student" })).not.toBeInTheDocument();
   });
 });

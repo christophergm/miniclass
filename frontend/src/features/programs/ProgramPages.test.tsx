@@ -409,10 +409,13 @@ function renderProgramList(currentYear = year("active")) {
 }
 
 function renderProgramYearEntry() {
+  function ContextRoute() {
+    return <Outlet context={year("active")} />;
+  }
   return renderWithQueryClient(
     <MemoryRouter initialEntries={["/y/year-1"]}>
       <Routes>
-        <Route path="/y/:schoolYearId">
+        <Route element={<ContextRoute />} path="/y/:schoolYearId">
           <Route element={<ProgramYearEntryPage />} index />
           <Route element={<p>Programs list</p>} path="programs" />
           <Route element={<p>Program detail</p>} path="programs/:programId" />
@@ -482,11 +485,11 @@ describe("ProgramListPage", () => {
 });
 
 describe("program year entry", () => {
-  it("routes a year with no programs to the complete Programs list", () => {
+  it("renders the programs list at the year URL when there are no programs", () => {
     mocks.programs = [];
     renderProgramYearEntry();
 
-    expect(screen.getByText("Programs list")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Programs" })).toBeInTheDocument();
   });
 
   it("routes a year with one program to that program home", () => {
@@ -495,7 +498,7 @@ describe("program year entry", () => {
     expect(screen.getByText("Program detail")).toBeInTheDocument();
   });
 
-  it("routes a year with multiple programs to the complete Programs list", () => {
+  it("renders the programs list at the year URL when there are multiple programs", () => {
     mocks.programs = [
       ...mocks.programs,
       {
@@ -509,7 +512,7 @@ describe("program year entry", () => {
     ];
     renderProgramYearEntry();
 
-    expect(screen.getByText("Programs list")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Programs" })).toBeInTheDocument();
   });
 
   it("keeps the complete Programs list directly reachable", () => {
@@ -526,6 +529,12 @@ describe("program year entry", () => {
 });
 
 describe("program navigation", () => {
+  it("uses the school year as the program breadcrumb root", () => {
+    renderProgram();
+
+    expect(screen.getByRole("link", { name: "2026–27" })).toHaveAttribute("href", "/y/year-1");
+  });
+
   it("keeps the program home focused on sessions and links to settings", () => {
     renderProgram();
 

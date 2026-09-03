@@ -43,7 +43,7 @@ export function AppShell() {
               School years
             </Link>
             {year && (
-              <Link className="text-sm font-medium  hover:underline" to={`/y/${year.id}/programs`}>
+              <Link className="text-sm font-medium  hover:underline" to={`/y/${year.id}`}>
                 {year.label}
               </Link>
             )}

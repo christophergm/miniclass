@@ -71,6 +71,19 @@ beforeEach(() => {
 });
 
 describe("ImportPage", () => {
+  it("shows a card for each import type with an explanation", () => {
+    setup();
+    renderImport();
+
+    expect(screen.getByRole("heading", { name: "Roster JSON" })).toBeInTheDocument();
+    expect(
+      screen.getByText("Add or update students, adults, and their guardian relationships."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Grades CSV" })).toBeInTheDocument();
+    expect(screen.getByText("Update student grade levels from a CSV.")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Import kind")).not.toBeInTheDocument();
+  });
+
   it("links back to school-year settings from the breadcrumb", () => {
     setup();
     renderImport();
@@ -86,10 +99,10 @@ describe("ImportPage", () => {
     setup(result);
     renderImport();
 
-    fireEvent.change(screen.getByLabelText("Document"), {
+    fireEvent.change(screen.getByLabelText("Roster JSON document"), {
       target: { files: [new File(["source"], "roster.json", { type: "application/json" })] },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Preview file" }));
+    fireEvent.click(screen.getByRole("button", { name: "Preview Roster JSON file" }));
 
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Commit is disabled because 1 record is in Error",
@@ -112,10 +125,10 @@ describe("ImportPage", () => {
     setup(result);
     renderImport();
 
-    fireEvent.change(screen.getByLabelText("Document"), {
+    fireEvent.change(screen.getByLabelText("Roster JSON document"), {
       target: { files: [new File(["source"], "roster.json")] },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Preview file" }));
+    fireEvent.click(screen.getByRole("button", { name: "Preview Roster JSON file" }));
 
     expect(
       screen.getByRole("heading", { name: "Guardian relationship removals" }),
@@ -141,8 +154,8 @@ describe("ImportPage", () => {
     renderImport();
 
     const file = new File(["source"], "roster.json");
-    fireEvent.change(screen.getByLabelText("Document"), { target: { files: [file] } });
-    fireEvent.click(screen.getByRole("button", { name: "Preview file" }));
+    fireEvent.change(screen.getByLabelText("Roster JSON document"), { target: { files: [file] } });
+    fireEvent.click(screen.getByRole("button", { name: "Preview Roster JSON file" }));
     fireEvent.click(screen.getByRole("button", { name: "Commit import" }));
 
     expect(commitMutation.mutate).toHaveBeenCalledWith(
@@ -158,8 +171,8 @@ describe("ImportPage", () => {
     renderImport();
 
     const file = new File(["source"], "roster.json");
-    fireEvent.change(screen.getByLabelText("Document"), { target: { files: [file] } });
-    fireEvent.click(screen.getByRole("button", { name: "Preview file" }));
+    fireEvent.change(screen.getByLabelText("Roster JSON document"), { target: { files: [file] } });
+    fireEvent.click(screen.getByRole("button", { name: "Preview Roster JSON file" }));
     fireEvent.click(screen.getByRole("button", { name: "Commit import" }));
 
     expect(screen.getByRole("heading", { name: "Import committed" })).toBeInTheDocument();

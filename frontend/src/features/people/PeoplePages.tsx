@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom";
 
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -17,6 +25,7 @@ import {
   activeHomerooms,
   type GradeLevel,
   type Homeroom,
+  type SchoolYear,
 } from "@/lib/apiResources";
 import { useVocabulary } from "@/lib/hooks/useVocabulary";
 
@@ -62,6 +71,7 @@ export function AdultListPage() {
 
 export function PeopleListPage({ kind }: PageProps) {
   const { schoolYearId } = useParams<{ schoolYearId: string }>();
+  const year = useOutletContext<SchoolYear | undefined>();
   const copy = pageCopy[kind];
   const [includeDeleted, setIncludeDeleted] = useState(false);
   const peopleQuery = usePeople(kind, schoolYearId, { includeDeleted });
@@ -132,15 +142,22 @@ export function PeopleListPage({ kind }: PageProps) {
 
   return (
     <PageFrame>
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <Breadcrumb aria-label={`${copy.plural} breadcrumb`}>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link to={`/y/${schoolYearId}`}>{year?.label ?? "School year"}</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>{copy.plural}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+      <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <Link
-            className="text-sm font-medium text-primary hover:underline"
-            to={`/y/${schoolYearId}/settings`}
-          >
-            ← Back to Settings
-          </Link>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight">{copy.plural}</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">{copy.plural}</h1>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
             Manage the people in this school year.
           </p>

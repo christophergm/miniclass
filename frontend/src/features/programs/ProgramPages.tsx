@@ -320,18 +320,19 @@ export function ProgramYearEntryPage() {
     );
 
   const program = programs.data?.length === 1 ? programs.data[0] : undefined;
-  return (
-    <Navigate
-      replace
-      to={program ? `/y/${schoolYearId}/programs/${program.id}` : `/y/${schoolYearId}/programs`}
-    />
-  );
+  if (program) {
+    return <Navigate replace to={`/y/${schoolYearId}/programs/${program.id}`} />;
+  }
+
+  return <ProgramListPage />;
 }
 
 export function ProgramListPage() {
   const { schoolYearId } = useParams<{ schoolYearId: string }>();
   const year = useOutletContext<SchoolYear>();
   const programs = usePrograms(schoolYearId);
+  const students = usePeople("student", schoolYearId);
+  const adults = usePeople("adult", schoolYearId);
   const missingGrades = useMissingGradeCount(schoolYearId);
   const create = useCreateProgram(schoolYearId ?? "");
   const [name, setName] = useState("");
@@ -345,7 +346,13 @@ export function ProgramListPage() {
     );
   return (
     <PageFrame>
-      <p className="text-sm font-medium text-primary">Programs</p>
+      <Breadcrumb aria-label="School year breadcrumb">
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbPage>{year.label}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
       <div className="mt-2 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Programs</h1>
@@ -426,7 +433,7 @@ export function ProgramListPage() {
         </p>
       )}
       {!programs.isLoading && !programs.isError && (
-        <div className="mt-8 divide-y rounded-lg border bg-card shadow-sm">
+        <div className="mt-4 divide-y rounded-lg border bg-card shadow-sm">
           {(programs.data ?? []).map((program) => (
             <Link
               className="flex items-center justify-between gap-4 p-5 first:rounded-t-lg last:rounded-b-lg hover:bg-accent/50"
@@ -447,7 +454,7 @@ export function ProgramListPage() {
         </div>
       )}
 
-      <div className="mt-8 flex items-center gap-4">
+      <div className="mt-4 flex items-center gap-4">
         <Button
           disabled={readOnly}
           onClick={() => {
@@ -455,10 +462,39 @@ export function ProgramListPage() {
             setCreateOpen(true);
           }}
           type="button"
+          variant="outline"
         >
           Create program
         </Button>
       </div>
+
+      <section className="mt-10">
+        <h2 className="text-2xl font-semibold tracking-tight">People</h2>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <Link
+            className="rounded-lg border bg-card p-5 shadow-sm hover:bg-accent/50"
+            to={`/y/${schoolYearId}/students`}
+          >
+            <h3 className="font-semibold">Students</h3>
+            <p className="mt-3 text-3xl font-semibold">{students.data?.length ?? 0}</p>
+            <span className="mt-4 block text-sm font-medium text-primary">View students →</span>
+          </Link>
+          <Link
+            className="rounded-lg border bg-card p-5 shadow-sm hover:bg-accent/50"
+            to={`/y/${schoolYearId}/adults`}
+          >
+            <h3 className="font-semibold">Adults</h3>
+            <p className="mt-3 text-3xl font-semibold">{adults.data?.length ?? 0}</p>
+            <span className="mt-4 block text-sm font-medium text-primary">View adults →</span>
+          </Link>
+        </div>
+        <Link
+          className="mt-4 inline-block text-sm font-medium text-primary hover:underline"
+          to={`/y/${schoolYearId}/imports`}
+        >
+          Import records →
+        </Link>
+      </section>
     </PageFrame>
   );
 }
@@ -474,12 +510,14 @@ function ProgramBreadcrumb({
   programName: string;
   current: string;
 }) {
+  const year = useOutletContext<SchoolYear>();
+
   return (
     <Breadcrumb aria-label="Program breadcrumb">
       <BreadcrumbList>
         <BreadcrumbItem>
           <BreadcrumbLink asChild>
-            <Link to={`/y/${schoolYearId}/programs`}>Programs</Link>
+            <Link to={`/y/${schoolYearId}`}>{year.label}</Link>
           </BreadcrumbLink>
         </BreadcrumbItem>
         <BreadcrumbSeparator />
@@ -516,12 +554,14 @@ function ProgramSettingsBreadcrumb({
   programName: string;
   current: string;
 }) {
+  const year = useOutletContext<SchoolYear>();
+
   return (
     <Breadcrumb aria-label="Program breadcrumb">
       <BreadcrumbList>
         <BreadcrumbItem>
           <BreadcrumbLink asChild>
-            <Link to={`/y/${schoolYearId}/programs`}>Programs</Link>
+            <Link to={`/y/${schoolYearId}`}>{year.label}</Link>
           </BreadcrumbLink>
         </BreadcrumbItem>
         <BreadcrumbSeparator />
@@ -1249,8 +1289,8 @@ export function ProgramObjectiveWeightsPage() {
         backLabel="Back to settings"
         breadcrumb={
           <>
-            <Link className="hover:underline" to={`/y/${schoolYearId}/programs`}>
-              Programs
+            <Link className="hover:underline" to={`/y/${schoolYearId}`}>
+              {year.label}
             </Link>{" "}
             /{" "}
             <Link className="hover:underline" to={`/y/${schoolYearId}/programs/${programId}`}>
@@ -1368,8 +1408,8 @@ export function SessionObjectiveWeightsPage() {
         backLabel="Back to session"
         breadcrumb={
           <>
-            <Link className="hover:underline" to={`/y/${schoolYearId}/programs`}>
-              Programs
+            <Link className="hover:underline" to={`/y/${schoolYearId}`}>
+              {year.label}
             </Link>{" "}
             /{" "}
             <Link className="hover:underline" to={`/y/${schoolYearId}/programs/${programId}`}>
