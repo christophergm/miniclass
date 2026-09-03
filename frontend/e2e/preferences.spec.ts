@@ -93,6 +93,7 @@ test("a student can submit ranked choices on a phone", async ({ page }) => {
     session_name: "Autumn clubs",
     name: "Autumn club choices",
     student_id: "student-1",
+    student_name: "Synthetic Student",
     rank_depth: 1,
     offerings: [
       {
@@ -120,10 +121,13 @@ test("a student can submit ranked choices on a phone", async ({ page }) => {
   });
 
   await page.goto("/respond/sessions/year-1/program-1/session-1?organization_id=org-1&code=secret");
-  await expect(page.getByRole("heading", { name: form.name })).toBeVisible();
-  await page.locator("#answer-offering-1").selectOption("ranked");
-  await page.locator("#rank-offering-1").fill("1");
-  await page.getByRole("button", { name: "Save ranked choices" }).click();
+  await expect(
+    page.getByRole("heading", {
+      name: "Hi, Synthetic — move classes into the buckets to show how you feel.",
+    }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Move to Very interested" }).click();
+  await page.getByRole("button", { name: "Submit my choices" }).click();
 
   await expect
     .poll(() => submittedBody)

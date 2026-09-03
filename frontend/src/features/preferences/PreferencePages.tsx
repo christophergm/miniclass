@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Link, useSearchParams, useParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import {
   useGuardianPreferenceForms,
   usePrograms,
   useProgramMemberships,
+  useRankedChoiceResponseTracking,
   useSessions,
   useInterestProfileSurveys,
   useStudentCodeInterestProfileForm,
@@ -29,8 +30,14 @@ import {
 
 import { PreferenceFormEditor } from "./PreferenceForm";
 
-function PageFrame({ children }: { children: ReactNode }) {
-  return <main className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-10">{children}</main>;
+function PageFrame({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
+  return (
+    <main
+      className={`mx-auto w-full px-4 py-6 sm:px-6 sm:py-10 ${wide ? "max-w-[100rem]" : "max-w-3xl"}`}
+    >
+      {children}
+    </main>
+  );
 }
 
 function ErrorMessage({ error, fallback }: { error: unknown; fallback: string }) {
@@ -251,15 +258,22 @@ export function StudentCodeRankedChoicePage() {
     );
 
   return (
-    <PageFrame>
-      <PreferenceFormEditor
-        error={submit.error instanceof Error ? submit.error.message : null}
-        form={formQuery.data}
-        isSubmitting={submit.isPending}
-        onSubmit={(value) => submit.mutate(value as PreferenceRankedAnswerInput[])}
-        saved={submit.isSuccess}
-        submitLabel="Save ranked choices"
-      />
+    <PageFrame wide>
+      {submit.isSuccess ? (
+        <RankedChoiceDone
+          onRevise={() => submit.reset()}
+          sessionName={formQuery.data.session_name || formQuery.data.name}
+        />
+      ) : (
+        <PreferenceFormEditor
+          error={submit.error instanceof Error ? submit.error.message : null}
+          form={formQuery.data}
+          isSubmitting={submit.isPending}
+          onSubmit={(value) => submit.mutate(value as PreferenceRankedAnswerInput[])}
+          saved={false}
+          submitLabel="Submit my choices"
+        />
+      )}
     </PageFrame>
   );
 }
@@ -368,12 +382,118 @@ export function GuardianPreferencePage() {
   );
 }
 
+function ExistingResponseModal({
+  studentName,
+  onCancel,
+  onConfirm,
+}: {
+  studentName: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  useEffect(() => {
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") onCancel();
+    }
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [onCancel]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/60 p-4 backdrop-blur-sm"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onCancel();
+      }}
+    >
+      <div
+        aria-describedby="existing-response-description"
+        aria-labelledby="existing-response-title"
+        aria-modal="true"
+        className="w-full max-w-lg rounded-2xl border-4 border-stone-950 bg-[#fffaf0] p-6 text-stone-950 shadow-[8px_8px_0_#f2633b] sm:p-8"
+        role="dialog"
+      >
+        <h2 className="text-2xl font-black" id="existing-response-title">
+          Review {studentName}’s response?
+        </h2>
+        <p className="mt-4 font-medium text-stone-700" id="existing-response-description">
+          A response has already been submitted. You can open it to review the choices and submit an
+          updated response.
+        </p>
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <Button onClick={onCancel} type="button" variant="outline">
+            Cancel
+          </Button>
+          <Button
+            autoFocus
+            className="border-2 border-stone-950 bg-[#f2633b] font-black text-white shadow-[3px_3px_0_#1c1917] hover:bg-[#d94a24]"
+            onClick={onConfirm}
+            type="button"
+          >
+            Review response
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RankedChoiceDone({
+  sessionName,
+  onRevise,
+  administratorReturn,
+}: {
+  sessionName: string;
+  onRevise?: () => void;
+  administratorReturn?: string;
+}) {
+  return (
+    <section
+      className="flex min-h-[75vh] flex-col items-center justify-center text-center"
+      role="status"
+    >
+      <div className="text-7xl motion-safe:animate-bounce" aria-hidden="true">
+        🎉
+      </div>
+      <h1 className="mt-6 text-6xl font-black tracking-tight sm:text-8xl">Done!</h1>
+      <p className="mt-4 text-xl text-muted-foreground">
+        Your choices have been submitted for {sessionName}.
+      </p>
+      {onRevise && (
+        <button
+          className="mt-10 text-sm text-muted-foreground underline hover:text-foreground"
+          onClick={onRevise}
+          type="button"
+        >
+          Change my answers
+        </button>
+      )}
+      {administratorReturn && (
+        <Link
+          className="mt-12 text-xs text-muted-foreground/70 underline hover:text-foreground"
+          replace
+          to={administratorReturn}
+        >
+          Administrator: choose next student
+        </Link>
+      )}
+    </section>
+  );
+}
+
 export function AdministratorPreferencePage() {
   const yearsQuery = useSchoolYears();
-  const [schoolYearID, setSchoolYearID] = useState("");
-  const [programID, setProgramID] = useState("");
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [schoolYearID, setSchoolYearID] = useState(() => searchParams.get("year") ?? "");
+  const [programID, setProgramID] = useState(() => searchParams.get("program") ?? "");
   const [studentID, setStudentID] = useState("");
-  const [instrumentID, setInstrumentID] = useState("");
+  const [instrumentID, setInstrumentID] = useState(() => searchParams.get("session") ?? "");
+  const [studentSearch, setStudentSearch] = useState("");
+  const [studentFilter, setStudentFilter] = useState<"needs_response" | "submitted" | "all">(
+    "needs_response",
+  );
+  const [showReviewSubmittedResponseModal, setShowReviewSubmittedResponseModal] = useState(false);
   const programsQuery = usePrograms(schoolYearID || undefined);
   const membershipsQuery = useProgramMemberships(schoolYearID || undefined, programID || undefined);
   const studentsQuery = useQuery({
@@ -418,7 +538,42 @@ export function AdministratorPreferencePage() {
         }
       : null;
   }, [instrumentID, instruments, programID, schoolYearID, studentID]);
-  const formQuery = useAdministratorPreferenceForm(formInput);
+  const formQuery = useAdministratorPreferenceForm(
+    formInput?.type === "interest_profile" ? formInput : null,
+  );
+  const selectedInstrument = instruments.find((option) => option.id === instrumentID);
+  const selectedStudent = students.find((student) => student.id === studentID);
+  const trackingQuery = useRankedChoiceResponseTracking(
+    schoolYearID || undefined,
+    programID || undefined,
+    selectedInstrument?.type === "ranked_choice" ? instrumentID : undefined,
+  );
+  const nonResponderIDs = useMemo(
+    () => new Set((trackingQuery.data?.non_responders ?? []).map((student) => student.student_id)),
+    [trackingQuery.data],
+  );
+  const visibleStudents = useMemo(() => {
+    const duplicateNames = new Set(
+      students
+        .map((student) => student.display_name)
+        .filter((name, _index, names) => names.indexOf(name) !== names.lastIndexOf(name)),
+    );
+    return students
+      .filter((student) =>
+        student.display_name.toLowerCase().includes(studentSearch.trim().toLowerCase()),
+      )
+      .filter((student) => {
+        if (!trackingQuery.data || studentFilter === "all") return true;
+        const needsResponse = nonResponderIDs.has(student.id);
+        return studentFilter === "needs_response" ? needsResponse : !needsResponse;
+      })
+      .map((student) => ({
+        ...student,
+        pickerLabel: duplicateNames.has(student.display_name)
+          ? `${student.display_name} — ${student.grade_level_id ?? "Grade unassigned"}`
+          : student.display_name,
+      }));
+  }, [nonResponderIDs, studentFilter, studentSearch, students, trackingQuery.data]);
 
   useEffect(() => {
     if (!schoolYearID && years[0]) setSchoolYearID(years[0].id);
@@ -428,9 +583,15 @@ export function AdministratorPreferencePage() {
     setProgramID(programs[0]?.id ?? "");
   }, [programID, programs]);
   useEffect(() => {
-    if (studentID && students.some((student) => student.id === studentID)) return;
-    setStudentID(students[0]?.id ?? "");
+    if (studentID && !students.some((student) => student.id === studentID)) setStudentID("");
   }, [studentID, students]);
+  useEffect(() => {
+    const next = new URLSearchParams();
+    if (schoolYearID) next.set("year", schoolYearID);
+    if (programID) next.set("program", programID);
+    if (instrumentID) next.set("session", instrumentID);
+    setSearchParams(next, { replace: true });
+  }, [instrumentID, programID, schoolYearID, setSearchParams]);
   useEffect(() => {
     if (instrumentID && instruments.some((instrument) => instrument.id === instrumentID)) return;
     setInstrumentID(instruments[0]?.id ?? "");
@@ -488,22 +649,58 @@ export function AdministratorPreferencePage() {
               ))}
             </select>
           </label>
-          <label className="text-sm font-medium" htmlFor="admin-student">
-            Student
-            <select
-              className="mt-2 flex h-10 w-full rounded-md border bg-background px-3 text-sm"
-              id="admin-student"
-              onChange={(event) => setStudentID(event.target.value)}
-              value={studentID}
-            >
-              <option value="">Choose a student</option>
-              {students.map((student) => (
-                <option key={student.id} value={student.id}>
-                  {student.display_name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="sm:col-span-2">
+            <p className="text-sm font-medium">Student</p>
+            <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+              <Input
+                aria-label="Search students"
+                onChange={(event) => setStudentSearch(event.target.value)}
+                placeholder="Search students"
+                value={studentSearch}
+              />
+              <div className="flex rounded-md border p-1" aria-label="Student status filter">
+                {(["needs_response", "submitted", "all"] as const).map((filter) => (
+                  <button
+                    className={`rounded px-3 py-1.5 text-xs font-medium ${studentFilter === filter ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+                    key={filter}
+                    onClick={() => {
+                      setStudentFilter(filter);
+                      setStudentID("");
+                    }}
+                    type="button"
+                  >
+                    {filter === "needs_response"
+                      ? "Needs response"
+                      : filter === "submitted"
+                        ? "Submitted"
+                        : "All"}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="mt-3 max-h-64 space-y-2 overflow-y-auto" role="list">
+              {visibleStudents.map((student) => {
+                const submitted = Boolean(trackingQuery.data && !nonResponderIDs.has(student.id));
+                return (
+                  <button
+                    className={`flex w-full items-center justify-between rounded-md border p-3 text-left hover:bg-accent ${studentID === student.id ? "border-primary ring-2 ring-primary/20" : ""}`}
+                    key={student.id}
+                    onClick={() => setStudentID(student.id)}
+                    role="listitem"
+                    type="button"
+                  >
+                    <span className="font-medium">{student.pickerLabel}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {submitted ? "Submitted" : "Not started"}
+                    </span>
+                  </button>
+                );
+              })}
+              {visibleStudents.length === 0 && (
+                <p className="p-3 text-sm text-muted-foreground">No students match this view.</p>
+              )}
+            </div>
+          </div>
           <label className="text-sm font-medium sm:col-span-2" htmlFor="admin-instrument">
             Open survey
             <select
@@ -529,6 +726,38 @@ export function AdministratorPreferencePage() {
       )}
       {formQuery.error && (
         <ErrorMessage error={formQuery.error} fallback="Unable to load the selected form." />
+      )}
+      {selectedInstrument?.type === "ranked_choice" && studentID && (
+        <div className="mt-6 flex justify-end">
+          <Button
+            onClick={() => {
+              const existing = Boolean(trackingQuery.data && !nonResponderIDs.has(studentID));
+              if (existing) {
+                setShowReviewSubmittedResponseModal(true);
+                return;
+              }
+              navigate(
+                `/preferences/admin/kiosk?year=${encodeURIComponent(schoolYearID)}&program=${encodeURIComponent(programID)}&session=${encodeURIComponent(instrumentID)}&student=${encodeURIComponent(studentID)}`,
+              );
+            }}
+            type="button"
+          >
+            {trackingQuery.data && !nonResponderIDs.has(studentID)
+              ? `Review response for ${selectedStudent?.display_name ?? "selected student"}`
+              : `Start for ${selectedStudent?.display_name ?? "selected student"}`}
+          </Button>
+        </div>
+      )}
+      {showReviewSubmittedResponseModal && selectedStudent && (
+        <ExistingResponseModal
+          onCancel={() => setShowReviewSubmittedResponseModal(false)}
+          onConfirm={() =>
+            navigate(
+              `/preferences/admin/kiosk?year=${encodeURIComponent(schoolYearID)}&program=${encodeURIComponent(programID)}&session=${encodeURIComponent(instrumentID)}&student=${encodeURIComponent(studentID)}`,
+            )
+          }
+          studentName={selectedStudent.display_name}
+        />
       )}
       {form && (
         <div className="mt-6">
@@ -566,6 +795,121 @@ export function AdministratorPreferencePage() {
           />
         </div>
       )}
+    </PageFrame>
+  );
+}
+
+export function AdministratorRankedChoiceKioskPage() {
+  const [searchParams] = useSearchParams();
+  const [started, setStarted] = useState(false);
+  const year = searchParams.get("year") ?? "";
+  const program = searchParams.get("program") ?? "";
+  const session = searchParams.get("session") ?? "";
+  const student = searchParams.get("student") ?? "";
+  const returnPath = `/preferences/admin?year=${encodeURIComponent(year)}&program=${encodeURIComponent(program)}&session=${encodeURIComponent(session)}`;
+  const formQuery = useAdministratorPreferenceForm(
+    year && program && session && student
+      ? {
+          type: "ranked_choice",
+          school_year_id: year,
+          program_id: program,
+          instrument_id: session,
+          student_id: student,
+        }
+      : null,
+  );
+  const submit = useSubmitAdministratorRankedChoice();
+
+  if (!year || !program || !session || !student) {
+    return (
+      <PageFrame>
+        <ErrorMessage error={null} fallback="This kiosk link is incomplete." />
+        <Link
+          className="mt-4 inline-block text-sm font-medium text-primary hover:underline"
+          replace
+          to="/preferences/admin"
+        >
+          Back to student selection
+        </Link>
+      </PageFrame>
+    );
+  }
+  if (formQuery.isLoading)
+    return (
+      <PageFrame>
+        <p role="status">Preparing the student form…</p>
+      </PageFrame>
+    );
+  if (formQuery.error || !formQuery.data) {
+    return (
+      <PageFrame>
+        <ErrorMessage error={formQuery.error} fallback="Unable to prepare this student form." />
+        <Link
+          className="mt-4 inline-block text-sm font-medium text-primary hover:underline"
+          replace
+          to={returnPath}
+        >
+          Back to student selection
+        </Link>
+      </PageFrame>
+    );
+  }
+  if (submit.isSuccess)
+    return (
+      <PageFrame wide>
+        <RankedChoiceDone
+          administratorReturn={returnPath}
+          sessionName={formQuery.data.session_name || formQuery.data.name}
+        />
+      </PageFrame>
+    );
+  if (!started) {
+    return (
+      <PageFrame>
+        <section className="flex min-h-[70vh] flex-col items-center justify-center text-center">
+          <h1 className="mt-3 text-4xl font-black tracking-tight sm:text-6xl">
+            Ready for {formQuery.data.student_name}
+          </h1>
+          <p className="mt-4 max-w-md text-xl text-muted-foreground">
+            Hand the device to the student, then have them press Start.
+          </p>
+          <Button
+            className="mt-8 min-h-14 px-10 text-xl"
+            onClick={() => setStarted(true)}
+            type="button"
+          >
+            Start
+          </Button>
+          <Link
+            className="mt-8 text-sm text-muted-foreground underline hover:text-foreground"
+            replace
+            to={returnPath}
+          >
+            Choose someone else
+          </Link>
+        </section>
+      </PageFrame>
+    );
+  }
+
+  return (
+    <PageFrame wide>
+      <PreferenceFormEditor
+        error={submit.error instanceof Error ? submit.error.message : null}
+        form={formQuery.data}
+        isSubmitting={submit.isPending}
+        onSubmit={(value) =>
+          submit.mutate({
+            schoolYearID: year,
+            programID: program,
+            sessionID: session,
+            studentID: student,
+            responses: value as PreferenceRankedAnswerInput[],
+          })
+        }
+        saved={false}
+        submitLabel="Submit my choices"
+      />
     </PageFrame>
   );
 }

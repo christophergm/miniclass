@@ -3167,7 +3167,7 @@
             "type": "string"
           },
           "student_name": {
-            "description": "Shown only to guardians and administrators.",
+            "description": "Shown to the student identified by a ranked-choice code, guardians and administrators.",
             "type": "string"
           },
           "submitted_at": {

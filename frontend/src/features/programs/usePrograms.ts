@@ -360,7 +360,16 @@ export function useSubmitAdministratorRankedChoice() {
         studentID,
         responses,
       ),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["administrator-preference-form"] }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["administrator-preference-form"] });
+      queryClient.invalidateQueries({
+        queryKey: [
+          ...sessionsKey(variables.schoolYearID, variables.programID),
+          variables.sessionID,
+          "response-tracking",
+        ],
+      });
+    },
   });
 }
 
