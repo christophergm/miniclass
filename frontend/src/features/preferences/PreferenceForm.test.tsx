@@ -1,103 +1,88 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { PreferenceForm } from "@/lib/apiResources";
 
 import { PreferenceFormEditor } from "./PreferenceForm";
 
-const interestForm = {
-  type: "interest_profile",
-  id: "survey-1",
-  school_year_id: "year-1",
-  program_id: "program-1",
-  program_name: "Clubs",
-  name: "Interest profile",
-  introduction: "Tell us what sounds fun.",
-  student_id: "student-1",
-  questions: [
-    { interest_area_id: "area-1", label: "Making things", ordinal: 1 },
-    { interest_area_id: "area-2", label: "Being outside", ordinal: 2 },
-  ],
-  scale_options: [
-    { value: "very_interested", label: "Very interested", ordinal: 1 },
-    { value: "interested", label: "Interested", ordinal: 2 },
-    { value: "not_interested", label: "Not interested", ordinal: 3 },
-  ],
-  interest_answers: [],
-} as PreferenceForm;
-
 const rankedForm = {
   type: "ranked_choice",
   id: "session-1",
-  session_id: "session-1",
   school_year_id: "year-1",
   program_id: "program-1",
   program_name: "Clubs",
-  session_name: "Autumn clubs",
-  name: "Autumn clubs",
+  name: "Activity choices",
   student_id: "student-1",
-  rank_depth: 2,
+  student_name: "Synthetic Student",
+  rank_depth: 1,
   offerings: [
     {
       id: "offering-1",
-      name: "Robotics",
-      description: "Build a robot.",
+      name: "Art",
+      description: "Make colorful art.",
+      location: "",
+      meeting_point: "",
+      meeting_instructions: "",
+      meeting_dates: [],
       min_grade_level_id: "grade-1",
       max_grade_level_id: "grade-6",
-      location: "Room 1",
-      meeting_point: "Library",
-      meeting_instructions: "Meet at the library.",
-      meeting_dates: [],
     },
     {
       id: "offering-2",
-      name: "Art",
-      description: "Make art.",
+      name: "Robotics",
+      description: "Build a robot.",
+      location: "",
+      meeting_point: "",
+      meeting_instructions: "",
+      meeting_dates: [],
       min_grade_level_id: "grade-1",
       max_grade_level_id: "grade-6",
-      location: "Room 2",
-      meeting_point: "Art room",
-      meeting_instructions: "Meet in the art room.",
-      meeting_dates: [],
     },
   ],
   ranked_answers: [],
 } as PreferenceForm;
 
-describe("PreferenceFormEditor", () => {
-  it("keeps the mobile interest form incomplete until every area has a response", () => {
-    const onSubmit = vi.fn();
-    render(<PreferenceFormEditor form={interestForm} onSubmit={onSubmit} />);
+function renderForm(onSubmit = vi.fn()) {
+  render(
+    <PreferenceFormEditor form={rankedForm} onSubmit={onSubmit} submitLabel="Submit my choices" />,
+  );
+  return onSubmit;
+}
 
-    const save = screen.getByRole("button", { name: "Save preferences" });
-    expect(save).toBeDisabled();
-    fireEvent.click(screen.getAllByLabelText("Very interested", { selector: "input" })[0]);
-    expect(save).toBeDisabled();
-    fireEvent.click(screen.getAllByLabelText("Interested", { selector: "input" })[1]);
-    expect(save).toBeEnabled();
-    fireEvent.click(save);
+describe("ranked choice preference form", () => {
+  it("serializes bucket choices and confirms unanswered offerings", () => {
+    const onSubmit = renderForm();
+    const art = screen.getByRole("heading", { name: "Art" }).closest("article");
+    expect(art).not.toBeNull();
 
+    fireEvent.click(within(art as HTMLElement).getByRole("button", { name: "Move to Interested" }));
+    fireEvent.click(screen.getByRole("button", { name: "Submit my choices" }));
+
+    expect(screen.getByText("1 class is left unanswered.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Yes, save these preferences" }));
     expect(onSubmit).toHaveBeenCalledWith([
-      { interest_area_id: "area-1", rating: "very_interested" },
-      { interest_area_id: "area-2", rating: "interested" },
+      { offering_id: "offering-1", answer: "interested" },
+      { offering_id: "offering-2", answer: "no_response" },
     ]);
   });
 
-  it("collects a complete ranked course guide with unique mobile positions", () => {
-    const onSubmit = vi.fn();
-    render(<PreferenceFormEditor form={rankedForm} onSubmit={onSubmit} />);
+  it("returns the lowest favorite to unanswered when the rank limit is full", () => {
+    renderForm();
+    const art = screen.getByRole("heading", { name: "Art" }).closest("article");
+    const robotics = screen.getByRole("heading", { name: "Robotics" }).closest("article");
+    expect(art).not.toBeNull();
+    expect(robotics).not.toBeNull();
 
-    const responseSelects = screen.getAllByLabelText("Response", { selector: "select" });
-    fireEvent.change(responseSelects[0], { target: { value: "ranked" } });
-    fireEvent.change(responseSelects[1], { target: { value: "interested" } });
-    fireEvent.change(screen.getByLabelText("Position"), { target: { value: "1" } });
-    const save = screen.getByRole("button", { name: "Save preferences" });
-    expect(save).toBeEnabled();
-    fireEvent.click(save);
+    fireEvent.click(
+      within(art as HTMLElement).getByRole("button", { name: "Move to Very interested" }),
+    );
+    fireEvent.click(
+      within(robotics as HTMLElement).getByRole("button", { name: "Move to Very interested" }),
+    );
 
-    expect(onSubmit).toHaveBeenCalledWith([
-      { offering_id: "offering-1", answer: "ranked", rank: 1 },
-      { offering_id: "offering-2", answer: "interested" },
-    ]);
+    const favorites = screen.getByRole("region", { name: "Very interested" });
+    const unanswered = screen.getByRole("region", { name: "Not answered" });
+    expect(within(favorites).getByRole("heading", { name: "Robotics" })).toBeInTheDocument();
+    expect(within(unanswered).getByRole("heading", { name: "Art" })).toBeInTheDocument();
   });
 });

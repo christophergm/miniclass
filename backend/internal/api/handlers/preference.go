@@ -67,7 +67,7 @@ type PreferenceFormResponse struct {
 	Name            string                                 `json:"name"`
 	Introduction    string                                 `json:"introduction,omitempty"`
 	StudentID       string                                 `json:"student_id" doc:"Opaque student identifier bound to this form."`
-	StudentName     string                                 `json:"student_name,omitempty" doc:"Shown only to guardians and administrators."`
+	StudentName     string                                 `json:"student_name,omitempty" doc:"Shown to the student identified by a ranked-choice code, guardians and administrators."`
 	ClosesAt        *time.Time                             `json:"closes_at,omitempty" format:"date-time"`
 	RankDepth       int                                    `json:"rank_depth,omitempty"`
 	Questions       []PreferenceFormQuestionResponse       `json:"questions,omitempty"`
@@ -332,7 +332,7 @@ func (h *PreferenceHandler) StudentCodeRankedForm(ctx context.Context, input *Ra
 	if err != nil {
 		return nil, preferenceProblem(err)
 	}
-	return &PreferenceFormOutput{Body: preferenceFormResponse(form, false)}, nil
+	return &PreferenceFormOutput{Body: preferenceFormResponse(form, true)}, nil
 }
 
 func (h *PreferenceHandler) StudentCodeRankedSubmit(ctx context.Context, input *RankedChoiceStudentCodeSubmitInput) (*PreferenceFormOutput, error) {
@@ -348,7 +348,7 @@ func (h *PreferenceHandler) StudentCodeRankedSubmit(ctx context.Context, input *
 	if err != nil {
 		return nil, preferenceProblem(err)
 	}
-	return &PreferenceFormOutput{Body: preferenceFormResponse(form, false)}, nil
+	return &PreferenceFormOutput{Body: preferenceFormResponse(form, true)}, nil
 }
 
 func (h *PreferenceHandler) GuardianInterestSubmit(ctx context.Context, input *InterestProfileGuardianSubmitInput) (*PreferenceFormOutput, error) {

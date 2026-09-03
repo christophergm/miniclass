@@ -82,3 +82,4 @@ and not readable as a set.
 | [0013](./0013-guardian-and-volunteer-access.md) | Guardian and volunteer access mechanics | Open |
 | [0014](./0014-roster-ingest-scope-and-source-authority.md) | Roster ingest scope and source authority | Accepted |
 | [0015](./0015-year-scoped-attribute-vocabularies.md) | Grade and homeroom vocabularies are scoped to the school year | Accepted |
+| [0016](./0016-ranked-choice-response-model.md) | Ranked choices distinguish order, acceptability, objection and absence | Accepted |

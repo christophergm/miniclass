@@ -48,6 +48,7 @@ import {
 } from "@/features/programs/ResponseTrackingPages";
 import {
   AdministratorPreferencePage,
+  AdministratorRankedChoiceKioskPage,
   GuardianPreferencePage,
   StudentCodeInterestProfilePage,
   StudentCodeRankedChoicePage,
@@ -91,6 +92,7 @@ function AppRoutes() {
       />
       <Route path="/mfa" element={<MfaPage />} />
       <Route element={<ProtectedRoute />}>
+        <Route path="/preferences/admin/kiosk" element={<AdministratorRankedChoiceKioskPage />} />
         <Route element={<AppShell />}>
           <Route path="/years" element={<SchoolYearListPage />} />
 
