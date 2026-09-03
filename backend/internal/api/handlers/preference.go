@@ -606,6 +606,8 @@ func preferenceProblem(err error) error {
 		return nil
 	case errors.Is(err, preference.ErrSurveyCodeInvalid), errors.Is(err, preference.ErrRankedChoiceCodeInvalid):
 		return problems.New(http.StatusNotFound, problems.ResourceNotFound, "the preference access code is invalid or revoked")
+	case errors.Is(err, preference.ErrPreferenceStudentNotProgramMember):
+		return problems.New(http.StatusBadRequest, problems.ProgramConflict, "the selected student is not included in the selected program")
 	case errors.Is(err, preference.ErrPreferenceFormNotAvailable), errors.Is(err, preference.ErrSurveyNotAcceptingSubmissions), errors.Is(err, preference.ErrRankedChoiceNotAccepting), errors.Is(err, preference.ErrRankedChoiceDeadlinePassed):
 		return problems.New(http.StatusConflict, problems.ProgramConflict, "this preference form is no longer accepting submissions")
 	case errors.Is(err, preference.ErrPreferenceStudentOutOfScope), errors.Is(err, preference.ErrRankedChoiceGuardianScope), errors.Is(err, preference.ErrSurveyStudentExcluded), errors.Is(err, preference.ErrRankedChoiceStudentExcluded):
