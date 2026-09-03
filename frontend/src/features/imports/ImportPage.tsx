@@ -1,6 +1,8 @@
 import { useState, type ChangeEvent, type ReactNode } from "react";
 import { Link, useOutletContext, useParams } from "react-router-dom";
+import { ChevronDown } from "lucide-react";
 
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -56,11 +58,13 @@ function Panel({
   count,
   children,
   tone = "default",
+  collapsible = false,
 }: {
   title: string;
   count?: number;
   children: ReactNode;
   tone?: "default" | "warning" | "danger";
+  collapsible?: boolean;
 }) {
   const headingId = `${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-heading`;
   const toneClass =
@@ -69,16 +73,33 @@ function Panel({
       : tone === "warning"
         ? "border-amber-200 bg-amber-50"
         : "bg-card";
+  const header = (
+    <div className="flex items-baseline gap-2">
+      <h2 className="font-semibold" id={headingId}>
+        {title}
+        {count !== undefined && <span className="font-bold"> ({count})</span>}
+      </h2>
+    </div>
+  );
+  if (collapsible) {
+    return (
+      <Collapsible className={`rounded-lg border shadow-sm ${toneClass}`} defaultOpen={false}>
+        <CollapsibleTrigger className="group flex w-full cursor-pointer items-baseline p-5 text-left">
+          {header}
+          <ChevronDown
+            aria-hidden="true"
+            className="ml-auto h-4 w-4 shrink-0 transition-transform group-data-[state=open]:rotate-180"
+          />
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="px-5 pb-5">{children}</div>
+        </CollapsibleContent>
+      </Collapsible>
+    );
+  }
   return (
     <section aria-labelledby={headingId} className={`rounded-lg border p-5 shadow-sm ${toneClass}`}>
-      <div className="flex items-baseline justify-between gap-4">
-        <h2 className="font-semibold" id={headingId}>
-          {title}
-        </h2>
-        {count !== undefined && (
-          <span className="text-sm font-medium text-muted-foreground">{count}</span>
-        )}
-      </div>
+      {header}
       {children}
     </section>
   );
@@ -233,6 +254,7 @@ function OutcomeRows({ preview, outcome }: { preview: ImportPreview; outcome: Ou
       title={`${outcome} records`}
       count={rows.length}
       tone={outcome === "Error" ? "danger" : outcome === "Conflict" ? "warning" : "default"}
+      collapsible={outcome === "Update" || outcome === "Conflict" || outcome === "Error"}
     >
       <div className="mt-4 space-y-3">
         {rows.map((row) => (

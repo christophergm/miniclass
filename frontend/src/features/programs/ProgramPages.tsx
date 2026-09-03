@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
-import { Link, Navigate, useOutletContext, useParams } from "react-router-dom";
+import { Link, useOutletContext, useParams } from "react-router-dom";
 
 import {
   Breadcrumb,
@@ -319,11 +319,6 @@ export function ProgramYearEntryPage() {
       </PageFrame>
     );
 
-  const program = programs.data?.length === 1 ? programs.data[0] : undefined;
-  if (program) {
-    return <Navigate replace to={`/y/${schoolYearId}/programs/${program.id}`} />;
-  }
-
   return <ProgramListPage />;
 }
 
@@ -597,6 +592,8 @@ export function ProgramDetailPage() {
   const programs = usePrograms(schoolYearId);
   const selected = programs.data?.find((program) => program.id === programId);
   const sessions = useSessions(schoolYearId, programId);
+  const memberships = useProgramMemberships(schoolYearId, programId);
+  const students = usePeople("student", schoolYearId);
   const responseTrackingSummaries = useResponseTrackingSummaries(schoolYearId, programId);
   const createSession = useCreateSession(schoolYearId ?? "", programId ?? "");
   const updateSession = useUpdateSession(schoolYearId ?? "", programId ?? "");
@@ -749,6 +746,22 @@ export function ProgramDetailPage() {
           />
         </ModalForm>
       </Card>
+      <Card title="Students" description="Students included in this program.">
+        <Link
+          className="block rounded-md hover:bg-accent/50"
+          to={`/y/${schoolYearId}/programs/${programId}/settings/membership`}
+        >
+          <div className="mt-3 flex items-baseline gap-2">
+            <p className="text-3xl font-semibold">{memberships.data?.length ?? 0}</p>
+            <span className="text-sm text-muted-foreground">
+              out of {students.data?.length ?? 0} in {year.label}
+            </span>
+          </div>
+          <span className="mt-4 block text-sm font-medium text-primary">
+            Membership →
+          </span>
+        </Link>
+      </Card>
     </PageFrame>
   );
 }
@@ -842,7 +855,7 @@ export function ProgramMembershipPage() {
     );
   return (
     <PageFrame>
-      <ProgramSettingsBreadcrumb
+      <ProgramBreadcrumb
         current="Membership"
         programId={programId}
         programName={selected?.name ?? "Program"}
@@ -856,7 +869,7 @@ export function ProgramMembershipPage() {
         </p>
       </div>
       {readOnly && <ReadOnlyNotice />}
-      <Card title="Programme membership">
+      <Card title="Program membership">
         <form
           className="mt-4 flex gap-3"
           onSubmit={(event) => {
