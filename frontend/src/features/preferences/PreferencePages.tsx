@@ -14,6 +14,7 @@ import {
   useAdministratorPreferenceForm,
   useGuardianPreferenceForms,
   usePrograms,
+  useProgramMemberships,
   useSessions,
   useInterestProfileSurveys,
   useStudentCodeInterestProfileForm,
@@ -372,9 +373,9 @@ export function AdministratorPreferencePage() {
   const [schoolYearID, setSchoolYearID] = useState("");
   const [programID, setProgramID] = useState("");
   const [studentID, setStudentID] = useState("");
-  const [type, setType] = useState<"interest_profile" | "ranked_choice">("interest_profile");
   const [instrumentID, setInstrumentID] = useState("");
   const programsQuery = usePrograms(schoolYearID || undefined);
+  const membershipsQuery = useProgramMemberships(schoolYearID || undefined, programID || undefined);
   const studentsQuery = useQuery({
     enabled: Boolean(schoolYearID),
     queryKey: ["preference-students", schoolYearID],
@@ -383,32 +384,41 @@ export function AdministratorPreferencePage() {
   });
   const surveysQuery = useInterestProfileSurveys(schoolYearID || undefined, programID || undefined);
   const sessionsQuery = useSessions(schoolYearID || undefined, programID || undefined);
-  const formInput = useMemo(
-    () =>
-      schoolYearID && programID && studentID && instrumentID
-        ? {
-            type,
-            school_year_id: schoolYearID,
-            program_id: programID,
-            instrument_id: instrumentID,
-            student_id: studentID,
-          }
-        : null,
-    [instrumentID, programID, schoolYearID, studentID, type],
-  );
-  const formQuery = useAdministratorPreferenceForm(formInput);
   const interestSubmit = useSubmitAdministratorInterestProfile();
   const rankedSubmit = useSubmitAdministratorRankedChoice();
   const years = useMemo(() => yearsQuery.data ?? [], [yearsQuery.data]);
   const programs = useMemo(() => programsQuery.data ?? [], [programsQuery.data]);
-  const students = useMemo(() => studentsQuery.data ?? [], [studentsQuery.data]);
+  const students = useMemo(() => {
+    if (!programID) return [];
+    const memberIDs = new Set(
+      (membershipsQuery.data ?? []).map((membership) => membership.student_id),
+    );
+    return (studentsQuery.data ?? []).filter((student) => memberIDs.has(student.id));
+  }, [membershipsQuery.data, programID, studentsQuery.data]);
   const instruments = useMemo(
-    () =>
-      type === "interest_profile"
-        ? (surveysQuery.data ?? []).filter((survey) => survey.state === "open")
-        : (sessionsQuery.data ?? []).filter((session) => session.state === "voting_open"),
-    [sessionsQuery.data, surveysQuery.data, type],
+    () => [
+      ...(surveysQuery.data ?? [])
+        .filter((survey) => survey.state === "open")
+        .map((survey) => ({ id: survey.id, name: survey.name, type: "interest_profile" as const })),
+      ...(sessionsQuery.data ?? [])
+        .filter((session) => session.state === "voting_open")
+        .map((session) => ({ id: session.id, name: session.name, type: "ranked_choice" as const })),
+    ],
+    [sessionsQuery.data, surveysQuery.data],
   );
+  const formInput = useMemo(() => {
+    const instrument = instruments.find((option) => option.id === instrumentID);
+    return schoolYearID && programID && studentID && instrument
+      ? {
+          type: instrument.type,
+          school_year_id: schoolYearID,
+          program_id: programID,
+          instrument_id: instrument.id,
+          student_id: studentID,
+        }
+      : null;
+  }, [instrumentID, instruments, programID, schoolYearID, studentID]);
+  const formQuery = useAdministratorPreferenceForm(formInput);
 
   useEffect(() => {
     if (!schoolYearID && years[0]) setSchoolYearID(years[0].id);
@@ -426,19 +436,14 @@ export function AdministratorPreferencePage() {
     setInstrumentID(instruments[0]?.id ?? "");
   }, [instrumentID, instruments]);
 
-  function changeType(next: "interest_profile" | "ranked_choice") {
-    setType(next);
-    setInstrumentID("");
-  }
-
   const form = formQuery.data;
   return (
     <PageFrame>
       <div>
         <h1 className="mt-1 text-3xl font-semibold tracking-tight">Submit preferences</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Choose a student and an open instrument. This records your administrator account as the
-          actor on the student’s behalf.
+          Choose a student and an open survey. This records your administrator account as the actor
+          on the student’s behalf.
         </p>
       </div>
       <section className="mt-8 rounded-lg border bg-card p-5 shadow-sm">
@@ -499,27 +504,15 @@ export function AdministratorPreferencePage() {
               ))}
             </select>
           </label>
-          <label className="text-sm font-medium" htmlFor="admin-type">
-            Instrument type
-            <select
-              className="mt-2 flex h-10 w-full rounded-md border bg-background px-3 text-sm"
-              id="admin-type"
-              onChange={(event) => changeType(event.target.value as typeof type)}
-              value={type}
-            >
-              <option value="interest_profile">Interest profile</option>
-              <option value="ranked_choice">Ranked choice</option>
-            </select>
-          </label>
           <label className="text-sm font-medium sm:col-span-2" htmlFor="admin-instrument">
-            Open instrument
+            Open survey
             <select
               className="mt-2 flex h-10 w-full rounded-md border bg-background px-3 text-sm"
               id="admin-instrument"
               onChange={(event) => setInstrumentID(event.target.value)}
               value={instrumentID}
             >
-              <option value="">Choose an open instrument</option>
+              <option value="">Choose an open survey</option>
               {instruments.map((instrument) => (
                 <option key={instrument.id} value={instrument.id}>
                   {instrument.name}

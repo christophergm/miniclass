@@ -372,7 +372,7 @@ func ensureRankedChoiceParticipant(ctx context.Context, tx *data.Tx, schoolYearI
 		}
 	}
 	if !found {
-		return ErrRankedChoiceStudentExcluded
+		return ErrPreferenceStudentNotProgramMember
 	}
 	nonParticipations, err := tx.ListSessionNonParticipations(ctx, schoolYearID, programID, sessionID)
 	if err != nil {

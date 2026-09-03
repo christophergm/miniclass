@@ -8,6 +8,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestPreferenceProblemReportsWhenStudentIsNotInProgram(t *testing.T) {
+	problem := preferenceProblem(preference.ErrPreferenceStudentNotProgramMember)
+	require.Error(t, problem)
+	require.Contains(t, problem.Error(), "selected student is not included in the selected program")
+	require.NotContains(t, problem.Error(), "no longer accepting submissions")
+}
+
 func TestPreferenceFormResponseHidesRosterNameFromStudentCodeRespondents(t *testing.T) {
 	form := preference.PreferenceForm{
 		Type:         preference.FormTypeInterestProfile,

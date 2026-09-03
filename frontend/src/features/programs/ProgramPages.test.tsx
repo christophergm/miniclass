@@ -550,7 +550,7 @@ describe("program navigation", () => {
     expect(screen.getByRole("heading", { name: "Students" })).toBeInTheDocument();
     expect(screen.getByText("1")).toBeInTheDocument();
     expect(screen.getByText("out of 2 in 2026–27")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Manage students/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Membership/ })).toHaveAttribute(
       "href",
       "/y/year-1/programs/program-1/settings/membership",
     );

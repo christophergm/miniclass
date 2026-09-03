@@ -23,8 +23,9 @@ const (
 )
 
 var (
-	ErrPreferenceFormNotAvailable  = errors.New("preference form is not available")
-	ErrPreferenceStudentOutOfScope = errors.New("student is outside the respondent scope")
+	ErrPreferenceFormNotAvailable        = errors.New("preference form is not available")
+	ErrPreferenceStudentNotProgramMember = errors.New("student is not a member of the selected program")
+	ErrPreferenceStudentOutOfScope       = errors.New("student is outside the respondent scope")
 )
 
 // PreferenceForm is deliberately smaller than the administrator survey view.
@@ -116,6 +117,9 @@ func (s *Service) GetInterestProfileForm(ctx context.Context, organizationID str
 		if err != nil {
 			return err
 		}
+		if err := ensureProgramStudent(ctx, tx, schoolYearID, programID, studentID); err != nil {
+			return err
+		}
 		program, err := tx.GetProgram(ctx, schoolYearID, programID)
 		if err != nil {
 			return err
@@ -182,6 +186,9 @@ func (s *Service) GetRankedChoiceForm(ctx context.Context, organizationID string
 		}
 		student, err := tx.GetStudentByID(ctx, schoolYearID, studentID)
 		if err != nil {
+			return err
+		}
+		if err := ensureProgramStudent(ctx, tx, schoolYearID, programID, studentID); err != nil {
 			return err
 		}
 		program, err := tx.GetProgram(ctx, schoolYearID, programID)
@@ -310,6 +317,19 @@ func (s *Service) ListGuardianPreferenceForms(ctx context.Context, organizationI
 	return result, nil
 }
 
+func ensureProgramStudent(ctx context.Context, tx *data.Tx, schoolYearID, programID, studentID ids.XID) error {
+	memberships, err := tx.ListProgramMemberships(ctx, schoolYearID, programID)
+	if err != nil {
+		return err
+	}
+	for _, membership := range memberships {
+		if membership.StudentID == studentID {
+			return nil
+		}
+	}
+	return ErrPreferenceStudentNotProgramMember
+}
+
 func interestProfileForm(ctx context.Context, tx *data.Tx, survey data.InterestProfileSurvey, programName string, student data.Student) (PreferenceForm, error) {
 	now := time.Now().UTC()
 	if effectiveSurveyState(survey, now) != data.InterestProfileSurveyOpen || survey.OpensAt == nil || now.Before(*survey.OpensAt) || survey.ClosesAt == nil || !now.Before(*survey.ClosesAt) {
@@ -431,6 +451,9 @@ func containsStudent(values []ids.XID, wanted ids.XID) bool {
 }
 
 func ensureSurveyStudent(ctx context.Context, tx *data.Tx, schoolYearID, programID, surveyID, studentID ids.XID) error {
+	if err := ensureProgramStudent(ctx, tx, schoolYearID, programID, studentID); err != nil {
+		return err
+	}
 	snapshot, err := tx.ListInterestProfileSurveyAudienceSnapshot(ctx, schoolYearID, programID, surveyID)
 	if err != nil {
 		return err

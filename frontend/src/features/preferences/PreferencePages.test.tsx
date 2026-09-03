@@ -20,6 +20,7 @@ vi.mock("@/features/programs/usePrograms", () => ({
   })),
   useInterestProfileSurveys: vi.fn(() => ({ data: [], isLoading: false, error: null })),
   usePrograms: vi.fn(() => ({ data: [], isLoading: false, error: null })),
+  useProgramMemberships: vi.fn(() => ({ data: [], isLoading: false, error: null })),
   useSessions: vi.fn(() => ({ data: [], isLoading: false, error: null })),
   useStudentCodeInterestProfileForm: vi.fn(() => ({
     data: mocks.studentForm,
