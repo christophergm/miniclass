@@ -435,7 +435,6 @@ export function AdministratorPreferencePage() {
   return (
     <PageFrame>
       <div>
-        <p className="text-sm font-medium text-primary">Administration</p>
         <h1 className="mt-1 text-3xl font-semibold tracking-tight">Submit preferences</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Choose a student and an open instrument. This records your administrator account as the

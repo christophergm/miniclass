@@ -1,6 +1,6 @@
 import { StrictMode } from "react";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/lib/api";
@@ -174,12 +174,18 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+function YearContextRoute() {
+  return <Outlet context={{ label: "2026–27" }} />;
+}
+
 function renderStudents(path = "/y/year-1/students") {
   return renderWithQueryClient(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
-        <Route path="/y/:schoolYearId/students" element={<StudentListPage />} />
-        <Route path="/y/:schoolYearId/students/:personId" element={<StudentDetailPage />} />
+        <Route element={<YearContextRoute />} path="/y/:schoolYearId">
+          <Route path="students" element={<StudentListPage />} />
+          <Route path="students/:personId" element={<StudentDetailPage />} />
+        </Route>
       </Routes>
     </MemoryRouter>,
   );
@@ -189,8 +195,10 @@ function renderAdults(path = "/y/year-1/adults") {
   return renderWithQueryClient(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
-        <Route path="/y/:schoolYearId/adults" element={<AdultListPage />} />
-        <Route path="/y/:schoolYearId/adults/:personId" element={<AdultDetailPage />} />
+        <Route element={<YearContextRoute />} path="/y/:schoolYearId">
+          <Route path="adults" element={<AdultListPage />} />
+          <Route path="adults/:personId" element={<AdultDetailPage />} />
+        </Route>
       </Routes>
     </MemoryRouter>,
   );

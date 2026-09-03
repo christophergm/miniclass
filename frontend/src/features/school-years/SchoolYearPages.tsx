@@ -1,6 +1,14 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Link, Outlet, useOutletContext, useParams } from "react-router-dom";
 
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +16,8 @@ import { ModalForm } from "@/components/ui/modal-form";
 import { ApiError } from "@/lib/api";
 import type { SchoolYear, SchoolYearState } from "@/lib/apiResources";
 import { useIsOwner } from "@/lib/hooks/useAccount";
+
+import { VocabularyContent } from "@/features/vocabulary/VocabularyPage";
 
 import {
   useCreateSchoolYear,
@@ -259,7 +269,19 @@ export function SchoolYearSettingsPage() {
 
   return (
     <PageFrame>
-      <p className="text-sm font-medium text-primary">School-year settings</p>
+      <Breadcrumb aria-label="School year settings breadcrumb">
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link to={`/y/${year.id}`}>{year.label}</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>Settings</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Settings</h1>
@@ -402,59 +424,9 @@ export function SchoolYearSettingsPage() {
         </div>
       </ModalForm>
 
-      <div className="flex items-center justify-between">
-        <div className="mt-8 grid w-full grid-cols-1 gap-4 md:grid-cols-2">
-          <Link
-            className="rounded-lg border bg-card p-5 shadow-sm hover:bg-accent/50"
-            to={`/y/${year.id}/vocabulary`}
-          >
-            <h2 className="font-semibold">Manage grades and homerooms</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Manage grades and homerooms for this school year.
-            </p>
-            <span className="mt-5 block text-sm font-medium text-primary">
-              Open Grades and Homerooms →
-            </span>
-          </Link>
-
-          <Link
-            className="rounded-lg border bg-card p-5 shadow-sm hover:bg-accent/50"
-            to={`/y/${year.id}/imports`}
-          >
-            <h2 className="font-semibold">Import roster or grades</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Import students, adults and grades from files.
-            </p>
-            <span className="mt-5 block text-sm font-medium text-primary">Import →</span>
-          </Link>
-
-          <Link
-            className="rounded-lg border bg-card p-5 shadow-sm hover:bg-accent/50"
-            to={`/y/${year.id}/students`}
-          >
-            <h2 className="font-semibold">Student roster</h2>
-            <p className="mt-2 text-sm text-muted-foreground">View students and edit manually</p>
-            <span className="mt-5 block text-sm font-medium text-primary">View students →</span>
-          </Link>
-
-          <Link
-            className="rounded-lg border bg-card p-5 shadow-sm hover:bg-accent/50"
-            to={`/y/${year.id}/adults`}
-          >
-            <h2 className="font-semibold">Adult roster</h2>
-            <p className="mt-2 text-sm text-muted-foreground">View adults and edit manually</p>
-            <span className="mt-5 block text-sm font-medium text-primary">View adults →</span>
-          </Link>
-        </div>
-      </div>
+      <VocabularyContent showReadOnlyNotice={false} year={year} />
     </PageFrame>
   );
-}
-
-// Keep the old export for focused callers that still refer to the pre-settings
-// name; the routed destination is now explicitly the year Settings page.
-export function SchoolYearWorkspace() {
-  return <SchoolYearSettingsPage />;
 }
 
 export function SchoolYearNotFound() {

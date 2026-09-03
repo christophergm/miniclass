@@ -10,7 +10,7 @@ import {
   SchoolYearGuard,
   SchoolYearLayout,
   SchoolYearListPage,
-  SchoolYearWorkspace,
+  SchoolYearSettingsPage,
 } from "./SchoolYearPages";
 import {
   useCreateSchoolYear,
@@ -24,6 +24,20 @@ vi.mock("./useSchoolYears", () => ({
   useSchoolYear: vi.fn(),
   useCreateSchoolYear: vi.fn(),
   useUpdateSchoolYear: vi.fn(),
+}));
+
+vi.mock("@/lib/hooks/useVocabulary", () => ({
+  useVocabulary: vi.fn(() => ({
+    data: {
+      school_year_id: "year-test",
+      homeroom_label: "Homeroom",
+      grade_levels: [],
+      homerooms: [],
+    },
+    isLoading: false,
+    isError: false,
+    error: null,
+  })),
 }));
 
 vi.mock("@/lib/apiResources", async (importOriginal) => {
@@ -63,7 +77,7 @@ function renderWorkspace() {
     <MemoryRouter initialEntries={["/y/year-test"]}>
       <Routes>
         <Route element={<SchoolYearGuard />} path="/y/:schoolYearId">
-          <Route element={<SchoolYearWorkspace />} index />
+          <Route element={<SchoolYearSettingsPage />} index />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -113,7 +127,7 @@ beforeEach(() => {
   vi.mocked(resourceApi.getMe).mockResolvedValue(account("Owner"));
 });
 
-describe("SchoolYearWorkspace", () => {
+describe("SchoolYearSettingsPage", () => {
   it("opens the edit modal for a closed year and submits an owner reason when reopening", async () => {
     const mutate = vi.fn();
     mockQuery(useUpdateSchoolYear, { mutate, isPending: false, isError: false, error: null });
@@ -205,7 +219,7 @@ describe("SchoolYearWorkspace", () => {
     expect(mutate).toHaveBeenCalledWith({ label: "2026–27" }, expect.anything());
   });
 
-  it("links the year workspace to its vocabulary", () => {
+  it("includes vocabulary management in the year settings", () => {
     mockQuery(useSchoolYear, {
       data: year({ state: "active" }),
       isLoading: false,
@@ -214,14 +228,14 @@ describe("SchoolYearWorkspace", () => {
     });
     renderWorkspace();
 
-    expect(screen.getByRole("link", { name: /Manage grades and homerooms/ })).toHaveAttribute(
-      "href",
-      "/y/year-test/vocabulary",
-    );
-    expect(screen.getByRole("link", { name: /Import roster or grades/ })).toHaveAttribute(
-      "href",
-      "/y/year-test/imports",
-    );
+    expect(
+      screen.getByRole("navigation", { name: "School year settings breadcrumb" }),
+    ).toHaveTextContent("2025–26Settings");
+    expect(screen.getByRole("link", { name: "2025–26" })).toHaveAttribute("href", "/y/year-test");
+    expect(screen.getByRole("heading", { name: "Grades and homerooms" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /Manage grades and homerooms/ }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Organisation settings" })).not.toBeInTheDocument();
   });
 

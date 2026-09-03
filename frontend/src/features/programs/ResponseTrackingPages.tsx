@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useOutletContext, useParams } from "react-router-dom";
 
 import {
   Breadcrumb,
@@ -18,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { ResponseTracking } from "@/lib/apiResources";
+import type { ResponseTracking, SchoolYear } from "@/lib/apiResources";
 import { useProgramName } from "./useProgramName";
 import {
   useInterestProfileResponseTracking,
@@ -71,6 +71,7 @@ export function ResponseTrackingIndexPage() {
     programId: string;
   }>();
   const programName = useProgramName(schoolYearId, programId);
+  const year = useOutletContext<SchoolYear | undefined>();
   const summaries = useResponseTrackingSummaries(schoolYearId, programId);
   if (!schoolYearId || !programId) return <PageFrame>Program is required.</PageFrame>;
   if (summaries.isLoading) {
@@ -93,7 +94,7 @@ export function ResponseTrackingIndexPage() {
         <BreadcrumbList>
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link to={`/y/${schoolYearId}/programs`}>Programs</Link>
+              <Link to={`/y/${schoolYearId}`}>{year?.label ?? "School year"}</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
@@ -318,6 +319,7 @@ export function InterestProfileResponseTrackingPage() {
 }
 
 export function RankedChoiceResponseTrackingPage() {
+  const year = useOutletContext<SchoolYear | undefined>();
   const { schoolYearId, programId, sessionId } = useParams<{
     schoolYearId: string;
     programId: string;
@@ -332,7 +334,7 @@ export function RankedChoiceResponseTrackingPage() {
         <BreadcrumbList>
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link to={`/y/${schoolYearId}/programs`}>Programs</Link>
+              <Link to={`/y/${schoolYearId}`}>{year?.label ?? "School year"}</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />

@@ -17,8 +17,13 @@ import type { ImportKind, ImportPreview, SchoolYear } from "@/lib/apiResources";
 import { useCommitImport, usePreviewImport } from "./useImports";
 
 const kindLabels: Record<ImportKind, string> = {
-  roster_json: "Roster JSON",
+  roster_json: "Adults and Students JSON",
   grades_csv: "Grades CSV",
+};
+
+const kindDescriptions: Record<ImportKind, string> = {
+  roster_json: "Add or update students, adults, and their guardian relationships using data from Konstella. The Konstella \"user.json\" file has a snapshot of the adults and students. It does not have grades since it just records the classrooms, so grades need to be entered separately.",
+  grades_csv: "Update student grade levels from a CSV.",
 };
 
 const outcomeLabels = ["Create", "Update", "Unchanged", "Conflict", "Error"] as const;
@@ -87,6 +92,59 @@ function Problem({ error, fallback }: { error: unknown; fallback: string }) {
     >
       {errorMessage(error, fallback)}
     </p>
+  );
+}
+
+function ImportSourceCard({
+  kind,
+  document,
+  disabled,
+  previewing,
+  onFileChange,
+  onPreview,
+}: {
+  kind: ImportKind;
+  document: File | null;
+  disabled: boolean;
+  previewing: boolean;
+  onFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  onPreview: () => void;
+}) {
+  const headingId = `${kind}-heading`;
+  const fileLabel = `${kindLabels[kind]} document`;
+  return (
+    <section aria-labelledby={headingId} className="rounded-lg border bg-card p-5 shadow-sm">
+      <h2 className="font-semibold" id={headingId}>
+        {kindLabels[kind]}
+      </h2>
+      <p className="mt-2 min-h-10 text-sm text-muted-foreground">{kindDescriptions[kind]}</p>
+      <label className="mt-5 block text-sm font-medium" htmlFor={`${kind}-file`}>
+        Choose a file
+        <Input
+          accept={kind === "grades_csv" ? ".csv,text/csv" : ".json,application/json"}
+          aria-label={fileLabel}
+          className="mt-1 file:mr-3 file:rounded file:border-0 file:bg-secondary file:px-3 file:py-1 file:text-xs file:font-medium"
+          disabled={disabled}
+          id={`${kind}-file`}
+          onChange={onFileChange}
+          type="file"
+        />
+      </label>
+      {document && (
+        <p className="mt-3 text-sm text-muted-foreground">
+          Selected <span className="font-medium text-foreground">{document.name}</span> (
+          {document.size.toLocaleString()} bytes)
+        </p>
+      )}
+      <Button
+        aria-label={`Preview ${kindLabels[kind]} file`}
+        className="mt-5"
+        disabled={disabled || !document || previewing}
+        onClick={onPreview}
+      >
+        {previewing ? "Previewing…" : "Preview file"}
+      </Button>
+    </section>
   );
 }
 
@@ -345,37 +403,35 @@ export function ImportPage() {
   const year = useOutletContext<SchoolYear | undefined>();
   const readOnly = year?.state === "closed";
   const [kind, setKind] = useState<ImportKind>("roster_json");
-  const [document, setDocument] = useState<File | null>(null);
+  const [documents, setDocuments] = useState<Record<ImportKind, File | null>>({
+    roster_json: null,
+    grades_csv: null,
+  });
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [commitResult, setCommitResult] = useState<ImportPreview | null>(null);
   const previewImport = usePreviewImport();
   const commitImport = useCommitImport();
 
-  function selectKind(event: ChangeEvent<HTMLSelectElement>) {
-    setKind(event.target.value as ImportKind);
-    setDocument(null);
-    setPreview(null);
-    setCommitResult(null);
-    previewImport.reset();
-    commitImport.reset();
-  }
-
-  function selectFile(event: ChangeEvent<HTMLInputElement>) {
+  function selectFile(nextKind: ImportKind, event: ChangeEvent<HTMLInputElement>) {
     const next = event.target.files?.[0] ?? null;
-    setDocument(next);
+    setKind(nextKind);
+    setDocuments((current) => ({ ...current, [nextKind]: next }));
     setPreview(null);
     setCommitResult(null);
     previewImport.reset();
     commitImport.reset();
   }
 
-  function submitPreview() {
+  function submitPreview(nextKind: ImportKind) {
+    const document = documents[nextKind];
     if (!document || !schoolYearId) return;
+    setKind(nextKind);
     setCommitResult(null);
-    previewImport.mutate({ kind, schoolYearId, document }, { onSuccess: setPreview });
+    previewImport.mutate({ kind: nextKind, schoolYearId, document }, { onSuccess: setPreview });
   }
 
   function submitCommit() {
+    const document = documents[kind];
     if (!document || !schoolYearId || !preview) return;
     commitImport.mutate(
       { kind, schoolYearId, document, contentHash: preview.content_hash },
@@ -413,54 +469,25 @@ export function ImportPage() {
           </p>
         </section>
       )}
-      <section className="mt-8 rounded-lg border bg-card p-5 shadow-sm">
-        <h2 className="font-semibold">Choose a source file</h2>
-        <div className="mt-4 grid gap-4 sm:grid-cols-[14rem_1fr_auto] sm:items-end">
-          <label className="text-sm font-medium" htmlFor="import-kind">
-            Import kind
-            <select
-              className="mt-1 block h-9 w-full rounded-md border bg-transparent px-3 text-sm"
-              disabled={readOnly}
-              id="import-kind"
-              value={kind}
-              onChange={selectKind}
-            >
-              <option value="roster_json">Roster JSON</option>
-              <option value="grades_csv">Grades CSV</option>
-            </select>
-          </label>
-          <label className="text-sm font-medium" htmlFor="import-file">
-            Document
-            <Input
-              accept={kind === "grades_csv" ? ".csv,text/csv" : ".json,application/json"}
-              className="mt-1 file:mr-3 file:rounded file:border-0 file:bg-secondary file:px-3 file:py-1 file:text-xs file:font-medium"
-              disabled={readOnly}
-              id="import-file"
-              onChange={selectFile}
-              type="file"
-            />
-          </label>
-          <Button
-            disabled={readOnly || !document || previewImport.isPending}
-            onClick={submitPreview}
-          >
-            {previewImport.isPending ? "Previewing…" : "Preview file"}
-          </Button>
-        </div>
-        {document && (
-          <p className="mt-3 text-sm text-muted-foreground">
-            Selected <span className="font-medium text-foreground">{document.name}</span> (
-            {document.size.toLocaleString()} bytes). Selecting a different file clears the previous
-            review.
-          </p>
-        )}
-        {previewImport.isError && (
-          <Problem error={previewImport.error} fallback="Unable to preview this import." />
-        )}
-        {commitImport.isError && (
-          <Problem error={commitImport.error} fallback="Unable to commit this import." />
-        )}
-      </section>
+      <div className="mt-8 grid gap-6 md:grid-cols-2">
+        {(["roster_json", "grades_csv"] as ImportKind[]).map((sourceKind) => (
+          <ImportSourceCard
+            disabled={readOnly}
+            document={documents[sourceKind]}
+            kind={sourceKind}
+            key={sourceKind}
+            onFileChange={(event) => selectFile(sourceKind, event)}
+            onPreview={() => submitPreview(sourceKind)}
+            previewing={previewImport.isPending && kind === sourceKind}
+          />
+        ))}
+      </div>
+      {previewImport.isError && (
+        <Problem error={previewImport.error} fallback="Unable to preview this import." />
+      )}
+      {commitImport.isError && (
+        <Problem error={commitImport.error} fallback="Unable to commit this import." />
+      )}
       {commitResult && (
         <Panel title="Import committed" tone="default">
           <p className="mt-2 text-sm">

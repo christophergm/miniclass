@@ -18,7 +18,7 @@ import {
   SchoolYearSettingsPage,
 } from "@/features/school-years/SchoolYearPages";
 import { SettingsPage } from "@/features/settings/SettingsPage";
-import { VocabularyPage } from "@/features/vocabulary/VocabularyPage";
+
 import {
   AdultDetailPage,
   AdultListPage,
@@ -98,7 +98,7 @@ function AppRoutes() {
             <Route element={<SchoolYearLayout />}>
               <Route index element={<ProgramYearEntryPage />} />
               <Route path="settings" element={<SchoolYearSettingsPage />} />
-              <Route path="vocabulary" element={<VocabularyPage />} />
+
               <Route path="programs" element={<ProgramListPage />} />
               <Route path="programs/:programId" element={<ProgramDetailPage />} />
               <Route path="programs/:programId/settings" element={<ProgramSettingsPage />} />
