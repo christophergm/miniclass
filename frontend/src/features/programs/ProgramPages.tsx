@@ -757,9 +757,7 @@ export function ProgramDetailPage() {
               out of {students.data?.length ?? 0} in {year.label}
             </span>
           </div>
-          <span className="mt-4 block text-sm font-medium text-primary">
-            Membership →
-          </span>
+          <span className="mt-4 block text-sm font-medium text-primary">Membership →</span>
         </Link>
       </Card>
     </PageFrame>

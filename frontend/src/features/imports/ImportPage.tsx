@@ -24,7 +24,8 @@ const kindLabels: Record<ImportKind, string> = {
 };
 
 const kindDescriptions: Record<ImportKind, string> = {
-  roster_json: "Add or update students, adults, and their guardian relationships using data from Konstella. The Konstella \"user.json\" file has a snapshot of the adults and students. It does not have grades since it just records the classrooms, so grades need to be entered separately.",
+  roster_json:
+    'Add or update students, adults, and their guardian relationships using data from Konstella. The Konstella "user.json" file has a snapshot of the adults and students. It does not have grades since it just records the classrooms, so grades need to be entered separately.',
   grades_csv: "Update student grade levels from a CSV.",
 };
 

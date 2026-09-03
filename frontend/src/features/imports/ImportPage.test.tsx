@@ -77,7 +77,9 @@ describe("ImportPage", () => {
 
     expect(screen.getByRole("heading", { name: "Adults and Students JSON" })).toBeInTheDocument();
     expect(
-      screen.getByText(/Add or update students, adults, and their guardian relationships using data from Konstella/),
+      screen.getByText(
+        /Add or update students, adults, and their guardian relationships using data from Konstella/,
+      ),
     ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Grades CSV" })).toBeInTheDocument();
     expect(screen.getByText("Update student grade levels from a CSV.")).toBeInTheDocument();
@@ -118,19 +120,29 @@ describe("ImportPage", () => {
           number: 1,
           source_external_identifier: "update-1",
           outcome: "Update",
-          records: [{ record_type: "student", source_external_identifier: "update-1", outcome: "Update" }],
+          records: [
+            { record_type: "student", source_external_identifier: "update-1", outcome: "Update" },
+          ],
         },
         {
           number: 2,
           source_external_identifier: "conflict-1",
           outcome: "Conflict",
-          records: [{ record_type: "student", source_external_identifier: "conflict-1", outcome: "Conflict" }],
+          records: [
+            {
+              record_type: "student",
+              source_external_identifier: "conflict-1",
+              outcome: "Conflict",
+            },
+          ],
         },
         {
           number: 3,
           source_external_identifier: "error-1",
           outcome: "Error",
-          records: [{ record_type: "student", source_external_identifier: "error-1", outcome: "Error" }],
+          records: [
+            { record_type: "student", source_external_identifier: "error-1", outcome: "Error" },
+          ],
         },
       ],
     });
@@ -195,7 +207,9 @@ describe("ImportPage", () => {
     renderImport();
 
     const file = new File(["source"], "roster.json");
-    fireEvent.change(screen.getByLabelText("Adults and Students JSON document"), { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText("Adults and Students JSON document"), {
+      target: { files: [file] },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Preview Adults and Students JSON file" }));
     fireEvent.click(screen.getByRole("button", { name: "Commit import" }));
 
@@ -212,7 +226,9 @@ describe("ImportPage", () => {
     renderImport();
 
     const file = new File(["source"], "roster.json");
-    fireEvent.change(screen.getByLabelText("Adults and Students JSON document"), { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText("Adults and Students JSON document"), {
+      target: { files: [file] },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Preview Adults and Students JSON file" }));
     fireEvent.click(screen.getByRole("button", { name: "Commit import" }));
 
