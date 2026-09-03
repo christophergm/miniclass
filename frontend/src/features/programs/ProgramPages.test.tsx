@@ -266,10 +266,7 @@ vi.mock("@/lib/hooks/useVocabulary", () => ({
 }));
 vi.mock("@/features/people/roster-queries", () => ({
   usePeople: vi.fn((kind: string) => ({
-    data:
-      kind === "student"
-        ? [{ id: "student-1" }, { id: "student-2" }]
-        : [],
+    data: kind === "student" ? [{ id: "student-1" }, { id: "student-2" }] : [],
     isLoading: false,
     isError: false,
     error: null,
