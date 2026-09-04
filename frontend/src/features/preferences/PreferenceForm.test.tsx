@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { PreferenceForm } from "@/lib/apiResources";
 
 import { PreferenceFormEditor } from "./PreferenceForm";
+import { projectDrop } from "./preferenceDrag";
 
 const rankedForm = {
   type: "ranked_choice",
@@ -47,6 +48,41 @@ function renderForm(onSubmit = vi.fn(), form = rankedForm) {
   return onSubmit;
 }
 
+describe("ranked choice drag projection", () => {
+  const origin = {
+    no_response: ["outside"],
+    ranked: ["first", "second", "third"],
+    interested: [],
+    not_interested: [],
+  };
+  const alphabetize = (ids: string[]) => [...ids].sort();
+
+  it("projects upward and downward ranked moves at the exact slot", () => {
+    expect(
+      projectDrop(origin, "third", { kind: "ranked-slot", index: 0 }, 3, alphabetize).buckets
+        .ranked,
+    ).toEqual(["third", "first", "second"]);
+    expect(
+      projectDrop(origin, "first", { kind: "ranked-slot", index: 2 }, 3, alphabetize).buckets
+        .ranked,
+    ).toEqual(["second", "third", "first"]);
+  });
+
+  it("uses the same projected rank for an external item and displaces overflow", () => {
+    const projection = projectDrop(
+      origin,
+      "outside",
+      { kind: "ranked-slot", index: 1 },
+      3,
+      alphabetize,
+    );
+
+    expect(projection.rank).toBe(2);
+    expect(projection.buckets.ranked).toEqual(["first", "outside", "second"]);
+    expect(projection.buckets.no_response).toEqual(["third"]);
+  });
+});
+
 describe("ranked choice preference form", () => {
   it("serializes bucket choices and confirms unanswered offerings", () => {
     const onSubmit = renderForm();
@@ -64,7 +100,7 @@ describe("ranked choice preference form", () => {
     ]);
   });
 
-  it("moves the bottom favorite to a higher rank by drag and drop", () => {
+  it("makes ranked favorites sortable while preserving keyboard move controls", () => {
     const form = {
       ...rankedForm,
       rank_depth: 2,
@@ -80,9 +116,8 @@ describe("ranked choice preference form", () => {
     expect(art).not.toBeNull();
     expect(robotics).not.toBeNull();
 
-    fireEvent.drop(art as HTMLElement, {
-      dataTransfer: { getData: () => "offering-2" },
-    });
+    expect(robotics).toHaveAttribute("aria-roledescription", "sortable");
+    fireEvent.click(within(robotics as HTMLElement).getByRole("button", { name: "Move up" }));
 
     expect(within(robotics as HTMLElement).getByLabelText("Rank 1")).toBeInTheDocument();
     expect(within(art as HTMLElement).getByLabelText("Rank 2")).toBeInTheDocument();
