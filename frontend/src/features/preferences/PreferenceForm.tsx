@@ -1,12 +1,36 @@
 import {
+  Fragment,
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
-  type DragEvent,
+  type CSSProperties,
   type FormEvent,
   type ReactNode,
 } from "react";
+import {
+  closestCenter,
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  pointerWithin,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type CollisionDetection,
+  type DragOverEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { ThumbsUp } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -16,10 +40,187 @@ import type {
   PreferenceRankedAnswerInput,
 } from "@/lib/apiResources";
 
+import {
+  cloneBuckets,
+  projectDrop,
+  type DragProjection,
+  type DropDestination,
+  type RankedBucket,
+  type RankedBuckets,
+  type UnorderedBucket,
+} from "./preferenceDrag";
+
 type PreferenceAnswer = PreferenceInterestAnswerInput[] | PreferenceRankedAnswerInput[];
 
-type RankedBucket = "no_response" | "ranked" | "interested" | "not_interested";
-type RankedBuckets = Record<RankedBucket, string[]>;
+type DragData =
+  | { kind: "offering"; bucket: RankedBucket }
+  | { kind: "ranked-slot"; index: number }
+  | { kind: "ranked-container" }
+  | { kind: "bucket"; bucket: UnorderedBucket };
+
+type DragSession = DragProjection & {
+  activeID: string;
+  sourceBucket: RankedBucket;
+  origin: RankedBuckets;
+  destination: DropDestination | null;
+};
+
+const preferenceCollisionDetection: CollisionDetection = (args) => {
+  const rankedSlots = args.droppableContainers.filter(
+    (container) => (container.data.current as DragData | undefined)?.kind === "ranked-slot",
+  );
+  const bucketTargets = args.droppableContainers.filter((container) => {
+    const kind = (container.data.current as DragData | undefined)?.kind;
+    return kind === "ranked-container" || kind === "bucket";
+  });
+
+  if (args.pointerCoordinates) {
+    const containingBuckets = pointerWithin({
+      ...args,
+      droppableContainers: bucketTargets,
+    });
+    const isInsideRanked = containingBuckets.some(
+      (collision) =>
+        (collision.data?.droppableContainer.data.current as DragData | undefined)?.kind ===
+        "ranked-container",
+    );
+    if (isInsideRanked) {
+      return closestCenter({ ...args, droppableContainers: rankedSlots });
+    }
+    return containingBuckets.filter(
+      (collision) =>
+        (collision.data?.droppableContainer.data.current as DragData | undefined)?.kind ===
+        "bucket",
+    );
+  }
+
+  return closestCenter({
+    ...args,
+    droppableContainers: [...rankedSlots, ...bucketTargets],
+  });
+};
+
+function SortableOffering({
+  id,
+  children,
+  borderColor,
+  disableTransforms,
+  label,
+}: {
+  id: string;
+  children: ReactNode;
+  borderColor: string;
+  disableTransforms: boolean;
+  label: string;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+    data: { kind: "offering", bucket: "ranked" } satisfies DragData,
+  });
+  return (
+    <article
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      aria-label={`Drag ${label}`}
+      className={`rounded-xl border-2 bg-[#fffaf0] p-3 shadow-[3px_3px_0_rgba(28,25,23,0.18)] transition-shadow ${isDragging ? "opacity-25" : ""}`}
+      style={{
+        borderColor,
+        transform: disableTransforms ? undefined : CSS.Transform.toString(transform),
+        transition: disableTransforms ? undefined : transition,
+      }}
+    >
+      {children}
+    </article>
+  );
+}
+
+function RankedSlot({ index, isTarget }: { index: number; isTarget: boolean }) {
+  const { setNodeRef } = useDroppable({
+    id: `ranked-slot:${index}`,
+    data: { kind: "ranked-slot", index } satisfies DragData,
+  });
+  return (
+    <div
+      ref={setNodeRef}
+      aria-label={isTarget ? `Rank ${index + 1} drop destination` : undefined}
+      className={`${
+        isTarget ? "my-3 min-h-24 rounded-xl border-4 border-dashed" : "h-3 rounded-full"
+      } transition-[height] motion-reduce:transition-none`}
+      style={
+        isTarget
+          ? {
+              backgroundColor: rankedBucketTargetColors.ranked,
+              borderColor: rankedBucketBorderColors.ranked,
+            }
+          : undefined
+      }
+    />
+  );
+}
+
+function DraggableOffering({
+  id,
+  bucket,
+  children,
+  borderColor,
+  label,
+}: {
+  id: string;
+  bucket: RankedBucket;
+  children: ReactNode;
+  borderColor: string;
+  label: string;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id,
+    data: { kind: "offering", bucket } satisfies DragData,
+  });
+  return (
+    <article
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      aria-label={`Drag ${label}`}
+      className={`rounded-xl border-2 bg-[#fffaf0] p-3 shadow-[3px_3px_0_rgba(28,25,23,0.18)] transition-shadow ${isDragging ? "opacity-25" : ""}`}
+      style={{ borderColor, transform: CSS.Translate.toString(transform) }}
+    >
+      {children}
+    </article>
+  );
+}
+
+function DroppableBucket({
+  bucket,
+  isTarget,
+  className,
+  style,
+  children,
+}: {
+  bucket: RankedBucket;
+  isTarget: boolean;
+  className: string;
+  style: CSSProperties;
+  children: ReactNode;
+}) {
+  const { setNodeRef } = useDroppable({
+    id: `bucket:${bucket}`,
+    data:
+      bucket === "ranked"
+        ? ({ kind: "ranked-container" } satisfies DragData)
+        : ({ kind: "bucket", bucket } satisfies DragData),
+  });
+  return (
+    <section
+      ref={setNodeRef}
+      aria-label={rankedBucketLabels[bucket]}
+      className={`${className} ${isTarget ? "outline-4 outline-dashed outline-offset-4" : ""}`}
+      style={{ ...style, outlineColor: style.borderColor }}
+    >
+      {children}
+    </section>
+  );
+}
 
 const rankedBucketLabels: Record<RankedBucket, string> = {
   no_response: "Not answered",
@@ -42,6 +243,13 @@ const rankedBucketStyles: Record<RankedBucket, string> = {
   ranked: "bg-[#ffcc2e]/35",
   interested: "bg-[#f26a3d]/20",
   not_interested: "bg-[#fff3df]",
+};
+
+const rankedBucketTargetColors: Record<RankedBucket, string> = {
+  no_response: "#d5eef4",
+  ranked: "#fff3bf",
+  interested: "#fce2d9",
+  not_interested: "#fff3df",
 };
 
 const rankedBucketBorderColors: Record<RankedBucket, string> = {
@@ -307,7 +515,12 @@ function RankedChoiceEditor({
   const [buckets, setBuckets] = useState<RankedBuckets>(emptyBuckets);
   const [undoBuckets, setUndoBuckets] = useState<RankedBuckets | null>(null);
   const [activeBucket, setActiveBucket] = useState<RankedBucket>("no_response");
-  const [draggedID, setDraggedID] = useState<string | null>(null);
+  const [dragSession, setDragSession] = useState<DragSession | null>(null);
+  const dragSessionRef = useRef<DragSession | null>(null);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
   const [announcement, setAnnouncement] = useState("");
   const [confirmWarnings, setConfirmWarnings] = useState<string[] | null>(null);
 
@@ -355,58 +568,108 @@ function RankedChoiceEditor({
     initial.not_interested = alphabetize(initial.not_interested);
     setBuckets(initial);
     setUndoBuckets(null);
+    dragSessionRef.current = null;
+    setDragSession(null);
     setConfirmWarnings(null);
   }, [alphabetize, form.ranked_answers, offerings, rankDepth]);
 
-  function moveOffering(id: string, destination: RankedBucket, index?: number) {
-    const offering = offeringByID.get(id);
+  function announceMove(
+    activeID: string,
+    destination: DropDestination,
+    displacedID: string | null,
+  ) {
+    const offering = offeringByID.get(activeID);
     if (!offering) return;
-    let displacedName: string | undefined;
-    setBuckets((current) => {
-      const source = rankedBucketOrder.find((bucket) => current[bucket].includes(id));
-      if (!source) return current;
-      const next: RankedBuckets = {
-        no_response: current.no_response.filter((value) => value !== id),
-        ranked: current.ranked.filter((value) => value !== id),
-        interested: current.interested.filter((value) => value !== id),
-        not_interested: current.not_interested.filter((value) => value !== id),
-      };
-      const insertion =
-        index === undefined
-          ? destination === "ranked" && source !== "ranked" && next.ranked.length >= rankDepth
-            ? Math.max(0, rankDepth - 1)
-            : next[destination].length
-          : index;
-      next[destination].splice(Math.max(0, insertion), 0, id);
-      if (destination === "ranked" && next.ranked.length > rankDepth) {
-        const displaced = next.ranked.pop();
-        if (displaced && displaced !== id) {
-          next.no_response.push(displaced);
-          displacedName = offeringByID.get(displaced)?.name;
-        } else if (displaced === id) {
-          next.no_response.push(id);
-        }
-      }
-      next.no_response = alphabetize(next.no_response);
-      next.interested = alphabetize(next.interested);
-      next.not_interested = alphabetize(next.not_interested);
-      setUndoBuckets(current);
-      return next;
-    });
-    setConfirmWarnings(null);
+    const destinationBucket = destination.kind === "ranked-slot" ? "ranked" : destination.bucket;
+    const displacedName = displacedID ? offeringByID.get(displacedID)?.name : undefined;
     setAnnouncement(
-      `${offering.name} moved to ${rankedBucketLabels[destination]}.${
+      `${offering.name} moved to ${rankedBucketLabels[destinationBucket]}.${
         displacedName ? ` ${displacedName} moved to Not answered.` : ""
       }`,
     );
   }
 
-  function drop(event: DragEvent, destination: RankedBucket, index?: number) {
-    event.preventDefault();
-    event.stopPropagation();
-    const id = event.dataTransfer.getData("text/plain") || draggedID;
-    if (id) moveOffering(id, destination, index);
-    setDraggedID(null);
+  function moveOffering(id: string, destination: RankedBucket, index?: number) {
+    if (!offeringByID.has(id)) return;
+    const dropDestination: DropDestination =
+      destination === "ranked"
+        ? { kind: "ranked-slot", index: index ?? buckets.ranked.length }
+        : { kind: "bucket", bucket: destination };
+    const projection = projectDrop(buckets, id, dropDestination, rankDepth, alphabetize);
+    setUndoBuckets(buckets);
+    setBuckets(projection.buckets);
+    setConfirmWarnings(null);
+    announceMove(id, dropDestination, projection.displacedID);
+  }
+
+  function setCurrentDragSession(session: DragSession | null) {
+    dragSessionRef.current = session;
+    setDragSession(session);
+  }
+
+  function destinationFromOver(event: DragOverEvent): DropDestination | null {
+    const data = event.over?.data.current as DragData | undefined;
+    if (data?.kind === "ranked-slot") return { kind: "ranked-slot", index: data.index };
+    if (data?.kind === "bucket") return { kind: "bucket", bucket: data.bucket };
+    return null;
+  }
+
+  function handleDragStart(event: DragStartEvent) {
+    const activeID = String(event.active.id);
+    const sourceBucket = rankedBucketOrder.find((bucket) => buckets[bucket].includes(activeID));
+    if (!sourceBucket) return;
+    const origin = cloneBuckets(buckets);
+    setCurrentDragSession({
+      activeID,
+      sourceBucket,
+      origin,
+      destination: null,
+      buckets: cloneBuckets(origin),
+      displacedID: null,
+      rank: sourceBucket === "ranked" ? origin.ranked.indexOf(activeID) + 1 : null,
+    });
+  }
+
+  function handleDragOver(event: DragOverEvent) {
+    const current = dragSessionRef.current;
+    if (!current) return;
+    const destination = destinationFromOver(event);
+    if (!destination) {
+      setCurrentDragSession({
+        ...current,
+        destination: null,
+        buckets: cloneBuckets(current.origin),
+        displacedID: null,
+        rank:
+          current.sourceBucket === "ranked"
+            ? current.origin.ranked.indexOf(current.activeID) + 1
+            : null,
+      });
+      return;
+    }
+    const projection = projectDrop(
+      current.origin,
+      current.activeID,
+      destination,
+      rankDepth,
+      alphabetize,
+    );
+    setCurrentDragSession({ ...current, ...projection, destination });
+  }
+
+  function handleDragEnd() {
+    const session = dragSessionRef.current;
+    if (session?.destination) {
+      setUndoBuckets(session.origin);
+      setBuckets(session.buckets);
+      setConfirmWarnings(null);
+      announceMove(session.activeID, session.destination, session.displacedID);
+    }
+    setCurrentDragSession(null);
+  }
+
+  function handleDragCancel() {
+    setCurrentDragSession(null);
   }
 
   const values = useMemo<PreferenceRankedAnswerInput[]>(() => {
@@ -441,15 +704,21 @@ function RankedChoiceEditor({
   }
 
   function renderBucket(bucket: RankedBucket) {
-    const ids = buckets[bucket];
+    const ids = (dragSession?.buckets ?? buckets)[bucket];
+    const visibleIDs = dragSession ? ids.filter((id) => id !== dragSession.activeID) : ids;
+    const rankedTargetIndex =
+      dragSession?.destination?.kind === "ranked-slot" ? dragSession.destination.index : null;
+    const isUnorderedTarget =
+      dragSession?.destination?.kind === "bucket" && dragSession.destination.bucket === bucket;
+    const rankedSlotCount =
+      bucket === "ranked" && rankDepth > 0 ? Math.min(visibleIDs.length + 1, rankDepth) : 0;
     return (
-      <section
-        aria-label={rankedBucketLabels[bucket]}
+      <DroppableBucket
+        bucket={bucket}
         className={`rounded-2xl border-4 p-3 transition-colors motion-reduce:transition-none ${rankedBucketStyles[bucket]} ${activeBucket === bucket ? "block" : "hidden md:block"}`}
+        isTarget={isUnorderedTarget}
         key={bucket}
         style={{ borderColor: rankedBucketBorderColors[bucket] }}
-        onDragOver={(event) => event.preventDefault()}
-        onDrop={(event) => drop(event, bucket)}
       >
         <div className="mb-3 flex items-center justify-between gap-2">
           <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
@@ -495,103 +764,134 @@ function RankedChoiceEditor({
             {bucket === "ranked" ? ` / ${rankDepth}` : ""}
           </span>
         </div>
-        <div className="space-y-3">
-          {ids.length === 0 && (
-            <p
-              className="rounded-lg border-2 border-dashed p-4 text-center text-sm font-semibold"
-              style={{
-                borderColor: rankedBucketBorderColors[bucket],
-                color: rankedBucketTextColors[bucket],
-              }}
-            >
-              <span className="opacity-80">Drop or move a class here</span>
-            </p>
-          )}
-          {ids.map((id, index) => {
-            const offering = offeringByID.get(id);
-            if (!offering) return null;
-            return (
-              <article
-                className="rounded-xl border-2 bg-[#fffaf0] p-3 shadow-[3px_3px_0_rgba(28,25,23,0.18)] transition-transform hover:-translate-y-0.5 motion-reduce:transform-none motion-reduce:transition-none"
-                draggable
-                style={{ borderColor: rankedBucketBorderColors[bucket] }}
-                key={id}
-                onDragStart={(event) => {
-                  event.dataTransfer.setData("text/plain", id);
-                  event.dataTransfer.effectAllowed = "move";
-                  setDraggedID(id);
+        <SortableContext
+          items={bucket === "ranked" ? visibleIDs : []}
+          strategy={dragSession ? undefined : verticalListSortingStrategy}
+        >
+          <div className={bucket === "ranked" ? "space-y-0" : "space-y-3"}>
+            {visibleIDs.length === 0 && !(bucket === "ranked" && dragSession) && (
+              <p
+                className={`rounded-lg border-2 p-4 text-center text-sm font-semibold ${dragSession ? "border-transparent" : "border-dashed"}`}
+                style={{
+                  borderColor: dragSession ? "transparent" : rankedBucketBorderColors[bucket],
+                  color: rankedBucketTextColors[bucket],
                 }}
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={(event) => drop(event, bucket, index)}
               >
-                <div className="flex gap-3">
-                  {bucket === "ranked" && (
-                    <span
-                      className="flex size-11 shrink-0 items-center justify-center rounded-full border-2 bg-[#ffcc2e] text-xl font-black text-stone-950 shadow-[2px_2px_0_#1c1917]"
-                      style={{ borderColor: rankedBucketTextColors.ranked }}
-                      aria-label={`Rank ${index + 1}`}
-                    >
-                      {index + 1}
-                    </span>
-                  )}
-                  <div className="min-w-0">
-                    <h4 className="text-lg font-black leading-tight text-stone-950">
-                      {offering.name}
-                    </h4>
-                    {offering.description && (
-                      <p className="mt-1 text-sm text-muted-foreground">{offering.description}</p>
+                <span className="opacity-80">Drop or move a class here</span>
+              </p>
+            )}
+            {visibleIDs.map((id, visibleIndex) => {
+              const index = ids.indexOf(id);
+              const offering = offeringByID.get(id);
+              if (!offering) return null;
+              const content = (
+                <>
+                  <div className="flex gap-3">
+                    {bucket === "ranked" && (
+                      <span
+                        className="flex size-11 shrink-0 items-center justify-center rounded-full border-2 bg-[#ffcc2e] text-xl font-black text-stone-950 shadow-[2px_2px_0_#1c1917]"
+                        style={{ borderColor: rankedBucketTextColors.ranked }}
+                        aria-label={`Rank ${index + 1}`}
+                      >
+                        {index + 1}
+                      </span>
+                    )}
+                    <div className="min-w-0">
+                      <h4 className="text-lg font-black leading-tight text-stone-950">
+                        {offering.name}
+                      </h4>
+                      {offering.description && (
+                        <p className="mt-1 text-sm text-muted-foreground">{offering.description}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2 border-t pt-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="mr-1 text-xs font-semibold text-stone-500">Move to</span>
+                      {rankedBucketOrder
+                        .filter((target) => target !== bucket)
+                        .map((target) => (
+                          <button
+                            aria-label={`Move to ${rankedBucketLabels[target]}`}
+                            className="flex min-h-11 items-center gap-2 rounded-md border bg-background px-3 py-2 text-xs font-semibold text-stone-600 hover:bg-accent hover:text-stone-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            key={target}
+                            onClick={() => moveOffering(id, target)}
+                            type="button"
+                          >
+                            <span
+                              className="flex size-4 items-center justify-center text-stone-400"
+                              aria-hidden="true"
+                            >
+                              {rankedBucketIcons[target]}
+                            </span>
+                            {rankedBucketLabels[target]}
+                          </button>
+                        ))}
+                    </div>
+                    {bucket === "ranked" && index > 0 && (
+                      <button
+                        className="min-h-11 rounded-md border px-3 text-sm font-medium hover:bg-accent"
+                        onClick={() => moveOffering(id, "ranked", index - 1)}
+                        type="button"
+                      >
+                        Move up
+                      </button>
+                    )}
+                    {bucket === "ranked" && index < ids.length - 1 && (
+                      <button
+                        className="min-h-11 rounded-md border px-3 text-sm font-medium hover:bg-accent"
+                        onClick={() => moveOffering(id, "ranked", index + 1)}
+                        type="button"
+                      >
+                        Move down
+                      </button>
                     )}
                   </div>
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2 border-t pt-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="mr-1 text-xs font-semibold text-stone-500">Move to</span>
-                    {rankedBucketOrder
-                      .filter((target) => target !== bucket)
-                      .map((target) => (
-                        <button
-                          aria-label={`Move to ${rankedBucketLabels[target]}`}
-                          className="flex min-h-11 items-center gap-2 rounded-md border bg-background px-3 py-2 text-xs font-semibold text-stone-600 hover:bg-accent hover:text-stone-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                          key={target}
-                          onClick={() => moveOffering(id, target)}
-                          type="button"
-                        >
-                          <span
-                            className="flex size-4 items-center justify-center text-stone-400"
-                            aria-hidden="true"
-                          >
-                            {rankedBucketIcons[target]}
-                          </span>
-                          {rankedBucketLabels[target]}
-                        </button>
-                      ))}
-                  </div>
-                  {bucket === "ranked" && index > 0 && (
-                    <button
-                      className="min-h-11 rounded-md border px-3 text-sm font-medium hover:bg-accent"
-                      onClick={() => moveOffering(id, "ranked", index - 1)}
-                      type="button"
-                    >
-                      Move up
-                    </button>
+                </>
+              );
+              return bucket === "ranked" ? (
+                <Fragment key={id}>
+                  {visibleIndex < rankedSlotCount && (
+                    <RankedSlot
+                      index={visibleIndex}
+                      isTarget={rankedTargetIndex === visibleIndex}
+                    />
                   )}
-                  {bucket === "ranked" && index < ids.length - 1 && (
-                    <button
-                      className="min-h-11 rounded-md border px-3 text-sm font-medium hover:bg-accent"
-                      onClick={() => moveOffering(id, "ranked", index + 1)}
-                      type="button"
-                    >
-                      Move down
-                    </button>
-                  )}
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      </section>
+                  <SortableOffering
+                    borderColor={rankedBucketBorderColors[bucket]}
+                    disableTransforms={Boolean(dragSession)}
+                    id={id}
+                    label={offering.name}
+                  >
+                    {content}
+                  </SortableOffering>
+                </Fragment>
+              ) : (
+                <DraggableOffering
+                  borderColor={rankedBucketBorderColors[bucket]}
+                  bucket={bucket}
+                  id={id}
+                  key={id}
+                  label={offering.name}
+                >
+                  {content}
+                </DraggableOffering>
+              );
+            })}
+            {bucket === "ranked" && visibleIDs.length < rankedSlotCount && (
+              <RankedSlot
+                index={visibleIDs.length}
+                isTarget={rankedTargetIndex === visibleIDs.length}
+              />
+            )}
+          </div>
+        </SortableContext>
+      </DroppableBucket>
     );
   }
+
+  const potentialDragRank =
+    dragSession?.destination?.kind === "ranked-slot" ? dragSession.rank : null;
 
   return (
     <form className="space-y-5" onSubmit={submit}>
@@ -613,14 +913,39 @@ function RankedChoiceEditor({
         ))}
       </div>
 
-      <div className="grid items-start gap-4 md:grid-cols-2">
-        {renderBucket("no_response")}
-        <div className="space-y-4">
-          {renderBucket("ranked")}
-          {renderBucket("interested")}
-          {renderBucket("not_interested")}
+      <DndContext
+        collisionDetection={preferenceCollisionDetection}
+        onDragCancel={handleDragCancel}
+        onDragEnd={handleDragEnd}
+        onDragOver={handleDragOver}
+        onDragStart={handleDragStart}
+        sensors={sensors}
+      >
+        <div className="grid items-start gap-4 md:grid-cols-2">
+          {renderBucket("no_response")}
+          <div className="space-y-4">
+            {renderBucket("ranked")}
+            {renderBucket("interested")}
+            {renderBucket("not_interested")}
+          </div>
         </div>
-      </div>
+        <DragOverlay>
+          {dragSession && (
+            <div className="flex gap-3 rounded-xl border-2 border-stone-900 bg-[#fffaf0] p-3 text-lg font-black text-stone-950 shadow-[6px_6px_0_rgba(28,25,23,0.3)]">
+              {potentialDragRank !== null && (
+                <span
+                  aria-label={`Potential rank ${potentialDragRank}`}
+                  className="flex size-11 shrink-0 items-center justify-center rounded-full border-2 bg-[#ffcc2e] text-xl font-black text-stone-950 shadow-[2px_2px_0_#1c1917]"
+                  style={{ borderColor: rankedBucketTextColors.ranked }}
+                >
+                  {potentialDragRank}
+                </span>
+              )}
+              <span>{offeringByID.get(dragSession.activeID)?.name}</span>
+            </div>
+          )}
+        </DragOverlay>
+      </DndContext>
 
       {confirmWarnings && (
         <div
