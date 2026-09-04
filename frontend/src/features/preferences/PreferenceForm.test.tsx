@@ -42,10 +42,8 @@ const rankedForm = {
   ranked_answers: [],
 } as PreferenceForm;
 
-function renderForm(onSubmit = vi.fn()) {
-  render(
-    <PreferenceFormEditor form={rankedForm} onSubmit={onSubmit} submitLabel="Submit my choices" />,
-  );
+function renderForm(onSubmit = vi.fn(), form = rankedForm) {
+  render(<PreferenceFormEditor form={form} onSubmit={onSubmit} submitLabel="Submit my choices" />);
   return onSubmit;
 }
 
@@ -64,6 +62,30 @@ describe("ranked choice preference form", () => {
       { offering_id: "offering-1", answer: "interested" },
       { offering_id: "offering-2", answer: "no_response" },
     ]);
+  });
+
+  it("moves the bottom favorite to a higher rank by drag and drop", () => {
+    const form = {
+      ...rankedForm,
+      rank_depth: 2,
+      ranked_answers: [
+        { offering_id: "offering-1", answer: "ranked", rank: 1 },
+        { offering_id: "offering-2", answer: "ranked", rank: 2 },
+      ],
+    } as PreferenceForm;
+    renderForm(vi.fn(), form);
+
+    const art = screen.getByRole("heading", { name: "Art" }).closest("article");
+    const robotics = screen.getByRole("heading", { name: "Robotics" }).closest("article");
+    expect(art).not.toBeNull();
+    expect(robotics).not.toBeNull();
+
+    fireEvent.drop(art as HTMLElement, {
+      dataTransfer: { getData: () => "offering-2" },
+    });
+
+    expect(within(robotics as HTMLElement).getByLabelText("Rank 1")).toBeInTheDocument();
+    expect(within(art as HTMLElement).getByLabelText("Rank 2")).toBeInTheDocument();
   });
 
   it("returns the lowest favorite to unanswered when the rank limit is full", () => {
