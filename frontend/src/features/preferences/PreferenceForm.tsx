@@ -403,6 +403,7 @@ function RankedChoiceEditor({
 
   function drop(event: DragEvent, destination: RankedBucket, index?: number) {
     event.preventDefault();
+    event.stopPropagation();
     const id = event.dataTransfer.getData("text/plain") || draggedID;
     if (id) moveOffering(id, destination, index);
     setDraggedID(null);
