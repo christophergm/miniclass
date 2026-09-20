@@ -92,6 +92,7 @@ vocabularies the roster draws on were scoped one level too high:
 |---|---|---|---|
 | D10 | Household as a domain entity | **Household removed from the domain model.** The guardian relationship is the sole family construct; scope is derived, not stored. | [0012](./docs/adr/0012-remove-the-household-entity.md) |
 | D11 | Scope of the grade and homeroom vocabularies | **Scoped to the school year, not the organization.** The organization still configures the homeroom *label*; each year defines its own value sets, entered by hand with no copy-forward. | [0015](./docs/adr/0015-year-scoped-attribute-vocabularies.md) |
+| D12 | Production roster authority | **Guardians self-register through an organization/year link.** Import is retained for synthetic development testing only. Superseded for v1 by the consent-first Phase 4B retrofit below. | [0017](./docs/adr/0017-guardian-self-registration-as-production-roster-authority.md) |
 
 The historical wide survey format is one row per adult with their children named inline, so the
 adult→student edge is sourced and the adult→adult grouping into a household never was. There is no
@@ -115,7 +116,7 @@ by the migration rather than reassigned or discarded, because `students.homeroom
 and discarding the vocabulary would take the roster with it. The Phase 1 bullets below describe the
 model after that move.
 
-The adult access decision is now resolved in [ADR 0013](./docs/adr/0013-guardian-and-volunteer-access.md) and implemented in Phase 4; it is no longer a carried-open planning question.
+The adult access decision is resolved in [ADR 0013](./docs/adr/0013-guardian-and-volunteer-access.md) and amended by D12. Guardian OTP and preference access remain in Phase 4; the narrower accountless roster-registration principal lands in Phase 2R. The later consent and privacy requirement is captured as **Phase 4B** rather than by renumbering Phase 5 and beyond: registration now means mailbox proof or invitation redemption, year-scoped terms acceptance, guardian-owned adult/profile creation, guardian-managed students, placeholder students for unregistered children, and explicit end-of-year purge (SPEC §11, §21).
 
 ---
 
@@ -123,9 +124,9 @@ The adult access decision is now resolved in [ADR 0013](./docs/adr/0013-guardian
 
 | Milestone | Lands at | Meaning |
 |---|---|---|
-| **R1 — Usable** | End of Phase 6 | A real session can be run end to end: roster loaded, catalog authored, preferences collected, placements solved, class list and dismissal list published. Replaces the CLI pipeline and the Docs step. |
+| **R1 — Usable** | End of Phase 6 | A real session can be run end to end: guardians consent and manage their roster data, organizers reconcile it, the catalog is authored, preferences are collected, placements are solved, and class and dismissal lists are published. Replaces the CLI pipeline and the Docs step. |
 | **R2 — Better than the predecessor** | End of Phase 9 | Tags, pairings, fairness, variety, warnings, overrides, explainability and the quality dashboard. Placement quality provably beats the historical baseline; the ~200 hand-written exclusion rows per year are gone. |
-| **R3 — Production** | End of Phase 10 | Privacy, retention, hard deletion, tested restore, observability. Safe to hold real children's data for multiple years. |
+| **R3 — Production** | End of Phase 10 | Privacy hardening, end-of-year purge, hard deletion, tested restore, observability. Safe to operate with real children's data and delete it deliberately at year end. |
 
 R1 is the important cut line. Everything after it improves placement quality and organiser
 ergonomics; nothing after it is required to run a Friday.
@@ -137,10 +138,12 @@ ergonomics; nothing after it is required to run a Friday.
 ```mermaid
 graph TD
     P0["Phase 0<br/>Decisions and Platform"] --> P1["Phase 1<br/>Tenancy, Identity, People, Audit"]
-    P1 --> P2["Phase 2<br/>Ingest Engine"]
-    P2 --> P3["Phase 3<br/>Programs, Catalog, Sessions"]
+    P1 --> P2["Phase 2<br/>Development Ingest Tooling"]
+    P2 --> P2R["Phase 2R<br/>Guardian Self-registration"]
+    P2R --> P3["Phase 3<br/>Programs, Catalog, Sessions"]
     P3 --> P4["Phase 4<br/>Preferences and Adult/Student Access"]
-    P4 --> P5["Phase 5<br/>Engine v0"]
+    P4 --> P4B["Phase 4B<br/>Consent-first Guardian Data"]
+    P4B --> P5["Phase 5<br/>Engine v0"]
     P5 --> P6["Phase 6<br/>Publishing and Artifacts"]
     P6 --> R1{{"R1 — Usable"}}
     R1 --> P7["Phase 7<br/>Rules Layer and Staffing"]
@@ -152,8 +155,10 @@ graph TD
 ```
 
 The dependency chain is genuinely close to linear: the solver needs preferences, preferences need a
-catalog, a catalog needs a programme, and a programme needs people. The two places where the order
-is a judgement rather than a constraint are called out in the phases concerned.
+catalog, a catalog needs a programme, and a programme needs people. `Phase 2R` and `Phase 4B` use
+suffixes rather than renumbering later phases because those phase numbers are already cited by accepted
+ADRs and landed work. Phase 4B is a retrofit for new consent/privacy requirements after Phase 4; Phase
+5 and beyond remain structurally unchanged.
 
 ---
 
@@ -231,14 +236,16 @@ cheap.
   requests return **not-found, not forbidden** (§9.4).
 - Append-only audit log, written inside the mutating transaction. A read-write transaction that
   records no entry does not commit.
-- Manual CRUD for every person and every guardian relationship — §11.2 requires this independently
-  of import, and it is how the roster is corrected all year.
-- **Grade and homeroom vocabularies** (§10.1), moved here from Phase 2. A roster cannot be built by
-  hand without them, and text columns would admit precisely the defect §10.1 forbids — ordering taken
-  from the string, so grade `10` sorts before grade `9`. Both are **scoped to the school year**
-  (D11): a new year starts with empty vocabularies, nothing is copied forward, and a year admits no
-  roster until its homerooms exist. Entries are retirable rather than deletable, for the homeroom
-  that stops being used partway through a year while that year's students still reference it.
+- Manual CRUD for every person and every guardian relationship. After D12 this is an audited review,
+  correction and reconciliation surface, not an alternative production bulk-load workflow (§11.2,
+  §11.6).
+- **Grade and homeroom vocabularies** (§10.1), moved here from Phase 2. Structured vocabularies avoid
+  the defect §10.1 forbids — ordering taken from the string, so grade `10` sorts before grade `9`.
+  Both are **scoped to the school year** (D11): a new year starts with empty vocabularies and nothing
+  is copied forward. D12 required grades before registration opened and permitted homeroom assignment
+  afterward; Phase 4B tightens the parent-facing v1 forms to require both grade and homeroom/classroom.
+  Entries are retirable rather than deletable, for the homeroom that stops being used partway through a
+  year while that year's students still reference it.
 - School-year lifecycle: `Setup` / `Active` / `Closed`, with two years permitted `Active` at once.
   `Closed` immutability is enforced by a shared database trigger on every year-scoped table, so the
   refusal is loud and explanatory (409) rather than a silent zero-row update. `Closed → Active` is
@@ -256,8 +263,8 @@ cheap.
 - Preferred given name is displayed in preference to legal name **everywhere** (§8.2).
 - Identifiers are opaque and system-generated; **names are never keys** (§8.7). The predecessor
   joined on typed full names and lost a whole session's data to a two-word surname (A.5 defect 4–5).
-- The prior-year link is a nullable annotation with nothing depending on it (§8.7). Resist making it
-  load-bearing.
+- Cross-year student identity is absent in v1 (§8.7). Any prior-year link built before the Phase 4B
+  decision is deprecated and must not become load-bearing.
 
 **Platform track**
 
@@ -281,7 +288,8 @@ cheap.
 
 **Exit criteria**
 
-- An administrator can sign in, create a school year, and build a roster by hand.
+- An administrator can sign in, create a school year, configure its vocabularies, and correct people
+  and guardian relationships through audited administrative tools.
 - Every tenant-scoped table has an isolation test; a new table without one fails **CI**, not review.
 - Deleting the tenant context from any repository call fails a test rather than leaking rows.
 - Every mutation appears in the audit log with actor, timestamp, object and change summary.
@@ -289,49 +297,120 @@ cheap.
 
 ---
 
-### Phase 2 — Ingest engine
+### Phase 2 — Development ingest tooling
 
-*SPEC §11, plus §10.1 vocabularies. Scope and source authority are fixed by
-[ADR 0014](./docs/adr/0014-roster-ingest-scope-and-source-authority.md).*
+*Current SPEC §11.7. [ADR 0014](./docs/adr/0014-roster-ingest-scope-and-source-authority.md)
+records the implemented importer contract; [ADR 0017](./docs/adr/0017-guardian-self-registration-as-production-roster-authority.md)
+supersedes it as production roster authority.*
 
-**Feature track**
+**Development-tooling track**
 
-- Two source kinds: `roster_json`, the community-platform wide export described in §11.4, and
-  `grades_csv`, a two-column student-name/grade file. Both meet §11.3's CSV and JSON minimums.
-  Parsers translate to the canonical shape and resolve fields **by name or explicit mapping, never
-  by position** (§11.3).
-- The wide format's authority is **the adult on the row, not the student**: it sets exactly that
-  adult's guardian edges and never touches an edge owned by another adult. Two adults' rows compose
-  into a two-guardian student, and removal by import still works. The §11.5 `Update` preview must
-  list guardian edges being **removed**, not only those added.
-- Matching is by external identifier only (§11.6 rule 1). Name matching is out of scope for the
-  observed sources; a future source without external identifiers requires a new decision.
-- The enrolment and adult filters, nullable grade, non-parsed classroom labels, and exclusion
-  reporting are fixed in ADR 0014 (§5.2, §10.1, §21.1).
+This phase no longer delivers a production feature. Its importer MUST be absent from production API
+operation enumeration, commands, configuration and administrator capabilities. It remains useful for
+synthetic fixtures and data-layer testing.
+
+- Two source kinds: `roster_json`, the historical community-platform wide export, and
+  `grades_csv`, a two-column student-name/grade file. Parsers translate to the historical canonical
+  shape and resolve fields **by name or explicit mapping, never by position** (ADR 0014).
+- The wide format's development-fixture authority is **the adult on the row, not the student**: it
+  sets exactly that adult's guardian edges and never touches an edge owned by another adult. Two
+  adults' rows compose into a two-guardian student, and the preview lists removed edges (ADR 0014).
+- Matching is by external identifier only for these retained development parsers. These rules do not
+  apply to production self-registration matching (§11.5).
+- The historical enrolment and adult filters, nullable grade, non-parsed classroom labels, and
+  exclusion reporting remain fixed in ADR 0014 for parser-test compatibility only.
 - Two-phase preview → atomic commit is stateless and content-hash guarded, with per-row `Create` /
-  `Update` / `Unchanged` / `Conflict` / `Error`. Commit is blocked while any `Error` exists, while
-  `Conflict` rows are reported and skipped for manual correction and re-import (§11.5, ADR 0014).
-- **Idempotency (§11.7)** — re-importing an unchanged source produces zero changes and reports every
-  row `Unchanged`. This is a hard requirement driven by the observed repeated-partial-import
-  workflow.
+  `Update` / `Unchanged` / `Conflict` / `Error`. `Conflict` rows are reported and skipped for fixture
+  correction and re-import (ADR 0014).
+- **Development-import idempotency** — re-importing an unchanged synthetic source produces zero
+  changes and reports every row `Unchanged`.
 
 **Platform track**
 
-- Synthetic golden-file fixtures cover both source kinds. An opt-in parser conformance check may use
-  a real historical export but MUST touch no database; an operator demonstration against their own
-  instance records the audit entry as evidence. Real roster data is never loaded into development or
-  test databases.
+- Synthetic golden-file fixtures cover both source kinds. Real roster data is never loaded into
+  development or test databases, and no operator demonstration imports a production roster.
 - A property test asserting import idempotency across arbitrary re-import orderings.
 
 **Exit criteria**
 
 - Synthetic fixtures for both source kinds parse and import cleanly, and importing each unchanged
   source a second time reports every row `Unchanged`.
-- An opt-in parser conformance check against a real historical export touches no database.
-- An operator demonstration against their own instance produces the import audit entry as evidence.
+- Production builds expose no importer endpoint, command, configuration or capability.
+- Synthetic conformance fixtures exercise both parsers without using real people.
 - A deliberately ambiguous or otherwise unresolved row is reported for manual correction; the
-  Phase 2 source contract does not attempt name-based matching, and individual conflict resolution
-  follows the Phase 2 roster contract (§11.5, ADR 0014).
+  retained development parser does not attempt name-based matching (ADR 0014).
+
+---
+
+### Phase 2R — Guardian self-registration
+
+*SPEC §6.2, §8.2, §9.3–§9.4, §11, §20.1, §21;
+[ADR 0017](./docs/adr/0017-guardian-self-registration-as-production-roster-authority.md). The suffix
+preserves existing phase references while inserting the new production roster authority before
+programme delivery.*
+
+**Feature track**
+
+This phase describes the registration model that had landed before the consent-first change. Phase 4B
+supersedes it for v1 behaviour while preserving the useful implementation pieces: tenant/year link
+lifecycle, rate limiting, provenance, matching tests and reconciliation.
+
+- Registration-window lifecycle and one high-entropy, hashed, expiring, revocable and regenerable
+  link bound to one organization and school year.
+- A registration-only principal that can submit data and receive minimal match confirmation, but
+  cannot list or retrieve the roster or enter guardian, preference, placement or administration
+  surfaces.
+- A mobile, accountless form for adult given/family name, optional email, and zero or more children
+  with given/family name and grade.
+- Exact child matching on normalized name plus grade. One candidate requires explicit yes/no
+  confirmation with no additional disclosure; no match creates; rejection or ambiguity creates a
+  provisional record and review item. Fuzzy matching warns but never attaches.
+- Atomic submission provenance covering access channel, adult input, each match outcome, created
+  people and guardian edges. A second adult can independently confirm the same child without seeing
+  the first adult.
+- Organizer review for rejected and ambiguous matches, likely duplicates, missing homerooms, missing
+  or duplicate email, repeated child claims and unusual volume.
+- Audited duplicate reconciliation that preserves both submissions and moves relationships and
+  dependents by opaque identifier. Names are never keys.
+- Temporarily nullable student homeroom after registration, with explicit completeness gating before
+  operational programme membership or dismissal publication.
+- Rate limiting, link-abuse monitoring and optional low-friction anti-automation challenge.
+- Known-email invitation data model as an extension seam only. Phase 4B narrows this to invitation
+  contact metadata and single-use link export, still with automated delivery and reminders deferred.
+
+**Task breakdown**
+
+The task citations in this completed phase reflect the pre-Phase-4B §11 contract and ADR 0017. Use
+Phase 4B for current v1 registration and consent behaviour.
+
+| Task | Scope | Spec/ADR | Effort |
+|---|---|---|---|
+| **P2R-1 — Registration security contract** | Registration principal, tenant/year token scope, lifecycle, hashing, revocation/regeneration, rate limits, minimal-disclosure and production-import denial tests. | §9.3–§9.4, §11.2–§11.3, §11.7, ADR 0017 | xhigh |
+| **P2R-2 — Registration and provenance model** | Windows, submissions, per-child outcomes, relationship source/provenance, access channel, and audit integration; every new tenant table gets registry and isolation coverage. | §8.2, §11.6, §20.1, §9.2 | xhigh |
+| **P2R-3 — Adult and child registration flow** | Mobile form, optional email, grade vocabulary, exact matching, confirmation, create/reject/ambiguous outcomes, atomic completion. | §11.4–§11.6, §22.4 | xhigh |
+| **P2R-4 — Incomplete roster support** | Nullable homeroom transition, visible completeness state, and programme-membership/dismissal guards with migration and regression coverage. | §8.2, §10.1, §11.6, ADR 0017 | xhigh |
+| **P2R-5 — Review and reconciliation** | Duplicate and repeated-claim queues; audited merge/move preserving relationships, dependents and original submissions; correction UI. | §5.4, §11.6, §20.1 | xhigh |
+| **P2R-6 — Integration, accessibility and abuse tests** | Mobile end-to-end flow, two-adult shared-child case, token boundary, no-disclosure assertions, concurrency, rate limiting and production-import absence. | §9.2–§9.4, §11, §21, §22.4–§22.5 | xhigh |
+
+**Recommended dependency order**
+
+`P2R-1 → P2R-2 → P2R-3 → P2R-4 → P2R-5 → P2R-6`
+
+`P2R-4` may proceed beside `P2R-3` after the provenance model fixes the creation contract.
+
+**Exit criteria**
+
+- An adult with no account can use the common link on a phone to register themselves and children,
+  including omitting email, without seeing roster data.
+- Two adults can independently register the same exact child and produce two guardian edges to one
+  opaque student without learning about each other.
+- Rejected and ambiguous matches create reviewable provisional records and never alter an existing
+  child silently.
+- An organizer can reconcile duplicates without losing relationships, dependent data or either
+  submission's provenance; the action is audited.
+- Closed, expired, revoked, cross-tenant and cross-year registration attempts fail, and automated
+  tests prove match confirmation reveals no additional child data.
+- Production exposes no roster-import path, while synthetic development-import tests continue to pass.
 
 ---
 
@@ -478,6 +557,70 @@ history import is intentionally out of scope; all preference data is collected n
 OTP/MFA and access-code lifecycle boundaries, lifecycle windows, attribution, and student-centric
 tracking. The frontend test suite covers the generated API wrappers, mobile guardian/student
 submission flows, and the accessibility baseline at `frontend/e2e/accessibility.spec.ts`.
+
+---
+
+### Phase 4B — Consent-first guardian data management
+
+*SPEC §5.6, §8.2, §8.7, §9.3–§9.4, §10.1, §11, §18.2, §20.1, §21. Inserted after Phase 4 because
+implementation had reached that point before the consent/privacy requirement changed. Phase 5 is
+independent of this retrofit once the roster and access contracts are stable.*
+
+**Feature track**
+
+- Replace link-authorized roster submission with consent-first onboarding: shared org/year entry link
+  has no write authority; guardian proves mailbox control by OTP or single-use invitation, accepts
+  year-scoped terms/privacy, then creates or confirms their own adult record.
+- Add invitation email import as a narrow production bulk exception for contact metadata only. It
+  creates no adult, student or guardian records before redemption; automated delivery and reminders
+  remain deferred.
+- Guardian student management: add students with required grade and homeroom/classroom, choose among
+  minimal-disclosure potential matches, edit shared student fields, detach, delete/de-identify, and
+  delete the guardian's own adult profile with confirmation prompts but no fresh OTP step-up.
+- Deletion boundaries: guardian/admin correction hard-deletes only when no other guardians and no
+  associated data; otherwise it removes guardian links, marks the student deleted, overwrites names and
+  preferred name, retains grade/homeroom for history, excludes future use, and regenerates affected
+  artifacts without revoking links.
+- Administrative individual correction remains available with explicit authority and audit. Add
+  placeholder students for unregistered children so organizers can produce correct class counts and
+  placements without entering full identifying data, plus audited placeholder reconciliation when a
+  guardian later registers the child.
+- Deprecate prior-year links and cross-year copy. Each year is independent and disposable.
+- Add Owner-triggered end-of-year purge: `Closed` years can become `Purged`, deleting all personal and
+  operational year data while retaining only a non-identifying shell.
+
+**Task breakdown**
+
+| Task | Scope | Spec | Effort |
+|---|---|---|---|
+| **P4B-1 — Consent and invitation contract** | Registration entry semantics, OTP/invitation proofs, year-scoped terms acceptance, invitation contact import/export, token lifecycle, no-records-before-redemption tests. | §9.3–§9.4, §11.2–§11.4, §21.5 | xhigh |
+| **P4B-2 — Guardian-managed student records** | Required grade + homeroom forms, minimal-disclosure candidate search, immediate selected-student access, guardian edits to names/grade/homeroom, stale warnings. | §8.2, §10.1, §11.5–§11.6 | xhigh |
+| **P4B-3 — Guardian detach/delete and adult self-delete** | Relationship detach, student hard-vs-de-identifying delete, adult profile deletion, session/OTP revocation, confirmation prompts, no cross-guardian notification. | §11.6, §21.3 | xhigh |
+| **P4B-4 — Admin correction and placeholders** | Admin-on-behalf authority reasons, placeholder creation, placeholder exclusion from guardian match, audited placeholder-to-student reconciliation and artifact regeneration. | §11.7, §18.2, §20.1 | xhigh |
+| **P4B-5 — Purge and cross-year deprecation** | Remove/deprecate prior-year links, add `Purged` year state/shell, Owner purge command/UI, delete year-scoped data and share links. | §5.6, §8.7, §11.1, §21.4 | xhigh |
+| **P4B-6 — Integration, privacy and regression tests** | Tenant isolation for new tables, consent-before-write, invitation acceptance through OTP, match disclosure, deletion/de-identification, artifact regeneration, purge completeness. | §9.2, §11, §18.2, §21 | xhigh |
+
+**Recommended dependency order**
+
+`P4B-1 → P4B-2 → P4B-3 → P4B-4 → P4B-5 → P4B-6`
+
+`P4B-4` can start once the student state model from `P4B-2` exists. `P4B-5` can proceed in parallel
+after the prior-year-link deprecation decision is explicit in schema/API work.
+
+**Exit criteria**
+
+- No guardian or student production record is created before mailbox proof and year-scoped terms
+  acceptance, except audited admin-on-behalf corrections and placeholder students.
+- A guardian can add, edit, detach and delete/de-identify their own students using required grade and
+  homeroom/classroom fields, without seeing other guardians' data.
+- Invitation email import creates contact metadata only; redeeming an invitation or completing OTP for
+  an invited email marks the invitation accepted.
+- Placeholder students can be assigned and published with abbreviated labels, are hidden from guardian
+  matching, and can be reconciled to a later consented student by audit-preserving admin action.
+- Deleting/de-identifying a student regenerates affected artifacts so stable links no longer serve the
+  old name.
+- A closed year can be purged to a non-identifying shell, and tests prove year-scoped personal and
+  operational data is gone.
 
 ---
 
@@ -665,27 +808,31 @@ it is here because §15.1 makes it advisory and non-blocking, so nothing before 
 
 *SPEC §21, §22.3–22.5.*
 
-Deliberately last, because most of it can only be built once the surfaces it governs exist. Hard
-deletion in particular must redact retained solve runs and regenerate or revoke published artifacts
-containing the person — §21.3 flags the published-snapshot path as the most likely silent failure,
-and it cannot be written before Phase 6 exists.
+Deliberately last, because most of it can only be hardened once the surfaces it governs exist. Phase
+4B introduces the deletion, de-identification and purge contracts; this phase proves them in the full
+production surface. Hard deletion in particular must redact retained solve runs and regenerate
+published artifacts containing the person — §21.3 flags the published-snapshot path as the most likely
+silent failure, and it cannot be completed before Phase 6 exists.
 
 **Feature track**
 
-- Soft delete throughout: excluded from views, solves, reports and published artifacts; referential
-  integrity preserved; reversible.
+- De-identifying correction delete throughout: excluded from future views, solves, reports and
+  published artifacts while retained history renders only the deleted label.
 - Owner-only hard delete, removing the person and all dependents, redacting or invalidating retained
-  solve runs, and regenerating or revoking affected published artifacts. The audit log retains the
-  fact and the actor, never the content.
-- Retention and configurable purge of closed years.
-- Backups, and a **tested restore drill**. §22.3 makes testing restoration a MUST: preferences,
-  placements and history cannot be regenerated from source material that no longer exists.
-- Observability sufficient to answer the six questions in §22.5 without a database console.
+  solve runs, and regenerating affected published artifacts. The audit log retains the fact and the
+  actor, never the content.
+- Production hardening for Owner-triggered year purge to a non-identifying shell, including proof that
+  year-scoped personal and operational data and share links are gone.
+- Backups, and a **tested restore drill**. §22.3 makes testing restoration a MUST before purge:
+  preferences, placements and history cannot be regenerated from source material that no longer exists.
+  Restore procedures must not casually reintroduce purged personal data.
+- Observability sufficient to answer the questions in §22.5 without a database console.
 
 **Exit criteria — R3**
 
 - A restore drill has been performed and documented.
 - Hard-deleting a person leaves no trace in any solve run or published artifact, proven by test.
+- Purging a closed year leaves only the non-identifying shell, proven by test.
 
 ---
 
@@ -700,6 +847,7 @@ The same plan, viewed as a tooling roadmap.
 | 2 | — | Golden files, idempotency property test | Importer conventions | — |
 | 3 | — | State-machine tables | — | — |
 | 4 | Playwright, a11y | Mobile E2E | — | — |
+| 4B | — | Consent-before-write, match disclosure, deletion/de-identification, artifact regeneration, purge completeness | Consent/privacy retrofit captured before Phase 5 | Purge shell, deleted labels, invitation token lifecycle |
 | 5 | Performance budget | **Historical replay harness**, determinism | Solver-change protocol | Solve-run reproducibility |
 | 6 | Preview deploys | Snapshot and print tests | — | Independent artifact serving |
 | 7 | — | Sensitivity leak sweep | — | — |
@@ -738,7 +886,7 @@ These become part of `AGENTS.md` in Phase 0 and apply to every subsequent phase.
 | Lexicographic objective implemented by weight separation leaks between levels | 5 | §17.3 requires demonstrating non-interference by test. Prefer sequential optimisation unless measurement forces otherwise. |
 | Determinism treated as a later hardening pass | 5 | It gates re-solve, comparison and reproducibility. Built in Phase 5 or not at all. |
 | Sensitivity leak through an export or print path | 7 | Central enforcement plus a surface-enumerating test. §21.5 names this the most probable regression. |
-| Hard delete misses published snapshots | 10 | §21.3 names this the most likely silent failure. Test asserts absence from artifacts, not just from tables. |
+| Delete/de-identify misses published snapshots | 4B, 10 | §21.3 names this the most likely silent failure. Test asserts regenerated artifacts, not just table changes. |
 | Adult OTP/MFA and guardian-mode separation are under-specified | 4 | ADR 0013 and P4-0 define assurance levels, explicit identity links, recovery, and privacy-mode transitions before implementation. |
 | Agent throughput outpaces review quality | all | Phase 0 makes the gate real before domain volume begins. |
 | A program starts without placement history | 5, 8 | No-history behavior is neutral and visible; native completed sessions progressively populate fairness and variety history. |

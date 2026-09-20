@@ -3,7 +3,10 @@
 - **Status:** Accepted
 - **Date:** 2026-08-28
 - **Supersedes:** [0006](./0006-household-and-volunteer-access.md)
-- **Relates to:** SPEC §8.2, §11.4, §18.6, §19.5
+- **Amended in part by:**
+  [0017](./0017-guardian-self-registration-as-production-roster-authority.md) — production guardian
+  edges are self-asserted rather than imported; the no-household conclusion is unchanged
+- **Relates to:** SPEC §8.2, §11, §18.6, §19.5
 - **Related:** [0002](./0002-authentication-and-access-mechanisms.md),
   [0010](./0010-schema-generated-code-and-migration-conventions.md),
   [0013](./0013-guardian-and-volunteer-access.md)

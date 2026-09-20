@@ -6,7 +6,9 @@
 - **Amended in part by:** [0009](./0009-administrator-sessions-and-identity-provider.md) — token
   verification, browser session mechanics, invitation-based provisioning, and the evaluation of Clerk
   as an alternative provider; [0013](./0013-guardian-and-volunteer-access.md) — adult OTP sessions,
-  student survey codes, and step-up MFA
+  student survey codes, and step-up MFA;
+  [0017](./0017-guardian-self-registration-as-production-roster-authority.md) — the organization/year
+  roster-registration principal
 - **Related:** [0001](./0001-application-stack-and-topology.md),
   [0006](./0006-household-and-volunteer-access.md),
   [0008](./0008-authorization-capabilities-and-audit.md)
@@ -20,6 +22,7 @@ Phase 4 adult and student access questions:
 | Principal | Mechanism | Scope |
 |---|---|---|
 | Owner, Administrator, Coordinator | Account with credential, renewable session | Organisation |
+| Roster registrant | Application-owned organization/year link | Registration submission and minimal match confirmation only |
 | Guardian | Application-owned email OTP followed by a bounded session | Current guardian relationships |
 | Student | Application-owned high-entropy survey/session code | One student and one instrument |
 | Class leader, Homeroom teacher | Tokenised link | Named objects, session |

@@ -1,8 +1,10 @@
 # 14. Roster ingest scope and source authority
 
-- **Status:** Accepted
+- **Status:** Superseded for production by
+  [0017](./0017-guardian-self-registration-as-production-roster-authority.md); retained for
+  development-import history
 - **Date:** 2026-08-29
-- **Relates to:** SPEC §5.2, §10.1, §11, §15.2, §20.1, §21.1
+- **Relates to:** Historical SPEC §11; current SPEC §11.7
 - **Related:** [0007](./0007-tenancy-enforcement-and-data-access.md),
   [0008](./0008-authorization-capabilities-and-audit.md),
   [0010](./0010-schema-generated-code-and-migration-conventions.md),

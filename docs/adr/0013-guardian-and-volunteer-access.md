@@ -3,6 +3,9 @@
 - **Status:** Accepted
 - **Date:** 2026-09-01
 - **Implements:** SPEC §6.2, §6.5–6.6, §9.3–9.4, §13.8, §19.5
+- **Amended in part by:**
+  [0017](./0017-guardian-self-registration-as-production-roster-authority.md) — roster registration
+  principal, self-asserted guardian-relationship provenance, and optional known-email invitations
 - **Related:** [0002](./0002-authentication-and-access-mechanisms.md),
   [0012](./0012-remove-the-household-entity.md)
 
