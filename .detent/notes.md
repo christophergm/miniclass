@@ -284,10 +284,12 @@
   environment-limited because installed golangci-lint was built with Go 1.27.1, not pinned Go
   1.26.4. Migration round-trip, frontend dependency gates, and smoke remain to run in CI/current
   environment as configured.
-- Repository/PR: commit `7b2958d` is pushed to open non-draft PR #218 with `Fixes #212`; the fresh
-  current-head CI run is pending after the frontend correction.
-- Open items: verify all ten current-head checks and review state, then update the persistent
-  Workpad with final telemetry.
+- Repository/PR: commit `053594b` is pushed to open non-draft PR #218 with `Fixes #212`; the
+  current-head run `35488930108` passes all ten required checks.
+- Validation telemetry: PR CI ran 146s; slow checks were Backend tests 142s, Generated code drift
+  106s, and Developer tooling 76s. The local merge gate `git diff --check` is clean; quiet-window
+  wait was 0s; no post-merge main CI applies while the PR is open.
+- Open items: verify final PR/review state, update the persistent Workpad, and hand off to Detent.
 - Skill draft: no — existing tenant-entity and PostgreSQL isolation-harness guidance covered the
   reusable schema and audit method; no new broadly reusable procedure was discovered.
 
