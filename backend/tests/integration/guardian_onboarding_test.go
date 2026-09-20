@@ -122,6 +122,31 @@ func TestGuardianInvitationRedemptionIsSingleUseAndExportsMetadataOnly(t *testin
 	require.ErrorIs(t, err, guardian.ErrInvitationInvalid)
 }
 
+func TestGuardianSignupNoticeReadIsOrganizationScoped(t *testing.T) {
+	harness := testharness.Open(t)
+	ctx := harness.Context
+	actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "guardian signup notice integration"}
+	organizationID := harness.MintOrganization(t)
+	otherOrganizationID := harness.MintOrganization(t)
+	store := identity.NewStoreWithAuth(harness.Database, nil, nil)
+	content := "Bring the confirmation message to registration."
+
+	updated, err := store.UpdateSignupNotice(ctx, organizationID, &content, actor, time.Now().UTC())
+	require.NoError(t, err)
+	require.NotNil(t, updated.SignupNotice)
+	require.Equal(t, content, updated.SignupNotice.Content)
+
+	read, err := store.GetSignupNotice(ctx, organizationID)
+	require.NoError(t, err)
+	require.NotNil(t, read.SignupNotice)
+	require.Equal(t, content, read.SignupNotice.Content)
+	require.Equal(t, updated.SignupNotice.Version, read.SignupNotice.Version)
+
+	other, err := store.GetSignupNotice(ctx, otherOrganizationID)
+	require.NoError(t, err)
+	require.Nil(t, other.SignupNotice)
+}
+
 func TestGuardianInvitedEmailOTPConsumesOutstandingInvitation(t *testing.T) {
 	harness := testharness.Open(t)
 	ctx := harness.Context

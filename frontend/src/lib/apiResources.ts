@@ -128,6 +128,26 @@ export const resourceApi = {
         headers: { "Content-Type": "text/csv" },
       }),
     ),
+  exportGuardianInvitationContacts: (schoolYearID: string) =>
+    unwrap(
+      api.GET("/api/school-years/{schoolYearID}/guardian-invitation-contacts/export", {
+        params: { path: { schoolYearID } },
+        parseAs: "text",
+      }),
+    ),
+  revokeGuardianInvitationContact: (schoolYearID: string, contactID: string) =>
+    unwrapNoContent(
+      api.POST("/api/school-years/{schoolYearID}/guardian-invitation-contacts/{contactID}/revoke", {
+        params: { path: { schoolYearID, contactID } },
+      }),
+    ),
+  revokeGuardianOnboardingSession: (schoolYearID: string, sessionID: string) =>
+    unwrapNoContent(
+      api.POST("/api/school-years/{schoolYearID}/guardian-onboarding-sessions/{sessionID}/revoke", {
+        params: { path: { schoolYearID, sessionID } },
+      }),
+    ),
+  getGuardianSignupNotice: () => unwrap(api.GET("/api/guardian-signup-notice")),
   updateGuardianSignupNotice: (content: string | null) =>
     unwrap(api.PATCH("/api/guardian-signup-notice", { body: { content } })),
   acceptGuardianOnboardingConsent: (

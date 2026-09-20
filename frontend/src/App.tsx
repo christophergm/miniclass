@@ -9,6 +9,7 @@ import { ClaimInvitationPage } from "@/features/auth/ClaimInvitationPage";
 import { GuardianAccessPage } from "@/features/auth/GuardianAccessPage";
 import { HomePage } from "@/features/auth/HomePage";
 import { GuardianOnboardingPage } from "@/features/auth/GuardianOnboardingPage";
+import { GuardianOnboardingAdminPage } from "@/features/onboarding/GuardianOnboardingAdminPage";
 import { MfaPage } from "@/features/auth/MfaPage";
 import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage";
 import { SignInPage } from "@/features/auth/SignInPage";
@@ -106,6 +107,7 @@ function AppRoutes() {
             <Route element={<SchoolYearLayout />}>
               <Route index element={<ProgramYearEntryPage />} />
               <Route path="settings" element={<SchoolYearSettingsPage />} />
+              <Route path="onboarding" element={<GuardianOnboardingAdminPage />} />
 
               <Route path="programs" element={<ProgramListPage />} />
               <Route path="programs/:programId" element={<ProgramDetailPage />} />

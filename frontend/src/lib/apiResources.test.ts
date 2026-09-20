@@ -199,3 +199,61 @@ describe("phase 4 generated resources", () => {
     );
   });
 });
+
+describe("guardian onboarding administration resources", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("uses the generated export and revocation resources", async () => {
+    const requests: Request[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = input instanceof Request ? input : new Request(input, init);
+        requests.push(request);
+        if (request.url.includes("/api/guardian-signup-notice")) {
+          return new Response(
+            JSON.stringify({
+              terms_version: "terms-v1",
+              terms_notice: "Terms",
+              privacy_version: "privacy-v1",
+              privacy_notice: "Privacy",
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+        if (request.method === "GET") {
+          return new Response("email,status\\nguardian@example.test,issued\\n", {
+            status: 200,
+            headers: { "Content-Type": "text/csv" },
+          });
+        }
+        return new Response("{}", {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }),
+    );
+
+    await resourceApi.exportGuardianInvitationContacts("year-1");
+    await resourceApi.revokeGuardianInvitationContact("year-1", "contact-1");
+    await resourceApi.revokeGuardianOnboardingSession("year-1", "session-1");
+    await resourceApi.getGuardianSignupNotice();
+
+    expect(requests.map((request) => request.method)).toEqual(["GET", "POST", "POST", "GET"]);
+    expect(requests[0].url).toContain(
+      "/api/school-years/year-1/guardian-invitation-contacts/export",
+    );
+    expect(requests[1].url).toContain(
+      "/api/school-years/year-1/guardian-invitation-contacts/contact-1/revoke",
+    );
+    expect(requests[2].url).toContain(
+      "/api/school-years/year-1/guardian-onboarding-sessions/session-1/revoke",
+    );
+    expect(requests[3].url).toContain("/api/guardian-signup-notice");
+  });
+});

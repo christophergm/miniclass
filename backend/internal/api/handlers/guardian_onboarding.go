@@ -229,6 +229,21 @@ type GuardianSignupNoticeResponse struct {
 
 type GuardianPolicyOutput struct{ Body GuardianPolicyResponse }
 
+func (h *GuardianOnboardingHandler) GetSignupNotice(ctx context.Context, _ *struct{}) (*GuardianPolicyOutput, error) {
+	account, err := administratorPrincipal(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if h == nil || h.service == nil {
+		return nil, guardianServiceUnavailable()
+	}
+	policy, err := h.service.GetSignupNotice(ctx, account.OrganizationID)
+	if err != nil {
+		return nil, guardianOnboardingProblem(err)
+	}
+	return &GuardianPolicyOutput{Body: guardianPolicyResponse(policy)}, nil
+}
+
 func (h *GuardianOnboardingHandler) UpdateSignupNotice(ctx context.Context, input *GuardianSignupNoticeInput) (*GuardianPolicyOutput, error) {
 	account, err := administratorPrincipal(ctx)
 	if err != nil {

@@ -175,6 +175,14 @@ func registerOperations(api huma.API, options RouterOptions) {
 		OperationID: "export-guardian-invitation-contacts", Method: http.MethodGet,
 		Path: apiBasePath + "/school-years/{schoolYearID}/guardian-invitation-contacts/export", Summary: "Export guardian invitation contacts as CSV",
 		Errors: []int{http.StatusNotFound},
+		Responses: map[string]*huma.Response{
+			"200": {
+				Description: "CSV guardian invitation contact status",
+				Content: map[string]*huma.MediaType{
+					"text/csv": {Schema: &huma.Schema{Type: "string"}},
+				},
+			},
+		},
 	}, auth.CapabilityManageRoster, false, guardianOnboarding.ExportInvitationContacts)
 	registerOperation(api, huma.Operation{
 		OperationID: "revoke-guardian-invitation-contact", Method: http.MethodPost,
@@ -186,6 +194,11 @@ func registerOperations(api huma.API, options RouterOptions) {
 		Path: apiBasePath + "/school-years/{schoolYearID}/guardian-onboarding-sessions/{sessionID}/revoke", Summary: "Revoke a guardian onboarding session",
 		Errors: []int{http.StatusNotFound, http.StatusConflict},
 	}, auth.CapabilityManageRoster, false, guardianOnboarding.RevokeOnboardingSession)
+	registerOperation(api, huma.Operation{
+		OperationID: "get-guardian-signup-notice", Method: http.MethodGet,
+		Path: apiBasePath + "/guardian-signup-notice", Summary: "Read the organization guardian signup notice",
+		Errors: []int{http.StatusNotFound},
+	}, auth.CapabilityManageRoster, false, guardianOnboarding.GetSignupNotice)
 	registerOperation(api, huma.Operation{
 		OperationID: "update-guardian-signup-notice", Method: http.MethodPatch,
 		Path: apiBasePath + "/guardian-signup-notice", Summary: "Update the organization guardian signup notice",

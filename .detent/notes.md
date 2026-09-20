@@ -402,3 +402,30 @@
 - Repository/PR: PR #222 is open, non-draft, merge-clean, references `Fixes #213`, and has no reviews or inline comments requiring action. Corrective head `d69b635` passed run `35531518174`; CI duration was about 160 seconds, with Backend tests (157s), Generated code drift (116s), and Developer tooling (84s) the slowest checks. Quiet-window wait was 0s; local merge-gate duration was 0.01s; post-merge main CI is not applicable while the PR is open.
 - Open items: record this final handoff state, push the notes-only commit, verify current-head CI and review state, then declare the Workpad complete for Detent review-lane handoff.
 - Skill draft: no — the existing tenant-entity and PostgreSQL isolation-harness procedures cover the reusable method; no new broadly reusable procedure has been discovered.
+
+## Current work — issue #223
+
+- Scope: organiser-facing, school-year-scoped guardian onboarding administration per SPEC
+  §§9.3–9.4, 11.2–11.4, 21.5 and PLAN P4B-1.
+- Tracker state: issue #223 is In Progress with no dependencies or blockers. Persistent Workpad:
+  https://github.com/christophergm/miniclass/issues/223#issuecomment-5752175058.
+- Base: worktree is clean and based on `origin/main` at `b663304`; no native dependency
+  relations are present.
+- Implementation: added `/y/:schoolYearId/onboarding`, linked from year Settings, with shared
+  registration-link issuance/inspection/revocation, CSV contact import/manual link distribution,
+  metadata-only status export, confirmed contact/session revocation, and signup-notice editing.
+  Copyable bearer links are available only in their original issue/import responses. A new
+  `GET /api/guardian-signup-notice` supports loading the organization notice and has a
+  cross-organization integration regression.
+- Validation: focused guardian tests, full and race-enabled backend tests, backend
+  format/lint, generation, local-toolchain generated-code drift, focused Biome format/lint,
+  and `git diff --check` pass. `make check` stops at the existing `/miniclass-postgres`
+  container-name conflict; migration, frontend dependency, and smoke gates remain
+  environment-limited. CI run `35535514789` passes all ten required checks on head `7db2e96`.
+  Its 162-second duration was led by Backend tests (158s), Generated code drift (150s), and
+  Backend lint (91s).
+- Repository/PR: commits `6a763a1` and `7db2e96` are pushed to open non-draft PR #226, which
+  references `Fixes #223`, is merge-clean, and has no actionable reviews or inline comments.
+  Detent owns the completion-lane transition after the Workpad records current-head validation.
+- Skill draft: no — the existing project API, audit, and frontend-resource conventions covered
+  this focused administration surface; no broadly reusable procedure was discovered.

@@ -258,6 +258,10 @@ describe("SchoolYearSettingsPage", () => {
       screen.getByRole("navigation", { name: "School year settings breadcrumb" }),
     ).toHaveTextContent("2025–26Settings");
     expect(screen.getByRole("link", { name: "2025–26" })).toHaveAttribute("href", "/y/year-test");
+    expect(screen.getByRole("link", { name: "Manage guardian onboarding" })).toHaveAttribute(
+      "href",
+      "/y/year-test/onboarding",
+    );
     expect(screen.getByRole("heading", { name: "Grades and homerooms" })).toBeInTheDocument();
     expect(
       screen.queryByRole("link", { name: /Manage grades and homerooms/ }),

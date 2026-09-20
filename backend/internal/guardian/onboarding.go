@@ -169,6 +169,7 @@ type Service interface {
 	ListInvitationContacts(context.Context, ids.XID, ids.XID, audit.Actor) ([]InvitationExportRow, error)
 	RevokeInvitationContact(context.Context, ids.XID, ids.XID, ids.XID, audit.Actor, time.Time) error
 	RevokeOnboardingSession(context.Context, ids.XID, ids.XID, ids.XID, audit.Actor, time.Time) error
+	GetSignupNotice(context.Context, ids.XID) (Policy, error)
 	UpdateSignupNotice(context.Context, ids.XID, *string, audit.Actor, time.Time) (Policy, error)
 	Begin(context.Context, BeginInput) (Session, error)
 	Redeem(context.Context, RedeemInput) (Session, error)

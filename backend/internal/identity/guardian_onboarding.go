@@ -231,6 +231,25 @@ func (s *Store) RevokeOnboardingSession(ctx context.Context, organizationID, sch
 	return nil
 }
 
+func (s *Store) GetSignupNotice(ctx context.Context, organizationID ids.XID) (guardian.Policy, error) {
+	if s == nil || s.tenantDatabase == nil {
+		return guardian.Policy{}, errors.New("get guardian signup notice: identity store is nil")
+	}
+	var policy guardian.Policy
+	err := s.tenantDatabase.InTenantRead(ctx, string(organizationID), func(ctx context.Context, tx *data.Tx) error {
+		notice, err := tx.GetGuardianSignupNotice(ctx)
+		if err != nil {
+			return err
+		}
+		policy = policyFromNotice(notice)
+		return nil
+	})
+	if err != nil {
+		return guardian.Policy{}, fmt.Errorf("get guardian signup notice: %w", err)
+	}
+	return policy, nil
+}
+
 func (s *Store) UpdateSignupNotice(ctx context.Context, organizationID ids.XID, content *string, actor audit.Actor, now time.Time) (guardian.Policy, error) {
 	if s == nil || s.tenantDatabase == nil {
 		return guardian.Policy{}, errors.New("update guardian signup notice: identity store is nil")
