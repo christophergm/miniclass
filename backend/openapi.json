@@ -12036,7 +12036,14 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "CSV guardian invitation contact status"
           },
           "404": {
             "content": {

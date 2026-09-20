@@ -132,6 +132,7 @@ export const resourceApi = {
     unwrap(
       api.GET("/api/school-years/{schoolYearID}/guardian-invitation-contacts/export", {
         params: { path: { schoolYearID } },
+        parseAs: "text",
       }),
     ),
   revokeGuardianInvitationContact: (schoolYearID: string, contactID: string) =>

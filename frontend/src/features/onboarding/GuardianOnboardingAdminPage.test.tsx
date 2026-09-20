@@ -121,7 +121,7 @@ describe("GuardianOnboardingAdminPage", () => {
 
     expect(mutate).toHaveBeenCalledWith(undefined, expect.anything());
     expect(screen.getByLabelText("Shared guardian registration link")).toHaveValue(
-      "http://localhost/guardian/onboarding?entry=entry-secret",
+      new URL("/guardian/onboarding?entry=entry-secret", window.location.origin).toString(),
     );
     expect(screen.getByText(/stores only a hash/i)).toBeInTheDocument();
   });
@@ -154,7 +154,10 @@ describe("GuardianOnboardingAdminPage", () => {
 
     expect(mutate).toHaveBeenCalledWith(document, expect.anything());
     expect(screen.getByLabelText("Invitation for guardian@example.test link")).toHaveValue(
-      "http://localhost/guardian/onboarding?invitation=invitation-secret",
+      new URL(
+        "/guardian/onboarding?invitation=invitation-secret",
+        window.location.origin,
+      ).toString(),
     );
     expect(
       screen.getByText(/does not create an adult, student, or guardian record/i),

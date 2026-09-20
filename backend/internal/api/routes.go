@@ -175,6 +175,14 @@ func registerOperations(api huma.API, options RouterOptions) {
 		OperationID: "export-guardian-invitation-contacts", Method: http.MethodGet,
 		Path: apiBasePath + "/school-years/{schoolYearID}/guardian-invitation-contacts/export", Summary: "Export guardian invitation contacts as CSV",
 		Errors: []int{http.StatusNotFound},
+		Responses: map[string]*huma.Response{
+			"200": {
+				Description: "CSV guardian invitation contact status",
+				Content: map[string]*huma.MediaType{
+					"text/csv": {Schema: &huma.Schema{Type: "string"}},
+				},
+			},
+		},
 	}, auth.CapabilityManageRoster, false, guardianOnboarding.ExportInvitationContacts)
 	registerOperation(api, huma.Operation{
 		OperationID: "revoke-guardian-invitation-contact", Method: http.MethodPost,
