@@ -17,6 +17,8 @@ export type ParticipationIntent = Adult["participation_intent"];
 
 export type StudentInput = Schemas["CreateStudentInputBody"];
 export type AdultInput = Schemas["CreateAdultInputBody"];
+export type StudentCorrectionInput = Schemas["CreateStudentCorrectionInputBody"];
+export type StudentCorrectionUpdateInput = Schemas["UpdateStudentCorrectionInputBody"];
 
 // The contract has no shared person supertype: a student carries grade and
 // homeroom identifiers, an adult carries contact details. The fields the roster
@@ -71,6 +73,43 @@ export const studentApi = {
       api.POST("/api/school-years/{schoolYearID}/students/{studentID}/restore", {
         params: { path: { schoolYearID, studentID } },
         body: { reason },
+      }),
+    ),
+};
+
+export const studentCorrectionApi = {
+  create: (schoolYearID: string, body: StudentCorrectionInput) =>
+    unwrap(
+      api.POST("/api/school-years/{schoolYearID}/student-corrections", {
+        params: { path: { schoolYearID } },
+        body,
+      }),
+    ),
+  update: (schoolYearID: string, studentID: string, body: StudentCorrectionUpdateInput) =>
+    unwrap(
+      api.PATCH("/api/school-years/{schoolYearID}/student-corrections/{studentID}", {
+        params: { path: { schoolYearID, studentID } },
+        body,
+      }),
+    ),
+  remove: (schoolYearID: string, studentID: string, reason: string) =>
+    unwrapNoContent(
+      api.DELETE("/api/school-years/{schoolYearID}/student-corrections/{studentID}", {
+        params: { path: { schoolYearID, studentID }, query: { reason } },
+      }),
+    ),
+  createPlaceholder: (schoolYearID: string, body: Schemas["CreatePlaceholderStudentInputBody"]) =>
+    unwrap(
+      api.POST("/api/school-years/{schoolYearID}/placeholder-students", {
+        params: { path: { schoolYearID } },
+        body,
+      }),
+    ),
+  reconcile: (schoolYearID: string, body: Schemas["ReconcilePlaceholderStudentInputBody"]) =>
+    unwrap(
+      api.POST("/api/school-years/{schoolYearID}/student-reconciliations", {
+        params: { path: { schoolYearID } },
+        body,
       }),
     ),
 };

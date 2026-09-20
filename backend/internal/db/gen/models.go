@@ -1046,6 +1046,8 @@ type Student struct {
 	DeletedAt          pgtype.Timestamptz `json:"deleted_at"`
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	IsPlaceholder      bool               `json:"is_placeholder"`
+	Provenance         string             `json:"provenance"`
 }
 
 type User struct {

@@ -19,5 +19,6 @@ func TestPlaceholderStudentsAreNeverCandidates(t *testing.T) {
 	} {
 		require.True(t, isPlaceholder(data.Student{LegalGivenName: name.given, LegalFamilyName: name.family}))
 	}
+	require.True(t, isPlaceholder(data.Student{LegalGivenName: "Alex", LegalFamilyName: "Rivera", IsPlaceholder: true}))
 	require.False(t, isPlaceholder(data.Student{LegalGivenName: "Casey", LegalFamilyName: "Synthetic"}))
 }

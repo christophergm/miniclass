@@ -252,8 +252,13 @@ func studentSummary(before, after *data.Student) json.RawMessage {
 
 func studentSummaryFields(student *data.Student) map[string]any {
 	return map[string]any{
-		"legal_given_name": student.LegalGivenName, "legal_family_name": student.LegalFamilyName,
-		"preferred_given_name": student.PreferredGivenName, "grade_level_id": student.GradeLevelID,
-		"homeroom_id": student.HomeroomID, "external_identifier": student.ExternalIdentifier,
+		"legal_given_name":     student.LegalGivenName,
+		"legal_family_name":    student.LegalFamilyName,
+		"preferred_given_name": student.PreferredGivenName,
+		"grade_level_id":       student.GradeLevelID,
+		"homeroom_id":          student.HomeroomID,
+		"external_identifier":  student.ExternalIdentifier,
+		"is_placeholder":       student.IsPlaceholder,
+		"provenance":           student.Provenance,
 	}
 }

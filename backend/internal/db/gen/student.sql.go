@@ -47,11 +47,13 @@ insert into students (
     preferred_given_name,
     grade_level_id,
     homeroom_id,
-    external_identifier
+    external_identifier,
+    is_placeholder,
+    provenance
 )
-values ($1, $2, $3, $4, $5, $6, $7, $8)
+values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 returning id, organization_id, school_year_id, legal_given_name, legal_family_name,
-    preferred_given_name, grade_level_id, homeroom_id, external_identifier, deleted_at, created_at, updated_at
+    preferred_given_name, grade_level_id, homeroom_id, external_identifier, is_placeholder, provenance, deleted_at, created_at, updated_at
 `
 
 type CreateStudentParams struct {
@@ -63,9 +65,28 @@ type CreateStudentParams struct {
 	GradeLevelID       *ids.XID    `json:"grade_level_id"`
 	HomeroomID         ids.XID     `json:"homeroom_id"`
 	ExternalIdentifier pgtype.Text `json:"external_identifier"`
+	IsPlaceholder      bool        `json:"is_placeholder"`
+	Provenance         string      `json:"provenance"`
 }
 
-func (q *Queries) CreateStudent(ctx context.Context, arg CreateStudentParams) (Student, error) {
+type CreateStudentRow struct {
+	ID                 ids.XID            `json:"id"`
+	OrganizationID     ids.XID            `json:"organization_id"`
+	SchoolYearID       ids.XID            `json:"school_year_id"`
+	LegalGivenName     string             `json:"legal_given_name"`
+	LegalFamilyName    string             `json:"legal_family_name"`
+	PreferredGivenName pgtype.Text        `json:"preferred_given_name"`
+	GradeLevelID       *ids.XID           `json:"grade_level_id"`
+	HomeroomID         ids.XID            `json:"homeroom_id"`
+	ExternalIdentifier pgtype.Text        `json:"external_identifier"`
+	IsPlaceholder      bool               `json:"is_placeholder"`
+	Provenance         string             `json:"provenance"`
+	DeletedAt          pgtype.Timestamptz `json:"deleted_at"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) CreateStudent(ctx context.Context, arg CreateStudentParams) (CreateStudentRow, error) {
 	row := q.db.QueryRow(ctx, createStudent,
 		arg.OrganizationID,
 		arg.SchoolYearID,
@@ -75,8 +96,10 @@ func (q *Queries) CreateStudent(ctx context.Context, arg CreateStudentParams) (S
 		arg.GradeLevelID,
 		arg.HomeroomID,
 		arg.ExternalIdentifier,
+		arg.IsPlaceholder,
+		arg.Provenance,
 	)
-	var i Student
+	var i CreateStudentRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
@@ -87,6 +110,8 @@ func (q *Queries) CreateStudent(ctx context.Context, arg CreateStudentParams) (S
 		&i.GradeLevelID,
 		&i.HomeroomID,
 		&i.ExternalIdentifier,
+		&i.IsPlaceholder,
+		&i.Provenance,
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -101,7 +126,7 @@ set legal_given_name = 'Deleted student', legal_family_name = 'Deleted student',
     deleted_at = coalesce(deleted_at, now())
 where id = $1 and organization_id = $2 and school_year_id = $3 and deleted_at is null
 returning id, organization_id, school_year_id, legal_given_name, legal_family_name,
-    preferred_given_name, grade_level_id, homeroom_id, external_identifier, deleted_at, created_at, updated_at
+    preferred_given_name, grade_level_id, homeroom_id, external_identifier, is_placeholder, provenance, deleted_at, created_at, updated_at
 `
 
 type DeidentifyStudentParams struct {
@@ -110,9 +135,26 @@ type DeidentifyStudentParams struct {
 	SchoolYearID   ids.XID `json:"school_year_id"`
 }
 
-func (q *Queries) DeidentifyStudent(ctx context.Context, arg DeidentifyStudentParams) (Student, error) {
+type DeidentifyStudentRow struct {
+	ID                 ids.XID            `json:"id"`
+	OrganizationID     ids.XID            `json:"organization_id"`
+	SchoolYearID       ids.XID            `json:"school_year_id"`
+	LegalGivenName     string             `json:"legal_given_name"`
+	LegalFamilyName    string             `json:"legal_family_name"`
+	PreferredGivenName pgtype.Text        `json:"preferred_given_name"`
+	GradeLevelID       *ids.XID           `json:"grade_level_id"`
+	HomeroomID         ids.XID            `json:"homeroom_id"`
+	ExternalIdentifier pgtype.Text        `json:"external_identifier"`
+	IsPlaceholder      bool               `json:"is_placeholder"`
+	Provenance         string             `json:"provenance"`
+	DeletedAt          pgtype.Timestamptz `json:"deleted_at"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) DeidentifyStudent(ctx context.Context, arg DeidentifyStudentParams) (DeidentifyStudentRow, error) {
 	row := q.db.QueryRow(ctx, deidentifyStudent, arg.ID, arg.OrganizationID, arg.SchoolYearID)
-	var i Student
+	var i DeidentifyStudentRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
@@ -123,6 +165,8 @@ func (q *Queries) DeidentifyStudent(ctx context.Context, arg DeidentifyStudentPa
 		&i.GradeLevelID,
 		&i.HomeroomID,
 		&i.ExternalIdentifier,
+		&i.IsPlaceholder,
+		&i.Provenance,
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -132,7 +176,7 @@ func (q *Queries) DeidentifyStudent(ctx context.Context, arg DeidentifyStudentPa
 
 const findStudentForRegistry = `-- name: FindStudentForRegistry :one
 select id, organization_id, school_year_id, legal_given_name, legal_family_name,
-    preferred_given_name, grade_level_id, homeroom_id, external_identifier, deleted_at, created_at, updated_at
+    preferred_given_name, grade_level_id, homeroom_id, external_identifier, is_placeholder, provenance, deleted_at, created_at, updated_at
 from students
 where id = $1
   and organization_id = $2
@@ -144,9 +188,26 @@ type FindStudentForRegistryParams struct {
 	OrganizationID ids.XID `json:"organization_id"`
 }
 
-func (q *Queries) FindStudentForRegistry(ctx context.Context, arg FindStudentForRegistryParams) (Student, error) {
+type FindStudentForRegistryRow struct {
+	ID                 ids.XID            `json:"id"`
+	OrganizationID     ids.XID            `json:"organization_id"`
+	SchoolYearID       ids.XID            `json:"school_year_id"`
+	LegalGivenName     string             `json:"legal_given_name"`
+	LegalFamilyName    string             `json:"legal_family_name"`
+	PreferredGivenName pgtype.Text        `json:"preferred_given_name"`
+	GradeLevelID       *ids.XID           `json:"grade_level_id"`
+	HomeroomID         ids.XID            `json:"homeroom_id"`
+	ExternalIdentifier pgtype.Text        `json:"external_identifier"`
+	IsPlaceholder      bool               `json:"is_placeholder"`
+	Provenance         string             `json:"provenance"`
+	DeletedAt          pgtype.Timestamptz `json:"deleted_at"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) FindStudentForRegistry(ctx context.Context, arg FindStudentForRegistryParams) (FindStudentForRegistryRow, error) {
 	row := q.db.QueryRow(ctx, findStudentForRegistry, arg.ID, arg.OrganizationID)
-	var i Student
+	var i FindStudentForRegistryRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
@@ -157,6 +218,8 @@ func (q *Queries) FindStudentForRegistry(ctx context.Context, arg FindStudentFor
 		&i.GradeLevelID,
 		&i.HomeroomID,
 		&i.ExternalIdentifier,
+		&i.IsPlaceholder,
+		&i.Provenance,
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -166,7 +229,7 @@ func (q *Queries) FindStudentForRegistry(ctx context.Context, arg FindStudentFor
 
 const getStudentByID = `-- name: GetStudentByID :one
 select id, organization_id, school_year_id, legal_given_name, legal_family_name,
-    preferred_given_name, grade_level_id, homeroom_id, external_identifier, deleted_at, created_at, updated_at
+    preferred_given_name, grade_level_id, homeroom_id, external_identifier, is_placeholder, provenance, deleted_at, created_at, updated_at
 from students
 where id = $1
   and organization_id = $2
@@ -180,9 +243,26 @@ type GetStudentByIDParams struct {
 	SchoolYearID   ids.XID `json:"school_year_id"`
 }
 
-func (q *Queries) GetStudentByID(ctx context.Context, arg GetStudentByIDParams) (Student, error) {
+type GetStudentByIDRow struct {
+	ID                 ids.XID            `json:"id"`
+	OrganizationID     ids.XID            `json:"organization_id"`
+	SchoolYearID       ids.XID            `json:"school_year_id"`
+	LegalGivenName     string             `json:"legal_given_name"`
+	LegalFamilyName    string             `json:"legal_family_name"`
+	PreferredGivenName pgtype.Text        `json:"preferred_given_name"`
+	GradeLevelID       *ids.XID           `json:"grade_level_id"`
+	HomeroomID         ids.XID            `json:"homeroom_id"`
+	ExternalIdentifier pgtype.Text        `json:"external_identifier"`
+	IsPlaceholder      bool               `json:"is_placeholder"`
+	Provenance         string             `json:"provenance"`
+	DeletedAt          pgtype.Timestamptz `json:"deleted_at"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetStudentByID(ctx context.Context, arg GetStudentByIDParams) (GetStudentByIDRow, error) {
 	row := q.db.QueryRow(ctx, getStudentByID, arg.ID, arg.OrganizationID, arg.SchoolYearID)
-	var i Student
+	var i GetStudentByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
@@ -193,6 +273,8 @@ func (q *Queries) GetStudentByID(ctx context.Context, arg GetStudentByIDParams) 
 		&i.GradeLevelID,
 		&i.HomeroomID,
 		&i.ExternalIdentifier,
+		&i.IsPlaceholder,
+		&i.Provenance,
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -202,7 +284,7 @@ func (q *Queries) GetStudentByID(ctx context.Context, arg GetStudentByIDParams) 
 
 const getStudentByIDIncludingDeleted = `-- name: GetStudentByIDIncludingDeleted :one
 select id, organization_id, school_year_id, legal_given_name, legal_family_name,
-    preferred_given_name, grade_level_id, homeroom_id, external_identifier, deleted_at, created_at, updated_at
+    preferred_given_name, grade_level_id, homeroom_id, external_identifier, is_placeholder, provenance, deleted_at, created_at, updated_at
 from students
 where id = $1
   and organization_id = $2
@@ -215,9 +297,26 @@ type GetStudentByIDIncludingDeletedParams struct {
 	SchoolYearID   ids.XID `json:"school_year_id"`
 }
 
-func (q *Queries) GetStudentByIDIncludingDeleted(ctx context.Context, arg GetStudentByIDIncludingDeletedParams) (Student, error) {
+type GetStudentByIDIncludingDeletedRow struct {
+	ID                 ids.XID            `json:"id"`
+	OrganizationID     ids.XID            `json:"organization_id"`
+	SchoolYearID       ids.XID            `json:"school_year_id"`
+	LegalGivenName     string             `json:"legal_given_name"`
+	LegalFamilyName    string             `json:"legal_family_name"`
+	PreferredGivenName pgtype.Text        `json:"preferred_given_name"`
+	GradeLevelID       *ids.XID           `json:"grade_level_id"`
+	HomeroomID         ids.XID            `json:"homeroom_id"`
+	ExternalIdentifier pgtype.Text        `json:"external_identifier"`
+	IsPlaceholder      bool               `json:"is_placeholder"`
+	Provenance         string             `json:"provenance"`
+	DeletedAt          pgtype.Timestamptz `json:"deleted_at"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetStudentByIDIncludingDeleted(ctx context.Context, arg GetStudentByIDIncludingDeletedParams) (GetStudentByIDIncludingDeletedRow, error) {
 	row := q.db.QueryRow(ctx, getStudentByIDIncludingDeleted, arg.ID, arg.OrganizationID, arg.SchoolYearID)
-	var i Student
+	var i GetStudentByIDIncludingDeletedRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
@@ -228,6 +327,8 @@ func (q *Queries) GetStudentByIDIncludingDeleted(ctx context.Context, arg GetStu
 		&i.GradeLevelID,
 		&i.HomeroomID,
 		&i.ExternalIdentifier,
+		&i.IsPlaceholder,
+		&i.Provenance,
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -387,22 +488,39 @@ func (q *Queries) HardDeleteStudentSurveySubmissions(ctx context.Context, arg Ha
 
 const listAllActiveStudentsForRegistry = `-- name: ListAllActiveStudentsForRegistry :many
 select id, organization_id, school_year_id, legal_given_name, legal_family_name,
-    preferred_given_name, grade_level_id, homeroom_id, external_identifier, deleted_at, created_at, updated_at
+    preferred_given_name, grade_level_id, homeroom_id, external_identifier, is_placeholder, provenance, deleted_at, created_at, updated_at
 from students
 where organization_id = $1
   and deleted_at is null
 order by id
 `
 
-func (q *Queries) ListAllActiveStudentsForRegistry(ctx context.Context, organizationID ids.XID) ([]Student, error) {
+type ListAllActiveStudentsForRegistryRow struct {
+	ID                 ids.XID            `json:"id"`
+	OrganizationID     ids.XID            `json:"organization_id"`
+	SchoolYearID       ids.XID            `json:"school_year_id"`
+	LegalGivenName     string             `json:"legal_given_name"`
+	LegalFamilyName    string             `json:"legal_family_name"`
+	PreferredGivenName pgtype.Text        `json:"preferred_given_name"`
+	GradeLevelID       *ids.XID           `json:"grade_level_id"`
+	HomeroomID         ids.XID            `json:"homeroom_id"`
+	ExternalIdentifier pgtype.Text        `json:"external_identifier"`
+	IsPlaceholder      bool               `json:"is_placeholder"`
+	Provenance         string             `json:"provenance"`
+	DeletedAt          pgtype.Timestamptz `json:"deleted_at"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) ListAllActiveStudentsForRegistry(ctx context.Context, organizationID ids.XID) ([]ListAllActiveStudentsForRegistryRow, error) {
 	rows, err := q.db.Query(ctx, listAllActiveStudentsForRegistry, organizationID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Student{}
+	items := []ListAllActiveStudentsForRegistryRow{}
 	for rows.Next() {
-		var i Student
+		var i ListAllActiveStudentsForRegistryRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrganizationID,
@@ -413,6 +531,8 @@ func (q *Queries) ListAllActiveStudentsForRegistry(ctx context.Context, organiza
 			&i.GradeLevelID,
 			&i.HomeroomID,
 			&i.ExternalIdentifier,
+			&i.IsPlaceholder,
+			&i.Provenance,
 			&i.DeletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -429,7 +549,7 @@ func (q *Queries) ListAllActiveStudentsForRegistry(ctx context.Context, organiza
 
 const listStudents = `-- name: ListStudents :many
 select id, organization_id, school_year_id, legal_given_name, legal_family_name,
-    preferred_given_name, grade_level_id, homeroom_id, external_identifier, deleted_at, created_at, updated_at
+    preferred_given_name, grade_level_id, homeroom_id, external_identifier, is_placeholder, provenance, deleted_at, created_at, updated_at
 from students
 where organization_id = $1
   and school_year_id = $2
@@ -443,15 +563,32 @@ type ListStudentsParams struct {
 	Column3        bool    `json:"column_3"`
 }
 
-func (q *Queries) ListStudents(ctx context.Context, arg ListStudentsParams) ([]Student, error) {
+type ListStudentsRow struct {
+	ID                 ids.XID            `json:"id"`
+	OrganizationID     ids.XID            `json:"organization_id"`
+	SchoolYearID       ids.XID            `json:"school_year_id"`
+	LegalGivenName     string             `json:"legal_given_name"`
+	LegalFamilyName    string             `json:"legal_family_name"`
+	PreferredGivenName pgtype.Text        `json:"preferred_given_name"`
+	GradeLevelID       *ids.XID           `json:"grade_level_id"`
+	HomeroomID         ids.XID            `json:"homeroom_id"`
+	ExternalIdentifier pgtype.Text        `json:"external_identifier"`
+	IsPlaceholder      bool               `json:"is_placeholder"`
+	Provenance         string             `json:"provenance"`
+	DeletedAt          pgtype.Timestamptz `json:"deleted_at"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) ListStudents(ctx context.Context, arg ListStudentsParams) ([]ListStudentsRow, error) {
 	rows, err := q.db.Query(ctx, listStudents, arg.OrganizationID, arg.SchoolYearID, arg.Column3)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Student{}
+	items := []ListStudentsRow{}
 	for rows.Next() {
-		var i Student
+		var i ListStudentsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrganizationID,
@@ -462,6 +599,8 @@ func (q *Queries) ListStudents(ctx context.Context, arg ListStudentsParams) ([]S
 			&i.GradeLevelID,
 			&i.HomeroomID,
 			&i.ExternalIdentifier,
+			&i.IsPlaceholder,
+			&i.Provenance,
 			&i.DeletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -484,7 +623,7 @@ where id = $1
   and school_year_id = $3
   and deleted_at is not null
 returning id, organization_id, school_year_id, legal_given_name, legal_family_name,
-    preferred_given_name, grade_level_id, homeroom_id, external_identifier, deleted_at, created_at, updated_at
+    preferred_given_name, grade_level_id, homeroom_id, external_identifier, is_placeholder, provenance, deleted_at, created_at, updated_at
 `
 
 type RestoreStudentParams struct {
@@ -493,9 +632,26 @@ type RestoreStudentParams struct {
 	SchoolYearID   ids.XID `json:"school_year_id"`
 }
 
-func (q *Queries) RestoreStudent(ctx context.Context, arg RestoreStudentParams) (Student, error) {
+type RestoreStudentRow struct {
+	ID                 ids.XID            `json:"id"`
+	OrganizationID     ids.XID            `json:"organization_id"`
+	SchoolYearID       ids.XID            `json:"school_year_id"`
+	LegalGivenName     string             `json:"legal_given_name"`
+	LegalFamilyName    string             `json:"legal_family_name"`
+	PreferredGivenName pgtype.Text        `json:"preferred_given_name"`
+	GradeLevelID       *ids.XID           `json:"grade_level_id"`
+	HomeroomID         ids.XID            `json:"homeroom_id"`
+	ExternalIdentifier pgtype.Text        `json:"external_identifier"`
+	IsPlaceholder      bool               `json:"is_placeholder"`
+	Provenance         string             `json:"provenance"`
+	DeletedAt          pgtype.Timestamptz `json:"deleted_at"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) RestoreStudent(ctx context.Context, arg RestoreStudentParams) (RestoreStudentRow, error) {
 	row := q.db.QueryRow(ctx, restoreStudent, arg.ID, arg.OrganizationID, arg.SchoolYearID)
-	var i Student
+	var i RestoreStudentRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
@@ -506,6 +662,8 @@ func (q *Queries) RestoreStudent(ctx context.Context, arg RestoreStudentParams) 
 		&i.GradeLevelID,
 		&i.HomeroomID,
 		&i.ExternalIdentifier,
+		&i.IsPlaceholder,
+		&i.Provenance,
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -549,7 +707,7 @@ where id = $1
   and school_year_id = $3
   and deleted_at is null
 returning id, organization_id, school_year_id, legal_given_name, legal_family_name,
-    preferred_given_name, grade_level_id, homeroom_id, external_identifier, deleted_at, created_at, updated_at
+    preferred_given_name, grade_level_id, homeroom_id, external_identifier, is_placeholder, provenance, deleted_at, created_at, updated_at
 `
 
 type UpdateStudentParams struct {
@@ -564,7 +722,24 @@ type UpdateStudentParams struct {
 	ExternalIdentifier pgtype.Text `json:"external_identifier"`
 }
 
-func (q *Queries) UpdateStudent(ctx context.Context, arg UpdateStudentParams) (Student, error) {
+type UpdateStudentRow struct {
+	ID                 ids.XID            `json:"id"`
+	OrganizationID     ids.XID            `json:"organization_id"`
+	SchoolYearID       ids.XID            `json:"school_year_id"`
+	LegalGivenName     string             `json:"legal_given_name"`
+	LegalFamilyName    string             `json:"legal_family_name"`
+	PreferredGivenName pgtype.Text        `json:"preferred_given_name"`
+	GradeLevelID       *ids.XID           `json:"grade_level_id"`
+	HomeroomID         ids.XID            `json:"homeroom_id"`
+	ExternalIdentifier pgtype.Text        `json:"external_identifier"`
+	IsPlaceholder      bool               `json:"is_placeholder"`
+	Provenance         string             `json:"provenance"`
+	DeletedAt          pgtype.Timestamptz `json:"deleted_at"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) UpdateStudent(ctx context.Context, arg UpdateStudentParams) (UpdateStudentRow, error) {
 	row := q.db.QueryRow(ctx, updateStudent,
 		arg.ID,
 		arg.OrganizationID,
@@ -576,7 +751,7 @@ func (q *Queries) UpdateStudent(ctx context.Context, arg UpdateStudentParams) (S
 		arg.HomeroomID,
 		arg.ExternalIdentifier,
 	)
-	var i Student
+	var i UpdateStudentRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
@@ -587,6 +762,8 @@ func (q *Queries) UpdateStudent(ctx context.Context, arg UpdateStudentParams) (S
 		&i.GradeLevelID,
 		&i.HomeroomID,
 		&i.ExternalIdentifier,
+		&i.IsPlaceholder,
+		&i.Provenance,
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,

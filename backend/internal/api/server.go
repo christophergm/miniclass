@@ -33,6 +33,7 @@ type ServerOptions struct {
 	Vocabularies                handlers.VocabularyService
 	Adults                      handlers.AdultService
 	Students                    handlers.StudentService
+	StudentCorrections          handlers.StudentCorrectionsService
 	GuardianRelationships       handlers.GuardianRelationshipService
 	GuardianRecords             handlers.GuardianRecordsService
 	ImportPreview               handlers.ImportPreviewService
@@ -95,6 +96,7 @@ func NewServer(options ...ServerOption) *Server {
 		Vocabularies:                settings.Vocabularies,
 		Adults:                      settings.Adults,
 		Students:                    settings.Students,
+		StudentCorrections:          settings.StudentCorrections,
 		GuardianRelationships:       settings.GuardianRelationships,
 		GuardianRecords:             settings.GuardianRecords,
 		ImportPreview:               settings.ImportPreview,
@@ -229,6 +231,11 @@ func WithAdults(service handlers.AdultService) ServerOption {
 // WithStudents supplies the student roster service used by CRUD routes.
 func WithStudents(service handlers.StudentService) ServerOption {
 	return func(options *ServerOptions) { options.Students = service }
+}
+
+// WithStudentCorrections supplies the audited correction and review service.
+func WithStudentCorrections(service handlers.StudentCorrectionsService) ServerOption {
+	return func(options *ServerOptions) { options.StudentCorrections = service }
 }
 
 // WithGuardianRelationships supplies the relationship service used by guardian routes.

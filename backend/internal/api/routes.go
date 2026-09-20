@@ -34,6 +34,7 @@ type RouterOptions struct {
 	Vocabularies                handlers.VocabularyService
 	Adults                      handlers.AdultService
 	Students                    handlers.StudentService
+	StudentCorrections          handlers.StudentCorrectionsService
 	GuardianRelationships       handlers.GuardianRelationshipService
 	GuardianRecords             handlers.GuardianRecordsService
 	ImportPreview               handlers.ImportPreviewService
@@ -662,6 +663,14 @@ func registerOperations(api huma.API, options RouterOptions) {
 		Summary:     "Restore a soft-deleted student",
 		Errors:      []int{http.StatusBadRequest, http.StatusConflict, http.StatusNotFound},
 	}, auth.CapabilityManageRoster, false, students.Restore)
+
+	studentCorrections := handlers.NewStudentCorrectionsHandler(options.StudentCorrections)
+	registerOperation(api, huma.Operation{OperationID: "create-student-correction", Method: http.MethodPost, Path: apiBasePath + "/school-years/{schoolYearID}/student-corrections", Summary: "Create one audited administrator student correction", Errors: []int{http.StatusBadRequest, http.StatusConflict, http.StatusNotFound}}, auth.CapabilityManageRoster, false, studentCorrections.Create)
+	registerOperation(api, huma.Operation{OperationID: "update-student-correction", Method: http.MethodPatch, Path: apiBasePath + "/school-years/{schoolYearID}/student-corrections/{studentID}", Summary: "Apply one audited administrator student correction", Errors: []int{http.StatusBadRequest, http.StatusConflict, http.StatusNotFound}}, auth.CapabilityManageRoster, false, studentCorrections.Update)
+	registerOperation(api, huma.Operation{OperationID: "delete-student-correction", Method: http.MethodDelete, Path: apiBasePath + "/school-years/{schoolYearID}/student-corrections/{studentID}", Summary: "Soft-delete one student with an audited correction reason", Errors: []int{http.StatusBadRequest, http.StatusConflict, http.StatusNotFound}}, auth.CapabilityManageRoster, false, studentCorrections.Delete)
+	registerOperation(api, huma.Operation{OperationID: "create-placeholder-student", Method: http.MethodPost, Path: apiBasePath + "/school-years/{schoolYearID}/placeholder-students", Summary: "Create an audited placeholder student", Errors: []int{http.StatusBadRequest, http.StatusConflict, http.StatusNotFound}}, auth.CapabilityManageRoster, false, studentCorrections.CreatePlaceholder)
+	registerOperation(api, huma.Operation{OperationID: "reconcile-placeholder-student", Method: http.MethodPost, Path: apiBasePath + "/school-years/{schoolYearID}/student-reconciliations", Summary: "Reconcile one placeholder into a consented student", Errors: []int{http.StatusBadRequest, http.StatusConflict, http.StatusNotFound}}, auth.CapabilityManageRoster, false, studentCorrections.Reconcile)
+	registerOperation(api, huma.Operation{OperationID: "list-student-review-signals", Method: http.MethodGet, Path: apiBasePath + "/school-years/{schoolYearID}/student-review-signals", Summary: "List administrator student review signals", Errors: []int{http.StatusNotFound}}, auth.CapabilityManageRoster, false, studentCorrections.ReviewSignals)
 
 	guardianRelationships := handlers.NewGuardianRelationshipHandler(options.GuardianRelationships)
 	registerOperation(api, huma.Operation{OperationID: "list-guardian-relationships", Method: http.MethodGet, Path: apiBasePath + "/school-years/{schoolYearID}/guardian-relationships", Summary: "List guardian relationships in a school year", Errors: []int{http.StatusNotFound}}, auth.CapabilityManageRoster, false, guardianRelationships.List)

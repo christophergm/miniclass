@@ -39,7 +39,8 @@ type AdultUpdateInput struct {
 }
 
 type Service struct {
-	database *data.DB
+	database            *data.DB
+	artifactRegenerator ArtifactRegenerator
 }
 
 func New(database *data.DB) *Service {
