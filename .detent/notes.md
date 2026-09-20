@@ -289,7 +289,9 @@
 - Validation telemetry: PR CI ran 146s; slow checks were Backend tests 142s, Generated code drift
   106s, and Developer tooling 76s. The local merge gate `git diff --check` is clean; quiet-window
   wait was 0s; no post-merge main CI applies while the PR is open.
-- Open items: verify final PR/review state, update the persistent Workpad, and hand off to Detent.
+- Handoff: PR #218 is open, non-draft, merge-clean, references `Fixes #212`, has no actionable
+  reviews or inline comments, and the persistent Workpad comment `5747346879` is complete. Detent
+  owns the completion-lane transition.
 - Skill draft: no — existing tenant-entity and PostgreSQL isolation-harness guidance covered the
   reusable schema and audit method; no new broadly reusable procedure was discovered.
 
