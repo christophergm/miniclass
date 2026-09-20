@@ -117,11 +117,7 @@ func (tx *Tx) DeleteGuardianRelationshipsForAdult(ctx context.Context, schoolYea
 	if err != nil {
 		return nil, err
 	}
-	result := make([]ids.XID, 0, len(rows))
-	for _, row := range rows {
-		result = append(result, row)
-	}
-	return result, nil
+	return append([]ids.XID(nil), rows...), nil
 }
 
 func (tx *Tx) CountOtherActiveGuardians(ctx context.Context, schoolYearID, studentID, adultID ids.XID) (int64, error) {
