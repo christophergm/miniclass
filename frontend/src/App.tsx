@@ -54,6 +54,7 @@ import {
   StudentCodeInterestProfilePage,
   StudentCodeRankedChoicePage,
 } from "@/features/preferences/PreferencePages";
+import { GuardianStudentsPage } from "@/features/preferences/GuardianStudentsPage";
 
 function App() {
   return (
@@ -84,6 +85,7 @@ function AppRoutes() {
       <Route path="/guardian" element={<GuardianAccessPage />} />
       <Route path="/guardian/onboarding" element={<GuardianOnboardingPage />} />
       <Route path="/guardian/preferences" element={<GuardianPreferencePage />} />
+      <Route path="/guardian/students" element={<GuardianStudentsPage />} />
       <Route
         path="/respond/interest-profile-surveys/:schoolYearId/:programId/:surveyId"
         element={<StudentCodeInterestProfilePage />}

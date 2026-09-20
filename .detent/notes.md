@@ -1,3 +1,16 @@
+## Current work — issue #210
+
+- Scope: guardian-managed student records and privacy-safe matching per SPEC §§8.2, 8.7, 10.1, 11.5–11.7 and PLAN.md Phase 4B/P4B-2.
+- P4B-1 (#209) is now closed and PR #215 is merged; `origin/main` includes the guardian onboarding/session primitives at `288034d`.
+- Dependency: the native GitHub dependency relation from #210 to #209 is terminal; implementation may proceed.
+- Workpad: issue comment https://github.com/christophergm/miniclass/issues/210#issuecomment-5746968542 is the persistent plan and structured in-progress status; no second Workpad comment was created.
+- Implementation: `backend/internal/guardianrecords/service.go` and `backend/internal/api/handlers/guardian_records.go` add live-scope list, exact normalized same-year candidate matching with placeholder exclusion, atomic select/create, scoped student edits, permitted profile edits, and non-blocking attribute-review warnings. API routes are wired through `ServerOptions`, `cmd/api`, and generated `backend/openapi.json`; frontend API wrappers, hooks, route, and mobile-friendly guardian student page are added.
+- Repository: implementation is uncommitted; no PR created yet.
+- Skills read: `.detent/skills/add-tenant-scoped-entity.md` and `.detent/skills/postgres-tenant-isolation-harness.md`.
+- Validation: race-enabled backend tests and package tests pass; `make format`, generated-code drift, and `git diff --check` pass. Backend lint is locally unavailable because the installed golangci-lint was built with Go 1.27.1 instead of pinned Go 1.26.4. Frontend dependencies are absent, so frontend tests/build/lint are pending CI.
+- Open items: add integration/API regressions for guardian candidate isolation and stale warnings, run available full gates, commit/push, open PR with `Fixes #210`, and verify current-head CI/reviews.
+- Skill draft: no — this implementation uses the existing tenant-data and auth conventions without exposing a new broadly reusable procedure.
+
 ## Current work — issue #191
 
 - Scope: complete Phase 4 integration, accessibility, security validation, generated-client wiring, and documentation consistency per SPEC §§5.2, 9.2–9.4, 13, 14.3, 19.5, 22.4–22.5 and ADR 0013.

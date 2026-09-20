@@ -16,6 +16,7 @@ import (
 	"github.com/chrismott/miniclass/internal/auth"
 	"github.com/chrismott/miniclass/internal/config"
 	"github.com/chrismott/miniclass/internal/data"
+	"github.com/chrismott/miniclass/internal/guardianrecords"
 	"github.com/chrismott/miniclass/internal/identity"
 	"github.com/chrismott/miniclass/internal/ingest"
 	"github.com/chrismott/miniclass/internal/people"
@@ -81,6 +82,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		api.WithAdults(people.New(database)),
 		api.WithStudents(people.New(database)),
 		api.WithGuardianRelationships(people.New(database)),
+		api.WithGuardianRecords(guardianrecords.New(database)),
 		api.WithImportPreview(importService),
 		api.WithImportCommit(importService),
 		api.WithPrograms(program.New(database)),

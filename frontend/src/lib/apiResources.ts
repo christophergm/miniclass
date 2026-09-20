@@ -54,6 +54,8 @@ export type GuardianSession = Schemas["GuardianSessionResponse"];
 export type GuardianOnboardingSession = Schemas["GuardianOnboardingSessionResponse"];
 export type GuardianOnboardingPolicy = Schemas["GuardianPolicyResponse"];
 export type GuardianOnboardingOTPRequest = Schemas["GuardianOTPRequestOutputBody"];
+export type GuardianStudent = Schemas["GuardianStudentResponse"];
+export type GuardianStudentReviewWarning = Schemas["GuardianStudentReviewWarning"];
 export type GuardianRegistrationEntry = Schemas["GuardianRegistrationEntryResponse"];
 export type GuardianInvitationImport = Schemas["InvitationImportResult"];
 export type MFAEnrollment = Schemas["MFAEnrollmentOutputBody"];
@@ -153,6 +155,22 @@ export const resourceApi = {
     relationship_type: string;
   }) => unwrap(api.POST("/api/guardian/onboarding/complete", { body: value })),
   getGuardianAuthContext: () => unwrap(api.GET("/api/auth/guardian")),
+  listGuardianStudents: () => unwrapList(api.GET("/api/guardian/students")),
+  findGuardianStudentCandidates: (givenName: string, familyName: string) =>
+    unwrapList(
+      api.GET("/api/guardian/students/candidates", {
+        params: { query: { given_name: givenName, family_name: familyName } },
+      }),
+    ),
+  createOrSelectGuardianStudent: (value: Schemas["GuardianStudentCreateInputBody"]) =>
+    unwrap(api.POST("/api/guardian/students", { body: value })),
+  updateGuardianStudent: (
+    studentID: string,
+    value: Schemas["GuardianStudentUpdateInputBody"],
+  ) =>
+    unwrap(api.PATCH("/api/guardian/students/{studentID}", { params: { path: { studentID } }, body: value })),
+  updateGuardianProfile: (value: Schemas["GuardianProfileInputBody"]) =>
+    unwrap(api.PATCH("/api/guardian/profile", { body: value })),
   enrollMFA: () => unwrap(api.POST("/api/auth/mfa/enroll", {})),
   verifyMFA: (code?: string, recoveryCode?: string) =>
     unwrap(api.POST("/api/auth/mfa/verify", { body: { code, recovery_code: recoveryCode } })),

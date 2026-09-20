@@ -100,6 +100,9 @@ export function GuardianAccessPage() {
           >
             Request administrator access
           </Link>
+          <Link className="block text-sm font-medium text-primary hover:underline" to="/guardian/students">
+            Manage your students
+          </Link>
           <Link className="block text-sm font-medium text-primary hover:underline" to="/sign-in">
             Administrator sign in
           </Link>
