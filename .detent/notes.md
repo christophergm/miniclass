@@ -429,3 +429,22 @@
   Detent owns the completion-lane transition after the Workpad records current-head validation.
 - Skill draft: no — the existing project API, audit, and frontend-resource conventions covered
   this focused administration surface; no broadly reusable procedure was discovered.
+
+## Current work — issue #224
+
+- Scope: complete guardian self-service onboarding and record management per SPEC §§8.2, 10.1,
+  11.5–11.6, and 21.3, plus PLAN P4B-2/P4B-3.
+- Base: `origin/main` at `9c80674`; native dependency #223 is closed. Workpad comment:
+  https://github.com/christophergm/miniclass/issues/224#issuecomment-5752552686.
+- Implementation: onboarding session responses now include only active grade/homeroom label/value
+  choices. Completion hands registration to guardian access without exposing or requesting
+  organization/year IDs. Guardian-scoped vocabulary/profile endpoints support student edits, confirmed
+  detach/delete-or-de-identify, and profile update/self-deletion pages; no destructive action demands
+  a fresh OTP.
+- Validation: focused guardian tests and full local-toolchain race tests pass. Backend lint/format and
+  deterministic OpenAPI drift pass with `GOTOOLCHAIN=local make -e`; direct Biome formatting passes;
+  `git diff --check` passes. Aggregate `make check` stops at the existing `/miniclass-postgres`
+  container-name conflict. Frontend tests cannot generate API types because `openapi-typescript` is not
+  installed; migration round-trip lacks its URL; smoke lacks `.env`.
+- Open items: commit/push, open a non-draft PR with `Fixes #224`, then verify current-head CI and
+  reviews before completing the Workpad handoff.

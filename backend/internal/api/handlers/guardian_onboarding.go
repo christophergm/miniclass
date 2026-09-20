@@ -319,16 +319,25 @@ type GuardianSessionOutput struct {
 }
 
 type GuardianOnboardingSessionResponse struct {
-	SessionToken   string                 `json:"session_token"`
-	SessionID      string                 `json:"session_id"`
-	OrganizationID string                 `json:"organization_id"`
-	SchoolYearID   string                 `json:"school_year_id"`
-	Email          string                 `json:"email,omitempty"`
-	Verified       bool                   `json:"mailbox_verified"`
-	Consented      bool                   `json:"consented"`
-	ExpiresAt      time.Time              `json:"expires_at"`
-	IdleExpiresAt  time.Time              `json:"idle_expires_at"`
-	Policy         GuardianPolicyResponse `json:"policy"`
+	SessionToken   string                     `json:"session_token"`
+	SessionID      string                     `json:"session_id"`
+	OrganizationID string                     `json:"organization_id"`
+	SchoolYearID   string                     `json:"school_year_id"`
+	Email          string                     `json:"email,omitempty"`
+	Verified       bool                       `json:"mailbox_verified"`
+	Consented      bool                       `json:"consented"`
+	ExpiresAt      time.Time                  `json:"expires_at"`
+	IdleExpiresAt  time.Time                  `json:"idle_expires_at"`
+	Policy         GuardianPolicyResponse     `json:"policy"`
+	GradeLevels    []GuardianVocabularyOption `json:"grade_levels"`
+	Homerooms      []GuardianVocabularyOption `json:"homerooms"`
+}
+
+// GuardianVocabularyOption is a display label paired with the opaque value
+// submitted by an authorized guardian flow.
+type GuardianVocabularyOption struct {
+	ID    string `json:"id" doc:"Opaque vocabulary identifier."`
+	Label string `json:"label"`
 }
 
 func (h *GuardianOnboardingHandler) Begin(ctx context.Context, input *GuardianBeginInput) (*GuardianSessionOutput, error) {
@@ -342,7 +351,7 @@ func (h *GuardianOnboardingHandler) Begin(ctx context.Context, input *GuardianBe
 	if err != nil {
 		return nil, guardianOnboardingProblem(err)
 	}
-	return &GuardianSessionOutput{Body: guardianOnboardingSessionResponse(session)}, nil
+	return h.sessionOutput(ctx, session)
 }
 
 func (h *GuardianOnboardingHandler) Redeem(ctx context.Context, input *GuardianInvitationRedeemInput) (*GuardianSessionOutput, error) {
@@ -356,7 +365,7 @@ func (h *GuardianOnboardingHandler) Redeem(ctx context.Context, input *GuardianI
 	if err != nil {
 		return nil, guardianOnboardingProblem(err)
 	}
-	return &GuardianSessionOutput{Body: guardianOnboardingSessionResponse(session)}, nil
+	return h.sessionOutput(ctx, session)
 }
 
 type GuardianOTPRequestOutput struct {
@@ -394,7 +403,7 @@ func (h *GuardianOnboardingHandler) VerifyOTP(ctx context.Context, input *Guardi
 	if err != nil {
 		return nil, guardianOnboardingProblem(err)
 	}
-	return &GuardianSessionOutput{Body: guardianOnboardingSessionResponse(session)}, nil
+	return h.sessionOutput(ctx, session)
 }
 
 func (h *GuardianOnboardingHandler) AcceptConsent(ctx context.Context, input *GuardianConsentInput) (*GuardianSessionOutput, error) {
@@ -412,7 +421,7 @@ func (h *GuardianOnboardingHandler) AcceptConsent(ctx context.Context, input *Gu
 	if err != nil {
 		return nil, guardianOnboardingProblem(err)
 	}
-	return &GuardianSessionOutput{Body: guardianOnboardingSessionResponse(session)}, nil
+	return h.sessionOutput(ctx, session)
 }
 
 type GuardianCompletionResponse struct {
@@ -456,7 +465,7 @@ func (h *GuardianOnboardingHandler) GetSession(ctx context.Context, input *Guard
 	if err != nil {
 		return nil, guardianOnboardingProblem(err)
 	}
-	return &GuardianSessionOutput{Body: guardianOnboardingSessionResponse(session)}, nil
+	return h.sessionOutput(ctx, session)
 }
 
 func guardianServiceUnavailable() error {
@@ -504,8 +513,24 @@ func guardianPolicyResponse(policy guardian.Policy) GuardianPolicyResponse {
 	return result
 }
 
-func guardianOnboardingSessionResponse(session guardian.Session) GuardianOnboardingSessionResponse {
-	return GuardianOnboardingSessionResponse{SessionToken: session.Token, SessionID: string(session.ID), OrganizationID: string(session.OrganizationID), SchoolYearID: string(session.SchoolYearID), Email: session.Email, Verified: session.Verified, Consented: session.Consented, ExpiresAt: session.ExpiresAt, IdleExpiresAt: session.IdleExpiresAt, Policy: guardianPolicyResponse(session.Policy)}
+func (h *GuardianOnboardingHandler) sessionOutput(ctx context.Context, session guardian.Session) (*GuardianSessionOutput, error) {
+	vocabulary, err := h.service.OnboardingVocabulary(ctx, session.Token, time.Now().UTC())
+	if err != nil {
+		return nil, guardianOnboardingProblem(err)
+	}
+	return &GuardianSessionOutput{Body: guardianOnboardingSessionResponse(session, vocabulary)}, nil
+}
+
+func guardianOnboardingSessionResponse(session guardian.Session, vocabulary guardian.OnboardingVocabulary) GuardianOnboardingSessionResponse {
+	gradeLevels := make([]GuardianVocabularyOption, 0, len(vocabulary.GradeLevels))
+	for _, grade := range vocabulary.GradeLevels {
+		gradeLevels = append(gradeLevels, GuardianVocabularyOption{ID: string(grade.ID), Label: grade.Label})
+	}
+	homerooms := make([]GuardianVocabularyOption, 0, len(vocabulary.Homerooms))
+	for _, homeroom := range vocabulary.Homerooms {
+		homerooms = append(homerooms, GuardianVocabularyOption{ID: string(homeroom.ID), Label: homeroom.Label})
+	}
+	return GuardianOnboardingSessionResponse{SessionToken: session.Token, SessionID: string(session.ID), OrganizationID: string(session.OrganizationID), SchoolYearID: string(session.SchoolYearID), Email: session.Email, Verified: session.Verified, Consented: session.Consented, ExpiresAt: session.ExpiresAt, IdleExpiresAt: session.IdleExpiresAt, Policy: guardianPolicyResponse(session.Policy), GradeLevels: gradeLevels, Homerooms: homerooms}
 }
 
 func decodeOptionalHash(value string) ([]byte, error) {

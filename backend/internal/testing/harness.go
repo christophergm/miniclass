@@ -23,6 +23,8 @@ import (
 // Harness owns one schema-isolated database with separate migrator and app
 // role pools. Tests create their own organizations through the migrator pool,
 // then exercise application access through data.DB and the app role.
+const harnessMigrationLockID int64 = 4_939_441_364_617_518_915
+
 type Harness struct {
 	Context  context.Context
 	Migrator *pgxpool.Pool
@@ -70,7 +72,27 @@ func Open(t gotesting.TB) *Harness {
 	if err != nil {
 		return nil
 	}
+	// Migrations create schema-local tables but also replace the shared public xid
+	// functions. One connection keeps this session-level advisory lock in effect
+	// for the complete migration run across concurrently executing test packages.
+	gooseDB.SetMaxOpenConns(1)
+	gooseDB.SetMaxIdleConns(1)
+	_, err = gooseDB.ExecContext(ctx, "select pg_advisory_lock($1)", harnessMigrationLockID)
+	require.NoError(t, err)
+	if err != nil {
+		return nil
+	}
+	migrationLocked := true
+	defer func() {
+		if migrationLocked {
+			_, unlockErr := gooseDB.ExecContext(context.Background(), "select pg_advisory_unlock($1)", harnessMigrationLockID)
+			require.NoError(t, unlockErr)
+		}
+	}()
 	require.NoError(t, goose.Up(gooseDB, migrationsPath(t), goose.WithAllowMissing()))
+	_, err = gooseDB.ExecContext(ctx, "select pg_advisory_unlock($1)", harnessMigrationLockID)
+	require.NoError(t, err)
+	migrationLocked = false
 	require.NoError(t, gooseDB.Close())
 
 	app, err := pgxpool.New(ctx, appSchemaURL)
