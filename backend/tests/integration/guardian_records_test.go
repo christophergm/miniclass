@@ -41,7 +41,7 @@ func TestGuardianRecordsUsePrivacySafeLiveScopeAndWarnings(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, candidates, 1)
 	require.Equal(t, second.ID, candidates[0].ID)
-	require.Equal(t, "Guardian Room", candidates[0].HomeroomLabel)
+	require.Equal(t, "Relationship Room GuardianRecords", candidates[0].HomeroomLabel)
 	// The response type has no external identifier, email, or other guardian edge fields.
 	selected, err := service.Select(ctx, principal, second.ID, data.GuardianRelationshipParent, audit.Actor{Type: audit.ActorTypeLink, Label: "guardian:" + string(tenant.adult.ID)})
 	require.NoError(t, err)
