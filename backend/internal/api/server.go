@@ -39,6 +39,7 @@ type ServerOptions struct {
 	Programs               handlers.ProgramService
 	Verifier               auth.Verifier
 	AdultAuth              auth.AdultAuthentication
+	GuardianOnboarding     handlers.GuardianOnboardingService
 	Sessions               auth.SessionResolver
 	Logger                 *slog.Logger
 	TrustedProxyCIDRs      []string
@@ -98,6 +99,7 @@ func NewServer(options ...ServerOption) *Server {
 		Programs:               settings.Programs,
 		Verifier:               settings.Verifier,
 		AdultAuth:              settings.AdultAuth,
+		GuardianOnboarding:     settings.GuardianOnboarding,
 		Sessions:               settings.Sessions,
 		Logger:                 settings.Logger,
 		TrustedProxyCIDRs:      settings.TrustedProxyCIDRs,
@@ -170,6 +172,12 @@ func WithAdultAuth(service auth.AdultAuthentication) ServerOption {
 		options.AdultAuth = service
 		options.Sessions = service
 	}
+}
+
+// WithGuardianOnboarding supplies the consent-first guardian registration and
+// invitation service.
+func WithGuardianOnboarding(service handlers.GuardianOnboardingService) ServerOption {
+	return func(options *ServerOptions) { options.GuardianOnboarding = service }
 }
 
 // WithAccountResolver supplies a testable or alternate local membership

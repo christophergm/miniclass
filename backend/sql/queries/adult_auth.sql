@@ -7,7 +7,7 @@ values ($1, 'adult_otp', $2, 1, $3, $4, $5, $6, $7)
 returning id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation;
+    mfa_generation, parent_token_id, mailbox_verified_at;
 
 -- name: CountRecentAdultOTPRequests :one
 select count(*)
@@ -22,7 +22,7 @@ where purpose = 'adult_otp'
 select id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation
+    mfa_generation, parent_token_id, mailbox_verified_at
 from access_tokens
 where id = $1
   and purpose = 'adult_otp';
@@ -31,7 +31,7 @@ where id = $1
 select id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation
+    mfa_generation, parent_token_id, mailbox_verified_at
 from access_tokens
 where token_hash = $1
   and purpose = 'adult_otp';
@@ -49,7 +49,7 @@ where id = $1
 returning id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation;
+    mfa_generation, parent_token_id, mailbox_verified_at;
 
 -- name: IncrementAdultOTPAttempts :execrows
 update access_tokens
@@ -70,7 +70,7 @@ values ($1, 'guardian_session', $2, 1, $3, $4, $5, $6, $7)
 returning id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation;
+    mfa_generation, parent_token_id, mailbox_verified_at;
 
 -- name: CreateAdministrativeSession :one
 insert into access_tokens (
@@ -81,13 +81,13 @@ values ($1, 'administrative_session', $2, 1, $3, $4, $5, $6)
 returning id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation;
+    mfa_generation, parent_token_id, mailbox_verified_at;
 
 -- name: GetActiveSessionByHash :one
 select id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation
+    mfa_generation, parent_token_id, mailbox_verified_at
 from access_tokens
 where token_hash = $1
   and purpose in ('guardian_session', 'administrative_session')

@@ -25,7 +25,7 @@ where id = $1
 returning id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation
+    mfa_generation, parent_token_id, mailbox_verified_at
 `
 
 type ConsumeAdultOTPParams struct {
@@ -63,6 +63,8 @@ func (q *Queries) ConsumeAdultOTP(ctx context.Context, arg ConsumeAdultOTPParams
 		&i.IdleExpiresAt,
 		&i.LastSeenAt,
 		&i.MfaGeneration,
+		&i.ParentTokenID,
+		&i.MailboxVerifiedAt,
 	)
 	return i, err
 }
@@ -127,7 +129,7 @@ values ($1, 'administrative_session', $2, 1, $3, $4, $5, $6)
 returning id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation
+    mfa_generation, parent_token_id, mailbox_verified_at
 `
 
 type CreateAdministrativeSessionParams struct {
@@ -169,6 +171,8 @@ func (q *Queries) CreateAdministrativeSession(ctx context.Context, arg CreateAdm
 		&i.IdleExpiresAt,
 		&i.LastSeenAt,
 		&i.MfaGeneration,
+		&i.ParentTokenID,
+		&i.MailboxVerifiedAt,
 	)
 	return i, err
 }
@@ -215,7 +219,7 @@ values ($1, 'adult_otp', $2, 1, $3, $4, $5, $6, $7)
 returning id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation
+    mfa_generation, parent_token_id, mailbox_verified_at
 `
 
 type CreateAdultOTPParams struct {
@@ -259,6 +263,8 @@ func (q *Queries) CreateAdultOTP(ctx context.Context, arg CreateAdultOTPParams) 
 		&i.IdleExpiresAt,
 		&i.LastSeenAt,
 		&i.MfaGeneration,
+		&i.ParentTokenID,
+		&i.MailboxVerifiedAt,
 	)
 	return i, err
 }
@@ -272,7 +278,7 @@ values ($1, 'guardian_session', $2, 1, $3, $4, $5, $6, $7)
 returning id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation
+    mfa_generation, parent_token_id, mailbox_verified_at
 `
 
 type CreateGuardianSessionParams struct {
@@ -316,6 +322,8 @@ func (q *Queries) CreateGuardianSession(ctx context.Context, arg CreateGuardianS
 		&i.IdleExpiresAt,
 		&i.LastSeenAt,
 		&i.MfaGeneration,
+		&i.ParentTokenID,
+		&i.MailboxVerifiedAt,
 	)
 	return i, err
 }
@@ -444,7 +452,7 @@ const getActiveSessionByHash = `-- name: GetActiveSessionByHash :one
 select id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation
+    mfa_generation, parent_token_id, mailbox_verified_at
 from access_tokens
 where token_hash = $1
   and purpose in ('guardian_session', 'administrative_session')
@@ -482,6 +490,8 @@ func (q *Queries) GetActiveSessionByHash(ctx context.Context, arg GetActiveSessi
 		&i.IdleExpiresAt,
 		&i.LastSeenAt,
 		&i.MfaGeneration,
+		&i.ParentTokenID,
+		&i.MailboxVerifiedAt,
 	)
 	return i, err
 }
@@ -544,7 +554,7 @@ const getAdultOTP = `-- name: GetAdultOTP :one
 select id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation
+    mfa_generation, parent_token_id, mailbox_verified_at
 from access_tokens
 where id = $1
   and purpose = 'adult_otp'
@@ -573,6 +583,8 @@ func (q *Queries) GetAdultOTP(ctx context.Context, id ids.XID) (AccessToken, err
 		&i.IdleExpiresAt,
 		&i.LastSeenAt,
 		&i.MfaGeneration,
+		&i.ParentTokenID,
+		&i.MailboxVerifiedAt,
 	)
 	return i, err
 }
@@ -581,7 +593,7 @@ const getAdultOTPByHash = `-- name: GetAdultOTPByHash :one
 select id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation
+    mfa_generation, parent_token_id, mailbox_verified_at
 from access_tokens
 where token_hash = $1
   and purpose = 'adult_otp'
@@ -610,6 +622,8 @@ func (q *Queries) GetAdultOTPByHash(ctx context.Context, tokenHash []byte) (Acce
 		&i.IdleExpiresAt,
 		&i.LastSeenAt,
 		&i.MfaGeneration,
+		&i.ParentTokenID,
+		&i.MailboxVerifiedAt,
 	)
 	return i, err
 }

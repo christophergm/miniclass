@@ -270,9 +270,17 @@ from organizations
 where id = $1
 `
 
-func (q *Queries) GetOrganizationVocabularySettings(ctx context.Context, id ids.XID) (Organization, error) {
+type GetOrganizationVocabularySettingsRow struct {
+	ID            ids.XID            `json:"id"`
+	Name          string             `json:"name"`
+	HomeroomLabel string             `json:"homeroom_label"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetOrganizationVocabularySettings(ctx context.Context, id ids.XID) (GetOrganizationVocabularySettingsRow, error) {
 	row := q.db.QueryRow(ctx, getOrganizationVocabularySettings, id)
-	var i Organization
+	var i GetOrganizationVocabularySettingsRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
@@ -835,9 +843,17 @@ type UpdateOrganizationHomeroomLabelParams struct {
 	HomeroomLabel string  `json:"homeroom_label"`
 }
 
-func (q *Queries) UpdateOrganizationHomeroomLabel(ctx context.Context, arg UpdateOrganizationHomeroomLabelParams) (Organization, error) {
+type UpdateOrganizationHomeroomLabelRow struct {
+	ID            ids.XID            `json:"id"`
+	Name          string             `json:"name"`
+	HomeroomLabel string             `json:"homeroom_label"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) UpdateOrganizationHomeroomLabel(ctx context.Context, arg UpdateOrganizationHomeroomLabelParams) (UpdateOrganizationHomeroomLabelRow, error) {
 	row := q.db.QueryRow(ctx, updateOrganizationHomeroomLabel, arg.ID, arg.HomeroomLabel)
-	var i Organization
+	var i UpdateOrganizationHomeroomLabelRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,

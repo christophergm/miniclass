@@ -42,6 +42,10 @@ const (
 	AdministratorRoleInvalid           Slug = "administrator-role-invalid"
 	LastOwner                          Slug = "last-owner"
 	InvitationNotPending               Slug = "invitation-not-pending"
+	RegistrationInvalid                Slug = "registration-invalid"
+	ConsentRequired                    Slug = "consent-required"
+	ConsentInvalid                     Slug = "consent-invalid"
+	RateLimited                        Slug = "rate-limited"
 	ResourceNotFound                   Slug = "resource-not-found"
 	SchoolYearClosed                   Slug = "school-year-closed"
 	SchoolYearTransitionInvalid        Slug = "school-year-transition-invalid"
@@ -96,6 +100,10 @@ var registry = map[Slug]Definition{
 	AdministratorRoleInvalid:           {Slug: AdministratorRoleInvalid, Title: "Administrator role is invalid"},
 	LastOwner:                          {Slug: LastOwner, Title: "Last owner protection"},
 	InvitationNotPending:               {Slug: InvitationNotPending, Title: "Invitation is not pending"},
+	RegistrationInvalid:                {Slug: RegistrationInvalid, Title: "Registration entry invalid"},
+	ConsentRequired:                    {Slug: ConsentRequired, Title: "Consent required"},
+	ConsentInvalid:                     {Slug: ConsentInvalid, Title: "Consent invalid"},
+	RateLimited:                        {Slug: RateLimited, Title: "Rate limit exceeded"},
 	ResourceNotFound:                   {Slug: ResourceNotFound, Title: "Resource not found"},
 	SchoolYearClosed:                   {Slug: SchoolYearClosed, Title: "School year is closed"},
 	SchoolYearTransitionInvalid:        {Slug: SchoolYearTransitionInvalid, Title: "Invalid school-year transition"},

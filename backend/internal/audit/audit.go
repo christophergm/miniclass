@@ -26,51 +26,64 @@ const (
 type Action string
 
 const (
-	ActionCreate                    Action = "create"
-	ActionEdit                      Action = "edit"
-	ActionSoftDelete                Action = "soft_delete"
-	ActionRestore                   Action = "restore"
-	ActionHardDelete                Action = "hard_delete"
-	ActionImportCommit              Action = "import_commit"
-	ActionSchoolYearCreate          Action = "school_year_create"
-	ActionSchoolYearStateTransition Action = "school_year_state_transition"
-	ActionProgramCreate             Action = "program_create"
-	ActionMembershipChange          Action = "membership_change"
-	ActionSessionCreate             Action = "session_create"
-	ActionSessionChange             Action = "session_change"
-	ActionMeetingDateChange         Action = "meeting_date_change"
-	ActionObjectiveWeightsChange    Action = "objective_weights_change"
-	ActionSessionNonParticipation   Action = "session_non_participation"
-	ActionPreferenceSubmission      Action = "preference_submission"
-	ActionSurveyDefinitionChange    Action = "survey_definition_change"
-	ActionSurveyLifecycle           Action = "survey_lifecycle"
-	ActionSurveyCodeChange          Action = "survey_code_change"
-	ActionRankedChoiceCodeChange    Action = "ranked_choice_code_change"
-	ActionSessionStateTransition    Action = "session_state_transition"
-	ActionOfferingEdit              Action = "offering_edit_after_publish"
-	ActionTagDefinitionChange       Action = "tag_definition_change"
-	ActionTagAssignmentChange       Action = "tag_assignment_change"
-	ActionPairingChange             Action = "pairing_change"
-	ActionExclusionChange           Action = "exclusion_change"
-	ActionVocabularyChange          Action = "vocabulary_change"
-	ActionSolveRun                  Action = "solve_run"
-	ActionManualOperation           Action = "manual_operation"
-	ActionOverride                  Action = "override"
-	ActionPublish                   Action = "publish"
-	ActionRepublish                 Action = "republish"
-	ActionLinkGenerate              Action = "link_generate"
-	ActionLinkRegenerate            Action = "link_regenerate"
-	ActionLinkRevoke                Action = "link_revoke"
-	ActionPermissionChange          Action = "permission_change"
-	ActionAdministratorAdd          Action = "administrator_add"
-	ActionAdministratorRemove       Action = "administrator_remove"
-	ActionOTPRequested              Action = "otp_requested"
-	ActionOTPVerified               Action = "otp_verified"
-	ActionMFAEnrolled               Action = "mfa_enrolled"
-	ActionMFAVerified               Action = "mfa_verified"
-	ActionMFAReset                  Action = "mfa_reset"
-	ActionAdultAccountLink          Action = "adult_account_link"
-	ActionAuthenticationModeChange  Action = "authentication_mode_change"
+	ActionCreate                         Action = "create"
+	ActionEdit                           Action = "edit"
+	ActionSoftDelete                     Action = "soft_delete"
+	ActionRestore                        Action = "restore"
+	ActionHardDelete                     Action = "hard_delete"
+	ActionImportCommit                   Action = "import_commit"
+	ActionSchoolYearCreate               Action = "school_year_create"
+	ActionSchoolYearStateTransition      Action = "school_year_state_transition"
+	ActionProgramCreate                  Action = "program_create"
+	ActionMembershipChange               Action = "membership_change"
+	ActionSessionCreate                  Action = "session_create"
+	ActionSessionChange                  Action = "session_change"
+	ActionMeetingDateChange              Action = "meeting_date_change"
+	ActionObjectiveWeightsChange         Action = "objective_weights_change"
+	ActionSessionNonParticipation        Action = "session_non_participation"
+	ActionPreferenceSubmission           Action = "preference_submission"
+	ActionSurveyDefinitionChange         Action = "survey_definition_change"
+	ActionSurveyLifecycle                Action = "survey_lifecycle"
+	ActionSurveyCodeChange               Action = "survey_code_change"
+	ActionRankedChoiceCodeChange         Action = "ranked_choice_code_change"
+	ActionSessionStateTransition         Action = "session_state_transition"
+	ActionOfferingEdit                   Action = "offering_edit_after_publish"
+	ActionTagDefinitionChange            Action = "tag_definition_change"
+	ActionTagAssignmentChange            Action = "tag_assignment_change"
+	ActionPairingChange                  Action = "pairing_change"
+	ActionExclusionChange                Action = "exclusion_change"
+	ActionVocabularyChange               Action = "vocabulary_change"
+	ActionSolveRun                       Action = "solve_run"
+	ActionManualOperation                Action = "manual_operation"
+	ActionOverride                       Action = "override"
+	ActionPublish                        Action = "publish"
+	ActionRepublish                      Action = "republish"
+	ActionLinkGenerate                   Action = "link_generate"
+	ActionLinkRegenerate                 Action = "link_regenerate"
+	ActionLinkRevoke                     Action = "link_revoke"
+	ActionPermissionChange               Action = "permission_change"
+	ActionAdministratorAdd               Action = "administrator_add"
+	ActionAdministratorRemove            Action = "administrator_remove"
+	ActionOTPRequested                   Action = "otp_requested"
+	ActionOTPVerified                    Action = "otp_verified"
+	ActionMFAEnrolled                    Action = "mfa_enrolled"
+	ActionMFAVerified                    Action = "mfa_verified"
+	ActionMFAReset                       Action = "mfa_reset"
+	ActionAdultAccountLink               Action = "adult_account_link"
+	ActionAuthenticationModeChange       Action = "authentication_mode_change"
+	ActionGuardianRegistrationChange     Action = "guardian_registration_change"
+	ActionGuardianInvitationImport       Action = "guardian_invitation_import"
+	ActionGuardianInvitationExport       Action = "guardian_invitation_export"
+	ActionGuardianInvitationChange       Action = "guardian_invitation_change"
+	ActionGuardianInvitationRedeem       Action = "guardian_invitation_redeem"
+	ActionGuardianSignupNoticeChange     Action = "guardian_signup_notice_change"
+	ActionGuardianOnboardingStarted      Action = "guardian_onboarding_started"
+	ActionGuardianOnboardingOTPRequested Action = "guardian_onboarding_otp_requested"
+	ActionGuardianOnboardingOTPFailed    Action = "guardian_onboarding_otp_failed"
+	ActionGuardianOnboardingOTPVerified  Action = "guardian_onboarding_otp_verified"
+	ActionGuardianTermsAccepted          Action = "guardian_terms_accepted"
+	ActionGuardianOnboardingCompleted    Action = "guardian_onboarding_completed"
+	ActionGuardianOnboardingRevoked      Action = "guardian_onboarding_revoked"
 )
 
 // actions is the published vocabulary in declaration order. The OpenAPI enum
@@ -126,6 +139,19 @@ var actions = []Action{
 	ActionMFAReset,
 	ActionAdultAccountLink,
 	ActionAuthenticationModeChange,
+	ActionGuardianRegistrationChange,
+	ActionGuardianInvitationImport,
+	ActionGuardianInvitationExport,
+	ActionGuardianInvitationChange,
+	ActionGuardianInvitationRedeem,
+	ActionGuardianSignupNoticeChange,
+	ActionGuardianOnboardingStarted,
+	ActionGuardianOnboardingOTPRequested,
+	ActionGuardianOnboardingOTPFailed,
+	ActionGuardianOnboardingOTPVerified,
+	ActionGuardianTermsAccepted,
+	ActionGuardianOnboardingCompleted,
+	ActionGuardianOnboardingRevoked,
 }
 
 // Actions returns the audit vocabulary in declaration order.

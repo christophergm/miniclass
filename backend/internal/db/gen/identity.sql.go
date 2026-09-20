@@ -58,7 +58,7 @@ values ($1, $2, $3, $4)
 returning id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation
+    mfa_generation, parent_token_id, mailbox_verified_at
 `
 
 type CreateAccessTokenParams struct {
@@ -96,6 +96,8 @@ func (q *Queries) CreateAccessToken(ctx context.Context, arg CreateAccessTokenPa
 		&i.IdleExpiresAt,
 		&i.LastSeenAt,
 		&i.MfaGeneration,
+		&i.ParentTokenID,
+		&i.MailboxVerifiedAt,
 	)
 	return i, err
 }
@@ -111,9 +113,17 @@ type CreateOrganizationParams struct {
 	HomeroomLabel string `json:"homeroom_label"`
 }
 
-func (q *Queries) CreateOrganization(ctx context.Context, arg CreateOrganizationParams) (Organization, error) {
+type CreateOrganizationRow struct {
+	ID            ids.XID            `json:"id"`
+	Name          string             `json:"name"`
+	HomeroomLabel string             `json:"homeroom_label"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) CreateOrganization(ctx context.Context, arg CreateOrganizationParams) (CreateOrganizationRow, error) {
 	row := q.db.QueryRow(ctx, createOrganization, arg.Name, arg.HomeroomLabel)
-	var i Organization
+	var i CreateOrganizationRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
@@ -217,7 +227,7 @@ const getAccessTokenByHash = `-- name: GetAccessTokenByHash :one
 select id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation
+    mfa_generation, parent_token_id, mailbox_verified_at
 from access_tokens
 where token_hash = $1
 `
@@ -245,6 +255,8 @@ func (q *Queries) GetAccessTokenByHash(ctx context.Context, tokenHash []byte) (A
 		&i.IdleExpiresAt,
 		&i.LastSeenAt,
 		&i.MfaGeneration,
+		&i.ParentTokenID,
+		&i.MailboxVerifiedAt,
 	)
 	return i, err
 }
@@ -253,7 +265,7 @@ const getAccessTokenByID = `-- name: GetAccessTokenByID :one
 select id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation
+    mfa_generation, parent_token_id, mailbox_verified_at
 from access_tokens
 where id = $1
 `
@@ -281,6 +293,8 @@ func (q *Queries) GetAccessTokenByID(ctx context.Context, id ids.XID) (AccessTok
 		&i.IdleExpiresAt,
 		&i.LastSeenAt,
 		&i.MfaGeneration,
+		&i.ParentTokenID,
+		&i.MailboxVerifiedAt,
 	)
 	return i, err
 }

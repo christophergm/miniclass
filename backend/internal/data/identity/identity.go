@@ -60,6 +60,8 @@ type AccessToken struct {
 	IdleExpiresAt      *time.Time
 	LastSeenAt         *time.Time
 	MfaGeneration      *int
+	ParentTokenID      *ids.XID
+	MailboxVerifiedAt  *time.Time
 }
 
 // OrganizationMember is the application-facing membership record.
@@ -564,6 +566,8 @@ func accessToken(row db.AccessToken) (AccessToken, error) {
 		IdleExpiresAt:      nullableTime(row.IdleExpiresAt),
 		LastSeenAt:         nullableTime(row.LastSeenAt),
 		MfaGeneration:      nullableInt(row.MfaGeneration),
+		ParentTokenID:      nullableID(row.ParentTokenID),
+		MailboxVerifiedAt:  nullableTime(row.MailboxVerifiedAt),
 	}, nil
 }
 

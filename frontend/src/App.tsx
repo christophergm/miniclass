@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { HealthCheck } from "@/features/health/HealthCheck";
 import { ClaimInvitationPage } from "@/features/auth/ClaimInvitationPage";
 import { GuardianAccessPage } from "@/features/auth/GuardianAccessPage";
+import { GuardianOnboardingPage } from "@/features/auth/GuardianOnboardingPage";
 import { MfaPage } from "@/features/auth/MfaPage";
 import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage";
 import { SignInPage } from "@/features/auth/SignInPage";
@@ -81,6 +82,7 @@ function AppRoutes() {
           the contract note in ClaimInvitationPage. */}
       <Route path="/claim" element={<ClaimInvitationPage />} />
       <Route path="/guardian" element={<GuardianAccessPage />} />
+      <Route path="/guardian/onboarding" element={<GuardianOnboardingPage />} />
       <Route path="/guardian/preferences" element={<GuardianPreferencePage />} />
       <Route
         path="/respond/interest-profile-surveys/:schoolYearId/:programId/:surveyId"
