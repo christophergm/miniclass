@@ -6,9 +6,7 @@ export function AuthLayout({ children }: PropsWithChildren) {
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">MiniClass</p>
-          <p className="mt-3 text-sm text-muted-foreground">
-            A calmer way to plan school enrichment.
-          </p>
+          <p className="mt-3 text-sm text-muted-foreground">Connecting learning with community.</p>
         </div>
         <section className="rounded-xl border bg-card p-6 shadow-sm sm:p-8">{children}</section>
       </div>
