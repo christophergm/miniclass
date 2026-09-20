@@ -110,6 +110,13 @@ set revoked_at = coalesce(revoked_at, $2)
 where id = $1
   and purpose in ('guardian_session', 'administrative_session');
 
+-- name: RevokeGuardianSessionsAndOTPs :execrows
+update access_tokens
+set revoked_at = coalesce(revoked_at, $4)
+where organization_id = $1 and school_year_id = $2 and adult_id = $3
+  and purpose in ('guardian_session', 'adult_otp', 'guardian_onboarding_session', 'guardian_onboarding_otp')
+  and revoked_at is null;
+
 -- name: RevokeAdministrativeSessions :execrows
 update access_tokens
 set revoked_at = coalesce(revoked_at, $2)

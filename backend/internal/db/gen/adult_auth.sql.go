@@ -845,6 +845,34 @@ func (q *Queries) RevokeAdministrativeSessions(ctx context.Context, arg RevokeAd
 	return result.RowsAffected(), nil
 }
 
+const revokeGuardianSessionsAndOTPs = `-- name: RevokeGuardianSessionsAndOTPs :execrows
+update access_tokens
+set revoked_at = coalesce(revoked_at, $4)
+where organization_id = $1 and school_year_id = $2 and adult_id = $3
+  and purpose in ('guardian_session', 'adult_otp', 'guardian_onboarding_session', 'guardian_onboarding_otp')
+  and revoked_at is null
+`
+
+type RevokeGuardianSessionsAndOTPsParams struct {
+	OrganizationID *ids.XID           `json:"organization_id"`
+	SchoolYearID   *ids.XID           `json:"school_year_id"`
+	AdultID        *ids.XID           `json:"adult_id"`
+	RevokedAt      pgtype.Timestamptz `json:"revoked_at"`
+}
+
+func (q *Queries) RevokeGuardianSessionsAndOTPs(ctx context.Context, arg RevokeGuardianSessionsAndOTPsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, revokeGuardianSessionsAndOTPs,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+		arg.AdultID,
+		arg.RevokedAt,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const revokeSession = `-- name: RevokeSession :execrows
 update access_tokens
 set revoked_at = coalesce(revoked_at, $2)

@@ -133,6 +133,52 @@ func (tx *Tx) SoftDeleteStudent(ctx context.Context, schoolYearID, id ids.XID) (
 	return rows == 1, nil
 }
 
+// DeidentifyStudent preserves grade and homeroom history while removing the
+// identifying fields from a retained student row.
+func (tx *Tx) DeidentifyStudent(ctx context.Context, schoolYearID, id ids.XID) (Student, error) {
+	row, err := tx.queries.DeidentifyStudent(ctx, db.DeidentifyStudentParams{ID: id, OrganizationID: tx.organizationID, SchoolYearID: schoolYearID})
+	if err != nil {
+		return Student{}, wrapStudentMutationError("de-identify student", err)
+	}
+	return student(row)
+}
+
+func (tx *Tx) CountStudentAssociatedData(ctx context.Context, schoolYearID, id ids.XID) (int64, error) {
+	return tx.queries.CountStudentAssociatedData(ctx, db.CountStudentAssociatedDataParams{StudentID: id, OrganizationID: tx.organizationID, SchoolYearID: schoolYearID})
+}
+
+func (tx *Tx) HardDeleteStudent(ctx context.Context, schoolYearID, id ids.XID) error {
+	params := db.HardDeleteStudentRankedAccessCodesParams{StudentID: id, OrganizationID: tx.organizationID, SchoolYearID: schoolYearID}
+	if err := tx.queries.HardDeleteStudentRankedAccessCodes(ctx, params); err != nil {
+		return err
+	}
+	if err := tx.queries.HardDeleteStudentSurveyAccessCodes(ctx, db.HardDeleteStudentSurveyAccessCodesParams(params)); err != nil {
+		return err
+	}
+	if err := tx.queries.HardDeleteStudentSurveySnapshots(ctx, db.HardDeleteStudentSurveySnapshotsParams(params)); err != nil {
+		return err
+	}
+	if err := tx.queries.HardDeleteStudentSurveyAudience(ctx, db.HardDeleteStudentSurveyAudienceParams(params)); err != nil {
+		return err
+	}
+	if err := tx.queries.HardDeleteStudentRankedSubmissions(ctx, db.HardDeleteStudentRankedSubmissionsParams(params)); err != nil {
+		return err
+	}
+	if err := tx.queries.HardDeleteStudentSurveySubmissions(ctx, db.HardDeleteStudentSurveySubmissionsParams(params)); err != nil {
+		return err
+	}
+	if err := tx.queries.HardDeleteStudentNonParticipations(ctx, db.HardDeleteStudentNonParticipationsParams(params)); err != nil {
+		return err
+	}
+	if err := tx.queries.HardDeleteStudentMemberships(ctx, db.HardDeleteStudentMembershipsParams(params)); err != nil {
+		return err
+	}
+	if err := tx.queries.HardDeleteStudentRelationships(ctx, db.HardDeleteStudentRelationshipsParams(params)); err != nil {
+		return err
+	}
+	return tx.queries.HardDeleteStudent(ctx, db.HardDeleteStudentParams{ID: id, OrganizationID: tx.organizationID, SchoolYearID: schoolYearID})
+}
+
 func (tx *Tx) RestoreStudent(ctx context.Context, schoolYearID, id ids.XID) (Student, error) {
 	row, err := tx.queries.RestoreStudent(ctx, db.RestoreStudentParams{ID: id, OrganizationID: tx.organizationID, SchoolYearID: schoolYearID})
 	if err != nil {

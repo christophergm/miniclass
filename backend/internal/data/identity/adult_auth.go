@@ -113,6 +113,10 @@ func (tx *Tx) RevokeSession(ctx context.Context, id ids.XID, at time.Time) (bool
 	return rows == 1, err
 }
 
+func (tx *Tx) RevokeGuardianSessionsAndOTPs(ctx context.Context, organizationID, schoolYearID, adultID *ids.XID, at time.Time) (int64, error) {
+	return tx.queries.RevokeGuardianSessionsAndOTPs(ctx, db.RevokeGuardianSessionsAndOTPsParams{OrganizationID: organizationID, SchoolYearID: schoolYearID, AdultID: adultID, RevokedAt: pgtype.Timestamptz{Time: at, Valid: true}})
+}
+
 func (tx *Tx) RevokeAdministrativeSessions(ctx context.Context, userID *ids.XID, at time.Time) (int64, error) {
 	return tx.queries.RevokeAdministrativeSessions(ctx, db.RevokeAdministrativeSessionsParams{
 		UserID: userID, RevokedAt: pgtype.Timestamptz{Time: at, Valid: true},

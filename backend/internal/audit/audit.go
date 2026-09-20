@@ -84,6 +84,8 @@ const (
 	ActionGuardianTermsAccepted          Action = "guardian_terms_accepted"
 	ActionGuardianOnboardingCompleted    Action = "guardian_onboarding_completed"
 	ActionGuardianOnboardingRevoked      Action = "guardian_onboarding_revoked"
+	ActionGuardianDetach                 Action = "guardian_detach"
+	ActionPersonalDataDelete             Action = "personal_data_delete"
 )
 
 // actions is the published vocabulary in declaration order. The OpenAPI enum
@@ -152,6 +154,8 @@ var actions = []Action{
 	ActionGuardianTermsAccepted,
 	ActionGuardianOnboardingCompleted,
 	ActionGuardianOnboardingRevoked,
+	ActionGuardianDetach,
+	ActionPersonalDataDelete,
 }
 
 // Actions returns the audit vocabulary in declaration order.

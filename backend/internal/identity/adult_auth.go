@@ -579,6 +579,19 @@ func (s *Store) DeleteAdultAccountLink(ctx context.Context, input auth.AdultAcco
 	})
 }
 
+// RevokeGuardianSessionsAndOTPs revokes only guardian-mode credentials for an
+// adult; a separate administrative account and its sessions are unaffected.
+func (s *Store) RevokeGuardianSessionsAndOTPs(ctx context.Context, organizationID, schoolYearID, adultID ids.XID) error {
+	if s == nil || s.databaseIdentity() == nil {
+		return errors.New("revoke guardian credentials: identity store is nil")
+	}
+	now := time.Now().UTC()
+	return s.databaseIdentity().InTx(ctx, func(ctx context.Context, tx *identitydata.Tx) error {
+		_, err := tx.RevokeGuardianSessionsAndOTPs(ctx, &organizationID, &schoolYearID, &adultID, now)
+		return err
+	})
+}
+
 func (s *Store) ListAdultAccountLinks(ctx context.Context, organizationID, schoolYearID ids.XID) ([]auth.AdultAccountLink, error) {
 	if s == nil || s.tenantDatabase == nil {
 		return nil, auth.ErrAdultAccountLinkMissing

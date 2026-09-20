@@ -69,6 +69,58 @@ where id = $1
   and school_year_id = $3
   and deleted_at is null;
 
+-- name: DeidentifyStudent :one
+update students
+set legal_given_name = 'Deleted student', legal_family_name = 'Deleted student',
+    preferred_given_name = null, external_identifier = null,
+    deleted_at = coalesce(deleted_at, now())
+where id = $1 and organization_id = $2 and school_year_id = $3 and deleted_at is null
+returning id, organization_id, school_year_id, legal_given_name, legal_family_name,
+    preferred_given_name, grade_level_id, homeroom_id, external_identifier,
+    prior_year_student_id, deleted_at, created_at, updated_at;
+
+-- name: CountStudentAssociatedData :one
+select (
+    (select count(*) from program_memberships pm where pm.organization_id = $2 and pm.school_year_id = $3 and pm.student_id = $1) +
+    (select count(*) from session_non_participations snp where snp.organization_id = $2 and snp.school_year_id = $3 and snp.student_id = $1) +
+    (select count(*) from interest_profile_submissions ips where ips.organization_id = $2 and ips.school_year_id = $3 and ips.student_id = $1) +
+    (select count(*) from ranked_choice_submissions rcs where rcs.organization_id = $2 and rcs.school_year_id = $3 and rcs.student_id = $1) +
+    (select count(*) from interest_profile_survey_audience_students ipsa where ipsa.organization_id = $2 and ipsa.school_year_id = $3 and ipsa.student_id = $1) +
+    (select count(*) from interest_profile_survey_audience_snapshots ipss where ipss.organization_id = $2 and ipss.school_year_id = $3 and ipss.student_id = $1) +
+    (select count(*) from ranked_choice_access_codes rcac where rcac.organization_id = $2 and rcac.school_year_id = $3 and rcac.student_id = $1) +
+    (select count(*) from interest_profile_survey_access_codes ipsac where ipsac.organization_id = $2 and ipsac.school_year_id = $3 and ipsac.student_id = $1)
+)::bigint as count;
+
+-- name: HardDeleteStudentRankedAccessCodes :exec
+delete from ranked_choice_access_codes where organization_id = $2 and school_year_id = $3 and student_id = $1;
+
+-- name: HardDeleteStudentSurveyAccessCodes :exec
+delete from interest_profile_survey_access_codes where organization_id = $2 and school_year_id = $3 and student_id = $1;
+
+-- name: HardDeleteStudentSurveySnapshots :exec
+delete from interest_profile_survey_audience_snapshots where organization_id = $2 and school_year_id = $3 and student_id = $1;
+
+-- name: HardDeleteStudentSurveyAudience :exec
+delete from interest_profile_survey_audience_students where organization_id = $2 and school_year_id = $3 and student_id = $1;
+
+-- name: HardDeleteStudentRankedSubmissions :exec
+delete from ranked_choice_submissions where organization_id = $2 and school_year_id = $3 and student_id = $1;
+
+-- name: HardDeleteStudentSurveySubmissions :exec
+delete from interest_profile_submissions where organization_id = $2 and school_year_id = $3 and student_id = $1;
+
+-- name: HardDeleteStudentNonParticipations :exec
+delete from session_non_participations where organization_id = $2 and school_year_id = $3 and student_id = $1;
+
+-- name: HardDeleteStudentMemberships :exec
+delete from program_memberships where organization_id = $2 and school_year_id = $3 and student_id = $1;
+
+-- name: HardDeleteStudentRelationships :exec
+delete from guardian_relationships where organization_id = $2 and school_year_id = $3 and student_id = $1;
+
+-- name: HardDeleteStudent :exec
+delete from students where id = $1 and organization_id = $2 and school_year_id = $3;
+
 -- name: RestoreStudent :one
 update students
 set deleted_at = null

@@ -82,7 +82,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		api.WithAdults(people.New(database)),
 		api.WithStudents(people.New(database)),
 		api.WithGuardianRelationships(people.New(database)),
-		api.WithGuardianRecords(guardianrecords.New(database)),
+		api.WithGuardianRecords(guardianrecords.New(database, identityStore)),
 		api.WithImportPreview(importService),
 		api.WithImportCommit(importService),
 		api.WithPrograms(program.New(database)),
