@@ -421,6 +421,11 @@
   format/lint, generation, local-toolchain generated-code drift, focused Biome format/lint,
   and `git diff --check` pass. `make check` stops at the existing `/miniclass-postgres`
   container-name conflict; migration, frontend dependency, and smoke gates remain
-  environment-limited. Provisioned CI must verify all ten required checks.
-- Open items: commit and push, open a non-draft PR with `Fixes #223`, then verify current-head
-  CI and review state before the Detent review-lane handoff.
+  environment-limited. CI run `35535514789` passes all ten required checks on head `7db2e96`.
+  Its 162-second duration was led by Backend tests (158s), Generated code drift (150s), and
+  Backend lint (91s).
+- Repository/PR: commits `6a763a1` and `7db2e96` are pushed to open non-draft PR #226, which
+  references `Fixes #223`, is merge-clean, and has no actionable reviews or inline comments.
+  Detent owns the completion-lane transition after the Workpad records current-head validation.
+- Skill draft: no — the existing project API, audit, and frontend-resource conventions covered
+  this focused administration surface; no broadly reusable procedure was discovered.
