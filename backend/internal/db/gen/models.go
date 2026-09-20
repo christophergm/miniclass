@@ -15,14 +15,18 @@ import (
 type AccessTokenPurpose string
 
 const (
-	AccessTokenPurposeAdminInvitation       AccessTokenPurpose = "admin_invitation"
-	AccessTokenPurposeGuardianSubmission    AccessTokenPurpose = "guardian_submission"
-	AccessTokenPurposeClassLeader           AccessTokenPurpose = "class_leader"
-	AccessTokenPurposeHomeroomTeacher       AccessTokenPurpose = "homeroom_teacher"
-	AccessTokenPurposePublishedArtifact     AccessTokenPurpose = "published_artifact"
-	AccessTokenPurposeAdultOtp              AccessTokenPurpose = "adult_otp"
-	AccessTokenPurposeGuardianSession       AccessTokenPurpose = "guardian_session"
-	AccessTokenPurposeAdministrativeSession AccessTokenPurpose = "administrative_session"
+	AccessTokenPurposeAdminInvitation           AccessTokenPurpose = "admin_invitation"
+	AccessTokenPurposeGuardianSubmission        AccessTokenPurpose = "guardian_submission"
+	AccessTokenPurposeClassLeader               AccessTokenPurpose = "class_leader"
+	AccessTokenPurposeHomeroomTeacher           AccessTokenPurpose = "homeroom_teacher"
+	AccessTokenPurposePublishedArtifact         AccessTokenPurpose = "published_artifact"
+	AccessTokenPurposeAdultOtp                  AccessTokenPurpose = "adult_otp"
+	AccessTokenPurposeGuardianSession           AccessTokenPurpose = "guardian_session"
+	AccessTokenPurposeAdministrativeSession     AccessTokenPurpose = "administrative_session"
+	AccessTokenPurposeGuardianRegistrationEntry AccessTokenPurpose = "guardian_registration_entry"
+	AccessTokenPurposeGuardianInvitation        AccessTokenPurpose = "guardian_invitation"
+	AccessTokenPurposeGuardianOnboardingSession AccessTokenPurpose = "guardian_onboarding_session"
+	AccessTokenPurposeGuardianOnboardingOtp     AccessTokenPurpose = "guardian_onboarding_otp"
 )
 
 func (e *AccessTokenPurpose) Scan(src interface{}) error {
@@ -603,6 +607,8 @@ type AccessToken struct {
 	IdleExpiresAt      pgtype.Timestamptz `json:"idle_expires_at"`
 	LastSeenAt         pgtype.Timestamptz `json:"last_seen_at"`
 	MfaGeneration      pgtype.Int4        `json:"mfa_generation"`
+	ParentTokenID      *ids.XID           `json:"parent_token_id"`
+	MailboxVerifiedAt  pgtype.Timestamptz `json:"mailbox_verified_at"`
 }
 
 type Adult struct {
@@ -657,6 +663,30 @@ type GradeLevel struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 	SchoolYearID   ids.XID            `json:"school_year_id"`
+}
+
+type GuardianInvitationContact struct {
+	ID                ids.XID            `json:"id"`
+	OrganizationID    ids.XID            `json:"organization_id"`
+	SchoolYearID      ids.XID            `json:"school_year_id"`
+	InvitationTokenID ids.XID            `json:"invitation_token_id"`
+	Email             string             `json:"email"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type GuardianOnboardingConsent struct {
+	ID                  ids.XID            `json:"id"`
+	OrganizationID      ids.XID            `json:"organization_id"`
+	SchoolYearID        ids.XID            `json:"school_year_id"`
+	SessionTokenID      ids.XID            `json:"session_token_id"`
+	VerifiedEmail       string             `json:"verified_email"`
+	TermsVersion        string             `json:"terms_version"`
+	PrivacyVersion      string             `json:"privacy_version"`
+	SignupNoticeVersion pgtype.Int4        `json:"signup_notice_version"`
+	SignupNoticeHash    []byte             `json:"signup_notice_hash"`
+	AcceptedAt          pgtype.Timestamptz `json:"accepted_at"`
+	SourceSurface       string             `json:"source_surface"`
 }
 
 type GuardianRelationship struct {
@@ -837,11 +867,14 @@ type Offering struct {
 }
 
 type Organization struct {
-	ID            ids.XID            `json:"id"`
-	Name          string             `json:"name"`
-	HomeroomLabel string             `json:"homeroom_label"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	ID                          ids.XID            `json:"id"`
+	Name                        string             `json:"name"`
+	HomeroomLabel               string             `json:"homeroom_label"`
+	CreatedAt                   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                   pgtype.Timestamptz `json:"updated_at"`
+	GuardianSignupNotice        pgtype.Text        `json:"guardian_signup_notice"`
+	GuardianSignupNoticeVersion int32              `json:"guardian_signup_notice_version"`
+	GuardianSignupNoticeHash    []byte             `json:"guardian_signup_notice_hash"`
 }
 
 type OrganizationMember struct {

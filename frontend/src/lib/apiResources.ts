@@ -51,6 +51,11 @@ export type PreferenceInterestAnswerInput = Schemas["InterestProfileAnswerInput"
 export type PreferenceRankedAnswerInput = Schemas["RankedChoiceAnswerInput"];
 export type AdultOTPRequest = Schemas["RequestAdultOTPOutputBody"];
 export type GuardianSession = Schemas["GuardianSessionResponse"];
+export type GuardianOnboardingSession = Schemas["GuardianOnboardingSessionResponse"];
+export type GuardianOnboardingPolicy = Schemas["GuardianPolicyResponse"];
+export type GuardianOnboardingOTPRequest = Schemas["GuardianOTPRequestOutputBody"];
+export type GuardianRegistrationEntry = Schemas["GuardianRegistrationEntryResponse"];
+export type GuardianInvitationImport = Schemas["InvitationImportResult"];
 export type MFAEnrollment = Schemas["MFAEnrollmentOutputBody"];
 export type AdministrativeSession = Schemas["AdministrativeSessionOutputBody"];
 export type AdultAccountLink = Schemas["AdultAccountLinkResponse"];
@@ -72,6 +77,81 @@ export const resourceApi = {
         body: { challenge_id: challengeID, code },
       }),
     ),
+  beginGuardianOnboarding: (entryToken: string) =>
+    unwrap(api.POST("/api/guardian/onboarding/begin", { body: { entry_token: entryToken } })),
+  redeemGuardianInvitation: (invitationToken: string) =>
+    unwrap(
+      api.POST("/api/guardian/onboarding/invitation/redeem", {
+        body: { invitation_token: invitationToken },
+      }),
+    ),
+  requestGuardianOnboardingOTP: (sessionToken: string, email: string) =>
+    unwrap(
+      api.POST("/api/guardian/onboarding/otp/request", {
+        body: { session_token: sessionToken, email },
+      }),
+    ),
+  verifyGuardianOnboardingOTP: (sessionToken: string, challengeID: string, code: string) =>
+    unwrap(
+      api.POST("/api/guardian/onboarding/otp/verify", {
+        body: { session_token: sessionToken, challenge_id: challengeID, code },
+      }),
+    ),
+  createGuardianRegistrationEntry: (schoolYearID: string) =>
+    unwrap(
+      api.POST("/api/school-years/{schoolYearID}/guardian-registration-entry", {
+        params: { path: { schoolYearID } },
+      }),
+    ),
+  getGuardianRegistrationEntry: (schoolYearID: string) =>
+    unwrap(
+      api.GET("/api/school-years/{schoolYearID}/guardian-registration-entry", {
+        params: { path: { schoolYearID } },
+      }),
+    ),
+  revokeGuardianRegistrationEntry: (schoolYearID: string) =>
+    unwrapNoContent(
+      api.POST("/api/school-years/{schoolYearID}/guardian-registration-entry/revoke", {
+        params: { path: { schoolYearID } },
+      }),
+    ),
+  importGuardianInvitationContacts: async (schoolYearID: string, document: File) =>
+    unwrap(
+      api.POST("/api/school-years/{schoolYearID}/guardian-invitation-contacts/import", {
+        params: { path: { schoolYearID } },
+        body: await document.text(),
+        bodySerializer: (body: string) => body,
+        headers: { "Content-Type": "text/csv" },
+      }),
+    ),
+  updateGuardianSignupNotice: (content: string | null) =>
+    unwrap(api.PATCH("/api/guardian-signup-notice", { body: { content } })),
+  acceptGuardianOnboardingConsent: (
+    sessionToken: string,
+    value: {
+      email: string;
+      terms_version: string;
+      privacy_version: string;
+      signup_notice_version?: number;
+      signup_notice_hash?: string;
+      source_surface?: string;
+    },
+  ) =>
+    unwrap(
+      api.POST("/api/guardian/onboarding/consent", {
+        body: { session_token: sessionToken, ...value },
+      }),
+    ),
+  completeGuardianOnboarding: (value: {
+    session_token: string;
+    adult_given_name: string;
+    adult_family_name: string;
+    student_given_name: string;
+    student_family_name: string;
+    grade_level_id?: string;
+    homeroom_id?: string;
+    relationship_type: string;
+  }) => unwrap(api.POST("/api/guardian/onboarding/complete", { body: value })),
   getGuardianAuthContext: () => unwrap(api.GET("/api/auth/guardian")),
   enrollMFA: () => unwrap(api.POST("/api/auth/mfa/enroll", {})),
   verifyMFA: (code?: string, recoveryCode?: string) =>

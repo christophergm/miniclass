@@ -9,7 +9,7 @@ values ($1, $2, $3, $4)
 returning id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation;
+    mfa_generation, parent_token_id, mailbox_verified_at;
 
 -- name: CreateOrganizationMember :one
 insert into organization_members (
@@ -76,7 +76,7 @@ order by om.organization_id;
 select id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation
+    mfa_generation, parent_token_id, mailbox_verified_at
 from access_tokens
 where token_hash = $1;
 
@@ -84,7 +84,7 @@ where token_hash = $1;
 select id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation
+    mfa_generation, parent_token_id, mailbox_verified_at
 from access_tokens
 where id = $1;
 

@@ -39,6 +39,7 @@ type RouterOptions struct {
 	Programs               handlers.ProgramService
 	Verifier               auth.Verifier
 	AdultAuth              auth.AdultAuthentication
+	GuardianOnboarding     handlers.GuardianOnboardingService
 	Sessions               auth.SessionResolver
 }
 
@@ -142,6 +143,84 @@ func registerOperations(api huma.API, options RouterOptions) {
 		Path: apiBasePath + "/auth/adult/otp/verify", Summary: "Verify a guardian email OTP",
 		Errors: []int{http.StatusUnauthorized},
 	}, auth.CapabilityPublic, false, adultAuth.VerifyOTP)
+
+	guardianOnboarding := handlers.NewGuardianOnboardingHandler(options.GuardianOnboarding)
+	registerOperation(api, huma.Operation{
+		OperationID: "create-guardian-registration-entry", Method: http.MethodPost,
+		Path: apiBasePath + "/school-years/{schoolYearID}/guardian-registration-entry", Summary: "Issue a guardian registration entry token",
+		Errors: []int{http.StatusNotFound, http.StatusConflict},
+	}, auth.CapabilityManageRoster, false, guardianOnboarding.CreateRegistrationEntry)
+	registerOperation(api, huma.Operation{
+		OperationID: "get-guardian-registration-entry", Method: http.MethodGet,
+		Path: apiBasePath + "/school-years/{schoolYearID}/guardian-registration-entry", Summary: "Read the current guardian registration entry",
+		Errors: []int{http.StatusNotFound},
+	}, auth.CapabilityManageRoster, false, guardianOnboarding.GetRegistrationEntry)
+	registerOperation(api, huma.Operation{
+		OperationID: "revoke-guardian-registration-entry", Method: http.MethodPost,
+		Path: apiBasePath + "/school-years/{schoolYearID}/guardian-registration-entry/revoke", Summary: "Revoke a guardian registration entry",
+		Errors: []int{http.StatusNotFound, http.StatusConflict},
+	}, auth.CapabilityManageRoster, false, guardianOnboarding.RevokeRegistrationEntry)
+	registerOperation(api, huma.Operation{
+		OperationID: "import-guardian-invitation-contacts", Method: http.MethodPost,
+		Path: apiBasePath + "/school-years/{schoolYearID}/guardian-invitation-contacts/import", Summary: "Import guardian invitation contacts from CSV",
+		Errors: []int{http.StatusBadRequest, http.StatusNotFound, http.StatusConflict}, SkipValidateBody: true,
+		RequestBody: &huma.RequestBody{Required: true, Content: map[string]*huma.MediaType{"text/csv": {Schema: &huma.Schema{Type: "string", Format: "binary"}}}},
+	}, auth.CapabilityManageRoster, false, guardianOnboarding.ImportInvitationContacts)
+	registerOperation(api, huma.Operation{
+		OperationID: "export-guardian-invitation-contacts", Method: http.MethodGet,
+		Path: apiBasePath + "/school-years/{schoolYearID}/guardian-invitation-contacts/export", Summary: "Export guardian invitation contacts as CSV",
+		Errors: []int{http.StatusNotFound},
+	}, auth.CapabilityManageRoster, false, guardianOnboarding.ExportInvitationContacts)
+	registerOperation(api, huma.Operation{
+		OperationID: "revoke-guardian-invitation-contact", Method: http.MethodPost,
+		Path: apiBasePath + "/school-years/{schoolYearID}/guardian-invitation-contacts/{contactID}/revoke", Summary: "Revoke a guardian invitation contact",
+		Errors: []int{http.StatusNotFound, http.StatusConflict},
+	}, auth.CapabilityManageRoster, false, guardianOnboarding.RevokeInvitationContact)
+	registerOperation(api, huma.Operation{
+		OperationID: "revoke-guardian-onboarding-session", Method: http.MethodPost,
+		Path: apiBasePath + "/school-years/{schoolYearID}/guardian-onboarding-sessions/{sessionID}/revoke", Summary: "Revoke a guardian onboarding session",
+		Errors: []int{http.StatusNotFound, http.StatusConflict},
+	}, auth.CapabilityManageRoster, false, guardianOnboarding.RevokeOnboardingSession)
+	registerOperation(api, huma.Operation{
+		OperationID: "update-guardian-signup-notice", Method: http.MethodPatch,
+		Path: apiBasePath + "/guardian-signup-notice", Summary: "Update the organization guardian signup notice",
+		Errors: []int{http.StatusBadRequest, http.StatusConflict},
+	}, auth.CapabilityManageRoster, false, guardianOnboarding.UpdateSignupNotice)
+	registerOperation(api, huma.Operation{
+		OperationID: "begin-guardian-onboarding", Method: http.MethodPost,
+		Path: apiBasePath + "/guardian/onboarding/begin", Summary: "Start guardian onboarding with a registration entry",
+		Errors: []int{http.StatusNotFound},
+	}, auth.CapabilityPublic, false, guardianOnboarding.Begin)
+	registerOperation(api, huma.Operation{
+		OperationID: "redeem-guardian-invitation", Method: http.MethodPost,
+		Path: apiBasePath + "/guardian/onboarding/invitation/redeem", Summary: "Redeem a guardian invitation",
+		Errors: []int{http.StatusNotFound},
+	}, auth.CapabilityPublic, false, guardianOnboarding.Redeem)
+	registerOperation(api, huma.Operation{
+		OperationID: "request-guardian-onboarding-otp", Method: http.MethodPost,
+		Path: apiBasePath + "/guardian/onboarding/otp/request", Summary: "Request a guardian onboarding email OTP",
+		Errors: []int{http.StatusTooManyRequests, http.StatusUnauthorized},
+	}, auth.CapabilityPublic, false, guardianOnboarding.RequestOTP)
+	registerOperation(api, huma.Operation{
+		OperationID: "verify-guardian-onboarding-otp", Method: http.MethodPost,
+		Path: apiBasePath + "/guardian/onboarding/otp/verify", Summary: "Verify a guardian onboarding email OTP",
+		Errors: []int{http.StatusUnauthorized},
+	}, auth.CapabilityPublic, false, guardianOnboarding.VerifyOTP)
+	registerOperation(api, huma.Operation{
+		OperationID: "accept-guardian-onboarding-consent", Method: http.MethodPost,
+		Path: apiBasePath + "/guardian/onboarding/consent", Summary: "Record guardian terms and privacy acceptance",
+		Errors: []int{http.StatusBadRequest, http.StatusConflict, http.StatusUnauthorized},
+	}, auth.CapabilityPublic, false, guardianOnboarding.AcceptConsent)
+	registerOperation(api, huma.Operation{
+		OperationID: "complete-guardian-onboarding", Method: http.MethodPost,
+		Path: apiBasePath + "/guardian/onboarding/complete", Summary: "Complete consent-first guardian onboarding",
+		Errors: []int{http.StatusBadRequest, http.StatusConflict, http.StatusUnauthorized},
+	}, auth.CapabilityPublic, false, guardianOnboarding.Complete)
+	registerOperation(api, huma.Operation{
+		OperationID: "get-guardian-onboarding-session", Method: http.MethodGet,
+		Path: apiBasePath + "/guardian/onboarding/session", Summary: "Read the current guardian onboarding session",
+		Errors: []int{http.StatusUnauthorized},
+	}, auth.CapabilityPublic, false, guardianOnboarding.GetSession)
 
 	preferenceHandler := handlers.NewPreferenceHandler(options.Programs)
 	registerOperation(api, huma.Operation{
