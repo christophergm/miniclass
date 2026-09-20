@@ -46,6 +46,28 @@ type Student struct {
 	Warnings           []ReviewWarning
 }
 
+// VocabularyOption is the minimum data needed for a guardian-managed student
+// form. The guardian's active session scopes both the school year and tenant.
+type VocabularyOption struct {
+	ID    ids.XID
+	Label string
+}
+
+type Vocabulary struct {
+	GradeLevels []VocabularyOption
+	Homerooms   []VocabularyOption
+}
+
+// Profile is the self-service view of the authenticated guardian's editable
+// adult record. It intentionally excludes organizer-only fields.
+type Profile struct {
+	LegalGivenName     string
+	LegalFamilyName    string
+	PreferredGivenName *string
+	Email              *string
+	Phone              *string
+}
+
 type CandidateInput struct {
 	GivenName  string
 	FamilyName string
@@ -211,6 +233,61 @@ func (s *Service) List(ctx context.Context, principal auth.GuardianPrincipal) ([
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list guardian students: %w", err)
+	}
+	return result, nil
+}
+
+func (s *Service) Vocabulary(ctx context.Context, principal auth.GuardianPrincipal) (Vocabulary, error) {
+	if s == nil || s.database == nil {
+		return Vocabulary{}, errors.New("list guardian vocabulary: data service is nil")
+	}
+	result := Vocabulary{}
+	err := s.database.InTenantRead(ctx, string(principal.OrganizationID), func(ctx context.Context, tx *data.Tx) error {
+		grades, err := tx.ListGradeLevels(ctx, principal.SchoolYearID, false)
+		if err != nil {
+			return err
+		}
+		homerooms, err := tx.ListHomerooms(ctx, principal.SchoolYearID, false)
+		if err != nil {
+			return err
+		}
+		result.GradeLevels = make([]VocabularyOption, 0, len(grades))
+		for _, grade := range grades {
+			result.GradeLevels = append(result.GradeLevels, VocabularyOption{ID: grade.ID, Label: grade.Label})
+		}
+		result.Homerooms = make([]VocabularyOption, 0, len(homerooms))
+		for _, homeroom := range homerooms {
+			result.Homerooms = append(result.Homerooms, VocabularyOption{ID: homeroom.ID, Label: homeroom.Name})
+		}
+		return nil
+	})
+	if err != nil {
+		return Vocabulary{}, fmt.Errorf("list guardian vocabulary: %w", err)
+	}
+	return result, nil
+}
+
+func (s *Service) GetProfile(ctx context.Context, principal auth.GuardianPrincipal) (Profile, error) {
+	if s == nil || s.database == nil {
+		return Profile{}, errors.New("get guardian profile: data service is nil")
+	}
+	result := Profile{}
+	err := s.database.InTenantRead(ctx, string(principal.OrganizationID), func(ctx context.Context, tx *data.Tx) error {
+		adult, err := tx.GetAdultByID(ctx, principal.SchoolYearID, principal.AdultID)
+		if err != nil {
+			return err
+		}
+		result = Profile{
+			LegalGivenName:     adult.LegalGivenName,
+			LegalFamilyName:    adult.LegalFamilyName,
+			PreferredGivenName: adult.PreferredGivenName,
+			Email:              adult.Email,
+			Phone:              adult.Phone,
+		}
+		return nil
+	})
+	if err != nil {
+		return Profile{}, fmt.Errorf("get guardian profile: %w", err)
 	}
 	return result, nil
 }

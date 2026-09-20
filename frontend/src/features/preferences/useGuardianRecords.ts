@@ -1,11 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { resourceApi, type GuardianStudent } from "@/lib/apiResources";
+import { resourceApi } from "@/lib/apiResources";
 
 const key = ["guardian-students"] as const;
+const vocabularyKey = ["guardian-vocabulary"] as const;
+const profileKey = ["guardian-profile"] as const;
 
 export function useGuardianStudents() {
   return useQuery({ queryKey: key, queryFn: resourceApi.listGuardianStudents });
+}
+
+export function useGuardianVocabulary() {
+  return useQuery({ queryKey: vocabularyKey, queryFn: resourceApi.getGuardianVocabulary });
+}
+
+export function useGuardianProfile() {
+  return useQuery({ queryKey: profileKey, queryFn: resourceApi.getGuardianProfile });
 }
 
 export function useGuardianStudentCandidates(
@@ -55,4 +65,22 @@ export function useGuardianStudentUpdate() {
   });
 }
 
-export type GuardianStudentDraft = Pick<GuardianStudent, "legal_given_name" | "legal_family_name">;
+export function useGuardianStudentDetach() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: resourceApi.detachGuardianStudent,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: key }),
+  });
+}
+
+export function useGuardianProfileUpdate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: resourceApi.updateGuardianProfile,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: profileKey }),
+  });
+}
+
+export function useGuardianProfileDelete() {
+  return useMutation({ mutationFn: resourceApi.deleteGuardianProfile });
+}

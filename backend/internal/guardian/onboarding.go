@@ -61,6 +61,21 @@ type Session struct {
 	Policy         Policy
 }
 
+// VocabularyOption is the minimum information a guardian needs to choose a
+// current grade or homeroom while completing an authorized onboarding flow.
+// The opaque identifier remains the submitted value; it is never displayed.
+type VocabularyOption struct {
+	ID    ids.XID
+	Label string
+}
+
+// OnboardingVocabulary contains only active vocabulary values for the school
+// year bound to an onboarding session.
+type OnboardingVocabulary struct {
+	GradeLevels []VocabularyOption
+	Homerooms   []VocabularyOption
+}
+
 type RegistrationEntry struct {
 	ID             ids.XID
 	OrganizationID ids.XID
@@ -178,4 +193,5 @@ type Service interface {
 	AcceptConsent(context.Context, ConsentInput) (Session, error)
 	Complete(context.Context, CompleteInput) (Completion, error)
 	GetSession(context.Context, string, time.Time) (Session, error)
+	OnboardingVocabulary(context.Context, string, time.Time) (OnboardingVocabulary, error)
 }

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,12 +11,16 @@ import { errorMessage } from "./auth-utils";
 
 export function GuardianAccessPage() {
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const navigate = useNavigate();
+  const onboarding = guardianOnboardingHandoff(location.state);
   const [organizationID, setOrganizationID] = useState(
-    () => searchParams.get("organization_id") ?? "",
+    () => onboarding?.organizationID ?? searchParams.get("organization_id") ?? "",
   );
-  const [schoolYearID, setSchoolYearID] = useState(() => searchParams.get("school_year_id") ?? "");
-  const [email, setEmail] = useState(() => searchParams.get("email") ?? "");
+  const [schoolYearID, setSchoolYearID] = useState(
+    () => onboarding?.schoolYearID ?? searchParams.get("school_year_id") ?? "",
+  );
+  const [email, setEmail] = useState(() => onboarding?.email ?? searchParams.get("email") ?? "");
   const [challengeID, setChallengeID] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [session, setSession] = useState<GuardianSession | null>(null);
@@ -106,6 +110,12 @@ export function GuardianAccessPage() {
           >
             Manage your students
           </Link>
+          <Link
+            className="block text-sm font-medium text-primary hover:underline"
+            to="/guardian/profile"
+          >
+            Manage your profile
+          </Link>
           <Link className="block text-sm font-medium text-primary hover:underline" to="/sign-in">
             Administrator sign in
           </Link>
@@ -147,30 +157,46 @@ export function GuardianAccessPage() {
         </form>
       ) : (
         <form className="mt-6 space-y-4" onSubmit={requestOTP}>
-          <label className="block space-y-2 text-sm font-medium" htmlFor="guardian-organization-id">
-            Organization ID
-            <Input
-              id="guardian-organization-id"
-              required
-              value={organizationID}
-              onChange={(event) => setOrganizationID(event.target.value)}
-            />
-          </label>
-          <label className="block space-y-2 text-sm font-medium" htmlFor="guardian-school-year-id">
-            School year ID
-            <Input
-              id="guardian-school-year-id"
-              required
-              value={schoolYearID}
-              onChange={(event) => setSchoolYearID(event.target.value)}
-            />
-          </label>
+          {onboarding ? (
+            <p className="rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+              Registration is complete. Send a one-time code to enter guardian mode; you do not need
+              organization or school-year identifiers.
+            </p>
+          ) : (
+            <>
+              <label
+                className="block space-y-2 text-sm font-medium"
+                htmlFor="guardian-organization-id"
+              >
+                Organization ID
+                <Input
+                  id="guardian-organization-id"
+                  required
+                  value={organizationID}
+                  onChange={(event) => setOrganizationID(event.target.value)}
+                />
+              </label>
+              <label
+                className="block space-y-2 text-sm font-medium"
+                htmlFor="guardian-school-year-id"
+              >
+                School year ID
+                <Input
+                  id="guardian-school-year-id"
+                  required
+                  value={schoolYearID}
+                  onChange={(event) => setSchoolYearID(event.target.value)}
+                />
+              </label>
+            </>
+          )}
           <label className="block space-y-2 text-sm font-medium" htmlFor="guardian-email">
             Email
             <Input
               id="guardian-email"
               type="email"
               autoComplete="email"
+              readOnly={Boolean(onboarding)}
               required
               value={email}
               onChange={(event) => setEmail(event.target.value)}
@@ -189,4 +215,30 @@ export function GuardianAccessPage() {
       )}
     </AuthLayout>
   );
+}
+
+type GuardianOnboardingHandoff = {
+  guardianOnboarding?: {
+    organizationID?: unknown;
+    schoolYearID?: unknown;
+    email?: unknown;
+  };
+};
+
+function guardianOnboardingHandoff(state: unknown) {
+  if (!state || typeof state !== "object") return null;
+  const handoff = (state as GuardianOnboardingHandoff).guardianOnboarding;
+  if (
+    !handoff ||
+    typeof handoff.organizationID !== "string" ||
+    typeof handoff.schoolYearID !== "string" ||
+    typeof handoff.email !== "string"
+  ) {
+    return null;
+  }
+  return {
+    organizationID: handoff.organizationID,
+    schoolYearID: handoff.schoolYearID,
+    email: handoff.email,
+  };
 }

@@ -56,6 +56,8 @@ export type GuardianOnboardingPolicy = Schemas["GuardianPolicyResponse"];
 export type GuardianOnboardingOTPRequest = Schemas["GuardianOTPRequestOutputBody"];
 export type GuardianStudent = Schemas["GuardianStudentResponse"];
 export type GuardianStudentReviewWarning = Schemas["GuardianStudentReviewWarning"];
+export type GuardianVocabulary = Schemas["GuardianVocabularyResponse"];
+export type GuardianProfile = Schemas["GuardianProfileResponse"];
 export type GuardianRegistrationEntry = Schemas["GuardianRegistrationEntryResponse"];
 export type GuardianInvitationImport = Schemas["InvitationImportResult"];
 export type MFAEnrollment = Schemas["MFAEnrollmentOutputBody"];
@@ -178,6 +180,7 @@ export const resourceApi = {
   }) => unwrap(api.POST("/api/guardian/onboarding/complete", { body: value })),
   getGuardianAuthContext: () => unwrap(api.GET("/api/auth/guardian")),
   listGuardianStudents: () => unwrapList(api.GET("/api/guardian/students")),
+  getGuardianVocabulary: () => unwrap(api.GET("/api/guardian/vocabulary")),
   findGuardianStudentCandidates: (givenName: string, familyName: string) =>
     unwrapList(
       api.GET("/api/guardian/students/candidates", {
@@ -193,8 +196,18 @@ export const resourceApi = {
         body: value,
       }),
     ),
+  detachGuardianStudent: (studentID: string) =>
+    unwrapNoContent(
+      api.DELETE("/api/guardian/students/{studentID}", {
+        params: { path: { studentID } },
+        body: { confirm: true },
+      }),
+    ),
+  getGuardianProfile: () => unwrap(api.GET("/api/guardian/profile")),
   updateGuardianProfile: (value: Schemas["GuardianProfileInputBody"]) =>
     unwrap(api.PATCH("/api/guardian/profile", { body: value })),
+  deleteGuardianProfile: () =>
+    unwrapNoContent(api.DELETE("/api/guardian/profile", { body: { confirm: true } })),
   enrollMFA: () => unwrap(api.POST("/api/auth/mfa/enroll", {})),
   verifyMFA: (code?: string, recoveryCode?: string) =>
     unwrap(api.POST("/api/auth/mfa/verify", { body: { code, recovery_code: recoveryCode } })),

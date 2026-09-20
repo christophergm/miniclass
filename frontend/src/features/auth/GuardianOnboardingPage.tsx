@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,7 @@ type Completion = {
   student_family_name: string;
   grade_level_id: string;
   homeroom_id: string;
-  relationship_type: string;
+  relationship_type: "parent" | "guardian" | "grandparent" | "other";
 };
 
 const emptyCompletion: Completion = {
@@ -30,6 +30,7 @@ const emptyCompletion: Completion = {
 
 export function GuardianOnboardingPage() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [session, setSession] = useState<GuardianOnboardingSession | null>(null);
   const [challengeID, setChallengeID] = useState<string | null>(null);
   const [email, setEmail] = useState("");
@@ -38,7 +39,6 @@ export function GuardianOnboardingPage() {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [noticeAccepted, setNoticeAccepted] = useState(false);
-  const [complete, setComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const startedLink = useRef<string | null>(null);
@@ -137,11 +137,20 @@ export function GuardianOnboardingPage() {
     setError(null);
     setIsSubmitting(true);
     try {
-      await resourceApi.completeGuardianOnboarding({
+      const result = await resourceApi.completeGuardianOnboarding({
         session_token: session.session_token,
         ...completion,
       });
-      setComplete(true);
+      navigate("/guardian", {
+        replace: true,
+        state: {
+          guardianOnboarding: {
+            organizationID: result.organization_id,
+            schoolYearID: result.school_year_id,
+            email: session.email || email.trim(),
+          },
+        },
+      });
     } catch (reason) {
       setError(errorMessage(reason));
     } finally {
@@ -162,17 +171,7 @@ export function GuardianOnboardingPage() {
       </p>
       {error && <AuthErrorMessage message={error} />}
 
-      {complete ? (
-        <section className="mt-6 space-y-4" aria-live="polite">
-          <h2 className="font-medium">Registration complete</h2>
-          <p className="text-sm text-muted-foreground">
-            Your guardian relationship is ready. You can now return to guardian access.
-          </p>
-          <Link className="text-sm font-medium text-primary hover:underline" to="/guardian">
-            Continue to guardian access
-          </Link>
-        </section>
-      ) : !session ? (
+      {!session ? (
         <p className="mt-6 text-sm text-muted-foreground" role="status">
           Opening your secure onboarding link…
         </p>
@@ -283,18 +282,18 @@ export function GuardianOnboardingPage() {
           </p>
           {(
             [
-              "adult_given_name",
-              "adult_family_name",
-              "student_given_name",
-              "student_family_name",
+              ["adult_given_name", "Your given name"],
+              ["adult_family_name", "Your family name"],
+              ["student_given_name", "Student given name"],
+              ["student_family_name", "Student family name"],
             ] as const
-          ).map((field) => (
+          ).map(([field, label]) => (
             <label
               className="block space-y-2 text-sm font-medium"
               htmlFor={`guardian-${field}`}
               key={field}
             >
-              {field.replace(/_/g, " ")}
+              {label}
               <Input
                 id={`guardian-${field}`}
                 required
@@ -304,31 +303,57 @@ export function GuardianOnboardingPage() {
             </label>
           ))}
           <label className="block space-y-2 text-sm font-medium" htmlFor="guardian-relationship">
-            Relationship type
-            <Input
+            Relationship
+            <select
+              className="flex h-9 w-full rounded-md border bg-transparent px-3 text-sm"
               id="guardian-relationship"
-              required
               value={completion.relationship_type}
-              onChange={(event) => updateCompletion("relationship_type", event.target.value)}
-            />
+              onChange={(event) =>
+                updateCompletion(
+                  "relationship_type",
+                  event.target.value as Completion["relationship_type"],
+                )
+              }
+            >
+              <option value="parent">Parent</option>
+              <option value="guardian">Guardian</option>
+              <option value="grandparent">Grandparent</option>
+              <option value="other">Other</option>
+            </select>
           </label>
           <label className="block space-y-2 text-sm font-medium" htmlFor="guardian-grade-level">
-            Grade level ID
-            <Input
+            Grade
+            <select
+              className="flex h-9 w-full rounded-md border bg-transparent px-3 text-sm"
               id="guardian-grade-level"
               required
               value={completion.grade_level_id}
               onChange={(event) => updateCompletion("grade_level_id", event.target.value)}
-            />
+            >
+              <option value="">Choose grade</option>
+              {(session.grade_levels ?? []).map((grade) => (
+                <option key={grade.id} value={grade.id}>
+                  {grade.label}
+                </option>
+              ))}
+            </select>
           </label>
           <label className="block space-y-2 text-sm font-medium" htmlFor="guardian-homeroom">
-            Homeroom ID
-            <Input
+            Homeroom/classroom
+            <select
+              className="flex h-9 w-full rounded-md border bg-transparent px-3 text-sm"
               id="guardian-homeroom"
               required
               value={completion.homeroom_id}
               onChange={(event) => updateCompletion("homeroom_id", event.target.value)}
-            />
+            >
+              <option value="">Choose homeroom/classroom</option>
+              {(session.homerooms ?? []).map((homeroom) => (
+                <option key={homeroom.id} value={homeroom.id}>
+                  {homeroom.label}
+                </option>
+              ))}
+            </select>
           </label>
           <Button className="w-full" type="submit" disabled={isSubmitting}>
             {isSubmitting ? "Creating records…" : "Finish registration"}

@@ -370,6 +370,18 @@ export function GuardianPreferencePage() {
       <div className="mt-8 space-y-2">
         <Link
           className="block text-sm font-medium text-primary hover:underline"
+          to="/guardian/students"
+        >
+          Manage your students
+        </Link>
+        <Link
+          className="block text-sm font-medium text-primary hover:underline"
+          to="/guardian/profile"
+        >
+          Manage your profile
+        </Link>
+        <Link
+          className="block text-sm font-medium text-primary hover:underline"
           to="/mfa?mode=guardian"
         >
           Request administrator access

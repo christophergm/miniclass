@@ -36,6 +36,14 @@ func TestGuardianRecordsUsePrivacySafeLiveScopeAndWarnings(t *testing.T) {
 	require.NoError(t, err)
 	principal := auth.GuardianPrincipal{AdultID: tenant.adult.ID, OrganizationID: tenant.organizationID, SchoolYearID: tenant.year.ID, Email: "guardian@example.test"}
 	service := guardianrecords.New(harness.Database)
+	guardianVocabulary, err := service.Vocabulary(ctx, principal)
+	require.NoError(t, err)
+	require.Equal(t, []guardianrecords.VocabularyOption{{ID: tenant.gradeID, Label: "GuardianRecords Grade"}}, guardianVocabulary.GradeLevels)
+	require.Equal(t, []guardianrecords.VocabularyOption{{ID: tenant.homeroomID, Label: "Relationship Room GuardianRecords"}}, guardianVocabulary.Homerooms)
+	profile, err := service.GetProfile(ctx, principal)
+	require.NoError(t, err)
+	require.Equal(t, tenant.adult.LegalGivenName, profile.LegalGivenName)
+	require.Equal(t, tenant.adult.LegalFamilyName, profile.LegalFamilyName)
 
 	candidates, err := service.FindCandidates(ctx, principal, guardianrecords.CandidateInput{GivenName: " casey ", FamilyName: "SYNTHETIC"})
 	require.NoError(t, err)
