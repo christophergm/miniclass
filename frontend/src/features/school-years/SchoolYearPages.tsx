@@ -295,7 +295,7 @@ export function SchoolYearSettingsPage() {
 
   // A reopen is the one transition that carries a reason, and the reason is
   // recorded as an audit entry rather than merely permitted (SPEC §5.4).
-  function transition(state: SchoolYearState) {
+  function transition(state: Exclude<SchoolYearState, "purged">) {
     update.mutate(
       {
         state,

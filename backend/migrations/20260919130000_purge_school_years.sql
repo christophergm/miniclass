@@ -116,18 +116,24 @@ create or replace function public.purge_school_year(
     target_organization_id public.xid20,
     target_school_year_id public.xid20,
     purge_actor_id public.xid20
-) returns void language plpgsql security definer set search_path = public as
+) returns void language plpgsql security definer as
 $$
 declare
-    current_state school_year_state;
+    current_state text;
     current_organization_id public.xid20;
+    target_schema text := current_schema();
 begin
+    -- The application runs this function from public, while isolation tests
+    -- run it from a per-test schema. Derive that schema before pinning the
+    -- SECURITY DEFINER search path so both environments address their own
+    -- tenant tables without accepting caller-controlled objects afterward.
+    perform set_config('search_path', format('%I, pg_catalog', target_schema), true);
     current_organization_id := current_setting('app.organization_id')::public.xid20;
     if current_organization_id <> target_organization_id then
         raise exception 'school year not found' using errcode = 'P0002';
     end if;
 
-    select sy.state
+    select sy.state::text
       into current_state
       from school_years sy
      where sy.id = target_school_year_id
