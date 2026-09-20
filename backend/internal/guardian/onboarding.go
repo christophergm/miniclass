@@ -21,15 +21,17 @@ const (
 )
 
 var (
-	ErrRegistrationInvalid = errors.New("guardian registration entry is invalid or expired")
-	ErrInvitationInvalid   = errors.New("guardian invitation is invalid or expired")
-	ErrOnboardingInvalid   = errors.New("guardian onboarding session is invalid or expired")
-	ErrMailboxUnverified   = errors.New("guardian mailbox has not been verified")
-	ErrConsentRequired     = errors.New("current terms and privacy acceptance is required")
-	ErrConsentInvalid      = errors.New("guardian terms and privacy acceptance is invalid")
-	ErrOnboardingRateLimit = errors.New("guardian onboarding rate limit exceeded")
-	ErrOTPInvalid          = errors.New("guardian onboarding OTP is invalid or expired")
-	ErrSignupNoticeInvalid = errors.New("guardian signup notice acceptance is invalid")
+	ErrRegistrationInvalid       = errors.New("guardian registration entry is invalid or expired")
+	ErrInvitationInvalid         = errors.New("guardian invitation is invalid or expired")
+	ErrOnboardingInvalid         = errors.New("guardian onboarding session is invalid or expired")
+	ErrMailboxUnverified         = errors.New("guardian mailbox has not been verified")
+	ErrConsentRequired           = errors.New("current terms and privacy acceptance is required")
+	ErrConsentInvalid            = errors.New("guardian terms and privacy acceptance is invalid")
+	ErrOnboardingRateLimit       = errors.New("guardian onboarding rate limit exceeded")
+	ErrOnboardingEmailConflict   = errors.New("guardian email requires administrator review")
+	ErrStudentAttributesRequired = errors.New("grade and homeroom are required")
+	ErrOTPInvalid                = errors.New("guardian onboarding OTP is invalid or expired")
+	ErrSignupNoticeInvalid       = errors.New("guardian signup notice acceptance is invalid")
 )
 
 type SignupNotice struct {

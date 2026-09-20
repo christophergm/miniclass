@@ -21,34 +21,35 @@ const (
 
 // ServerOptions controls construction of a Server without starting a process.
 type ServerOptions struct {
-	Address                string
-	AllowedOrigins         []string
-	Database               handlers.DatabasePinger
-	Identity               auth.AccountResolver
-	Claimer                handlers.InvitationClaimer
-	Administrators         handlers.AdministratorManager
-	InvitationClaimBaseURL string
-	SchoolYears            handlers.SchoolYearService
-	AuditLog               handlers.AuditLogReader
-	Vocabularies           handlers.VocabularyService
-	Adults                 handlers.AdultService
-	Students               handlers.StudentService
-	GuardianRelationships  handlers.GuardianRelationshipService
-	GuardianRecords        handlers.GuardianRecordsService
-	ImportPreview          handlers.ImportPreviewService
-	ImportCommit           handlers.ImportCommitService
-	Programs               handlers.ProgramService
-	Verifier               auth.Verifier
-	AdultAuth              auth.AdultAuthentication
-	GuardianOnboarding     handlers.GuardianOnboardingService
-	Sessions               auth.SessionResolver
-	Logger                 *slog.Logger
-	TrustedProxyCIDRs      []string
-	ReadTimeout            time.Duration
-	ReadHeaderTimeout      time.Duration
-	WriteTimeout           time.Duration
-	IdleTimeout            time.Duration
-	Version                string
+	Address                     string
+	AllowedOrigins              []string
+	Database                    handlers.DatabasePinger
+	Identity                    auth.AccountResolver
+	Claimer                     handlers.InvitationClaimer
+	Administrators              handlers.AdministratorManager
+	InvitationClaimBaseURL      string
+	SchoolYears                 handlers.SchoolYearService
+	AuditLog                    handlers.AuditLogReader
+	Vocabularies                handlers.VocabularyService
+	Adults                      handlers.AdultService
+	Students                    handlers.StudentService
+	GuardianRelationships       handlers.GuardianRelationshipService
+	GuardianRecords             handlers.GuardianRecordsService
+	ImportPreview               handlers.ImportPreviewService
+	ImportCommit                handlers.ImportCommitService
+	Programs                    handlers.ProgramService
+	Verifier                    auth.Verifier
+	AdultAuth                   auth.AdultAuthentication
+	GuardianOnboarding          handlers.GuardianOnboardingService
+	Sessions                    auth.SessionResolver
+	Logger                      *slog.Logger
+	TrustedProxyCIDRs           []string
+	GuardianOnboardingRateLimit GuardianOnboardingRateLimitSettings
+	ReadTimeout                 time.Duration
+	ReadHeaderTimeout           time.Duration
+	WriteTimeout                time.Duration
+	IdleTimeout                 time.Duration
+	Version                     string
 }
 
 // Server owns the HTTP handler and server settings used by the API process.
@@ -83,29 +84,30 @@ func NewServer(options ...ServerOption) *Server {
 	}
 
 	router := NewRouter(RouterOptions{
-		AllowedOrigins:         settings.AllowedOrigins,
-		Database:               settings.Database,
-		Identity:               settings.Identity,
-		Claimer:                settings.Claimer,
-		Administrators:         settings.Administrators,
-		InvitationClaimBaseURL: settings.InvitationClaimBaseURL,
-		SchoolYears:            settings.SchoolYears,
-		AuditLog:               settings.AuditLog,
-		Vocabularies:           settings.Vocabularies,
-		Adults:                 settings.Adults,
-		Students:               settings.Students,
-		GuardianRelationships:  settings.GuardianRelationships,
-		GuardianRecords:        settings.GuardianRecords,
-		ImportPreview:          settings.ImportPreview,
-		ImportCommit:           settings.ImportCommit,
-		Programs:               settings.Programs,
-		Verifier:               settings.Verifier,
-		AdultAuth:              settings.AdultAuth,
-		GuardianOnboarding:     settings.GuardianOnboarding,
-		Sessions:               settings.Sessions,
-		Logger:                 settings.Logger,
-		TrustedProxyCIDRs:      settings.TrustedProxyCIDRs,
-		Version:                settings.Version,
+		AllowedOrigins:              settings.AllowedOrigins,
+		Database:                    settings.Database,
+		Identity:                    settings.Identity,
+		Claimer:                     settings.Claimer,
+		Administrators:              settings.Administrators,
+		InvitationClaimBaseURL:      settings.InvitationClaimBaseURL,
+		SchoolYears:                 settings.SchoolYears,
+		AuditLog:                    settings.AuditLog,
+		Vocabularies:                settings.Vocabularies,
+		Adults:                      settings.Adults,
+		Students:                    settings.Students,
+		GuardianRelationships:       settings.GuardianRelationships,
+		GuardianRecords:             settings.GuardianRecords,
+		ImportPreview:               settings.ImportPreview,
+		ImportCommit:                settings.ImportCommit,
+		Programs:                    settings.Programs,
+		Verifier:                    settings.Verifier,
+		AdultAuth:                   settings.AdultAuth,
+		GuardianOnboarding:          settings.GuardianOnboarding,
+		Sessions:                    settings.Sessions,
+		Logger:                      settings.Logger,
+		TrustedProxyCIDRs:           settings.TrustedProxyCIDRs,
+		GuardianOnboardingRateLimit: settings.GuardianOnboardingRateLimit,
+		Version:                     settings.Version,
 	})
 	httpServer := &http.Server{
 		Addr:              settings.Address,
@@ -125,6 +127,11 @@ func NewServerWithConfig(cfg config.Config, options ...ServerOption) *Server {
 	options = append([]ServerOption{
 		WithAddress(":" + cfg.Port),
 		WithTrustedProxyCIDRs(cfg.TrustedProxyCIDRs...),
+		WithGuardianOnboardingRateLimit(GuardianOnboardingRateLimitSettings{
+			Burst: cfg.GuardianOnboardingRateLimitBurst, Refill: cfg.GuardianOnboardingRateLimitRefill,
+			RefillWindow: cfg.GuardianOnboardingRateLimitRefillWindow, BucketLimit: cfg.GuardianOnboardingRateLimitBucketLimit,
+			BucketTTL: cfg.GuardianOnboardingRateLimitBucketTTL,
+		}),
 		WithVersion(cfg.AppVersion),
 	}, options...)
 	if strings.TrimSpace(cfg.InvitationClaimBaseURL) != "" {
@@ -268,6 +275,12 @@ func WithLogger(logger *slog.Logger) ServerOption {
 // forwarding headers for the effective request address.
 func WithTrustedProxyCIDRs(cidrs ...string) ServerOption {
 	return func(options *ServerOptions) { options.TrustedProxyCIDRs = cidrs }
+}
+
+// WithGuardianOnboardingRateLimit sets the router's in-process onboarding
+// rate limiter. Zero values use the conservative defaults.
+func WithGuardianOnboardingRateLimit(settings GuardianOnboardingRateLimitSettings) ServerOption {
+	return func(options *ServerOptions) { options.GuardianOnboardingRateLimit = settings }
 }
 
 // Handler returns the router for callers that need an http.Handler without

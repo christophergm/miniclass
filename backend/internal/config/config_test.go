@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 const (
@@ -13,7 +14,7 @@ const (
 )
 
 func TestLoadFromDotEnv(t *testing.T) {
-	for _, key := range []string{"APP_ENV", "APP_VERSION", "PORT", "API_BASE_URL", "INVITATION_CLAIM_BASE_URL", "TRUSTED_PROXY_CIDRS", "DATABASE_URL", "APP_DATABASE_URL", "TEST_DATABASE_URL", "AUTH_PROVIDER", "AUTH_ISSUER", "AUTH_AUDIENCE", "AUTH_LOCAL_PUBLIC_KEY", "AUTH_LOCAL_PRIVATE_KEY", "AUTH_LOCAL_PUBLIC_KEY_FILE", "AUTH_LOCAL_PRIVATE_KEY_FILE", "AUTH_LOCAL_KEY_ID"} {
+	for _, key := range []string{"APP_ENV", "APP_VERSION", "PORT", "API_BASE_URL", "INVITATION_CLAIM_BASE_URL", "TRUSTED_PROXY_CIDRS", "DATABASE_URL", "APP_DATABASE_URL", "TEST_DATABASE_URL", "AUTH_PROVIDER", "AUTH_ISSUER", "AUTH_AUDIENCE", "AUTH_LOCAL_PUBLIC_KEY", "AUTH_LOCAL_PRIVATE_KEY", "AUTH_LOCAL_PUBLIC_KEY_FILE", "AUTH_LOCAL_PRIVATE_KEY_FILE", "AUTH_LOCAL_KEY_ID", "GUARDIAN_ONBOARDING_RATE_LIMIT_BURST", "GUARDIAN_ONBOARDING_RATE_LIMIT_REFILL", "GUARDIAN_ONBOARDING_RATE_LIMIT_REFILL_WINDOW", "GUARDIAN_ONBOARDING_RATE_LIMIT_BUCKET_LIMIT", "GUARDIAN_ONBOARDING_RATE_LIMIT_BUCKET_TTL"} {
 		unsetEnv(t, key)
 	}
 
@@ -31,6 +32,38 @@ func TestLoadFromDotEnv(t *testing.T) {
 	}
 	if cfg.AppVersion != defaultAppVersion || cfg.APIBaseURL != defaultAPIBaseURL || cfg.InvitationClaimBaseURL != defaultInvitationClaimBaseURL {
 		t.Fatalf("defaults not applied: %#v", cfg)
+	}
+	if cfg.GuardianOnboardingRateLimitBurst != defaultGuardianOnboardingRateLimitBurst || cfg.GuardianOnboardingRateLimitRefill != defaultGuardianOnboardingRateLimitRefill || cfg.GuardianOnboardingRateLimitRefillWindow != defaultGuardianOnboardingRateLimitWindow || cfg.GuardianOnboardingRateLimitBucketLimit != defaultGuardianOnboardingRateLimitBuckets || cfg.GuardianOnboardingRateLimitBucketTTL != defaultGuardianOnboardingRateLimitTTL {
+		t.Fatalf("guardian onboarding rate-limit defaults not applied: %#v", cfg)
+	}
+}
+
+func TestLoadConfiguresGuardianOnboardingRateLimit(t *testing.T) {
+	unsetLocalAuthKeyFileEnv(t)
+	t.Setenv("APP_DATABASE_URL", "postgres://example")
+	t.Setenv("GUARDIAN_ONBOARDING_RATE_LIMIT_BURST", "30")
+	t.Setenv("GUARDIAN_ONBOARDING_RATE_LIMIT_REFILL", "12")
+	t.Setenv("GUARDIAN_ONBOARDING_RATE_LIMIT_REFILL_WINDOW", "2m")
+	t.Setenv("GUARDIAN_ONBOARDING_RATE_LIMIT_BUCKET_LIMIT", "500")
+	t.Setenv("GUARDIAN_ONBOARDING_RATE_LIMIT_BUCKET_TTL", "15m")
+
+	cfg, err := LoadFrom(filepath.Join(t.TempDir(), "missing.env"))
+	if err != nil {
+		t.Fatalf("LoadFrom() error = %v", err)
+	}
+	if cfg.GuardianOnboardingRateLimitBurst != 30 || cfg.GuardianOnboardingRateLimitRefill != 12 || cfg.GuardianOnboardingRateLimitRefillWindow != 2*time.Minute || cfg.GuardianOnboardingRateLimitBucketLimit != 500 || cfg.GuardianOnboardingRateLimitBucketTTL != 15*time.Minute {
+		t.Fatalf("guardian onboarding rate limit = %#v", cfg)
+	}
+}
+
+func TestLoadRejectsInvalidGuardianOnboardingRateLimit(t *testing.T) {
+	unsetLocalAuthKeyFileEnv(t)
+	t.Setenv("APP_DATABASE_URL", "postgres://example")
+	t.Setenv("GUARDIAN_ONBOARDING_RATE_LIMIT_BURST", "0")
+
+	_, err := LoadFrom(filepath.Join(t.TempDir(), "missing.env"))
+	if err == nil || err.Error() != "configuration error: GUARDIAN_ONBOARDING_RATE_LIMIT_BURST must be a positive integer" {
+		t.Fatalf("LoadFrom() error = %v", err)
 	}
 }
 

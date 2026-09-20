@@ -7,48 +7,60 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/joho/godotenv"
 )
 
 const (
-	defaultAppEnv                 = "development"
-	defaultAppVersion             = "0.1.0"
-	defaultPort                   = "8080"
-	defaultAPIBaseURL             = "http://localhost:8080"
-	defaultInvitationClaimBaseURL = "http://localhost:5173/claim"
-	defaultAuthIssuer             = "http://localhost:8080"
-	defaultAuthAudience           = "authenticated"
-	defaultAuthProvider           = "local"
+	defaultAppEnv                             = "development"
+	defaultAppVersion                         = "0.1.0"
+	defaultPort                               = "8080"
+	defaultAPIBaseURL                         = "http://localhost:8080"
+	defaultInvitationClaimBaseURL             = "http://localhost:5173/claim"
+	defaultAuthIssuer                         = "http://localhost:8080"
+	defaultAuthAudience                       = "authenticated"
+	defaultAuthProvider                       = "local"
+	defaultGuardianOnboardingRateLimitBurst   = 20
+	defaultGuardianOnboardingRateLimitRefill  = 20
+	defaultGuardianOnboardingRateLimitWindow  = time.Minute
+	defaultGuardianOnboardingRateLimitBuckets = 10_000
+	defaultGuardianOnboardingRateLimitTTL     = 10 * time.Minute
 )
 
-// Config contains the settings used by the API and its dependencies.
-// Values are intentionally kept as strings because they originate in the
-// environment and are passed to the HTTP and database clients unchanged.
+// Config contains the settings used by the API and its dependencies. Values
+// passed through unchanged remain strings; typed limits are parsed during load
+// so invalid environment configuration fails before the server starts.
 type Config struct {
-	AppEnv                 string
-	AppVersion             string
-	Port                   string
-	APIBaseURL             string
-	InvitationClaimBaseURL string
-	TrustedProxyCIDRs      []string
-	AppDatabaseURL         string
-	TestDatabaseURL        string
-	SupabaseURL            string
-	SupabaseAnonKey        string
-	SupabaseJWTSecret      string
-	AuthProvider           string
-	AuthIssuer             string
-	AuthAudience           string
-	AuthLocalPublicKey     string
-	AuthLocalPrivateKey    string
-	AuthLocalKeyID         string
-	AuthMFAEncryptionKey   string
-	AuthSMTPAddress        string
-	AuthSMTPUsername       string
-	AuthSMTPPassword       string
-	AuthSMTPFrom           string
+	AppEnv                                  string
+	AppVersion                              string
+	Port                                    string
+	APIBaseURL                              string
+	InvitationClaimBaseURL                  string
+	TrustedProxyCIDRs                       []string
+	GuardianOnboardingRateLimitBurst        int
+	GuardianOnboardingRateLimitRefill       int
+	GuardianOnboardingRateLimitRefillWindow time.Duration
+	GuardianOnboardingRateLimitBucketLimit  int
+	GuardianOnboardingRateLimitBucketTTL    time.Duration
+	AppDatabaseURL                          string
+	TestDatabaseURL                         string
+	SupabaseURL                             string
+	SupabaseAnonKey                         string
+	SupabaseJWTSecret                       string
+	AuthProvider                            string
+	AuthIssuer                              string
+	AuthAudience                            string
+	AuthLocalPublicKey                      string
+	AuthLocalPrivateKey                     string
+	AuthLocalKeyID                          string
+	AuthMFAEncryptionKey                    string
+	AuthSMTPAddress                         string
+	AuthSMTPUsername                        string
+	AuthSMTPPassword                        string
+	AuthSMTPFrom                            string
 }
 
 // Load reads .env when it exists, then builds and validates the application
@@ -97,30 +109,55 @@ func fromEnvironment() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	guardianOnboardingBurst, err := positiveIntEnv("GUARDIAN_ONBOARDING_RATE_LIMIT_BURST", defaultGuardianOnboardingRateLimitBurst)
+	if err != nil {
+		return nil, err
+	}
+	guardianOnboardingRefill, err := positiveIntEnv("GUARDIAN_ONBOARDING_RATE_LIMIT_REFILL", defaultGuardianOnboardingRateLimitRefill)
+	if err != nil {
+		return nil, err
+	}
+	guardianOnboardingRefillWindow, err := positiveDurationEnv("GUARDIAN_ONBOARDING_RATE_LIMIT_REFILL_WINDOW", defaultGuardianOnboardingRateLimitWindow)
+	if err != nil {
+		return nil, err
+	}
+	guardianOnboardingBucketLimit, err := positiveIntEnv("GUARDIAN_ONBOARDING_RATE_LIMIT_BUCKET_LIMIT", defaultGuardianOnboardingRateLimitBuckets)
+	if err != nil {
+		return nil, err
+	}
+	guardianOnboardingBucketTTL, err := positiveDurationEnv("GUARDIAN_ONBOARDING_RATE_LIMIT_BUCKET_TTL", defaultGuardianOnboardingRateLimitTTL)
+	if err != nil {
+		return nil, err
+	}
 
 	cfg := &Config{
-		AppEnv:                 getEnv("APP_ENV", defaultAppEnv),
-		AppVersion:             getEnv("APP_VERSION", defaultAppVersion),
-		Port:                   port,
-		APIBaseURL:             getEnv("API_BASE_URL", defaultAPIBaseURL),
-		InvitationClaimBaseURL: getEnv("INVITATION_CLAIM_BASE_URL", defaultInvitationClaimBaseURL),
-		TrustedProxyCIDRs:      getListEnv("TRUSTED_PROXY_CIDRS"),
-		AppDatabaseURL:         strings.TrimSpace(os.Getenv("APP_DATABASE_URL")),
-		TestDatabaseURL:        strings.TrimSpace(os.Getenv("TEST_DATABASE_URL")),
-		SupabaseURL:            supabaseURL,
-		SupabaseAnonKey:        strings.TrimSpace(os.Getenv("SUPABASE_ANON_KEY")),
-		SupabaseJWTSecret:      strings.TrimSpace(os.Getenv("SUPABASE_JWT_SECRET")),
-		AuthProvider:           getEnv("AUTH_PROVIDER", defaultAuthProvider),
-		AuthIssuer:             authIssuer,
-		AuthAudience:           getEnv("AUTH_AUDIENCE", defaultAuthAudience),
-		AuthLocalPublicKey:     authLocalPublicKey,
-		AuthLocalPrivateKey:    authLocalPrivateKey,
-		AuthLocalKeyID:         strings.TrimSpace(os.Getenv("AUTH_LOCAL_KEY_ID")),
-		AuthMFAEncryptionKey:   strings.TrimSpace(os.Getenv("AUTH_MFA_ENCRYPTION_KEY")),
-		AuthSMTPAddress:        strings.TrimSpace(os.Getenv("AUTH_SMTP_ADDRESS")),
-		AuthSMTPUsername:       strings.TrimSpace(os.Getenv("AUTH_SMTP_USERNAME")),
-		AuthSMTPPassword:       strings.TrimSpace(os.Getenv("AUTH_SMTP_PASSWORD")),
-		AuthSMTPFrom:           strings.TrimSpace(os.Getenv("AUTH_SMTP_FROM")),
+		AppEnv:                                  getEnv("APP_ENV", defaultAppEnv),
+		AppVersion:                              getEnv("APP_VERSION", defaultAppVersion),
+		Port:                                    port,
+		APIBaseURL:                              getEnv("API_BASE_URL", defaultAPIBaseURL),
+		InvitationClaimBaseURL:                  getEnv("INVITATION_CLAIM_BASE_URL", defaultInvitationClaimBaseURL),
+		TrustedProxyCIDRs:                       getListEnv("TRUSTED_PROXY_CIDRS"),
+		GuardianOnboardingRateLimitBurst:        guardianOnboardingBurst,
+		GuardianOnboardingRateLimitRefill:       guardianOnboardingRefill,
+		GuardianOnboardingRateLimitRefillWindow: guardianOnboardingRefillWindow,
+		GuardianOnboardingRateLimitBucketLimit:  guardianOnboardingBucketLimit,
+		GuardianOnboardingRateLimitBucketTTL:    guardianOnboardingBucketTTL,
+		AppDatabaseURL:                          strings.TrimSpace(os.Getenv("APP_DATABASE_URL")),
+		TestDatabaseURL:                         strings.TrimSpace(os.Getenv("TEST_DATABASE_URL")),
+		SupabaseURL:                             supabaseURL,
+		SupabaseAnonKey:                         strings.TrimSpace(os.Getenv("SUPABASE_ANON_KEY")),
+		SupabaseJWTSecret:                       strings.TrimSpace(os.Getenv("SUPABASE_JWT_SECRET")),
+		AuthProvider:                            getEnv("AUTH_PROVIDER", defaultAuthProvider),
+		AuthIssuer:                              authIssuer,
+		AuthAudience:                            getEnv("AUTH_AUDIENCE", defaultAuthAudience),
+		AuthLocalPublicKey:                      authLocalPublicKey,
+		AuthLocalPrivateKey:                     authLocalPrivateKey,
+		AuthLocalKeyID:                          strings.TrimSpace(os.Getenv("AUTH_LOCAL_KEY_ID")),
+		AuthMFAEncryptionKey:                    strings.TrimSpace(os.Getenv("AUTH_MFA_ENCRYPTION_KEY")),
+		AuthSMTPAddress:                         strings.TrimSpace(os.Getenv("AUTH_SMTP_ADDRESS")),
+		AuthSMTPUsername:                        strings.TrimSpace(os.Getenv("AUTH_SMTP_USERNAME")),
+		AuthSMTPPassword:                        strings.TrimSpace(os.Getenv("AUTH_SMTP_PASSWORD")),
+		AuthSMTPFrom:                            strings.TrimSpace(os.Getenv("AUTH_SMTP_FROM")),
 	}
 
 	if err := cfg.Validate(); err != nil {
@@ -160,6 +197,30 @@ func getEnv(key, fallback string) string {
 		return strings.TrimSpace(value)
 	}
 	return fallback
+}
+
+func positiveIntEnv(key string, fallback int) (int, error) {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback, nil
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil || parsed <= 0 {
+		return 0, fmt.Errorf("configuration error: %s must be a positive integer", key)
+	}
+	return parsed, nil
+}
+
+func positiveDurationEnv(key string, fallback time.Duration) (time.Duration, error) {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback, nil
+	}
+	parsed, err := time.ParseDuration(value)
+	if err != nil || parsed <= 0 {
+		return 0, fmt.Errorf("configuration error: %s must be a positive duration", key)
+	}
+	return parsed, nil
 }
 
 func getListEnv(key string) []string {

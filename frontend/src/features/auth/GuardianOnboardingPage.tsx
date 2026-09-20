@@ -313,9 +313,10 @@ export function GuardianOnboardingPage() {
             />
           </label>
           <label className="block space-y-2 text-sm font-medium" htmlFor="guardian-grade-level">
-            Grade level ID (optional)
+            Grade level ID
             <Input
               id="guardian-grade-level"
+              required
               value={completion.grade_level_id}
               onChange={(event) => updateCompletion("grade_level_id", event.target.value)}
             />

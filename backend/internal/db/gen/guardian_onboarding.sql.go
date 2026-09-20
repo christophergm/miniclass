@@ -168,10 +168,30 @@ func (q *Queries) CountRecentGuardianOnboardingOTPRequests(ctx context.Context, 
 	return count, err
 }
 
+const countRecentGuardianOnboardingSessionsForParent = `-- name: CountRecentGuardianOnboardingSessionsForParent :one
+select count(*)
+from access_tokens
+where purpose = 'guardian_onboarding_session'
+  and parent_token_id = $1
+  and created_at >= $2
+`
+
+type CountRecentGuardianOnboardingSessionsForParentParams struct {
+	ParentTokenID *ids.XID           `json:"parent_token_id"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) CountRecentGuardianOnboardingSessionsForParent(ctx context.Context, arg CountRecentGuardianOnboardingSessionsForParentParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countRecentGuardianOnboardingSessionsForParent, arg.ParentTokenID, arg.CreatedAt)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createGuardianInvitationContact = `-- name: CreateGuardianInvitationContact :one
 insert into guardian_invitation_contacts (organization_id, school_year_id, invitation_token_id, email)
 values ($1, $2, $3, $4)
-returning id, organization_id, school_year_id, invitation_token_id, email, created_at, updated_at
+returning id, organization_id, school_year_id, invitation_token_id, email, created_at, updated_at, accepted_consent_id
 `
 
 type CreateGuardianInvitationContactParams struct {
@@ -197,6 +217,7 @@ func (q *Queries) CreateGuardianInvitationContact(ctx context.Context, arg Creat
 		&i.Email,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AcceptedConsentID,
 	)
 	return i, err
 }
@@ -516,7 +537,7 @@ func (q *Queries) DeleteGuardianOnboardingConsentForRegistry(ctx context.Context
 }
 
 const findGuardianInvitationContactForRegistry = `-- name: FindGuardianInvitationContactForRegistry :one
-select id, organization_id, school_year_id, invitation_token_id, email, created_at, updated_at
+select id, organization_id, school_year_id, invitation_token_id, email, created_at, updated_at, accepted_consent_id
 from guardian_invitation_contacts
 where id = $1 and organization_id = $2
 `
@@ -537,6 +558,7 @@ func (q *Queries) FindGuardianInvitationContactForRegistry(ctx context.Context, 
 		&i.Email,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AcceptedConsentID,
 	)
 	return i, err
 }
@@ -623,7 +645,7 @@ func (q *Queries) GetCurrentGuardianRegistrationEntry(ctx context.Context, arg G
 }
 
 const getGuardianInvitationContactByEmail = `-- name: GetGuardianInvitationContactByEmail :one
-select id, organization_id, school_year_id, invitation_token_id, email, created_at, updated_at
+select id, organization_id, school_year_id, invitation_token_id, email, created_at, updated_at, accepted_consent_id
 from guardian_invitation_contacts
 where organization_id = $1
   and school_year_id = $2
@@ -647,12 +669,13 @@ func (q *Queries) GetGuardianInvitationContactByEmail(ctx context.Context, arg G
 		&i.Email,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AcceptedConsentID,
 	)
 	return i, err
 }
 
 const getGuardianInvitationContactByID = `-- name: GetGuardianInvitationContactByID :one
-select id, organization_id, school_year_id, invitation_token_id, email, created_at, updated_at
+select id, organization_id, school_year_id, invitation_token_id, email, created_at, updated_at, accepted_consent_id
 from guardian_invitation_contacts
 where id = $1
   and organization_id = $2
@@ -676,12 +699,13 @@ func (q *Queries) GetGuardianInvitationContactByID(ctx context.Context, arg GetG
 		&i.Email,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AcceptedConsentID,
 	)
 	return i, err
 }
 
 const getGuardianInvitationContactByTokenID = `-- name: GetGuardianInvitationContactByTokenID :one
-select id, organization_id, school_year_id, invitation_token_id, email, created_at, updated_at
+select id, organization_id, school_year_id, invitation_token_id, email, created_at, updated_at, accepted_consent_id
 from guardian_invitation_contacts
 where invitation_token_id = $1
   and organization_id = $2
@@ -705,6 +729,7 @@ func (q *Queries) GetGuardianInvitationContactByTokenID(ctx context.Context, arg
 		&i.Email,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AcceptedConsentID,
 	)
 	return i, err
 }
@@ -973,8 +998,41 @@ func (q *Queries) IncrementGuardianOnboardingOTPAttempts(ctx context.Context, ar
 	return result.RowsAffected(), nil
 }
 
+const linkGuardianInvitationContactConsent = `-- name: LinkGuardianInvitationContactConsent :execrows
+update guardian_invitation_contacts c
+set accepted_consent_id = $4
+from access_tokens t
+where c.organization_id = $1
+  and c.school_year_id = $2
+  and lower(c.email) = lower($3)
+  and c.accepted_consent_id is null
+  and t.id = c.invitation_token_id
+  and t.purpose = 'guardian_invitation'
+  and t.consumed_at is not null
+`
+
+type LinkGuardianInvitationContactConsentParams struct {
+	OrganizationID    ids.XID  `json:"organization_id"`
+	SchoolYearID      ids.XID  `json:"school_year_id"`
+	Lower             string   `json:"lower"`
+	AcceptedConsentID *ids.XID `json:"accepted_consent_id"`
+}
+
+func (q *Queries) LinkGuardianInvitationContactConsent(ctx context.Context, arg LinkGuardianInvitationContactConsentParams) (int64, error) {
+	result, err := q.db.Exec(ctx, linkGuardianInvitationContactConsent,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+		arg.Lower,
+		arg.AcceptedConsentID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const listAllGuardianInvitationContactsForRegistry = `-- name: ListAllGuardianInvitationContactsForRegistry :many
-select id, organization_id, school_year_id, invitation_token_id, email, created_at, updated_at
+select id, organization_id, school_year_id, invitation_token_id, email, created_at, updated_at, accepted_consent_id
 from guardian_invitation_contacts
 where organization_id = $1
 order by id
@@ -997,6 +1055,7 @@ func (q *Queries) ListAllGuardianInvitationContactsForRegistry(ctx context.Conte
 			&i.Email,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.AcceptedConsentID,
 		); err != nil {
 			return nil, err
 		}
@@ -1108,6 +1167,36 @@ func (q *Queries) ListGuardianInvitationContacts(ctx context.Context, arg ListGu
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockGuardianOnboardingEmail = `-- name: LockGuardianOnboardingEmail :exec
+select pg_advisory_xact_lock(hashtextextended($1::text || ':' || $2::text || ':' || lower($3), 0))
+`
+
+type LockGuardianOnboardingEmailParams struct {
+	OrganizationID string `json:"organization_id"`
+	SchoolYearID   string `json:"school_year_id"`
+	Email          string `json:"email"`
+}
+
+func (q *Queries) LockGuardianOnboardingEmail(ctx context.Context, arg LockGuardianOnboardingEmailParams) error {
+	_, err := q.db.Exec(ctx, lockGuardianOnboardingEmail, arg.OrganizationID, arg.SchoolYearID, arg.Email)
+	return err
+}
+
+const lockGuardianRegistrationEntry = `-- name: LockGuardianRegistrationEntry :one
+select id
+from access_tokens
+where id = $1
+  and purpose = 'guardian_registration_entry'
+for update
+`
+
+func (q *Queries) LockGuardianRegistrationEntry(ctx context.Context, id ids.XID) (ids.XID, error) {
+	row := q.db.QueryRow(ctx, lockGuardianRegistrationEntry, id)
+	var id_2 ids.XID
+	err := row.Scan(&id_2)
+	return id_2, err
 }
 
 const revokeGuardianInvitationToken = `-- name: RevokeGuardianInvitationToken :execrows
@@ -1248,11 +1337,12 @@ func (q *Queries) TouchGuardianOnboardingSession(ctx context.Context, arg TouchG
 
 const updateGuardianInvitationContactToken = `-- name: UpdateGuardianInvitationContactToken :one
 update guardian_invitation_contacts
-set invitation_token_id = $4
+set invitation_token_id = $4,
+    accepted_consent_id = null
 where id = $1
   and organization_id = $2
   and school_year_id = $3
-returning id, organization_id, school_year_id, invitation_token_id, email, created_at, updated_at
+returning id, organization_id, school_year_id, invitation_token_id, email, created_at, updated_at, accepted_consent_id
 `
 
 type UpdateGuardianInvitationContactTokenParams struct {
@@ -1278,6 +1368,7 @@ func (q *Queries) UpdateGuardianInvitationContactToken(ctx context.Context, arg 
 		&i.Email,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AcceptedConsentID,
 	)
 	return i, err
 }

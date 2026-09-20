@@ -377,6 +377,7 @@
               "guardian_invitation_redeem",
               "guardian_signup_notice_change",
               "guardian_onboarding_started",
+              "guardian_onboarding_rate_limited",
               "guardian_onboarding_otp_requested",
               "guardian_onboarding_otp_failed",
               "guardian_onboarding_otp_verified",
@@ -1369,9 +1370,11 @@
             "type": "string"
           },
           "grade_level_id": {
+            "minLength": 1,
             "type": "string"
           },
           "homeroom_id": {
+            "minLength": 1,
             "type": "string"
           },
           "relationship_type": {
@@ -1397,6 +1400,8 @@
           "adult_family_name",
           "student_given_name",
           "student_family_name",
+          "grade_level_id",
+          "homeroom_id",
           "relationship_type"
         ],
         "type": "object"
@@ -2024,6 +2029,28 @@
           "relationship_type",
           "created_at",
           "updated_at"
+        ],
+        "type": "object"
+      },
+      "GuardianSessionInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/GuardianSessionInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "session_token": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_token"
         ],
         "type": "object"
       },
@@ -8191,6 +8218,16 @@
             },
             "description": "Unprocessable Entity"
           },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
           "500": {
             "content": {
               "application/problem+json": {
@@ -8411,6 +8448,16 @@
             },
             "description": "Unprocessable Entity"
           },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
           "500": {
             "content": {
               "application/problem+json": {
@@ -8558,8 +8605,18 @@
       }
     },
     "/api/guardian/onboarding/session": {
-      "get": {
+      "post": {
         "operationId": "get-guardian-onboarding-session",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GuardianSessionInputBody"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -8580,6 +8637,16 @@
               }
             },
             "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
           },
           "500": {
             "content": {

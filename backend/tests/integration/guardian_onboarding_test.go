@@ -78,6 +78,9 @@ func TestGuardianOnboardingRequiresProofAndConsentBeforeRosterWrites(t *testing.
 	consented, err := store.AcceptConsent(ctx, guardian.ConsentInput{SessionToken: session.Token, Email: "guardian@example.test", TermsVersion: guardian.TermsVersion, PrivacyVersion: guardian.PrivacyVersion, SourceSurface: "integration", Now: now})
 	require.NoError(t, err)
 	require.True(t, consented.Consented)
+	_, err = store.Complete(ctx, guardian.CompleteInput{SessionToken: session.Token, AdultGivenName: "Guardian", AdultFamilyName: "One", StudentGivenName: "Student", StudentFamilyName: "One", HomeroomID: homeroom.ID, RelationshipType: data.GuardianRelationshipParent, Now: now})
+	require.ErrorIs(t, err, guardian.ErrStudentAttributesRequired)
+	assertOnboardingRosterEmpty(t, harness, organizationID, year.ID)
 	completion, err := store.Complete(ctx, guardian.CompleteInput{SessionToken: session.Token, AdultGivenName: "Guardian", AdultFamilyName: "One", StudentGivenName: "Student", StudentFamilyName: "One", GradeLevelID: grade.ID, HomeroomID: homeroom.ID, RelationshipType: data.GuardianRelationshipParent, Now: now})
 	require.NoError(t, err)
 	require.NotEmpty(t, completion.AdultID)
@@ -141,8 +144,77 @@ func TestGuardianInvitedEmailOTPConsumesOutstandingInvitation(t *testing.T) {
 	verified, err := store.VerifyOTP(ctx, guardian.OTPVerifyInput{SessionToken: session.Token, ChallengeID: challenge.ChallengeID, Code: code, Now: time.Now().UTC()})
 	require.NoError(t, err)
 	require.True(t, verified.Verified)
+	_, err = store.AcceptConsent(ctx, guardian.ConsentInput{SessionToken: session.Token, Email: "invited@example.test", TermsVersion: guardian.TermsVersion, PrivacyVersion: guardian.PrivacyVersion, SourceSurface: "integration", Now: time.Now().UTC()})
+	require.NoError(t, err)
+	err = harness.Database.InTenantRead(ctx, string(organizationID), func(ctx context.Context, tx *data.Tx) error {
+		contact, err := tx.GetGuardianInvitationContactByEmail(ctx, year.ID, "invited@example.test")
+		require.NoError(t, err)
+		require.NotNil(t, contact.AcceptedConsentID)
+		return nil
+	})
+	require.NoError(t, err)
 	_, err = store.Redeem(ctx, guardian.RedeemInput{InvitationToken: imported.Rows[0].Token, Now: time.Now().UTC()})
 	require.ErrorIs(t, err, guardian.ErrInvitationInvalid)
+}
+
+func TestGuardianRegistrationEntryRateLimit(t *testing.T) {
+	harness := testharness.Open(t)
+	ctx := harness.Context
+	organizationID := harness.MintOrganization(t)
+	actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "guardian onboarding rate limit"}
+	factory := factories.New(harness.Database, string(organizationID), actor)
+	year, err := factory.CreateSchoolYear(ctx, "Synthetic rate-limit year")
+	require.NoError(t, err)
+	store := identity.NewStoreWithAuth(harness.Database, nil, nil)
+	now := time.Now().UTC()
+	entry, err := store.CreateRegistrationEntry(ctx, organizationID, year.ID, actor, now)
+	require.NoError(t, err)
+	for range 10 {
+		_, err = store.Begin(ctx, guardian.BeginInput{EntryToken: entry.Token, Now: now})
+		require.NoError(t, err)
+	}
+	_, err = store.Begin(ctx, guardian.BeginInput{EntryToken: entry.Token, Now: now})
+	require.ErrorIs(t, err, guardian.ErrOnboardingRateLimit)
+}
+
+func TestGuardianOnboardingReusesSingleVerifiedEmailAdult(t *testing.T) {
+	harness := testharness.Open(t)
+	ctx := harness.Context
+	organizationID := harness.MintOrganization(t)
+	actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "guardian onboarding email reuse"}
+	factory := factories.New(harness.Database, string(organizationID), actor)
+	year, err := factory.CreateSchoolYear(ctx, "Synthetic email reuse year")
+	require.NoError(t, err)
+	grade, err := factory.CreateGradeLevel(ctx, year.ID, "synthetic-email-reuse-grade", "Synthetic Grade")
+	require.NoError(t, err)
+	homeroom, err := factory.CreateHomeroom(ctx, year.ID, "Synthetic Email Reuse Room")
+	require.NoError(t, err)
+	delivery := &onboardingOTPDelivery{}
+	store := identity.NewStoreWithAuth(harness.Database, nil, delivery)
+	now := time.Now().UTC()
+	entry, err := store.CreateRegistrationEntry(ctx, organizationID, year.ID, actor, now)
+	require.NoError(t, err)
+
+	complete := func(studentGivenName string) guardian.Completion {
+		t.Helper()
+		session, err := store.Begin(ctx, guardian.BeginInput{EntryToken: entry.Token, Now: now})
+		require.NoError(t, err)
+		challenge, err := store.RequestOTP(ctx, guardian.OTPRequestInput{SessionToken: session.Token, Email: "guardian@example.test", Now: now})
+		require.NoError(t, err)
+		_, code, _ := delivery.latest()
+		_, err = store.VerifyOTP(ctx, guardian.OTPVerifyInput{SessionToken: session.Token, ChallengeID: challenge.ChallengeID, Code: code, Now: now})
+		require.NoError(t, err)
+		_, err = store.AcceptConsent(ctx, guardian.ConsentInput{SessionToken: session.Token, Email: "guardian@example.test", TermsVersion: guardian.TermsVersion, PrivacyVersion: guardian.PrivacyVersion, SourceSurface: "integration", Now: now})
+		require.NoError(t, err)
+		result, err := store.Complete(ctx, guardian.CompleteInput{SessionToken: session.Token, AdultGivenName: "Guardian", AdultFamilyName: "One", StudentGivenName: studentGivenName, StudentFamilyName: "One", GradeLevelID: grade.ID, HomeroomID: homeroom.ID, RelationshipType: data.GuardianRelationshipParent, Now: now})
+		require.NoError(t, err)
+		return result
+	}
+
+	first := complete("Student")
+	second := complete("Student Two")
+	require.Equal(t, first.AdultID, second.AdultID)
+	require.NotEqual(t, first.StudentID, second.StudentID)
 }
 
 func assertOnboardingRosterEmpty(t *testing.T, harness *testharness.Harness, organizationID, schoolYearID ids.XID) {
