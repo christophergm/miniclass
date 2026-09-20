@@ -47,10 +47,8 @@ the Google Forms / Sheets / Docs process wrapped around them.
 - [6. Personas and Roles](#6-personas-and-roles)
   - [6.1 Program organizer / administrator](#61-program-organizer--administrator)
   - [6.2 Guardian](#62-guardian)
-  - [6.3 Class leader and helper](#63-class-leader-and-helper)
-  - [6.4 Homeroom teacher](#64-homeroom-teacher)
-  - [6.5 Student](#65-student)
-  - [6.6 Role and permission model](#66-role-and-permission-model)
+  - [6.3 Student](#63-student)
+  - [6.4 Role and permission model](#64-role-and-permission-model)
 - [7. System Overview](#7-system-overview)
   - [7.1 Capability map](#71-capability-map)
   - [7.2 The session as the unit of work](#72-the-session-as-the-unit-of-work)
@@ -83,14 +81,15 @@ the Google Forms / Sheets / Docs process wrapped around them.
 
 **Arc III — Workflow**
 
-- [11. School Year and Roster Ingest](#11-school-year-and-roster-ingest)
+- [11. School Year and Roster Registration](#11-school-year-and-roster-registration)
   - [11.1 The school year lifecycle](#111-the-school-year-lifecycle)
-  - [11.2 Ingest mechanisms](#112-ingest-mechanisms)
-  - [11.3 Source formats](#113-source-formats)
-  - [11.4 Canonical import shape](#114-canonical-import-shape)
-  - [11.5 Two-phase import](#115-two-phase-import)
-  - [11.6 Matching rules](#116-matching-rules)
-  - [11.7 Idempotency](#117-idempotency)
+  - [11.2 Consent-first production roster authority](#112-consent-first-production-roster-authority)
+  - [11.3 Registration opening, invitations, first login and terms](#113-registration-opening-invitations-first-login-and-terms)
+  - [11.4 Guardian adult record](#114-guardian-adult-record)
+  - [11.5 Student add, matching and creation](#115-student-add-matching-and-creation)
+  - [11.6 Guardian maintenance, detach and deletion](#116-guardian-maintenance-detach-and-deletion)
+  - [11.7 Provenance, manual correction, placeholders and review](#117-provenance-manual-correction-placeholders-and-review)
+  - [11.8 Debug/test-only bulk import](#118-debugtest-only-bulk-import)
 - [12. Programs and Interest Areas](#12-programs-and-interest-areas)
   - [12.1 Program definition](#121-program-definition)
   - [12.2 Why programs exist](#122-why-programs-exist)
@@ -320,8 +319,9 @@ A session is a contiguous block of Fridays with a fixed catalog and one placemen
 for example, Session 1 met on 3, 10, 17 and 24 October; Session 2 on 7, 14 and 21 November.
 
 This is a small system serving a community that knows each other by name. That fact is load-bearing:
-it is why social constraints (a class leader's own child, two children who cannot sit together) are
-not edge cases but routine inputs, and why the organizer's judgement cannot be designed out.
+it is why social constraints (the child of an adult running an offering, two children who cannot sit
+together) are not edge cases but routine inputs, and why the organizer's judgement cannot be designed
+out.
 
 ### 3.2 The current process, end to end
 
@@ -443,8 +443,9 @@ rankings tell them *where to put people*. §13 sets out how they coexist.
 
 - **Not a timetabling product.** One placement per student per session, no clash resolution across
   concurrent periods, no room scheduling beyond recording where a class meets.
-- **Not a student information system.** The roster is loaded from elsewhere; this system is not the
-  authority on enrolment, attendance or academic records.
+- **Not a student information system.** Guardians state who should participate through the
+  self-registration process (§11), but this system is not the authority on school enrolment,
+  attendance or academic records.
 - **Not an automated decision-maker.** The solver produces a proposal. A person publishes it.
 - **Not a communications platform.** v1 sends only transactional authentication email; bulk and workflow notifications remain out of scope (§4.3).
 - **Not a general-purpose rules engine.** The constraint vocabulary is deliberately closed (§16) so
@@ -455,11 +456,13 @@ rankings tell them *where to put people*. §13 sets out how they coexist.
 The following are understood, wanted, and out of scope for the first release. §24 records the
 reasoning and any consequences.
 
-- Bulk and workflow notifications, including survey invitations, reminders, and emailing student access codes. Transactional email required for adult authentication is in scope.
+- Bulk and workflow notifications, including preference reminders, emailing student access codes and
+  automated invitation delivery. Transactional email required for adult authentication is in scope;
+  invitation email import and single-use invitation-link export are part of registration (§11.3).
 - Change-tracking against a published baseline.
 - Optimized matching of volunteers to classes.
 - Cross-year identity resolution and roster rollover.
-- Delivery of sensitive per-student information to class leaders.
+- Delivery of sensitive per-student information to adults running offerings.
 
 ## 5. Design Principles
 
@@ -506,10 +509,11 @@ reconstructed.
 
 ### 5.6 Fresh loads over migrations
 
-Each school year is loaded independently. The system MUST NOT require reconciling a prior year's
+Each school year is registered independently. The system MUST NOT require reconciling a prior year's
 records against the new one — families change names, split, merge and leave, and synchronizing that
-is a large, permanent cost in exchange for a small analytical benefit. Prior years remain readable
-as immutable history (§8.7).
+is a large, permanent cost in exchange for a small analytical benefit. v1 deliberately does not
+maintain cross-year student identity, and a closed year is expected to be purged once the organizer no
+longer needs it (§21.4).
 
 ### 5.7 Small by design
 
@@ -523,25 +527,29 @@ diverge.
 
 ## 6. Personas and Roles
 
-Five persona categories interact with the system. Administrative users have accounts; the other
-personas use narrow, scoped access proofs rather than accounts.
+Three persona categories interact with the system. Administrative users have accounts; guardians use
+email-verified, consent-gated sessions rather than password accounts; students use narrow,
+survey-scoped access proofs rather than accounts.
 
 ### 6.1 Program organizer / administrator
 
-The primary user, and the only one who works in the system daily. Loads the roster, designs the
-catalog, recruits and schedules volunteers, drafts and refines assignments, and publishes results.
+The primary user, and the only one who works in the system daily. Opens and reviews roster
+registration, designs the catalog, recruits and schedules volunteers, drafts and refines assignments,
+and publishes results.
 
 There is normally more than one. In the reference program the work divides by domain rather than by
 seniority — one organizer runs the tooling and the general sessions, another runs service-learning
 recruiting and is the named contact for co-placement requests. The system MUST therefore support
 multiple administrators per organization, and SHOULD support distinguishing their permissions
-(§6.6). `[New]` — neither predecessor had authentication of any kind.
+(§6.4). `[New]` — neither predecessor had authentication of any kind.
 
 ### 6.2 Guardian
 
 An adult with a recorded relationship to one or more students (§8.2). Guardian is a scoped capability,
-not a separate account: email OTP provides guardian access, while an adult who also has an explicitly
-linked administrative account may step up to administration (§9.3).
+not a password account: email OTP provides guardian access. On first login for an organization and
+school year, the adult accepts the current terms, creates or confirms their own adult record, and may
+then add students (§11). An adult who also has an explicitly linked administrative account may step up
+to administration (§9.3).
 
 The authenticated guardian view shows **that adult's own information only** — the students they are a
 guardian of, those students' preferences and placements.
@@ -551,40 +559,14 @@ Scope is derived from the guardian relationships in force at the moment of the r
 stored grouping (§8.2). Two guardians of the same student therefore each see that student,
 independently, and neither is shown the other. A guardian view does not include administrative or volunteer data.
 
-### 6.3 Class leader and helper
-
-An adult assigned to run or support a class offering. Needs their roster, where and when the class
-meets, and their co-leaders' contact details.
-
-Access is by shared link only (§18.3), never through an account.
-
-**The two personas do not merge.** `[New]` A class leader is very often also a guardian — in the
-reference program that is the normal case, since leaders are recruited from among the parents. The
-system MUST keep the two access paths separate regardless:
-
-- The guardian view shows that adult's own information only, even when the authenticated adult leads
-  a class.
-- Class information reaches that same person through the class link, exactly as it reaches a leader
-  who has no children in the program.
-
-This is deliberate. Merging the two would mean the contents of an authenticated view varied by the
-viewer's unrelated volunteer role, which complicates the permission model, complicates the interface,
-and creates a second path by which roster data can reach a guardian session. Keeping them separate
-means the guardian view has exactly one shape.
-
-### 6.4 Homeroom teacher
-
-School staff, not program volunteers. Needs exactly one thing: at dismissal, which of their students
-goes where. Six people in the reference program, using it weekly for two minutes. Access is by link.
-
-### 6.5 Student
+### 6.3 Student
 
 The subject of every placement and the author of the preferences that drive it, but not an account
 user in v1. A student may use a survey-scoped access code as a non-account principal to submit their
 own interest profile or ranked choices; the code grants no broader system access (§13.8). Preference
 records identify the student they describe and separately record who or what submitted them.
 
-### 6.6 Role and permission model
+### 6.4 Role and permission model
 
 The system MUST implement at least the following roles.
 
@@ -593,9 +575,7 @@ The system MUST implement at least the following roles.
 | `Owner` | Organization | Account |
 | `Administrator` | Organization | Account |
 | `Coordinator` | Organization | Account |
-| `Guardian` | Own students | Email OTP and bounded session |
-| `Class leader` | Own offerings | Tokenized link |
-| `Homeroom teacher` | Own homeroom | Tokenized link |
+| `Guardian` | Own record and own students | Email OTP, terms acceptance and bounded session |
 
 Minimum capability separation:
 
@@ -603,8 +583,8 @@ Minimum capability separation:
 |---|:--:|:--:|:--:|
 | Manage administrators and organization settings | Y | | |
 | Hard-delete personal data (§21.3) | Y | | |
-| Create and load a school year | Y | Y | |
-| Import roster; edit people | Y | Y | Y |
+| Create a school year; open and close registration | Y | Y | |
+| Review registration; correct and reconcile people | Y | Y | Y |
 | Author catalog and staffing | Y | Y | Y |
 | Draft, solve, pin and override assignments | Y | Y | Y |
 | Publish; issue and revoke share links | Y | Y | |
@@ -615,10 +595,11 @@ program but should not be the person who publishes it or removes a family's data
 permissions, including per-program scoping of administrators, are `Implementation-defined`.
 
 Capabilities are evaluated on the resolved principal, not inferred from a name, email address, or
-browser mode. Guardian, student-code, class-leader, homeroom-teacher, and public-reader principals
-never inherit account capabilities. In particular:
+browser mode. Guardian, student-code, and public-reader principals never inherit account capabilities.
+In particular:
 
-- A guardian session may read and submit for only the adult's current guardian-scoped students.
+- A guardian session may maintain only the adult's own profile, add students through the limited
+  §11.5 flow, and read or submit for only the adult's current guardian-scoped students.
 - A student-code principal may read and submit only for its one student and one bound instrument.
 - Administrator-on-behalf entry is an administrative capability, and the acting administrator and
   target student remain distinct in the resulting record (§13.8).
@@ -632,7 +613,7 @@ Seven capabilities, of which the first two are annual and the rest repeat every 
 
 | Capability | Cadence | Section |
 |---|---|---|
-| **Roster** — load and maintain students, adults and guardian relationships | Annual | §11 |
+| **Roster** — collect and maintain students, adults and guardian relationships | Annual | §11 |
 | **Preferences** — standing interest profiles | Configured window, refreshable | §13 |
 | **Catalog** — author the offerings for a session | Per session | §14 |
 | **Preferences** — ranked choices over the published catalog | Per session, optional | §13 |
@@ -660,14 +641,16 @@ rows of "they did this already" exclusions to compensate.
 
 ### 7.3 Boundaries
 
-**Inside:** everything from an imported roster through to a published class list, including all
-preference collection, all staffing coordination, all assignment logic, and the record of who
-decided what.
+**Inside:** everything from consent-first guardian registration through to a published class list,
+including roster review, all preference collection, all staffing coordination, all assignment logic,
+and the record of who decided what.
 
 **Outside:**
 
-- The school's student information system. The roster arrives by import (§11.3); this system never
-  writes back and is never the authority on enrolment.
+- The school's student information system. Production guardian and student data is provided by
+  consenting guardians through organization-and-year-scoped registration (§11), with individual
+  administrative correction where necessary; this system neither reads from nor writes to the school's
+  authoritative enrolment records.
 - Parent communications. v1 publishes to links; distributing those links happens on whatever channel
   the school already uses (§4.3).
 - Attendance, assessment, billing, and anything else that happens once a class is running. The
@@ -677,7 +660,7 @@ decided what.
 
 ```mermaid
 flowchart TD
-    IMP[Roster import] --> SY[School year: students, adults, guardians]
+    REG[Consent-first guardian registration] --> SY[School year: students, adults, guardians]
     SY --> PM[Program membership]
     PM --> IP[Interest profiles]
     PM --> CAT[Session catalog]
@@ -705,7 +688,7 @@ flowchart TD
 
 ```
 Organization                       tenant boundary
-  School Year                      people are loaded here, fresh, each year
+  School Year                      people register here, fresh, each year
     Grade and Homeroom vocabularies
     Student, Adult, Guardian Relationship
     Program                        a subset of the year's students
@@ -746,9 +729,9 @@ Two entities and one relationship, all scoped to a school year.
 | Legal given name, legal family name | Required |
 | Preferred given name | Optional; displayed in preference to the legal name wherever a person is named |
 | Grade | Concrete ordinal attribute, drawn from the school year's vocabulary (§10.1) |
-| Homeroom | Concrete categorical attribute, single-valued, drawn from the school year's vocabulary (§10.1) |
-| External identifier | Optional; from the source system (§8.7) |
-| Prior-year link | Optional, nullable (§8.7) |
+| Homeroom | Concrete categorical attribute drawn from the school year's vocabulary; required by v1 guardian add/edit forms and before operational use (§10.1, §11.5) |
+| Record state | Active, placeholder, deleted or superseded (§11.6–§11.7) |
+| External identifier | Optional; from debug fixtures or a future integration (§8.7) |
 | Tags | Multi-valued, each optionally with a note (§10.2) |
 
 **Adult** `[Built]`
@@ -761,13 +744,16 @@ Two entities and one relationship, all scoped to a school year.
 | External identifier | Optional |
 | Tags | As above |
 
-An adult may be a guardian, a class leader, both, or neither. The predecessor conflated "adult" with
-"teacher" in its planning module; this specification does not — the role is a property of what the
-person is assigned to do, not of the person.
+An adult may be a guardian, may be assigned to run or support an offering, both, or neither. The
+predecessor conflated "adult" with "teacher" in its planning module; this specification does not —
+the role is a property of what the person is assigned to do, not of the person.
 
 **Guardian relationship** `[Built]` — links an adult to a student with a relationship type (parent,
 guardian, grandparent, other). It is the only construct relating an adult to a student, and every
-family-shaped question in this specification is answered through it.
+family-shaped question in this specification is answered through it. In production, the relationship
+is normally asserted by that adult through the §11 registration flow; its provenance records whether
+it was self-registered after OTP, self-registered through a single-use invitation, or corrected by an
+administrator.
 
 A student MAY have more than one guardian, and those guardians need not live together or have any
 recorded relationship to one another. This is not an edge case: the reference program ran a separate
@@ -780,9 +766,10 @@ adult is responsible for — which is the guardian edge — and never which adul
 Anything the system needs about a family is therefore **derived** at read time from the guardian
 edges, most often as *the students an adult is a guardian of*, and is never stored (§23.2).
 
-A participating student with no guardian relationship MUST produce a warning rather than an error.
-Nobody can be reached about that child, which is worth surfacing prominently and is never a reason to
-refuse the roster (§5.2).
+A participating student with no guardian relationship MUST produce a warning rather than an error,
+except that an administrator-created placeholder student (§11.7) is already explicitly marked as such
+and carries its own warning. Nobody can be reached about that child, which is worth surfacing
+prominently and is never a reason to refuse the roster (§5.2).
 
 ### 8.3 Program membership and session participation
 
@@ -864,20 +851,16 @@ the system MAY use a person's name as a key. `[Built]` in the Django prototype, 
 consequential failing of the command-line pipeline, where every join in every stage was an exact
 case-sensitive comparison of a typed full name (§3.3).
 
-**External identifiers.** `[Partial]` A student or adult MAY carry an identifier from the source
-system. When present, import matches on it in preference to names (§11.6), which makes repeated
-partial imports idempotent. The predecessor read such a column and explicitly declined to use it for
-matching.
+**External identifiers.** `[Partial]` A student or adult MAY carry an identifier from synthetic debug
+fixtures or a future integration, but production self-registration neither requires nor exposes one.
+External identifiers MUST NOT participate in the §11.5 guardian-facing match and MUST NOT become a
+prerequisite for production operation. The predecessor read such a column and explicitly declined to
+use it for matching.
 
-**Prior-year link.** `[New]` A student record MAY carry a nullable reference to the same child's
-record in an earlier year. It is an annotation, never a requirement, and nothing in the system
-depends on it.
-
-Cross-year identity is deliberately weak (§5.6). A prior-year record is immutable history, not a
-live record to be kept in agreement, so the link imposes no synchronization burden: a name change, a
-change of guardian or a correction in the new year does not propagate backwards and does not need
-to. What the link buys is the ability to ask, later, how a child fared across several years — and
-nothing more.
+**No v1 cross-year identity.** `[New]` A student record belongs to exactly one school year. v1 MUST
+NOT create prior-year links, copy prior-year student records into a new year, or use a name or email
+to imply continuity across years. Any future cross-year feature must be redesigned around explicit
+post-consent confirmation and the purge semantics of §21.4.
 
 ### 8.8 Entity relationship diagram
 
@@ -889,7 +872,7 @@ erDiagram
     SCHOOL_YEAR ||--o{ PROGRAM : runs
     ADULT ||--o{ GUARDIAN_RELATIONSHIP : has
     STUDENT ||--o{ GUARDIAN_RELATIONSHIP : has
-    STUDENT ||--o| STUDENT : prior_year_link
+
     PROGRAM ||--o{ MEMBERSHIP : selects
     STUDENT ||--o{ MEMBERSHIP : holds
     PROGRAM ||--o{ INTEREST_AREA : defines
@@ -959,29 +942,36 @@ administrator capabilities. The proof, resulting session, and grants are distinc
 | Principal | Authentication proof | Session and minimum grant |
 |---|---|---|
 | Owner, Administrator, Coordinator | Account credential plus mandatory MFA for administration | Renewable account session; account capabilities at organization scope |
+| Guardian onboarding | Shared organization/year entry link plus email OTP, or single-use invitation link, followed by terms acceptance | Bounded, revocable guardian session; may create/confirm the adult's own record and add students |
 | Guardian | Short-lived, single-use email OTP | Bounded, revocable guardian session; current guardian scope derived per request |
 | Student | High-entropy survey/session access code | Instrument-bound principal for one student; no account or broader access |
-| Class leader, Homeroom teacher | Tokenized link | Link-scoped principal for named objects |
 | Public reader | Unauthenticated share link | Expiring, artifact-scoped access (§9.5) |
 
-Only administrators have administrative accounts. Guardian access does not create an account and uses
-email OTP: the code is short-lived and single-use, and the resulting session is bounded and revocable.
-Email OTP alone MUST NOT grant administrative access to PII; administration requires step-up MFA.
+Only administrators have administrative accounts. Guardian onboarding and guardian access do not
+create password accounts. A shared registration entry link only selects the organization and school
+year; it does not by itself grant roster access, matching, or write authority. Guardian access uses
+email OTP unless a single-use invitation link has already proved control of the mailbox for onboarding:
+the code or invitation is short-lived and single-use, and the resulting session is bounded and
+revocable. Email OTP alone MUST NOT grant administrative access to PII; administration requires
+step-up MFA.
 
 Authentication and session requirements:
 
-- OTP challenges MUST be short-lived, single-use, rate-limited, and stored only as a verifier. A
-  successful challenge creates a revocable session; it does not create an account or permanently copy
-  the adult's student scope into the session.
+- Registration, invitation and OTP endpoints MUST be rate-limited. Registration-entry tokens,
+  invitation tokens and OTP challenges MUST be stored only as verifiers. Invitation tokens and OTP
+  challenges MUST be short-lived and single-use. A successful challenge creates a revocable session;
+  it does not create an account or permanently copy the adult's student scope into the session.
 - Sessions MUST have an absolute bound and an idle bound, and MUST be invalidatable server-side.
   Renewal MUST NOT restore a revoked session or an authorization that the current relationships no
   longer grant.
 - Administrative MFA recovery uses single-use recovery codes or an explicit Owner-assisted reset.
   Email OTP MUST NOT be an administrative MFA fallback. A reset invalidates all active administrative
   sessions and prior recovery codes; the reset and its actor, target, time, and reason are audited.
-- Guardian mode, survey mode, and administration mode are separate server-authorized surfaces. Leaving
-  administration or returning to it from survey mode requires reauthentication with the required MFA;
-  a client-side mode flag is never an authorization decision.
+- Onboarding mode, guardian mode, survey mode, and administration mode are separate server-authorized
+  surfaces. Onboarding mode MUST NOT expose guardian, preference, placement, or program-wide data
+  beyond the minimal §11.5 candidate display. Leaving administration or returning to it from survey
+  mode requires reauthentication with the required MFA; a client-side mode flag is never an
+  authorization decision.
 
 A guardian session MUST be scoped to the adult's current guardian relationships. It MUST NOT grant
 access to any other adult's data or reach a student that adult is not a guardian of. An adult who has
@@ -994,23 +984,25 @@ to administration. Survey mode MUST NOT expose administrative or program-wide da
   only.
 - The tenant check MUST precede the permission check. A request for another tenant's data MUST fail
   as not-found, not as forbidden.
-- Role capabilities are specified in §6.6. Granularity beyond that minimum is
+- Role capabilities are specified in §6.4. Granularity beyond that minimum is
   `Implementation-defined`.
 - Account-to-adult links MUST be explicit and identifier-based. Email matching may suggest a link but
   MUST NOT create one silently.
 - Authorization for a guardian request MUST resolve the adult's current relationships before loading
   a student or response. A guardian request for a student outside that scope MUST fail the same way as
   a missing student, including when the student is in the same organization.
-- Link-based principals are authorized for exactly the objects their link names — a class leader's
-  token grants their offerings and nothing else, including no visibility of other offerings in the
-  same session.
+- A guardian-onboarding principal MUST be bound to one organization, one school year and one verified
+  mailbox. It MUST NOT list or retrieve people by identifier. Match selection may reveal only the
+  minimal result permitted by §11.5.
 - Every tenant-scoped write MUST use the tenant unit-of-work path and record an audit entry in the
   same transaction, or declare an explicit `NoAuditRequired` reason. Reads MUST use the read-only
   tenant path (§20.1; ADRs 0007 and 0008).
 - The security test suite MUST cover cross-tenant not-found behavior, cross-student guardian and
   student-code denial, account-link scope, OTP single-use and expiry, MFA assurance and reset
   invalidation, code regeneration/revocation, and audit attribution. These tests are required for a
-  new access path, not optional end-to-end coverage.
+  new access path, not optional end-to-end coverage. Guardian registration additionally requires tests
+  for entry-link and invitation scope, terms acceptance before writes, minimal match disclosure, rate
+  limiting, and rejection of closed or revoked registration surfaces.
 
 ### 9.5 Share-link security model
 
@@ -1049,10 +1041,11 @@ which requires the values to be ordered. Each school year defines its own ordere
 (`K, 1–12`, or `Reception, Y1–Y6`, or `1–6`); the ordering is the definition's, not the string's.
 `[New]`
 
-**Homeroom** is categorical and single-valued. `[Built]` The dismissal list pivots on it, one
-section per homeroom, which requires every student to have exactly one. The **organization**
-configures the label (`homeroom`, `class`, `form`, `advisory`); each **school year** defines the
-value set. `[New]`
+**Homeroom** is categorical and single-valued once assigned. `[Built]` The dismissal list pivots on
+it, one section per homeroom, which requires every operational student to have exactly one. v1
+guardian add/edit forms require a homeroom or classroom selection from the year vocabulary (§11.5).
+The **organization** configures the label (`homeroom`, `class`, `form`, `advisory`); each **school
+year** defines the value set. `[New]`
 
 **Both vocabularies belong to the school year, not to the organization.** `[New]` Homerooms change
 from year to year, and so may the grades a school runs. A student record describes a child in a
@@ -1063,16 +1056,17 @@ which §11.1 guarantees it cannot.
 Four consequences are normative:
 
 - A new school year starts with **no** grades and no homerooms, and they are entered for that year.
-  Nothing is copied, derived or inherited from a prior year (§5.6). Because every student MUST have
-  a homeroom, a year admits no roster — hand-entered or imported — until its homerooms exist. This
-  is a `Setup` condition (§11.1) and MUST be surfaced as guidance, never as an unexplained failure.
+  Nothing is copied, derived or inherited from a prior year (§5.6). Guardian registration cannot open
+  until both vocabularies exist, because grade and homeroom/classroom are guardian-entered,
+  participate in matching, and are required by v1 parent forms (§11.5).
 - Values MUST be unique within a school year, and MUST NOT be constrained across years. The same
   homeroom name, grade code, ordinal or external identifier MAY recur in a later year, and doing so
   creates an unrelated record.
 - An entry MUST be retirable rather than deletable, because that year's students may reference it
   after it ceases to be used mid-year. Retirement removes it from selection and is audited (§20.1).
 - A closed year's vocabulary is read-only, on the same terms as every other record in that year
-  (§11.1). Correcting one requires the Owner-only reopen, with a reason, recorded.
+  (§11.1). Correcting one requires the Owner-only reopen, with a reason, recorded. Purging a year
+  removes the vocabulary with the rest of the year-scoped data (§21.4).
 
 A grade or homeroom in one year has **no relationship** to a similarly named one in another. Nothing
 in this specification compares them, and any future report that needs to MUST do so through an
@@ -1100,8 +1094,8 @@ offerings.
   anticipated caused a hard failure (§3.3).
 
 Tags are how the system absorbs requirements that would otherwise each need a schema change:
-sensory needs, stream, mobility considerations, prior-year participation, consent on file, and the
-ad-hoc observations that currently live in an untracked notes file.
+sensory needs, stream, mobility considerations, current-year participation context, consent on file,
+and the ad-hoc observations that currently live in an untracked notes file.
 
 ### 10.3 Tag dispositions
 
@@ -1144,17 +1138,16 @@ appear.
 | Level | Visible to | May appear in published artifacts |
 |---|---|---|
 | `Public` | All roles with access to the object | Yes |
-| `Internal` | Administrators; class leaders for their own students | No |
+| `Internal` | Administrators | No |
 | `Sensitive` | Administrators only | No |
 
 The system MUST enforce these levels at the point of rendering, in every surface including exports
 and print views. A tag's sensitivity MUST be set when the tag is defined, and changing it MUST
 re-evaluate everywhere it is displayed.
 
-**v1 scope.** No tag content of any sensitivity appears in a published artifact, and the `Internal`
-visibility to class leaders is not implemented (§18.5, §24.4). The three levels are specified now
-because the distinction must exist in the data from the outset; a later release turns on the
-leader-facing surface without a migration.
+**v1 scope.** No tag content of any sensitivity appears in a published artifact (§18.5). The three
+levels are specified now because the distinction must exist in the data from the outset; any later
+non-administrator disclosure surface requires its own explicit access design.
 ### 10.6 Pairings
 
 `[New]` A pairing expresses a relationship between two people that should influence placement.
@@ -1227,140 +1220,329 @@ student whose name did not match the roster simply did nothing, forever, with no
 
 # Arc III — Workflow
 
-## 11. School Year and Roster Ingest
+## 11. School Year and Roster Registration
 
 ### 11.1 The school year lifecycle
 
-A school year is created, loaded with people, run, and closed. There is no rollover (§5.6).
+A school year is created, opened for registration, run, closed, and normally purged. There is no
+rollover (§5.6).
 
 | State | Meaning |
 |---|---|
-| `Setup` | The year's vocabularies (§10.1) are defined; people are being loaded and corrected. No programs are running. |
-| `Active` | Programs and sessions are operating. People may still be added and corrected. |
-| `Closed` | The year is over. Records become read-only history. |
+| `Setup` | The year's grade and homeroom/classroom vocabularies (§10.1) are defined; registration may be opened and roster submissions reviewed. No programs are running. |
+| `Active` | Programs and sessions are operating. Registration may remain open or be reopened, and people may still be corrected. |
+| `Closed` | The year is over. Ordinary records are read-only, except privacy deletion/de-identification and Owner purge actions. |
+| `Purged` | Personal and operational year data has been removed. Only a minimal non-identifying year shell remains (§21.4). |
 
 Closing a year MUST NOT be required in order to create the next one. Two years MAY be `Active`
 simultaneously during a transition.
 
-Records in a `Closed` year remain readable, and remain the target of prior-year links (§8.7), but
-MUST NOT be edited. This is what makes historical placement data trustworthy — the predecessor's
-history was mutable files that were, in at least two demonstrable cases, edited by hand after the
-fact (§3.3).
+Records in a `Closed` year remain readable until purge, but MUST NOT be edited except for the narrow
+privacy actions in §11.6 and §21.3, or an Owner-only reopen with a reason. This is what makes
+historical placement data trustworthy — the predecessor's history was mutable files that were, in at
+least two demonstrable cases, edited by hand after the fact (§3.3) — while still allowing deletion
+requests and end-of-year risk reduction.
 
 **A year's records include its grade and homeroom vocabularies** (§10.1). They are created during
-`Setup`, may be corrected while the year is `Active`, and are read-only once it is `Closed` — there
-is no path by which editing one year's vocabulary reaches another year, and no path by which a
-closed year's homeroom name changes without the reopen being recorded.
+`Setup`, may be corrected while the year is `Active`, are read-only once it is `Closed`, and are
+deleted when the year is purged. There is no path by which editing one year's vocabulary reaches
+another year.
 
-### 11.2 Ingest mechanisms
+### 11.2 Consent-first production roster authority
 
-The system MUST support both:
+`[New]` In production, guardian and student data MUST enter the system only after an individual
+consent event, through a narrow invitation-contact exception, through an audited individual
+administrative correction, or as a deliberately de-identified placeholder (§11.7).
 
-- **Structured import** `[Built]` for bulk loading, at the start of a year and repeatedly as
-  families arrive.
-- **Manual creation and editing** `[Built]` of every person and relationship.
+The normal production authority is the guardian:
 
-Both are required. Import alone fails the routine case of one family joining in November; manual
-entry alone fails the annual load of ~140 students and ~60 adults.
+1. the guardian proves control of their email address, either by OTP or by redeeming a single-use
+   invitation link (§11.3);
+2. the guardian accepts the current terms of service and privacy notice for the organization and
+   school year (§11.3);
+3. the guardian creates or confirms their own adult record — given name, family name and verified
+   email (§11.4); and
+4. the guardian adds zero or more students, either by selecting an existing limited-disclosure match
+   or by creating a new student record (§11.5).
 
-### 11.3 Source formats
+One guardian's consent authorizes storing that guardian's own adult data, the guardian relationships
+that adult asserts, and any student record that adult creates or selects. It does not authorize
+importing another guardian's adult record, preloading a household, or exposing any other guardian. A
+second guardian registers independently and may attach to the same student without becoming an owner
+of that student and without learning about the first guardian.
 
-`[Partial]` The importer MUST be format-agnostic, with pluggable source parsers. A parser's sole job
-is to translate a source document into the canonical shape (§11.4); everything downstream —
-validation, matching, preview, commit — operates on the canonical form and is identical regardless
-of source.
+The student-specific consent/provenance event is the guardian's add-student action. v1 does not
+require separate student assent for roster creation; student access codes later authorize preference
+submission only (§13.8).
 
-At minimum the system MUST support delimited text (CSV) and MUST support at least one structured
-document format (JSON) suitable for consuming a community-platform export directly.
+Administrator tools remain necessary for individual add, edit, delete, duplicate reconciliation,
+classroom and grade setup, placeholder students, and other manual corrections. Except for placeholder
+students, direct administrative creation of guardian or student PII requires an explicit reason/source
+of authority, such as a guardian asking the organizer to enter data outside the app. These tools MUST
+operate one record or one reviewed reconciliation at a time, MUST be audited (§20.1), and MUST NOT
+become an alternative production bulk-load path around consent. A correction preserves creation
+provenance and records the organizer's later judgement separately from the guardian's assertion
+(§5.4).
 
-An implementation SHOULD offer materializing a parsed source to CSV before import, for organizers
-who want a file they can inspect or amend. This is a convenience, not a required stage: because
-preview (§11.5) is mandatory and operates on normalized rows, human review is guaranteed regardless
-of format.
+### 11.3 Registration opening, invitations, first login and terms
 
-The predecessor's importer read source documents by hard-coded column position, which is why it
-broke on every survey revision and was eventually abandoned (§3.3). Parsers MUST resolve fields by
-name or by explicit mapping, never by position.
+An administrator opens guardian registration for one organization and one school year. Before a
+guardian can add a student, the administrator MUST define both the grade vocabulary and the
+homeroom/classroom vocabulary used by the add-student form (§10.1).
 
-### 11.4 Canonical import shape
-
-Three record types:
-
-| Record | Contents |
-|---|---|
-| Student | Names, grade, homeroom, optional external identifier |
-| Adult | Names, email, phone, optional external identifier |
-| Guardian relationship | Adult reference, student reference, relationship type |
-
-Separate records per type is the documented format. `[New]`
-
-A **wide format** — one row per adult, with several students named inline — MUST also be supported,
-because it is the natural shape of a household survey export and is what the reference program
-already produces. `[Built]`
-
-**A wide row's authority is the adult it describes, not the students it names.** Importing one MUST
-set exactly that adult's guardian relationships, and MUST NOT add, alter or remove a relationship
-belonging to any other adult. Two adults' rows therefore compose into a student with two guardians,
-and a guardian genuinely dropped from a re-export is genuinely removed.
-
-This rule is load-bearing. The reference program ran a separate second-household survey precisely for
-separated families, and an import that treated one adult's row as authoritative for a student's whole
-set of guardians would delete the other parent — silently, and exactly for the families least able to
-absorb it. Correspondingly, the §11.5 preview MUST list the guardian relationships an import would
-**remove**, not only those it would add: a partial re-export that omits a child by accident is
-otherwise indistinguishable from one that omits them deliberately.
-
-### 11.5 Two-phase import
-
-`[Built]` Every import MUST be a two-phase operation: **preview**, then **commit**. The predecessor's
-Django prototype did this and it is the single best idea in either codebase.
-
-The preview MUST classify every row into one of:
-
-| Outcome | Meaning |
-|---|---|
-| `Create` | No existing record matches; a new one will be created |
-| `Update` | Matched an existing record; listed field changes will be applied |
-| `Unchanged` | Matched, no differences |
-| `Conflict` | Matched more than one record, or contradicts existing data; requires resolution |
-| `Error` | Invalid or unusable; cannot be imported |
+The organization MAY distribute a registration entry link through an existing trusted communication
+channel. The link is not itself consent and is not itself roster authority. It only identifies the
+organization and school year for the onboarding surface; the guardian still has to verify email and
+accept the current terms before entering personal data.
 
 Requirements:
 
-- Commit MUST NOT be possible while any row is in `Error`.
-- Commit MUST be atomic: either every non-error row is applied, or none is.
-- `Conflict` rows MUST be resolvable individually, and MUST NOT be auto-resolved.
-- The preview MUST show what will change, field by field, for `Update` rows. "27 students updated"
-  is not sufficient.
+- A registration entry link, if used, MUST be high-entropy, stored hashed, expiring, revocable and
+  regenerable. It MUST be bound to exactly one organization and school year and MUST NOT encode either
+  identifier.
+- Registration MUST have an opening and closing time. A closed or revoked registration surface MUST
+  reject onboarding cleanly and MUST NOT reveal whether any named person exists.
+- Guardian onboarding begins with verified mailbox control. The default proof is the same short-lived,
+  single-use OTP mechanism used for guardian access (§9.3). A guardian MUST NOT create an adult
+  record, create a student, select a matched student, or create a guardian relationship until the
+  current terms have been accepted.
+- Terms acceptance MUST record the organization, school year, verified email principal, terms version,
+  privacy-notice version, timestamp and source surface. Acceptance is year-scoped. A later material
+  terms change MAY require re-acceptance before further guardian writes.
+- Registration and OTP endpoints MUST be rate-limited and monitored for unusual activity (§22.5).
+  Protection against automated abuse MAY add a low-friction challenge, but MUST NOT require a password
+  account.
 
-### 11.6 Matching rules
+**Invitation email import is the one permitted production bulk import exception.** Administrators MAY
+import invitation email contacts for one organization and school year. Imported invitation rows are
+not adult records, guardian records or student records. They may contain only normalized email,
+invitation token verifier, status, timestamps and delivery/export metadata. Import MUST be audited,
+MUST support deduplication/error reporting, and MUST NOT create an adult, student or relationship
+before redemption.
 
-Matching determines whether an incoming row is a new person or an existing one.
+A single-use invitation link proves control of its bound mailbox for onboarding and lets the guardian
+skip the initial OTP. The invitation supplies the verified email as read-only in the onboarding flow;
+changing it requires a separate verified email-change flow. Redeeming an invitation still requires
+terms acceptance before any personal roster data is created. If a guardian instead uses the shared
+entry link and completes OTP for an email with an outstanding invitation, the invitation is marked
+accepted and linked to the resulting consent event.
 
-1. **External identifier.** `[Partial]` If the row carries one and it matches, that is the match.
-   No further comparison is performed.
-2. **Name.** `[Partial]` Otherwise, compare given and family names, normalized: case-insensitive,
-   surrounding whitespace removed, internal whitespace collapsed.
-3. **Ambiguity.** If step 2 yields more than one candidate, the row is a `Conflict`. The system MUST
-   NOT choose.
+Automated bulk invitation delivery, bounce handling and reminders are deferred (§24.1). v1 may
+generate or export invitation links for administrators to distribute through existing channels.
+After onboarding, guardian access uses normal OTP; an invitation link is not a reusable magic-login
+link.
 
-Matching MUST NOT be case-sensitive exact comparison. This is called out because it is the
-predecessor's defining failure: every join in every stage compared typed names character for
-character, which produced silent non-matches that persisted for entire sessions (§3.3).
+Guardian registration SHOULD feel like a short guided flow, not account creation. A guardian receives
+a bounded, revocable session after mailbox proof and terms acceptance, but does not receive a
+password-holding account. An adult who is also an administrator still uses the separate administrative
+account and MFA requirements in §9.3.
 
-Name normalization deliberately stops short of fuzzy matching. Nicknames, transposed names and
-misspellings are surfaced as unmatched rows for a human to resolve, and the system SHOULD offer
-likely candidates — but it MUST NOT merge records on similarity alone.
+### 11.4 Guardian adult record
 
-### 11.7 Idempotency
+After first-login terms acceptance, the guardian creates or confirms their own adult record. The form
+MUST ask for:
 
-`[New]` Re-importing an unchanged source MUST produce zero changes and report every row as
-`Unchanged`.
+- given name;
+- family name; and
+- email address.
 
-This is a hard requirement rather than a nicety, because the observed working pattern is repeated
-partial import: the organizer re-exports the survey as new families respond and imports again. Under
-the predecessor's approach — append the new rows to the bottom of the working file by hand — that
-was a manual diff performed by a person. Here it MUST be automatic and safe to repeat.
+The email address is the verified address used for OTP or supplied by a redeemed invitation unless an
+email-change flow separately verifies the replacement address. Names are required data but are never
+identity keys (§8.7). A unique verified email match MAY identify an existing adult record for the
+organization and school year. Otherwise, the system MUST NOT silently merge adults on name or on an
+unverified address.
+
+The guardian MAY edit their own adult profile fields while registration or guardian self-service is
+open, subject to audit and email re-verification for address changes. Distinct adult records MUST NOT
+share an email for OTP access. A duplicate email is a review condition to be resolved by an
+administrator; it MUST NOT silently merge scopes.
+
+A guardian who cannot use email self-service can be handled only through the individual administrative
+correction path. That path is exceptional, audited, records the source of authority, and does not
+authorize a bulk import.
+
+### 11.5 Student add, matching and creation
+
+A guardian may add zero or more students after their adult record exists, while guardian registration
+is open. For each student, the guardian enters:
+
+- given name;
+- family name;
+- grade, selected from the school year's configured vocabulary (§10.1); and
+- homeroom/classroom, selected from the school year's configured vocabulary (§10.1).
+
+The guardian selects **Add**. The system then searches for potential matches within the same
+organization and school year. Matching MUST NOT cross years, MUST NOT use a name as an identifier,
+MUST NOT use external identifiers in the guardian-facing decision (§8.7), and MUST NOT show
+administrator-created placeholder students (§11.7) as guardian-facing candidates. The candidate policy
+is `Implementation-defined`, but it MUST at least consider normalized given name, family name, grade
+and homeroom/classroom. It MAY include conservative similarity checks to catch likely spelling
+variation. A same-name, same-grade student in a different homeroom MAY be shown as a lower-confidence
+candidate because the selected homeroom may itself be wrong.
+
+Outcome rules:
+
+1. **No potential match.** The system creates a new student record and the guardian relationship
+   without an intermediate choice.
+2. **One or more potential matches.** The system offers the guardian a choice to select an existing
+   student or continue creating a new student.
+3. **Selected existing student.** The system reuses the existing opaque student identifier and creates
+   only this adult's guardian relationship. It MUST NOT change or remove any other guardian
+   relationship or student field. The guardian immediately receives normal guardian access to that
+   student, subject to current open surfaces.
+4. **Continue creating new.** The system creates a new student record and guardian relationship, and
+   SHOULD flag likely duplicates for administrator review.
+
+Candidate display MUST be minimal. It MAY show only student given name, family name, grade and
+homeroom/classroom. It MUST NOT reveal preferred name, other guardians, adult contact information,
+tags, comments, preferences, placements, external identifiers, opaque identifiers or placeholder
+status.
+
+These rules knowingly accept moderate assurance in a trusted community: a consenting adult who knows
+a child's name, grade and homeroom can attach themselves to an existing student. The compensating
+controls are limited disclosure, email verification, terms acceptance, registration-window controls,
+rate limiting, provenance, duplicate and volume review, and administrative reconciliation. The
+add-student flow never grants access to another guardian's data.
+
+Adding a student does not automatically create program membership (§8.3). Membership remains explicit
+and organizer-controlled, though grade-rule tooling may help populate it.
+
+### 11.6 Guardian maintenance, detach and deletion
+
+A guardian may maintain their own adult record and current guardian-scoped students while the school
+year is `Setup` or `Active`. Initial addition of new students is controlled by the registration
+window (§11.5). Preference submission is controlled by preference windows (§13.8), not by the
+registration window. After a year is `Closed`, ordinary edits stop, but deletion and de-identification
+remain available as privacy actions (§21.3).
+
+For a current guardian-scoped student, a guardian MAY edit:
+
+- legal/display given name;
+- legal/display family name;
+- preferred given name, if present;
+- grade; and
+- homeroom/classroom.
+
+Guardian edits apply immediately to the shared student record, are audited, and are visible to all
+principals who can later see that student. There is no guardian-entered student note field in v1.
+Guardians cannot edit tags, administrator comments, program membership, session participation,
+assignments, identifiers, provenance, external identifiers or deletion state directly.
+
+A grade or homeroom edit after preferences, membership, draft assignments or published artifacts exist
+MUST NOT silently recompute history. It creates non-blocking review or stale-data warnings where the
+field matters. Future solves use the updated grade. Existing submissions and completed assignments
+remain historical. Published artifacts require republishing or regeneration before the stable URL
+reflects the change.
+
+A guardian MAY detach themselves from a student, with a confirmation prompt. Detach removes that
+adult's guardian relationship and access; it does not delete a shared student while another active
+guardian remains. No automated notification is sent to other guardians.
+
+A guardian MAY delete a student only within the following boundary:
+
+- If another active guardian remains, the action is a detach only.
+- If no other active guardian remains and the student has no associated data, the student MAY be hard
+  deleted.
+- If no other active guardian remains and the student has associated data, the action is a
+  de-identifying delete: remove all guardian relationships, mark the student `Deleted`, overwrite
+  legal/display given name, legal/display family name and preferred given name with a neutral deleted
+  value, retain grade and homeroom/classroom, and exclude the student from future roster selections,
+  preference audiences, solves and assignment options.
+
+Associated data includes any dependent operational or descriptive data beyond the guardian
+relationship itself: preferences, survey or ranked-choice submissions, program membership, session
+participation, assignments, solve-run references, tags, comments, pairings, warnings, published
+artifact references or any other domain record that would retain the student ID as meaningful history.
+A de-identifying delete requires a confirmation prompt explaining that historical survey and placement
+records remain by ID under the deleted label. It does not require a fresh OTP if the guardian session
+is active.
+
+A guardian MAY also delete their own adult profile, with a confirmation prompt explaining loss of
+access. The action revokes active guardian sessions, invalidates pending OTP challenges, removes or
+de-identifies contact fields, removes guardian relationships, and applies the student deletion rules
+above to any student left with no guardians. An adult who also has an administrative account is not
+silently removed from administration; that requires the separate administrative/Owner path.
+
+If a deletion or de-identification affects a student present in an active published artifact, the
+artifact MUST be regenerated so the stable link no longer serves the old name (§18.2, §21.3). Links
+are not revoked solely because regeneration was needed.
+
+### 11.7 Provenance, manual correction, placeholders and review
+
+Guardian onboarding, add-student, edit, detach, delete and adult self-deletion actions MUST atomically
+record the adult data, terms version, each student outcome, each guardian relationship created or
+removed, the organization and school year, actor, channel, submission time, and whether a candidate
+match was selected or bypassed. Plaintext OTPs, invitation tokens, registration-entry tokens and other
+bearer secrets MUST NOT be stored.
+
+Every created person and relationship MUST retain its creation provenance. Administrator add, edit,
+delete, de-identify, duplicate reconciliation, placeholder reconciliation and relationship removal
+MUST be audited and MUST preserve enough history to distinguish the guardian's assertion from the
+organizer's later judgement (§5.4, §20.1).
+
+Administrator individual add/edit/delete is allowed as a manual correction or admin-on-behalf action
+with an explicit reason or source of authority. It MUST NOT be used to preload a named roster from
+school records. Routine administrative delete follows the same hard-vs-de-identify boundary as
+§11.6; Owner-only privacy hard delete remains a separate stronger action (§21.3).
+
+**Placeholder students.** Administrators MAY create placeholder students when unregistered children
+must be represented to make class counts and placements operationally correct. A placeholder student:
+
+- requires grade and homeroom/classroom;
+- uses an abbreviated display label rather than full identifying information;
+- has no guardians and no preferences;
+- is marked as a placeholder and audited with a reason;
+- may be included in program membership, solves, assignments and published artifacts;
+- is hidden from guardian-facing match results; and
+- is purged with the school year.
+
+If a guardian later registers the corresponding child, the guardian flow creates or selects only a
+normal consented student. Administrator review MAY flag a likely correspondence between the new
+student and an existing placeholder. Reconciliation is explicit and audited: an administrator selects
+the placeholder and consented student, moves program membership, session participation, draft/current
+assignments and placement history as appropriate to the consented student ID, then marks the
+placeholder superseded or deletes it if no retained references remain. Published artifacts containing
+the placeholder label MUST be regenerated if the reconciliation changes what they should show.
+
+The administrator review surface MUST show, at minimum:
+
+- newly created adults, students and guardian relationships;
+- selected, bypassed and likely-duplicate student matches;
+- guardian edits to shared student fields after preferences, assignments or publication exist;
+- placeholders and likely placeholder-to-student correspondences;
+- duplicate verified emails and adults unable to use email self-service; and
+- unusual submission volume or repeated claims involving the same student.
+
+Warnings and review flags MUST NOT block an otherwise valid guardian action (§5.2). Reconciliation
+MUST move or merge relationships and dependent records by opaque identifier, never by name, and MUST
+NOT silently discard one guardian's assertion.
+
+A guardian receives a confirmation of what they entered, edited, selected, detached or deleted, but
+MUST NOT receive a roster listing or information contributed by another adult. Later preference access
+uses the guardian session and current guardian relationships in §9.3 and §13.8; the registration
+entry link is not a reusable guardian credential.
+
+### 11.8 Debug/test-only bulk import
+
+`[Built]` Existing CSV and JSON roster import code MAY be retained solely for debugging, local
+experimentation and automated tests with synthetic data. It MAY bulk-load data in those non-production
+contexts because its purpose is to exercise parsers and data-layer paths, not to establish production
+roster authority.
+
+Bulk roster import MUST NOT be exposed, enabled or deployable as a production endpoint, command or
+administrator capability, and production configuration MUST fail closed if import is attempted.
+Production guardian and student records MUST NOT be imported from a school directory, community
+platform, spreadsheet or other third-party source before consent. Invitation email import (§11.3) is
+the only production bulk import exception and imports contact metadata only, never roster records.
+
+Development and automated tests MUST use synthetic people. Real roster exports MUST NOT be loaded
+into development or test databases. Import fixtures SHOULD continue to cover multiple guardians for a
+student, ambiguous matches, relationship removals and idempotent re-import so the retained parser and
+data-layer paths remain useful test assets.
+
+The debug/test importer is non-normative for production roster behavior. Its source formats, preview
+classifications and matching rules do not establish production authority and MUST NOT be used to
+bypass consent-first guardian registration (§11.2).
 
 ## 12. Programs and Interest Areas
 
@@ -1679,7 +1861,7 @@ Requirements:
   surveys use an administrator-configured window; ranked choices use the session lifecycle (§14.3).
 - The system MUST be able to report, at any time, which students have not responded (§19.5).
 - An adult MAY submit for every student they are a guardian of in one sitting; the resulting records
-  are per-student (§6.5).
+  are per-student (§6.3).
 - Re-submission before the window closes MUST be permitted. For interest profiles, the effective value
   is the latest valid rating per area. For ranked choices, the latest valid complete response replaces
   the prior response for that student and session. All submissions remain retained.
@@ -1702,8 +1884,8 @@ Preference access is deliberately split by principal while using one underlying 
 - **Administrator access** begins from the adult's linked administrative identity and requires step-up
   MFA. An administrator can open a form for a selected student and submit on that student's behalf;
   the response records the acting administrator, target student, channel, and submission time.
-- An adult without an email is unreachable for self-service, but the student remains eligible and an
-  administrator can submit on the student's behalf.
+- A student whose guardian cannot use email self-service remains eligible, and an administrator can
+  submit on the student's behalf through the audited admin-on-behalf path.
 - Distinct adult records MUST NOT share an email for OTP access. Duplicate emails are a warning that
   requires resolution before OTP access is issued; the system MUST NOT silently merge their scopes.
 
@@ -1829,8 +2011,8 @@ stateDiagram-v2
 
 ### 15.1 Staffing is advisory
 
-`[New]` This system is where **primary class leaders are organized** — recruiting, matching people to
-offerings, planning who runs what. It is not necessarily where volunteer sign-up concludes. Final
+`[New]` This system is where **adults running offerings are organized** — recruiting, matching people
+to offerings, planning who runs what. It is not necessarily where volunteer sign-up concludes. Final
 sign-up may be run on the school's community platform instead, because that reaches the whole
 community with no additional access to manage.
 
@@ -1876,9 +2058,9 @@ enter the resulting offering and staffing decisions here without requiring volun
 | Note | Free text, shown on the published class list |
 
 An offering may have any number of staffing assignments, including none (§15.1). Contact details for
-assigned adults MUST be visible to the organizer and to co-assigned adults; the reference data's
-staffing file has an email column that is almost always empty, so there is currently no reliable way
-to reach the person running a class.
+assigned adults MUST be visible to the organizer. The reference data's staffing file has an email
+column that is almost always empty, so there is currently no reliable way to reach the person running
+a class.
 
 ### 15.4 Per-date confirmation
 
@@ -2403,9 +2585,14 @@ URL.
 Subsequent edits continue in draft and are not visible until re-published. Because the URL is
 stable, anything already shared, bookmarked or forwarded keeps working.
 
+Privacy deletion and de-identification are the exception to ordinary draft timing. If a student or
+adult appearing in an active published artifact is deleted or de-identified under §11.6 or §21.3, the
+artifact MUST be regenerated so the stable URL no longer serves the old identifying content. The link
+is not revoked solely because regeneration was required.
+
 The last-updated timestamp is the entire change-notification mechanism in v1. It is the minimum
-necessary for a class leader who printed the list on Tuesday to know whether to reprint. Tracking
-changes against a published baseline and notifying affected people are deferred (§24.1).
+necessary for a volunteer or staff member who printed the list on Tuesday to know whether to reprint.
+Tracking changes against a published baseline and notifying affected people are deferred (§24.1).
 
 Warnings MUST NOT block publication (§5.2). Unplaced students MUST (§17.13). That is the only
 completeness precondition; staffing is never one (§15.1).
@@ -2437,8 +2624,10 @@ Requirements:
   need is a volunteer printing a roster to carry to the gym.
 - Adult **email addresses MUST NOT appear.** The predecessor's template printed them, which on an
   open URL publishes volunteer contact details to anyone holding the link. Contact details remain
-  available to the organizer and to co-assigned adults (§15.3).
+  available to the organizer (§15.3).
 - Staffing MUST be presented as known to this system, without implying completeness (§15.1).
+- Placeholder and deleted students MUST render only their current placeholder/deleted display label,
+  never a prior full name.
 
 ### 18.4 Homeroom dismissal list
 
@@ -2465,8 +2654,8 @@ sensitivity level. Published artifacts carry only the elements listed in §18.3 
 `Public` tags on the class list.
 
 The sensitivity levels of §10.5 are nonetheless specified and MUST be implemented in the data model,
-because the distinction has to exist before anything can be shown selectively. A later release turns
-on the leader-facing surface without a migration.
+because the distinction has to exist before anything can be shown selectively. Any later surface that
+shows non-public content outside administration requires an explicit access design.
 
 **Known limitation.** This means sensory needs and comparable information still do not reach the
 person leading the class — the same gap as the current process. The difference is that the
@@ -2579,14 +2768,16 @@ response to a given survey (§13.6), or ranked choices for an open session.
 Student completion is the unit of measurement. Reports MUST provide counts and percentages, broken down
 by grade and homeroom, and MUST name every non-responder. A student with multiple guardians is counted
 once in student totals. A student with no guardian MUST appear as unreachable rather than be omitted;
-a guardian without email MUST be distinguished from a guardian who simply has not responded.
+a guardian unable to use email self-service MUST be distinguished from a guardian who simply has not responded.
 
 A separate guardian follow-up view lists each guardian with their outstanding students. A student MAY
 appear under multiple guardians in that view, but those rows MUST NOT be used for aggregate student
 counts. This report is also the basis for targeting a follow-up survey at non-responders (§13.6.2).
 
-Transactional email required for OTP authentication is in scope. Bulk and workflow notifications,
-including survey invitations, reminders, and emailing student codes, remain out of scope (§4.3).
+Transactional email required for OTP authentication is in scope. Invitation email import and
+single-use invitation-link export are governed by §11.3. Bulk and workflow notifications, including
+automated invitation delivery, preference reminders and emailing student codes, remain out of scope
+(§4.3, §24.1).
 
 ### 19.6 Participation reporting
 
@@ -2616,16 +2807,16 @@ Significant actions MUST include:
 
 | Category | Actions |
 |---|---|
-| People | Create, edit, soft-delete, hard-delete; import commits with per-outcome counts |
+| People | Registration open/close and link lifecycle; invitation import/export/revocation/redemption; terms acceptance; guardian submissions, match outcomes, edits, detachments and deletions; placeholder creation/reconciliation; create, edit, reconcile, de-identify and hard-delete |
 | Structure | School year and program creation; membership changes; session non-participation |
 | Lifecycle | Every session state transition, including backward ones (§14.5) |
 | Catalog | Offering changes made after the catalog is published |
 | Rules | Tag definition and assignment changes; pairing changes; exclusions; changes to the concrete-attribute vocabularies of §10.1, including retirement |
 | Assignment | Solve runs; every manual operation of §17.12; every override (§16.7) |
 | Publication | Publish and re-publish; link generation, regeneration, revocation |
-| Access | Permission changes; administrator addition and removal |
+| Access | Permission changes; administrator addition and removal; invitation issuance/export and redemption; OTP and session revocation summaries |
 
-The log is readable by `Owner` and `Administrator` (§6.6). It is retained with its school year and
+The log is readable by `Owner` and `Administrator` (§6.4). It is retained with its school year and
 is subject to §21.3 only in respect of content, never of the fact that an action occurred.
 
 ### 20.2 Immutable solve runs
@@ -2700,9 +2891,10 @@ The audit log records that a change occurred, by whom, and a summary of what cha
 sufficient basis for rebuilding prior state, and MUST NOT be presented as one.
 
 This is a considered trade. The high-stakes mutable object is the assignment set, and it is fully
-covered by immutable solve runs; completed sessions and closed years are read-only (§11.1);
-preference submissions are already append-only (§13.2). What remains unversioned is routine roster
-and catalog editing, where the audit summary answers the questions that get asked in practice.
+covered by immutable solve runs; completed sessions and closed years are read-only except for the
+privacy actions and purge path in §11.1 and §21; preference submissions are already append-only
+(§13.2). What remains unversioned is routine roster and catalog editing, where the audit summary
+answers the questions that get asked in practice.
 
 ## 21. Data Retention and Privacy
 
@@ -2715,18 +2907,22 @@ rather than be discovered during a review.
 | Data | Subject |
 |---|---|
 | Legal and preferred names | Students, adults |
-| Grade, homeroom (per school year) | Students |
-| Email, phone | Adults |
+| Grade, homeroom/classroom (per school year) | Students |
+| Email, phone | Adults and invitation contacts |
+| Terms/privacy acceptance and registration provenance | Adults, students where applicable |
 | Guardian relationships | Both |
+| Placeholder labels and placeholder provenance | Students |
 | Tags and tag notes | Students, adults |
 | Comments | Students, adults |
 | Stated preferences | Students |
 | Placements and placement history | Students |
 | Staffing assignments and confirmations | Adults |
 
-Two categories deserve particular care. **Tag notes** may contain health-adjacent information about
-a child — the reference survey's sensory-needs question elicits exactly that. **Comments** are
+Two categories deserve particular care. **Tag notes** may contain health-adjacent information about a
+child — the reference survey's sensory-needs question elicits exactly that. **Comments** are
 unstructured by design and will accumulate observations about named children and named parents.
+Invitation contacts are narrower than adult records, but they are still personal data because they
+identify a mailbox invited to participate.
 
 ### 21.2 Sensitivity classification
 
@@ -2741,35 +2937,58 @@ Requirements:
 
 ### 21.3 Deletion
 
-**Soft delete** `[New]` is the normal mechanism within an active school year. A soft-deleted person
-is excluded from views, solves, reports and published artifacts, while referential integrity with
-historical records is preserved. Soft deletion is reversible.
+The system has three deletion paths, because the operational and privacy cases are different.
 
-**Hard delete** `[New]` is available at organization level to `Owner` only (§6.6), to satisfy a
-genuine data-removal request. It MUST:
+**Guardian/admin correction deletion** follows the boundary in §11.6. If a student has no other
+guardians and no associated data, the record may be hard-deleted. If associated data exists, the
+record is de-identified instead: guardian links are removed, the student is marked `Deleted`, names
+and preferred name are overwritten, grade and homeroom/classroom remain, and retained historical
+records render the deleted label. This is not a way to remove another guardian's access; when another
+active guardian remains, the requesting guardian is detached only.
+
+**Adult self-deletion** removes or de-identifies the guardian adult profile, revokes guardian sessions
+and OTP challenges, removes guardian relationships, and then applies the student deletion rules to
+any student left with no guardians (§11.6). Administrative accounts are handled separately.
+
+**Owner-only privacy hard delete** `[New]` is available at organization level to `Owner` only (§6.4),
+to satisfy a genuine data-removal request beyond ordinary correction. It MUST:
 
 - remove the person and all dependent records — preferences, placements, tags, notes, comments,
-  relationships, staffing assignments, confirmations;
+  relationships, staffing assignments, confirmations — and redact their personal content from retained
+  registration submissions while preserving the non-identifying fact that a submission occurred;
 - remove them from every retained solve run, or invalidate runs that cannot be redacted;
-- **regenerate or revoke any published artifact containing them.** A published snapshot is a copy;
-  deleting the source record does not alter what a share link serves;
+- **regenerate any active published artifact containing them.** A published snapshot is a copy;
+  deleting or de-identifying the source record does not alter what a share link serves until the
+  snapshot is regenerated;
 - retain in the audit log the fact that a deletion occurred, its actor and its time, but not the
   deleted content.
 
-The published-snapshot obligation is easy to overlook and is the most likely way a deletion silently
-fails to take effect.
+Deletion and de-identification remain available after a school year is `Closed`; they do not reopen
+the year and do not permit ordinary corrections. The published-snapshot obligation is easy to
+overlook and is the most likely way a deletion silently fails to take effect.
 
-### 21.4 Retention
+### 21.4 Retention and end-of-year purge
 
-- Closed school years are retained as read-only history by default (§11.1).
-- An organization SHOULD be able to configure a retention period after which closed years are
-  purged, and MUST be able to purge a closed year on request.
-- Share links expire independently and much sooner (§9.5), so retention of a year does not imply
-  continued exposure of its published artifacts.
-- Purging a year MUST remove its personal data in full, on the same terms as §21.3.
+Closed school years are retained only as long as organizers need them for wrap-up, correction,
+artifact regeneration or reporting. The expected end-of-year posture is to purge the year to reduce
+data risk.
 
-Retention deliberately does not depend on cross-year identity, because there is none by design
-(§5.6). Each year is independently disposable.
+Requirements:
+
+- Purge is explicit and Owner-only. Closing a year does not automatically purge it.
+- A closed year SHOULD prominently offer an Owner-only purge action explaining that purge is
+  recommended for risk reduction and is irreversible.
+- Purging a year MUST remove all year-scoped personal and operational data: students, adults,
+  guardian relationships, invitation contacts, terms acceptances, preferences, program memberships,
+  session participation, assignments, staffing, tags, comments, solve runs, published snapshots and
+  share links.
+- A purge MUST leave at most a minimal non-identifying school-year shell: organization, year label,
+  `Purged` state, purge actor, purge time and non-identifying audit fact that a purge occurred.
+- A purged year MUST NOT be restored to operational use except by restoring from an authorized backup
+  under an explicit disaster-recovery procedure. Ordinary UI must treat it as gone.
+
+Retention deliberately does not depend on cross-year identity, because v1 has none by design (§5.6,
+§8.7). Each year is independently disposable.
 
 ### 21.5 Exposure surfaces
 
@@ -2777,12 +2996,16 @@ Every way personal data leaves the administrative interface, and its control:
 
 | Surface | Control |
 |---|---|
-| Public share links | Session-scoped, expiring, revocable; content restricted by §18.5 |
-| Guardian view | Authenticated; own students only (§6.2) |
-| Class leader view | Tokenized; own offerings only |
+| Guardian registration entry | Organization-and-year-scoped, expiring and revocable entry link; no write authority until mailbox proof and terms acceptance (§11.3) |
+| Invitation email import/export | Production bulk exception for contact metadata only; no adult/student records before redemption (§11.3) |
+| Student matching | Guardian-authenticated; minimal candidate display only (§11.5) |
+| Guardian view | Authenticated; own profile and current guardian-scoped students only (§6.2) |
+| Public share links | Session-scoped, expiring, revocable; content restricted by §18.5 and regenerated after deletion/de-identification (§18.2) |
+
 | Print views | Inherit the sensitivity rules of their source surface |
 | Exports and reports | Administrator-only; MUST respect sensitivity levels |
-| Audit log | `Owner` and `Administrator` only |
+| Audit log and registration provenance | `Owner` and `Administrator` only; deletion redacts personal content under §21.3 |
+| Debug/test importer | Non-production only; synthetic data only (§11.8) |
 
 An implementation MUST NOT add an export or reporting path that bypasses §21.2. The most probable
 regression in this system is a convenience export that flattens everything into one file.
@@ -2793,9 +3016,9 @@ Cross-tenant disclosure is the highest-severity failure the system can produce: 
 school's children to another organization entirely.
 
 The controls are specified in §9.1 and §9.2 — row-level scoping, a central default-deny guard, and
-mandatory isolation tests. They are restated here to make clear that they are privacy controls and
-not merely a data-partitioning convenience, and that weakening them for operational convenience is
-not an acceptable trade.
+mandatory isolation tests. They are restated here to make clear that they are privacy controls and not
+merely a data-partitioning convenience, and that weakening them for operational convenience is not an
+acceptable trade.
 
 ## 22. Non-Functional Requirements
 
@@ -2817,8 +3040,9 @@ engineering error here is building for a scale that will never arrive.
 | Concurrent administrators | 1, occasionally 2 | 10 |
 
 **Concurrency.** Administrative work is effectively single-user. The genuine concurrency peaks are
-elsewhere and are read-only: guardians submitting preferences in the days before a deadline, and
-published links being opened at the start of a session.
+elsewhere: guardians self-registering or submitting preferences in the days before a deadline, and
+published links being opened at the start of a session. Registration and preference submission are
+small writes and MUST remain correct when two adults act for the same child concurrently.
 
 **Total data volume** for a tenant-year is measured in tens of thousands of rows. An implementation
 SHOULD prefer the direct approach over the scalable one wherever they diverge (§5.7).
@@ -2851,11 +3075,13 @@ asynchronous and tolerates downtime; brief outages during the week are acceptabl
 The exception is the published artifacts. The dismissal list is consulted at a fixed moment each
 week, by staff, with children waiting — 12:45 on a Friday in the reference program. Published pages
 SHOULD therefore be servable independently of the administrative application, and SHOULD remain
-available even when solving, importing or reporting is degraded.
+available even when solving, registration review or reporting is degraded.
 
-**Durability** requirements are not modest. Loss of a school year's preferences, placements or
-history is unrecoverable, because the source material — what a child said they wanted in September —
-cannot be regenerated. Backups MUST exist and restoration MUST be tested.
+**Durability** requirements are not modest before purge. Loss of an active or retained closed school
+year's preferences, placements or history is unrecoverable, because the source material — what a child
+said they wanted in September — cannot be regenerated. Backups MUST exist and restoration MUST be
+tested. Once an Owner purges a year (§21.4), that purge is an intentional irreversible data-removal
+event; restoration procedures MUST NOT casually reintroduce purged personal data.
 
 ### 22.4 Accessibility and print
 
@@ -2878,7 +3104,7 @@ The system MUST be able to answer, without recourse to a database console:
 | Why does this student have this placement? | §17.11 |
 | What did this solve run do, with what inputs and weights? | §20.2 |
 | Who changed this, and when? | §20.1 |
-| Which rows did this import change? | §11.5, §20.1 |
+| What did each registration submit, match, edit, detach or delete? | §11.7, §20.1 |
 | Why did this solve fail? | §17.10 |
 
 Domain-level observability is provided by the audit log and solve runs rather than by operational
@@ -2894,7 +3120,7 @@ these questions are currently unanswerable even in principle (§3.3).
 | Term | Definition |
 |---|---|
 | **Organization** | The tenant boundary. One school or program-operating body (§9.1) |
-| **School year** | A year-scoped container for people and programs. Loaded fresh each year (§11.1) |
+| **School year** | A year-scoped container for people and programs. Registered fresh each year and normally purged after close (§11.1, §21.4) |
 | **Program** | A body of enrichment activity within a school year, with its own membership, vocabulary and sessions (§12.1) |
 | **Session** | A contiguous block of meeting dates with one catalog and one placement per student (§14.1) |
 | **Meeting date** | A specific date on which a session's classes meet (§8.5) |
@@ -2915,8 +3141,12 @@ these questions are currently unanswerable even in principle (§3.3).
 | **Warning** | A visible, non-blocking indication that a soft rule is unmet or a hard rule was overridden (§16.5) |
 | **Solve run** | An immutable record of one execution of the assignment engine (§20.2) |
 | **Share link** | An unauthenticated, session-scoped, expiring URL serving a published artifact (§9.5) |
-| **Guardian** | An adult with a recorded relationship to a student; the unit of submission scope and OTP addressing (§8.2) |
-| **Class leader** | An adult assigned to run an offering (§15.3) |
+| **Guardian** | An adult with a recorded relationship to a student, normally self-asserted after mailbox proof and terms acceptance; the unit of submission scope and OTP addressing (§8.2, §11) |
+| **Registration entry link** | A high-entropy, organization-and-year-scoped link that routes a guardian to onboarding but grants no roster write authority without mailbox proof and terms acceptance (§11.3) |
+| **Invitation contact** | Imported email-only registration metadata for one organization and school year; not an adult, student or guardian record until redeemed (§11.3) |
+| **Placeholder student** | Administrator-created, intentionally de-identified student used to represent an unregistered child for operational placement (§11.7) |
+| **Purged year** | A closed school year whose personal and operational data has been removed, leaving only a non-identifying shell (§21.4) |
+
 | **Homeroom** | A student's base class group in the school; the axis of the dismissal list. Defined per school year (§10.1) |
 | **Participation** | Whether a student takes part in a program, and in a given session (§8.3) |
 
@@ -2930,7 +3160,7 @@ is this specification's own rather than the predecessor's, and is retired for a 
 |---|---|---|
 | **Class** | A mini class, *and* a homeroom, *and* at one point a database model renamed twice | **Offering** for the enrichment class; **homeroom** for the school group |
 | **Group** | The result of renaming the homeroom model to avoid the collision above | **Homeroom** |
-| **Teacher** | Both a homeroom teacher and a volunteer class leader, interchangeably | **Homeroom teacher** or **class leader** |
+| **Teacher** | Both school staff and adults volunteering to run offerings, interchangeably | **Staffing adult** for an offering role; **homeroom** for the school group |
 | **Occurrence** | A dated instance of a session | **Meeting date** |
 | **Enrollment** | Program membership, *and* placement in a class | **Membership** or **assignment** |
 | **Session** *(as a bare number)* | An integer embedded in file names, with no year context | A **session** entity with an explicit program and meeting dates (§14.1) |
@@ -2953,31 +3183,37 @@ this specification has already solved.
 
 | Item | Reason | Cost of deferring |
 |---|---|---|
-| **Bulk and workflow notifications** | Requires delivery infrastructure and consent handling; authentication email is handled separately | Organizers distribute survey codes and follow up manually, as today |
+| **Bulk and workflow notifications** | Requires delivery infrastructure and consent handling; authentication email and invitation-link export are handled separately | Organizers distribute invitation links, preference codes and follow up manually, as today |
+| **Automated invitation delivery and reminders** | Requires delivery infrastructure, bounce handling and reminder policy (§11.3) | Administrators export invitation links or use the shared entry link |
 | **Change tracking** against a published baseline | §18.2 provides a last-updated timestamp, which covers the common need | A reader cannot see *what* changed since they last looked |
 | **General student account access** | Students have only scoped survey access in v1 (§13.8) | No student dashboard, placement access, or account |
 | **Volunteer-to-class optimization** | Rejected on merit, not deferred (§15.5) | None |
-| **Cross-year identity resolution and rollover** | Rejected on merit (§5.6); the nullable link (§8.7) preserves the option | Multi-year analysis requires links to have been set |
-| **Sensitive information reaching class leaders** | §24.4 | The information is captured but unused |
+| **Cross-year identity resolution and rollover** | Rejected on merit (§5.6, §8.7), reinforced by end-of-year purge (§21.4) | Multi-year analysis is out of scope for v1 |
+| **Sensitive information reaching adults running offerings** | §24.4 | The information is captured but unused |
 | **Reverse import of external volunteer sign-ups** | Possible, not planned (§15.5) | Staffing data stays advisory |
 | **Full temporal versioning** | §20.5 | Routine roster and catalog edits are summarized, not reconstructable |
 | **Fully generalized student attributes** | §10.1; promotion path is non-breaking | Programs that are not grade-structured are unsupported |
 
 ### 24.2 Resolved: adult access mechanics
 
-Adult guardian access uses a short-lived, single-use email OTP followed by a bounded, revocable session.
-An adult who is also an administrator uses the same linked adult identity, but administration requires
-step-up MFA. Guardian mode and administration remain separate surfaces; returning to administration from
-survey mode requires reauthentication.
+Adult guardian access uses a short-lived, single-use email OTP followed by a bounded, revocable
+session. A single-use invitation link may replace the initial OTP for onboarding only (§11.3). An
+adult who is also an administrator uses the same linked adult identity, but administration requires
+step-up MFA. Guardian mode and administration remain separate surfaces; returning to administration
+from survey mode requires reauthentication.
 
-The guardian scope is the adult's current guardian relationships at request time. Distinct adult
-records MUST NOT share an email for OTP access. Account-to-adult links are explicit and identifier-based;
-email matching may suggest a link but MUST NOT create one silently. An adult without an email is
-unreachable for self-service, but an administrator can submit on behalf of the student.
+The guardian scope is the adult's current guardian relationships at request time, including
+relationships self-asserted through roster registration (§11). Registration-entry-link possession
+alone never creates this authenticated session. Distinct adult records MUST NOT share an email for OTP
+access. Account-to-adult links are explicit and identifier-based; email matching may suggest a link
+but MUST NOT create one silently. A guardian who cannot use email self-service requires the audited
+administrator-on-behalf path.
 
-Transactional authentication email is in scope. Bulk and workflow notifications, including emailing
-student codes or reminders, remain deferred. Volunteer sign-up and availability are handled through
-Konstella; this system has no non-guardian volunteer self-service access.
+Transactional authentication email is in scope. Invitation email import and invitation-link export are
+in scope, but automated invitation delivery is deferred (§11.3, §24.1). Bulk and workflow
+notifications, including emailing student codes or reminders, remain deferred. Volunteer sign-up and
+availability are handled through Konstella; this system has no non-guardian volunteer self-service
+access.
 
 ### 24.3 Deferred: broader student access
 
@@ -2988,9 +3224,9 @@ remains deferred.
 
 ### 24.4 Known limitation carried forward
 
-Sensory needs and comparable per-student context do not reach class leaders in v1 (§18.5). This is
-the same gap the current process has: the reference survey has asked the question for years, parents
-answer it substantively, and the answer reaches nobody.
+Sensory needs and comparable per-student context do not reach adults running offerings in v1 (§18.5).
+This is the same gap the current process has: the reference survey has asked the question for years,
+parents answer it substantively, and the answer reaches nobody.
 
 What changes is that the information is **captured and structured** (§10.2, §10.4) rather than
 discarded. The sensitivity model that would govern its disclosure is specified and implemented
@@ -3012,14 +3248,14 @@ be checked before or during implementation.
 | 3 | Should repeating an interest area be penalized as heavily as repeating an offering? | No — moderate versus high (§17.6) |
 | 4 | Does the interest scale need a neutral midpoint? | No; three points, as used today (§13.5) |
 | 5 | Is minimum viable enrollment a real operational concern, or is capacity alone sufficient? | Real, but low-weight (§8.4) |
-| 6 | Must every student have a homeroom? The dismissal list pivots on it. | Yes, required (§10.1) |
+| 6 | Must every student have a homeroom? The dismissal list pivots on it. | v1 guardian add/edit and placeholder forms require homeroom/classroom. Storage may remain tolerant for exceptional admin correction, but operational use requires it (§10.1, §11.5, §11.7) |
 | 7 | Can an offering meet on only some of a session's dates? | No; per-date variation is a staffing matter (§8.4) |
 | 8 | How common are students whose guardians do not live together, and should either guardian be able to see what the other submitted? | Common enough that several guardians per student is the normal shape rather than an edge case; each guardian sees the student independently and is not shown the other (§6.2, §8.2) |
-| 9 | Is the `Coordinator` role the right permission split, or is it drawn in the wrong place? | Publishing and deletion withheld (§6.6) |
+| 9 | Is the `Coordinator` role the right permission split, or is it drawn in the wrong place? | Publishing and deletion withheld (§6.4) |
 | 10 | Should a share link expire at session end, or outlive it? | Session end (§9.5) |
 | 11 | Should ranked-choice depth vary by session, or be fixed for a program? | Per session (§14.1) |
 | 12 | Is tag balance (for example across streams) genuinely wanted, given it has never actually been enforced? | Specified as a low-weight soft term (§16.4) |
-| 13 | When a homeroom's staffing changes, is the homeroom **renamed** or **retired and replaced**? Originally a real hazard: homeroom vocabularies were organization-scoped while people are year-scoped (§8.1), so a rename retroactively changed the homeroom displayed for students in closed years — which §11.1 otherwise guarantees is immutable. | **Dissolved rather than answered.** The vocabularies are now scoped to the school year (§10.1), so the premise is gone. Within an open year, a rename is a correction to that year's own facts — permitted and audited. Across years there is no rename, because next year's homeroom is a different record. A closed year's vocabulary cannot be edited at all, enforced rather than advised (§11.1). Retirement remains, for a homeroom that ceases to be used mid-year |
+| 13 | When a homeroom's staffing changes, is the homeroom **renamed** or **retired and replaced**? Originally a real hazard: homeroom vocabularies were organization-scoped while people are year-scoped (§8.1), so a rename retroactively changed the homeroom displayed for students in closed years — which §11.1 otherwise controls. | **Dissolved rather than answered.** The vocabularies are now scoped to the school year (§10.1), so the premise is gone. Within an open year, a rename is a correction to that year's own facts — permitted and audited. Across years there is no rename, because next year's homeroom is a different record. A closed year's vocabulary cannot be edited except by Owner reopen or removed by purge (§11.1). Retirement remains, for a homeroom that ceases to be used mid-year |
 | 14 | How many adults participate in a year? §22.1 expects ~60 while Appendix B.1 records 84 survey responses covering roughly 100 adults. Which figure describes the population the system must hold, and which describes active volunteers? | ~100 adults held per year, of whom ~60 are active volunteers. Sizing and test corpora use the larger figure (§22.1, B.1) |
 
 ---
