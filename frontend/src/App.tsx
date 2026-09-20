@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { HealthCheck } from "@/features/health/HealthCheck";
 import { ClaimInvitationPage } from "@/features/auth/ClaimInvitationPage";
 import { GuardianAccessPage } from "@/features/auth/GuardianAccessPage";
+import { HomePage } from "@/features/auth/HomePage";
 import { GuardianOnboardingPage } from "@/features/auth/GuardianOnboardingPage";
 import { MfaPage } from "@/features/auth/MfaPage";
 import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage";
@@ -75,7 +76,7 @@ export function AppWithAuth({ authClient }: { authClient: AuthClient | null }) {
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate replace to="/years" />} />
+      <Route path="/" element={<HomePage />} />
       <Route path="/health" element={<HealthCheck />} />
       <Route path="/sign-in" element={<SignInPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />

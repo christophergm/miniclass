@@ -67,7 +67,18 @@ vi.mock("./features/settings/SettingsPage", () => ({
 }));
 
 describe("App routing", () => {
-  it("redirects the root route to the school-year list", async () => {
+  it("shows the home page to an unauthenticated user", async () => {
+    renderApp("/", null);
+
+    expect(await screen.findByRole("heading", { name: "Mini Class" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Admin Sign In" })).toHaveAttribute("href", "/sign-in");
+    expect(screen.getByRole("link", { name: "Guardian Access" })).toHaveAttribute(
+      "href",
+      "/guardian",
+    );
+  });
+
+  it("redirects an authenticated user from the home page to the school-year list", async () => {
     renderApp("/", authenticatedClient());
     expect(await screen.findByRole("heading", { name: "School years" })).toBeInTheDocument();
   });
