@@ -265,6 +265,32 @@
 - Open items: none; Detent owns the completion-lane transition. No dependency blocker or human action is declared.
 - Skill draft: no — the existing tenant-entity and PostgreSQL isolation-harness procedures cover the reusable method; no new broadly reusable procedure was discovered.
 
+## Current work — issue #212
+
+- Scope: P4B-4 audited individual administrator corrections, explicit placeholder students,
+  reviewed placeholder reconciliation, dependent-record movement, artifact-regeneration hook, and
+  administrator review signals per SPEC §§5.2, 5.4, 11.2, 11.7, 18.2, 20.1 and PLAN Phase 4B/P4B-4.
+- Dependency: #210 is closed and PR #216 is merged on `origin/main` at `42ebaff`.
+- Implementation: timestamped migration adds placeholder/provenance state and database guards;
+  data/service/API paths require correction reasons, preserve provenance, audit actor/time/reason,
+  exclude placeholders from guardian matching, move programme membership and session
+  non-participation by opaque ID, and expose review signals. Student roster UI uses correction routes
+  and includes a year-scoped review-signals page. Published-artifact tables are not yet present in
+  this base, so reconciliation calls an injectable regeneration hook and audits the request.
+- Validation: `make GOTOOLCHAIN=local format`, full `GOTOOLCHAIN=local go test ./...`, focused
+  correction tests, project-generated artifacts, and `git diff --check` pass. The first PR run
+  found one frontend test-label assertion and one CI Biome-format difference; both are corrected
+  on the current source. `make lint-backend` is
+  environment-limited because installed golangci-lint was built with Go 1.27.1, not pinned Go
+  1.26.4. Migration round-trip, frontend dependency gates, and smoke remain to run in CI/current
+  environment as configured.
+- Repository/PR: commit `7b2958d` is pushed to open non-draft PR #218 with `Fixes #212`; the fresh
+  current-head CI run is pending after the frontend correction.
+- Open items: verify all ten current-head checks and review state, then update the persistent
+  Workpad with final telemetry.
+- Skill draft: no — existing tenant-entity and PostgreSQL isolation-harness guidance covered the
+  reusable schema and audit method; no new broadly reusable procedure was discovered.
+
 ## Current handoff — issue #187
 
 - Scope: adult email OTP, bounded/revocable guardian sessions with live relationship scope, explicit adult/account links, administration/survey/guardian mode boundaries, mandatory step-up MFA, single-use recovery codes, audited Owner reset, neutral duplicate/unknown/no-email behavior, rate limiting, and transactional SMTP delivery per SPEC §§6.2, 6.6, 9.3–9.4, 13.8, 22.5 and ADR 0013.

@@ -24,6 +24,8 @@ type Student struct {
 	GradeLevelID       *ids.XID
 	HomeroomID         ids.XID
 	ExternalIdentifier *string
+	IsPlaceholder      bool
+	Provenance         string
 	DeletedAt          *time.Time
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
@@ -31,13 +33,23 @@ type Student struct {
 
 // CreateStudent inserts a student under the transaction tenant and year.
 func (tx *Tx) CreateStudent(ctx context.Context, schoolYearID ids.XID, gradeLevelID *ids.XID, homeroomID ids.XID, legalGivenName, legalFamilyName string, preferredGivenName, externalIdentifier *string) (Student, error) {
+	return tx.CreateStudentWithMetadata(ctx, schoolYearID, gradeLevelID, homeroomID, legalGivenName, legalFamilyName, preferredGivenName, externalIdentifier, false, "legacy")
+}
+
+// CreateStudentWithMetadata inserts a roster record while preserving the
+// provenance and placeholder state that later corrections must not overwrite.
+func (tx *Tx) CreateStudentWithMetadata(ctx context.Context, schoolYearID ids.XID, gradeLevelID *ids.XID, homeroomID ids.XID, legalGivenName, legalFamilyName string, preferredGivenName, externalIdentifier *string, isPlaceholder bool, provenance string) (Student, error) {
 	legalGivenName = strings.TrimSpace(legalGivenName)
 	legalFamilyName = strings.TrimSpace(legalFamilyName)
+	provenance = strings.TrimSpace(provenance)
 	if legalGivenName == "" || legalFamilyName == "" {
 		return Student{}, errors.New("create student: legal names are required")
 	}
 	if strings.TrimSpace(string(schoolYearID)) == "" || strings.TrimSpace(string(homeroomID)) == "" {
 		return Student{}, errors.New("create student: school year and homeroom are required")
+	}
+	if provenance == "" {
+		return Student{}, errors.New("create student: provenance is required")
 	}
 	row, err := tx.queries.CreateStudent(ctx, db.CreateStudentParams{
 		OrganizationID:     tx.organizationID,
@@ -48,11 +60,13 @@ func (tx *Tx) CreateStudent(ctx context.Context, schoolYearID ids.XID, gradeLeve
 		GradeLevelID:       gradeLevelID,
 		HomeroomID:         homeroomID,
 		ExternalIdentifier: nullableStudentText(externalIdentifier),
+		IsPlaceholder:      isPlaceholder,
+		Provenance:         provenance,
 	})
 	if err != nil {
 		return Student{}, wrapStudentMutationError("create student", err)
 	}
-	return student(row)
+	return studentFromCreateRow(row)
 }
 
 // ListStudents lists students for one year. Deleted rows are opt-in.
@@ -63,7 +77,7 @@ func (tx *Tx) ListStudents(ctx context.Context, schoolYearID ids.XID, includeDel
 	}
 	result := make([]Student, 0, len(rows))
 	for _, row := range rows {
-		value, err := student(row)
+		value, err := studentFromListStudentsRow(row)
 		if err != nil {
 			return nil, err
 		}
@@ -81,7 +95,7 @@ func (tx *Tx) GetStudentByID(ctx context.Context, schoolYearID, id ids.XID) (Stu
 	if err != nil {
 		return Student{}, fmt.Errorf("get student: %w", err)
 	}
-	return student(row)
+	return studentFromGetStudentByIDRow(row)
 }
 
 // GetStudentByIDIncludingDeleted is reserved for restore and other explicit
@@ -95,7 +109,7 @@ func (tx *Tx) GetStudentByIDIncludingDeleted(ctx context.Context, schoolYearID, 
 	if err != nil {
 		return Student{}, fmt.Errorf("get student including deleted: %w", err)
 	}
-	return student(row)
+	return studentFromGetStudentByIDIncludingDeletedRow(row)
 }
 
 // UpdateStudent replaces the editable fields of one active student.
@@ -117,7 +131,7 @@ func (tx *Tx) UpdateStudent(ctx context.Context, schoolYearID, id ids.XID, legal
 	if err != nil {
 		return Student{}, wrapStudentMutationError("update student", err)
 	}
-	return student(row)
+	return studentFromUpdateRow(row)
 }
 
 // SoftDeleteStudent hides an active student while preserving audit/history
@@ -137,7 +151,7 @@ func (tx *Tx) DeidentifyStudent(ctx context.Context, schoolYearID, id ids.XID) (
 	if err != nil {
 		return Student{}, wrapStudentMutationError("de-identify student", err)
 	}
-	return student(row)
+	return studentFromDeidentifyRow(row)
 }
 
 func (tx *Tx) CountStudentAssociatedData(ctx context.Context, schoolYearID, id ids.XID) (int64, error) {
@@ -181,7 +195,7 @@ func (tx *Tx) RestoreStudent(ctx context.Context, schoolYearID, id ids.XID) (Stu
 	if err != nil {
 		return Student{}, wrapStudentMutationError("restore student", err)
 	}
-	return student(row)
+	return studentFromRestoreRow(row)
 }
 
 // ListAllActiveStudentsForRegistry is used only by the isolation registry.
@@ -192,7 +206,7 @@ func (tx *Tx) ListAllActiveStudentsForRegistry(ctx context.Context) ([]Student, 
 	}
 	result := make([]Student, 0, len(rows))
 	for _, row := range rows {
-		value, err := student(row)
+		value, err := studentFromListAllActiveStudentsForRegistryRow(row)
 		if err != nil {
 			return nil, err
 		}
@@ -211,27 +225,70 @@ func (tx *Tx) FindStudentForRegistry(ctx context.Context, id ids.XID) (Student, 
 		}
 		return Student{}, "", fmt.Errorf("find student for registry: %w", err)
 	}
-	value, err := student(row)
+	value, err := studentFromFindStudentForRegistryRow(row)
 	return value, value.SchoolYearID, err
 }
 
-func student(row db.Student) (Student, error) {
-	createdAt, err := studentTime(row.CreatedAt, "created_at")
+func studentFromParts(id, organizationID, schoolYearID ids.XID, legalGivenName, legalFamilyName string, preferredGivenName pgtype.Text, gradeLevelID *ids.XID, homeroomID ids.XID, externalIdentifier pgtype.Text, isPlaceholder bool, provenance string, deletedAt, createdAtValue, updatedAtValue pgtype.Timestamptz) (Student, error) {
+	createdAt, err := studentTime(createdAtValue, "created_at")
 	if err != nil {
 		return Student{}, err
 	}
-	updatedAt, err := studentTime(row.UpdatedAt, "updated_at")
+	updatedAt, err := studentTime(updatedAtValue, "updated_at")
 	if err != nil {
 		return Student{}, err
 	}
 	return Student{
-		ID: row.ID, OrganizationID: row.OrganizationID, SchoolYearID: row.SchoolYearID,
-		LegalGivenName: row.LegalGivenName, LegalFamilyName: row.LegalFamilyName,
-		PreferredGivenName: nullableStudentString(row.PreferredGivenName), GradeLevelID: row.GradeLevelID,
-		HomeroomID: row.HomeroomID, ExternalIdentifier: nullableStudentString(row.ExternalIdentifier),
-		DeletedAt: nullableStudentTime(row.DeletedAt),
-		CreatedAt: createdAt, UpdatedAt: updatedAt,
+		ID: id, OrganizationID: organizationID,
+		SchoolYearID:       schoolYearID,
+		LegalGivenName:     legalGivenName,
+		LegalFamilyName:    legalFamilyName,
+		PreferredGivenName: nullableStudentString(preferredGivenName),
+		GradeLevelID:       gradeLevelID,
+		HomeroomID:         homeroomID,
+		ExternalIdentifier: nullableStudentString(externalIdentifier),
+		IsPlaceholder:      isPlaceholder,
+		Provenance:         provenance,
+		DeletedAt:          nullableStudentTime(deletedAt),
+		CreatedAt:          createdAt,
+		UpdatedAt:          updatedAt,
 	}, nil
+}
+
+func studentFromCreateRow(row db.CreateStudentRow) (Student, error) {
+	return studentFromParts(row.ID, row.OrganizationID, row.SchoolYearID, row.LegalGivenName, row.LegalFamilyName, row.PreferredGivenName, row.GradeLevelID, row.HomeroomID, row.ExternalIdentifier, row.IsPlaceholder, row.Provenance, row.DeletedAt, row.CreatedAt, row.UpdatedAt)
+}
+
+func studentFromListStudentsRow(row db.ListStudentsRow) (Student, error) {
+	return studentFromParts(row.ID, row.OrganizationID, row.SchoolYearID, row.LegalGivenName, row.LegalFamilyName, row.PreferredGivenName, row.GradeLevelID, row.HomeroomID, row.ExternalIdentifier, row.IsPlaceholder, row.Provenance, row.DeletedAt, row.CreatedAt, row.UpdatedAt)
+}
+
+func studentFromGetStudentByIDRow(row db.GetStudentByIDRow) (Student, error) {
+	return studentFromParts(row.ID, row.OrganizationID, row.SchoolYearID, row.LegalGivenName, row.LegalFamilyName, row.PreferredGivenName, row.GradeLevelID, row.HomeroomID, row.ExternalIdentifier, row.IsPlaceholder, row.Provenance, row.DeletedAt, row.CreatedAt, row.UpdatedAt)
+}
+
+func studentFromGetStudentByIDIncludingDeletedRow(row db.GetStudentByIDIncludingDeletedRow) (Student, error) {
+	return studentFromParts(row.ID, row.OrganizationID, row.SchoolYearID, row.LegalGivenName, row.LegalFamilyName, row.PreferredGivenName, row.GradeLevelID, row.HomeroomID, row.ExternalIdentifier, row.IsPlaceholder, row.Provenance, row.DeletedAt, row.CreatedAt, row.UpdatedAt)
+}
+
+func studentFromUpdateRow(row db.UpdateStudentRow) (Student, error) {
+	return studentFromParts(row.ID, row.OrganizationID, row.SchoolYearID, row.LegalGivenName, row.LegalFamilyName, row.PreferredGivenName, row.GradeLevelID, row.HomeroomID, row.ExternalIdentifier, row.IsPlaceholder, row.Provenance, row.DeletedAt, row.CreatedAt, row.UpdatedAt)
+}
+
+func studentFromRestoreRow(row db.RestoreStudentRow) (Student, error) {
+	return studentFromParts(row.ID, row.OrganizationID, row.SchoolYearID, row.LegalGivenName, row.LegalFamilyName, row.PreferredGivenName, row.GradeLevelID, row.HomeroomID, row.ExternalIdentifier, row.IsPlaceholder, row.Provenance, row.DeletedAt, row.CreatedAt, row.UpdatedAt)
+}
+
+func studentFromDeidentifyRow(row db.DeidentifyStudentRow) (Student, error) {
+	return studentFromParts(row.ID, row.OrganizationID, row.SchoolYearID, row.LegalGivenName, row.LegalFamilyName, row.PreferredGivenName, row.GradeLevelID, row.HomeroomID, row.ExternalIdentifier, row.IsPlaceholder, row.Provenance, row.DeletedAt, row.CreatedAt, row.UpdatedAt)
+}
+
+func studentFromListAllActiveStudentsForRegistryRow(row db.ListAllActiveStudentsForRegistryRow) (Student, error) {
+	return studentFromParts(row.ID, row.OrganizationID, row.SchoolYearID, row.LegalGivenName, row.LegalFamilyName, row.PreferredGivenName, row.GradeLevelID, row.HomeroomID, row.ExternalIdentifier, row.IsPlaceholder, row.Provenance, row.DeletedAt, row.CreatedAt, row.UpdatedAt)
+}
+
+func studentFromFindStudentForRegistryRow(row db.FindStudentForRegistryRow) (Student, error) {
+	return studentFromParts(row.ID, row.OrganizationID, row.SchoolYearID, row.LegalGivenName, row.LegalFamilyName, row.PreferredGivenName, row.GradeLevelID, row.HomeroomID, row.ExternalIdentifier, row.IsPlaceholder, row.Provenance, row.DeletedAt, row.CreatedAt, row.UpdatedAt)
 }
 
 func nullableStudentText(value *string) pgtype.Text {

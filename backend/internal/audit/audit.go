@@ -86,6 +86,9 @@ const (
 	ActionGuardianTermsAccepted          Action = "guardian_terms_accepted"
 	ActionGuardianOnboardingCompleted    Action = "guardian_onboarding_completed"
 	ActionGuardianOnboardingRevoked      Action = "guardian_onboarding_revoked"
+	ActionStudentAdminCorrection         Action = "student_admin_correction"
+	ActionPlaceholderStudentCreate       Action = "placeholder_student_create"
+	ActionStudentReconciliation          Action = "student_reconciliation"
 	ActionGuardianDetach                 Action = "guardian_detach"
 	ActionPersonalDataDelete             Action = "personal_data_delete"
 )
@@ -158,6 +161,9 @@ var actions = []Action{
 	ActionGuardianTermsAccepted,
 	ActionGuardianOnboardingCompleted,
 	ActionGuardianOnboardingRevoked,
+	ActionStudentAdminCorrection,
+	ActionPlaceholderStudentCreate,
+	ActionStudentReconciliation,
 	ActionGuardianDetach,
 	ActionPersonalDataDelete,
 }

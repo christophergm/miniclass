@@ -7,15 +7,17 @@ insert into students (
     preferred_given_name,
     grade_level_id,
     homeroom_id,
-    external_identifier
+    external_identifier,
+    is_placeholder,
+    provenance
 )
-values ($1, $2, $3, $4, $5, $6, $7, $8)
+values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 returning id, organization_id, school_year_id, legal_given_name, legal_family_name,
-    preferred_given_name, grade_level_id, homeroom_id, external_identifier, deleted_at, created_at, updated_at;
+    preferred_given_name, grade_level_id, homeroom_id, external_identifier, is_placeholder, provenance, deleted_at, created_at, updated_at;
 
 -- name: ListStudents :many
 select id, organization_id, school_year_id, legal_given_name, legal_family_name,
-    preferred_given_name, grade_level_id, homeroom_id, external_identifier, deleted_at, created_at, updated_at
+    preferred_given_name, grade_level_id, homeroom_id, external_identifier, is_placeholder, provenance, deleted_at, created_at, updated_at
 from students
 where organization_id = $1
   and school_year_id = $2
@@ -24,7 +26,7 @@ order by legal_family_name, coalesce(preferred_given_name, legal_given_name), le
 
 -- name: GetStudentByID :one
 select id, organization_id, school_year_id, legal_given_name, legal_family_name,
-    preferred_given_name, grade_level_id, homeroom_id, external_identifier, deleted_at, created_at, updated_at
+    preferred_given_name, grade_level_id, homeroom_id, external_identifier, is_placeholder, provenance, deleted_at, created_at, updated_at
 from students
 where id = $1
   and organization_id = $2
@@ -33,7 +35,7 @@ where id = $1
 
 -- name: GetStudentByIDIncludingDeleted :one
 select id, organization_id, school_year_id, legal_given_name, legal_family_name,
-    preferred_given_name, grade_level_id, homeroom_id, external_identifier, deleted_at, created_at, updated_at
+    preferred_given_name, grade_level_id, homeroom_id, external_identifier, is_placeholder, provenance, deleted_at, created_at, updated_at
 from students
 where id = $1
   and organization_id = $2
@@ -52,7 +54,7 @@ where id = $1
   and school_year_id = $3
   and deleted_at is null
 returning id, organization_id, school_year_id, legal_given_name, legal_family_name,
-    preferred_given_name, grade_level_id, homeroom_id, external_identifier, deleted_at, created_at, updated_at;
+    preferred_given_name, grade_level_id, homeroom_id, external_identifier, is_placeholder, provenance, deleted_at, created_at, updated_at;
 
 -- name: SoftDeleteStudent :execrows
 update students
@@ -69,7 +71,7 @@ set legal_given_name = 'Deleted student', legal_family_name = 'Deleted student',
     deleted_at = coalesce(deleted_at, now())
 where id = $1 and organization_id = $2 and school_year_id = $3 and deleted_at is null
 returning id, organization_id, school_year_id, legal_given_name, legal_family_name,
-    preferred_given_name, grade_level_id, homeroom_id, external_identifier, deleted_at, created_at, updated_at;
+    preferred_given_name, grade_level_id, homeroom_id, external_identifier, is_placeholder, provenance, deleted_at, created_at, updated_at;
 
 -- name: CountStudentAssociatedData :one
 select (
@@ -121,11 +123,11 @@ where id = $1
   and school_year_id = $3
   and deleted_at is not null
 returning id, organization_id, school_year_id, legal_given_name, legal_family_name,
-    preferred_given_name, grade_level_id, homeroom_id, external_identifier, deleted_at, created_at, updated_at;
+    preferred_given_name, grade_level_id, homeroom_id, external_identifier, is_placeholder, provenance, deleted_at, created_at, updated_at;
 
 -- name: ListAllActiveStudentsForRegistry :many
 select id, organization_id, school_year_id, legal_given_name, legal_family_name,
-    preferred_given_name, grade_level_id, homeroom_id, external_identifier, deleted_at, created_at, updated_at
+    preferred_given_name, grade_level_id, homeroom_id, external_identifier, is_placeholder, provenance, deleted_at, created_at, updated_at
 from students
 where organization_id = $1
   and deleted_at is null
@@ -133,7 +135,7 @@ order by id;
 
 -- name: FindStudentForRegistry :one
 select id, organization_id, school_year_id, legal_given_name, legal_family_name,
-    preferred_given_name, grade_level_id, homeroom_id, external_identifier, deleted_at, created_at, updated_at
+    preferred_given_name, grade_level_id, homeroom_id, external_identifier, is_placeholder, provenance, deleted_at, created_at, updated_at
 from students
 where id = $1
   and organization_id = $2

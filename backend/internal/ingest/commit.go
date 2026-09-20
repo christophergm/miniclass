@@ -177,7 +177,7 @@ func commitRoster(ctx context.Context, request CommitRequest) error {
 			studentBySource[source.SourceExternalIdentifier] = matches[0]
 		case OutcomeCreate:
 			externalIdentifier := strings.TrimSpace(source.SourceExternalIdentifier)
-			created, err := request.Tx.CreateStudent(ctx, ids.XID(request.SchoolYearID), nil, homeroomID, source.GivenName, source.FamilyName, nil, &externalIdentifier)
+			created, err := request.Tx.CreateStudentWithMetadata(ctx, ids.XID(request.SchoolYearID), nil, homeroomID, source.GivenName, source.FamilyName, nil, &externalIdentifier, false, "import")
 			if err != nil {
 				return fmt.Errorf("create student %q: %w", source.SourceExternalIdentifier, err)
 			}

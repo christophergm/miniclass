@@ -589,7 +589,7 @@ func (s *Store) Complete(ctx context.Context, input guardian.CompleteInput) (gua
 		default:
 			return guardian.ErrOnboardingEmailConflict
 		}
-		student, err := tx.CreateStudent(ctx, *session.SchoolYearID, &input.GradeLevelID, input.HomeroomID, input.StudentGivenName, input.StudentFamilyName, nil, nil)
+		student, err := tx.CreateStudentWithMetadata(ctx, *session.SchoolYearID, &input.GradeLevelID, input.HomeroomID, input.StudentGivenName, input.StudentFamilyName, nil, nil, false, "guardian")
 		if err != nil {
 			return err
 		}

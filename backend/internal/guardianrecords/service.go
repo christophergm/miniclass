@@ -302,7 +302,7 @@ func (s *Service) Create(ctx context.Context, principal auth.GuardianPrincipal, 
 		if _, err := tx.GetHomeroomByID(ctx, principal.SchoolYearID, input.HomeroomID); err != nil {
 			return err
 		}
-		student, err := tx.CreateStudent(ctx, principal.SchoolYearID, &input.GradeLevelID, input.HomeroomID, input.LegalGivenName, input.LegalFamilyName, input.PreferredGivenName, nil)
+		student, err := tx.CreateStudentWithMetadata(ctx, principal.SchoolYearID, &input.GradeLevelID, input.HomeroomID, input.LegalGivenName, input.LegalFamilyName, input.PreferredGivenName, nil, false, "guardian")
 		if err != nil {
 			return err
 		}
@@ -463,6 +463,9 @@ func normalize(value string) string {
 }
 
 func isPlaceholder(student data.Student) bool {
+	if student.IsPlaceholder {
+		return true
+	}
 	value := normalize(student.LegalGivenName + " " + student.LegalFamilyName)
 	for _, marker := range []string{"placeholder", "unknown", "not known", "n/a", "tbd"} {
 		if value == marker || strings.Contains(value, marker) {

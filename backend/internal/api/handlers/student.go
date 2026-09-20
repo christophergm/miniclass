@@ -41,6 +41,8 @@ type StudentResponse struct {
 	GradeLevelID       *string    `json:"grade_level_id" nullable:"true" doc:"Opaque grade-level identifier."`
 	HomeroomID         string     `json:"homeroom_id" doc:"Opaque homeroom identifier."`
 	ExternalIdentifier *string    `json:"external_identifier,omitempty"`
+	IsPlaceholder      bool       `json:"is_placeholder,omitempty" doc:"True when this is an administrator-created placeholder."`
+	Provenance         string     `json:"provenance,omitempty" doc:"Creation provenance for audit and reconciliation."`
 	DisplayName        string     `json:"display_name"`
 	DeletedAt          *time.Time `json:"deleted_at,omitempty"`
 	CreatedAt          time.Time  `json:"created_at"`
@@ -226,7 +228,8 @@ func studentResponse(row data.Student) StudentResponse {
 		GradeLevelID: optionalXIDString(row.GradeLevelID), HomeroomID: string(row.HomeroomID), ExternalIdentifier: row.ExternalIdentifier,
 		DisplayName: people.DisplayName(preferred, &legalGiven, &legalFamily),
 		DeletedAt:   row.DeletedAt,
-		CreatedAt:   row.CreatedAt, UpdatedAt: row.UpdatedAt,
+		CreatedAt:   row.CreatedAt,
+		UpdatedAt:   row.UpdatedAt,
 	}
 }
 

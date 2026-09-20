@@ -40,6 +40,7 @@ import {
   adultApi,
   relatedPeopleByPerson,
   studentApi,
+  studentCorrectionApi,
   type Adult,
   type AdultInput,
   type ParticipationIntent,
@@ -47,7 +48,7 @@ import {
   type PersonSummary,
   type RelatedPerson,
   type Student,
-  type StudentInput,
+  type StudentCorrectionInput,
 } from "./roster";
 
 type PageProps = { kind: PersonKind };
@@ -165,6 +166,11 @@ export function PeopleListPage({ kind }: PageProps) {
         <Button asChild>
           <Link to={`/y/${schoolYearId}/${copy.path}/new`}>Add {copy.singular}</Link>
         </Button>
+        {kind === "student" && (
+          <Button asChild variant="outline">
+            <Link to={`/y/${schoolYearId}/students/review`}>Review signals</Link>
+          </Button>
+        )}
       </div>
 
       <section aria-label={`${copy.plural} filters`} className="mt-8 rounded-lg border bg-card p-4">
@@ -449,9 +455,9 @@ export function PersonDetailPage({ kind }: PageProps) {
   const save = useRosterMutation<PersonInputValues, Student | Adult>(schoolYearId, (next) =>
     savePerson(kind, schoolYearId!, recordId, next),
   );
-  const remove = useRosterMutation<void, void>(schoolYearId, () =>
+  const remove = useRosterMutation<{ reason: string } | undefined, void>(schoolYearId, (value) =>
     kind === "student"
-      ? studentApi.remove(schoolYearId!, personId!)
+      ? studentCorrectionApi.remove(schoolYearId!, personId!, value?.reason ?? "")
       : adultApi.remove(schoolYearId!, personId!),
   );
   const [values, setValues] = useState<PersonInputValues>(() => emptyValues(kind));
@@ -510,9 +516,14 @@ export function PersonDetailPage({ kind }: PageProps) {
   function handleDelete() {
     if (!personId || isDeleting) return;
     if (!window.confirm(`Delete ${person?.display_name ?? copy.singular}?`)) return;
-    remove.mutate(undefined, {
-      onSuccess: () => navigate(`/y/${yearId}/${copy.path}`, { replace: true }),
-    });
+    const reason = kind === "student" ? window.prompt("Correction reason / source authority") : "";
+    if (kind === "student" && !reason?.trim()) return;
+    remove.mutate(
+      { reason: reason ?? "" },
+      {
+        onSuccess: () => navigate(`/y/${yearId}/${copy.path}`, { replace: true }),
+      },
+    );
   }
 
   const vocabulary = vocabularyQuery.data ?? null;
@@ -586,6 +597,18 @@ export function PersonDetailPage({ kind }: PageProps) {
             error={fieldErrors.external_identifier}
             onChange={(value) => setValues({ ...values, external_identifier: value })}
           />
+          {kind === "student" && (
+            <Field
+              label="Correction reason / source authority"
+              name="correction_reason"
+              value={(values as StudentInputValues).correction_reason}
+              error={fieldErrors.reason}
+              onChange={(value) =>
+                setValues({ ...values, correction_reason: value } as StudentInputValues)
+              }
+              hint="Required for every administrator student correction."
+            />
+          )}
           {kind === "student" ? (
             <>
               <Select
@@ -684,6 +707,7 @@ type StudentInputValues = {
   external_identifier: string;
   grade_level_id: string;
   homeroom_id: string;
+  correction_reason: string;
 };
 type AdultInputValues = {
   legal_given_name: string;
@@ -704,6 +728,7 @@ function emptyValues(kind: PersonKind): PersonInputValues {
         external_identifier: "",
         grade_level_id: "",
         homeroom_id: "",
+        correction_reason: "",
       }
     : {
         legal_given_name: "",
@@ -728,6 +753,7 @@ function valuesFromPerson(kind: PersonKind, person: PersonSummary): PersonInputV
         ...common,
         grade_level_id: (person as Student).grade_level_id ?? "",
         homeroom_id: (person as Student).homeroom_id,
+        correction_reason: "",
       }
     : {
         ...common,
@@ -749,17 +775,18 @@ function savePerson(
 ): Promise<Student | Adult> {
   if (kind === "student") {
     const student = values as StudentInputValues;
-    const body: StudentInput = {
+    const body: StudentCorrectionInput = {
       legal_given_name: student.legal_given_name,
       legal_family_name: student.legal_family_name,
       homeroom_id: student.homeroom_id,
+      reason: student.correction_reason,
       ...optional("grade_level_id", student.grade_level_id),
       ...optional("preferred_given_name", student.preferred_given_name),
       ...optional("external_identifier", student.external_identifier),
     };
     return personId
-      ? studentApi.update(schoolYearId, personId, body)
-      : studentApi.create(schoolYearId, body);
+      ? studentCorrectionApi.update(schoolYearId, personId, body)
+      : studentCorrectionApi.create(schoolYearId, body);
   }
 
   const adult = values as AdultInputValues;

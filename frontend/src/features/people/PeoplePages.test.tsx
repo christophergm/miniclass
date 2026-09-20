@@ -12,6 +12,7 @@ import {
   adultApi,
   guardianApi,
   studentApi,
+  studentCorrectionApi,
   type Adult,
   type GuardianRelationship,
   type Student,
@@ -618,7 +619,7 @@ describe("people roster pages", () => {
   });
 
   it("sends the grade and homeroom identifiers the contract requires, not their labels", async () => {
-    const create = vi.spyOn(studentApi, "create").mockResolvedValue(students[0]);
+    const create = vi.spyOn(studentCorrectionApi, "create").mockResolvedValue(students[0]);
 
     renderStudents("/y/year-1/students/new");
     await waitFor(() => expect(screen.getByLabelText("Grade")).toContainHTML("Second grade"));
@@ -627,6 +628,9 @@ describe("people roster pages", () => {
     fireEvent.change(screen.getByLabelText("Legal family name"), { target: { value: "Zephyr" } });
     fireEvent.change(screen.getByLabelText("Grade"), { target: { value: "grade-2" } });
     fireEvent.change(screen.getByLabelText("Homeroom"), { target: { value: "homeroom-c" } });
+    fireEvent.change(screen.getByLabelText(/Correction reason \/ source authority/), {
+      target: { value: "signed roster correction" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() =>
@@ -635,12 +639,13 @@ describe("people roster pages", () => {
         legal_family_name: "Zephyr",
         grade_level_id: "grade-2",
         homeroom_id: "homeroom-c",
+        reason: "signed roster correction",
       }),
     );
   });
 
   it("renders server field errors inline without client-side validation", async () => {
-    vi.spyOn(studentApi, "create").mockRejectedValue(
+    vi.spyOn(studentCorrectionApi, "create").mockRejectedValue(
       new ApiError("http", "Please correct the highlighted fields.", 422, "validation-error", [
         { location: "body.legal_given_name", message: "Legal given name is required." },
       ]),

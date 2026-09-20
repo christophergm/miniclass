@@ -61,6 +61,8 @@ export type GuardianInvitationImport = Schemas["InvitationImportResult"];
 export type MFAEnrollment = Schemas["MFAEnrollmentOutputBody"];
 export type AdministrativeSession = Schemas["AdministrativeSessionOutputBody"];
 export type AdultAccountLink = Schemas["AdultAccountLinkResponse"];
+export type StudentReviewSignal = Schemas["StudentReviewSignalResponse"];
+export type StudentReviewSignals = Schemas["StudentReviewSignalsResponse"];
 
 export const resourceApi = {
   getHealth: () => unwrap(api.GET("/api/health")),
@@ -245,6 +247,12 @@ export const resourceApi = {
     unwrapList(
       api.GET("/api/school-years/{schoolYearID}/students", {
         params: { path: { schoolYearID }, query: { include_deleted: false } },
+      }),
+    ),
+  listStudentReviewSignals: (schoolYearID: string) =>
+    unwrap(
+      api.GET("/api/school-years/{schoolYearID}/student-review-signals", {
+        params: { path: { schoolYearID } },
       }),
     ),
   listInterestAreas: (schoolYearID: string, programID: string, includeRetired = true) =>

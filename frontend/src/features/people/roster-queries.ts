@@ -9,6 +9,7 @@ import {
   type PersonKind,
   type Student,
 } from "./roster";
+import { resourceApi } from "@/lib/apiResources";
 
 // The roster surfaces run on React Query for the same reason every other
 // surface in the app does. Three consequences matter here:
@@ -86,6 +87,15 @@ export function useYearGuardianRelationships(schoolYearId: string | undefined) {
     enabled: Boolean(schoolYearId),
     queryKey: [...rosterKey(schoolYearId ?? ""), "guardian-relationships", "year"],
     queryFn: () => guardianApi.listForYear(schoolYearId!),
+    staleTime: rosterStaleTime,
+  });
+}
+
+export function useStudentReviewSignals(schoolYearId: string | undefined) {
+  return useQuery({
+    enabled: Boolean(schoolYearId),
+    queryKey: [...rosterKey(schoolYearId ?? ""), "review-signals"],
+    queryFn: () => resourceApi.listStudentReviewSignals(schoolYearId!),
     staleTime: rosterStaleTime,
   });
 }
