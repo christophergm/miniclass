@@ -1,3 +1,16 @@
+## Current work — issue #210
+
+- Scope: guardian-managed student records and privacy-safe matching per SPEC §§8.2, 8.7, 10.1, 11.5–11.7 and PLAN.md Phase 4B/P4B-2.
+- P4B-1 (#209) is now closed and PR #215 is merged; `origin/main` includes the guardian onboarding/session primitives at `288034d`.
+- Dependency: the native GitHub dependency relation from #210 to #209 is terminal; implementation may proceed.
+- Workpad: issue comment https://github.com/christophergm/miniclass/issues/210#issuecomment-5746968542 is the persistent plan and structured in-progress status; no second Workpad comment was created.
+- Implementation: `backend/internal/guardianrecords/service.go` and `backend/internal/api/handlers/guardian_records.go` add live-scope list, exact normalized same-year candidate matching with placeholder exclusion, atomic select/create, scoped student edits, permitted profile edits, and non-blocking attribute-review warnings. API routes are wired through `ServerOptions`, `cmd/api`, and generated `backend/openapi.json`; frontend API wrappers, hooks, route, and mobile-friendly guardian student page are added.
+- Repository/PR: commits `0286308`, `a3bd7c8`, `442ec39`, and `12d0854` are pushed to open PR #216, which references `Fixes #210` and is non-draft. The first PR run exposed frontend formatting and the next run exposed one fixture-label assertion; both are fixed on the latest head `12d0854`.
+- Skills read: `.detent/skills/add-tenant-scoped-entity.md` and `.detent/skills/postgres-tenant-isolation-harness.md`.
+- Validation: focused integration compilation passes; all ten required CI checks pass on PR #216 head `12d0854` in run `35484887636`; `git diff --check` passes. CI duration was 2m22s for Backend tests, 1m55s for Generated code drift, 1m25s for Developer tooling, and 1m21s for Backend lint. Local backend lint remains unavailable because the installed golangci-lint was built with Go 1.27.1 instead of pinned Go 1.26.4; local frontend dependencies are absent.
+- Open items: none. PR #216 is open, non-draft, merge-clean, references `Fixes #210`, and has no reviews or inline comments requiring action. Detent owns the completion-lane transition.
+- Skill draft: no — this implementation uses the existing tenant-data and auth conventions without exposing a new broadly reusable procedure.
+
 ## Current work — issue #191
 
 - Scope: complete Phase 4 integration, accessibility, security validation, generated-client wiring, and documentation consistency per SPEC §§5.2, 9.2–9.4, 13, 14.3, 19.5, 22.4–22.5 and ADR 0013.

@@ -34,6 +34,7 @@ type ServerOptions struct {
 	Adults                 handlers.AdultService
 	Students               handlers.StudentService
 	GuardianRelationships  handlers.GuardianRelationshipService
+	GuardianRecords        handlers.GuardianRecordsService
 	ImportPreview          handlers.ImportPreviewService
 	ImportCommit           handlers.ImportCommitService
 	Programs               handlers.ProgramService
@@ -94,6 +95,7 @@ func NewServer(options ...ServerOption) *Server {
 		Adults:                 settings.Adults,
 		Students:               settings.Students,
 		GuardianRelationships:  settings.GuardianRelationships,
+		GuardianRecords:        settings.GuardianRecords,
 		ImportPreview:          settings.ImportPreview,
 		ImportCommit:           settings.ImportCommit,
 		Programs:               settings.Programs,
@@ -225,6 +227,11 @@ func WithStudents(service handlers.StudentService) ServerOption {
 // WithGuardianRelationships supplies the relationship service used by guardian routes.
 func WithGuardianRelationships(service handlers.GuardianRelationshipService) ServerOption {
 	return func(options *ServerOptions) { options.GuardianRelationships = service }
+}
+
+// WithGuardianRecords supplies the guardian-managed student service.
+func WithGuardianRecords(service handlers.GuardianRecordsService) ServerOption {
+	return func(options *ServerOptions) { options.GuardianRecords = service }
 }
 
 // WithImportPreview supplies the read-only import preview service.

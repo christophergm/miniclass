@@ -34,6 +34,7 @@ type RouterOptions struct {
 	Adults                 handlers.AdultService
 	Students               handlers.StudentService
 	GuardianRelationships  handlers.GuardianRelationshipService
+	GuardianRecords        handlers.GuardianRecordsService
 	ImportPreview          handlers.ImportPreviewService
 	ImportCommit           handlers.ImportCommitService
 	Programs               handlers.ProgramService
@@ -145,6 +146,7 @@ func registerOperations(api huma.API, options RouterOptions) {
 	}, auth.CapabilityPublic, false, adultAuth.VerifyOTP)
 
 	guardianOnboarding := handlers.NewGuardianOnboardingHandler(options.GuardianOnboarding)
+	guardianRecords := handlers.NewGuardianRecordsHandler(options.GuardianRecords)
 	registerOperation(api, huma.Operation{
 		OperationID: "create-guardian-registration-entry", Method: http.MethodPost,
 		Path: apiBasePath + "/school-years/{schoolYearID}/guardian-registration-entry", Summary: "Issue a guardian registration entry token",
@@ -306,6 +308,12 @@ func registerOperations(api huma.API, options RouterOptions) {
 		Path: apiBasePath + "/auth/guardian", Summary: "Read the current guardian scope",
 		Errors: []int{http.StatusForbidden},
 	}, auth.CapabilityGuardianAccess, false, adultAuth.GuardianMe)
+	registerOperation(api, huma.Operation{OperationID: "list-guardian-students", Method: http.MethodGet, Path: apiBasePath + "/guardian/students", Summary: "List current guardian-scoped students", Errors: []int{http.StatusForbidden}}, auth.CapabilityGuardianAccess, false, guardianRecords.List)
+	registerOperation(api, huma.Operation{OperationID: "find-guardian-student-candidates", Method: http.MethodPost, Path: apiBasePath + "/guardian/students/candidates", Summary: "Find privacy-safe same-year student candidates", Errors: []int{http.StatusBadRequest, http.StatusForbidden}}, auth.CapabilityGuardianAccess, false, guardianRecords.Candidates)
+	registerOperation(api, huma.Operation{OperationID: "search-guardian-student-candidates", Method: http.MethodGet, Path: apiBasePath + "/guardian/students/candidates", Summary: "Search privacy-safe same-year student candidates", Errors: []int{http.StatusBadRequest, http.StatusForbidden}}, auth.CapabilityGuardianAccess, false, guardianRecords.CandidatesQuery)
+	registerOperation(api, huma.Operation{OperationID: "create-or-select-guardian-student", Method: http.MethodPost, Path: apiBasePath + "/guardian/students", Summary: "Create a student or select a matched student", Errors: []int{http.StatusBadRequest, http.StatusConflict, http.StatusForbidden, http.StatusNotFound}}, auth.CapabilityGuardianAccess, false, guardianRecords.Create)
+	registerOperation(api, huma.Operation{OperationID: "update-guardian-student", Method: http.MethodPatch, Path: apiBasePath + "/guardian/students/{studentID}", Summary: "Edit a current guardian-scoped student", Errors: []int{http.StatusBadRequest, http.StatusConflict, http.StatusForbidden, http.StatusNotFound}}, auth.CapabilityGuardianAccess, false, guardianRecords.Update)
+	registerOperation(api, huma.Operation{OperationID: "update-guardian-profile", Method: http.MethodPatch, Path: apiBasePath + "/guardian/profile", Summary: "Edit the authenticated guardian profile", Errors: []int{http.StatusBadRequest, http.StatusConflict, http.StatusForbidden}}, auth.CapabilityGuardianAccess, false, guardianRecords.UpdateProfile)
 	registerOperation(api, huma.Operation{
 		OperationID: "revoke-auth-session", Method: http.MethodPost,
 		Path: apiBasePath + "/auth/session/revoke", Summary: "Revoke the current application session",
