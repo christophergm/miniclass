@@ -12,6 +12,32 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countStudentAssociatedData = `-- name: CountStudentAssociatedData :one
+select (
+    (select count(*) from program_memberships pm where pm.organization_id = $2 and pm.school_year_id = $3 and pm.student_id = $1) +
+    (select count(*) from session_non_participations snp where snp.organization_id = $2 and snp.school_year_id = $3 and snp.student_id = $1) +
+    (select count(*) from interest_profile_submissions ips where ips.organization_id = $2 and ips.school_year_id = $3 and ips.student_id = $1) +
+    (select count(*) from ranked_choice_submissions rcs where rcs.organization_id = $2 and rcs.school_year_id = $3 and rcs.student_id = $1) +
+    (select count(*) from interest_profile_survey_audience_students ipsa where ipsa.organization_id = $2 and ipsa.school_year_id = $3 and ipsa.student_id = $1) +
+    (select count(*) from interest_profile_survey_audience_snapshots ipss where ipss.organization_id = $2 and ipss.school_year_id = $3 and ipss.student_id = $1) +
+    (select count(*) from ranked_choice_access_codes rcac where rcac.organization_id = $2 and rcac.school_year_id = $3 and rcac.student_id = $1) +
+    (select count(*) from interest_profile_survey_access_codes ipsac where ipsac.organization_id = $2 and ipsac.school_year_id = $3 and ipsac.student_id = $1)
+)::bigint as count
+`
+
+type CountStudentAssociatedDataParams struct {
+	StudentID      ids.XID `json:"student_id"`
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+}
+
+func (q *Queries) CountStudentAssociatedData(ctx context.Context, arg CountStudentAssociatedDataParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countStudentAssociatedData, arg.StudentID, arg.OrganizationID, arg.SchoolYearID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createStudent = `-- name: CreateStudent :one
 insert into students (
     organization_id,
@@ -54,6 +80,44 @@ func (q *Queries) CreateStudent(ctx context.Context, arg CreateStudentParams) (S
 		arg.ExternalIdentifier,
 		arg.PriorYearStudentID,
 	)
+	var i Student
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.SchoolYearID,
+		&i.LegalGivenName,
+		&i.LegalFamilyName,
+		&i.PreferredGivenName,
+		&i.GradeLevelID,
+		&i.HomeroomID,
+		&i.ExternalIdentifier,
+		&i.PriorYearStudentID,
+		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const deidentifyStudent = `-- name: DeidentifyStudent :one
+update students
+set legal_given_name = 'Deleted student', legal_family_name = 'Deleted student',
+    preferred_given_name = null, external_identifier = null,
+    deleted_at = coalesce(deleted_at, now())
+where id = $1 and organization_id = $2 and school_year_id = $3 and deleted_at is null
+returning id, organization_id, school_year_id, legal_given_name, legal_family_name,
+    preferred_given_name, grade_level_id, homeroom_id, external_identifier,
+    prior_year_student_id, deleted_at, created_at, updated_at
+`
+
+type DeidentifyStudentParams struct {
+	ID             ids.XID `json:"id"`
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+}
+
+func (q *Queries) DeidentifyStudent(ctx context.Context, arg DeidentifyStudentParams) (Student, error) {
+	row := q.db.QueryRow(ctx, deidentifyStudent, arg.ID, arg.OrganizationID, arg.SchoolYearID)
 	var i Student
 	err := row.Scan(
 		&i.ID,
@@ -182,6 +246,156 @@ func (q *Queries) GetStudentByIDIncludingDeleted(ctx context.Context, arg GetStu
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const hardDeleteStudent = `-- name: HardDeleteStudent :exec
+delete from students where id = $1 and organization_id = $2 and school_year_id = $3
+`
+
+type HardDeleteStudentParams struct {
+	ID             ids.XID `json:"id"`
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+}
+
+func (q *Queries) HardDeleteStudent(ctx context.Context, arg HardDeleteStudentParams) error {
+	_, err := q.db.Exec(ctx, hardDeleteStudent, arg.ID, arg.OrganizationID, arg.SchoolYearID)
+	return err
+}
+
+const hardDeleteStudentMemberships = `-- name: HardDeleteStudentMemberships :exec
+delete from program_memberships where organization_id = $2 and school_year_id = $3 and student_id = $1
+`
+
+type HardDeleteStudentMembershipsParams struct {
+	StudentID      ids.XID `json:"student_id"`
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+}
+
+func (q *Queries) HardDeleteStudentMemberships(ctx context.Context, arg HardDeleteStudentMembershipsParams) error {
+	_, err := q.db.Exec(ctx, hardDeleteStudentMemberships, arg.StudentID, arg.OrganizationID, arg.SchoolYearID)
+	return err
+}
+
+const hardDeleteStudentNonParticipations = `-- name: HardDeleteStudentNonParticipations :exec
+delete from session_non_participations where organization_id = $2 and school_year_id = $3 and student_id = $1
+`
+
+type HardDeleteStudentNonParticipationsParams struct {
+	StudentID      ids.XID `json:"student_id"`
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+}
+
+func (q *Queries) HardDeleteStudentNonParticipations(ctx context.Context, arg HardDeleteStudentNonParticipationsParams) error {
+	_, err := q.db.Exec(ctx, hardDeleteStudentNonParticipations, arg.StudentID, arg.OrganizationID, arg.SchoolYearID)
+	return err
+}
+
+const hardDeleteStudentRankedAccessCodes = `-- name: HardDeleteStudentRankedAccessCodes :exec
+delete from ranked_choice_access_codes where organization_id = $2 and school_year_id = $3 and student_id = $1
+`
+
+type HardDeleteStudentRankedAccessCodesParams struct {
+	StudentID      ids.XID `json:"student_id"`
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+}
+
+func (q *Queries) HardDeleteStudentRankedAccessCodes(ctx context.Context, arg HardDeleteStudentRankedAccessCodesParams) error {
+	_, err := q.db.Exec(ctx, hardDeleteStudentRankedAccessCodes, arg.StudentID, arg.OrganizationID, arg.SchoolYearID)
+	return err
+}
+
+const hardDeleteStudentRankedSubmissions = `-- name: HardDeleteStudentRankedSubmissions :exec
+delete from ranked_choice_submissions where organization_id = $2 and school_year_id = $3 and student_id = $1
+`
+
+type HardDeleteStudentRankedSubmissionsParams struct {
+	StudentID      ids.XID `json:"student_id"`
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+}
+
+func (q *Queries) HardDeleteStudentRankedSubmissions(ctx context.Context, arg HardDeleteStudentRankedSubmissionsParams) error {
+	_, err := q.db.Exec(ctx, hardDeleteStudentRankedSubmissions, arg.StudentID, arg.OrganizationID, arg.SchoolYearID)
+	return err
+}
+
+const hardDeleteStudentRelationships = `-- name: HardDeleteStudentRelationships :exec
+delete from guardian_relationships where organization_id = $2 and school_year_id = $3 and student_id = $1
+`
+
+type HardDeleteStudentRelationshipsParams struct {
+	StudentID      ids.XID `json:"student_id"`
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+}
+
+func (q *Queries) HardDeleteStudentRelationships(ctx context.Context, arg HardDeleteStudentRelationshipsParams) error {
+	_, err := q.db.Exec(ctx, hardDeleteStudentRelationships, arg.StudentID, arg.OrganizationID, arg.SchoolYearID)
+	return err
+}
+
+const hardDeleteStudentSurveyAccessCodes = `-- name: HardDeleteStudentSurveyAccessCodes :exec
+delete from interest_profile_survey_access_codes where organization_id = $2 and school_year_id = $3 and student_id = $1
+`
+
+type HardDeleteStudentSurveyAccessCodesParams struct {
+	StudentID      ids.XID `json:"student_id"`
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+}
+
+func (q *Queries) HardDeleteStudentSurveyAccessCodes(ctx context.Context, arg HardDeleteStudentSurveyAccessCodesParams) error {
+	_, err := q.db.Exec(ctx, hardDeleteStudentSurveyAccessCodes, arg.StudentID, arg.OrganizationID, arg.SchoolYearID)
+	return err
+}
+
+const hardDeleteStudentSurveyAudience = `-- name: HardDeleteStudentSurveyAudience :exec
+delete from interest_profile_survey_audience_students where organization_id = $2 and school_year_id = $3 and student_id = $1
+`
+
+type HardDeleteStudentSurveyAudienceParams struct {
+	StudentID      ids.XID `json:"student_id"`
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+}
+
+func (q *Queries) HardDeleteStudentSurveyAudience(ctx context.Context, arg HardDeleteStudentSurveyAudienceParams) error {
+	_, err := q.db.Exec(ctx, hardDeleteStudentSurveyAudience, arg.StudentID, arg.OrganizationID, arg.SchoolYearID)
+	return err
+}
+
+const hardDeleteStudentSurveySnapshots = `-- name: HardDeleteStudentSurveySnapshots :exec
+delete from interest_profile_survey_audience_snapshots where organization_id = $2 and school_year_id = $3 and student_id = $1
+`
+
+type HardDeleteStudentSurveySnapshotsParams struct {
+	StudentID      ids.XID `json:"student_id"`
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+}
+
+func (q *Queries) HardDeleteStudentSurveySnapshots(ctx context.Context, arg HardDeleteStudentSurveySnapshotsParams) error {
+	_, err := q.db.Exec(ctx, hardDeleteStudentSurveySnapshots, arg.StudentID, arg.OrganizationID, arg.SchoolYearID)
+	return err
+}
+
+const hardDeleteStudentSurveySubmissions = `-- name: HardDeleteStudentSurveySubmissions :exec
+delete from interest_profile_submissions where organization_id = $2 and school_year_id = $3 and student_id = $1
+`
+
+type HardDeleteStudentSurveySubmissionsParams struct {
+	StudentID      ids.XID `json:"student_id"`
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+}
+
+func (q *Queries) HardDeleteStudentSurveySubmissions(ctx context.Context, arg HardDeleteStudentSurveySubmissionsParams) error {
+	_, err := q.db.Exec(ctx, hardDeleteStudentSurveySubmissions, arg.StudentID, arg.OrganizationID, arg.SchoolYearID)
+	return err
 }
 
 const listAllActiveStudentsForRegistry = `-- name: ListAllActiveStudentsForRegistry :many

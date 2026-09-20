@@ -103,6 +103,27 @@ func (tx *Tx) DeleteGuardianRelationship(ctx context.Context, schoolYearID, id i
 	return rows == 1, nil
 }
 
+func (tx *Tx) DeleteGuardianRelationshipForStudent(ctx context.Context, schoolYearID, adultID, studentID ids.XID) (bool, error) {
+	rows, err := tx.queries.DeleteGuardianRelationshipForStudent(ctx, db.DeleteGuardianRelationshipForStudentParams{OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, AdultID: adultID, StudentID: studentID})
+	return rows == 1, err
+}
+
+func (tx *Tx) ListGuardianStudentIDsForAdult(ctx context.Context, schoolYearID, adultID ids.XID) ([]ids.XID, error) {
+	return tx.queries.ListGuardianStudentIDsForAdult(ctx, db.ListGuardianStudentIDsForAdultParams{OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, AdultID: adultID})
+}
+
+func (tx *Tx) DeleteGuardianRelationshipsForAdult(ctx context.Context, schoolYearID, adultID ids.XID) ([]ids.XID, error) {
+	rows, err := tx.queries.DeleteGuardianRelationshipsForAdult(ctx, db.DeleteGuardianRelationshipsForAdultParams{OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, AdultID: adultID})
+	if err != nil {
+		return nil, err
+	}
+	return append([]ids.XID(nil), rows...), nil
+}
+
+func (tx *Tx) CountOtherActiveGuardians(ctx context.Context, schoolYearID, studentID, adultID ids.XID) (int64, error) {
+	return tx.queries.CountOtherActiveGuardians(ctx, db.CountOtherActiveGuardiansParams{OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, StudentID: studentID, AdultID: adultID})
+}
+
 func (tx *Tx) ListAllGuardianRelationshipsForRegistry(ctx context.Context) ([]GuardianRelationship, error) {
 	rows, err := tx.queries.ListAllGuardianRelationshipsForRegistry(ctx, tx.organizationID)
 	if err != nil {

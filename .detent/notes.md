@@ -339,3 +339,14 @@
 - Open items: none. PR #215 is open, non-draft, merge-clean, references `Fixes #209`, and has no reviews or inline comments. Telemetry: quiet-window wait 0s; local merge-gate `git diff --check` 0.01s; current PR CI duration 142s; slow checks Backend tests 142s, Generated code drift 115s, and Backend lint 84s; no post-merge main CI applies while the PR is open.
 - Blockers: none.
 - Skill draft: no — the existing tenant-entity and PostgreSQL isolation-harness procedures cover the reusable method; no new broadly reusable procedure was discovered.
+
+## Current work — issue #211
+
+- Scope: guardian detach, student hard-delete/de-identification, adult self-deletion, guardian session/OTP revocation, audit attribution, and tenant-safe regressions per SPEC §§11.6–11.7, 18.2, 20.1, 21.3 and PLAN Phase 4B/P4B-3.
+- Base: rebased onto merged P4B-2/#210 at `origin/main` `42ebaff`.
+- Implementation: confirmation-backed guardian detach; last-guardian hard delete when no dependent history remains; neutral de-identification retaining grade/homeroom when history remains; adult self-delete with separate administrative accounts preserved; guardian-only session/OTP revocation; generated sqlc/OpenAPI and audit action vocabulary.
+- Key files: `backend/internal/guardianrecords/service.go`, `backend/internal/data/{student,guardian_relationship}.go`, `backend/internal/identity/adult_auth.go`, `backend/sql/queries/{student,guardian_relationship,adult_auth}.sql`, and guardian API handlers/routes.
+- Validation: backend `go test ./...`, race-enabled `GOTOOLCHAIN=local go test -race ./... -count=1`, `make format`, generation twice with stable generated diff, and `git diff --check` pass. Aggregate `make check` stops at Docker health (`request returned 500 ... docker.sock/_ping`). Backend lint is locally unavailable because golangci-lint is built with Go 1.27.1 rather than pinned Go 1.26.4. Migration round-trip, frontend gates, and smoke require CI-provisioned dependencies/configuration.
+- Repository/PR: commits `5fe92fd` and `526417b` are pushed to open non-draft PR #217, which references `Fixes #211`, is merge-clean, and has no actionable reviews or comments. All ten required CI checks pass on final head `526417b`; PR CI duration was about 146s, with Backend tests (145s), Generated code drift (107s), and Backend lint (82s) slowest. Local aggregate `make check` stops at Docker socket startup.
+- Open items: none; Workpad is complete and Detent owns the review-lane transition.
+- Skill draft: no — the existing tenant-isolation and generated-code procedures covered the work; no new broadly reusable method was discovered.

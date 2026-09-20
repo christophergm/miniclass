@@ -15,11 +15,19 @@ import (
 )
 
 var (
-	ErrOutOfScope       = errors.New("student is outside the guardian scope")
-	ErrGradeRequired    = errors.New("grade is required for guardian-managed students")
-	ErrNoChanges        = errors.New("guardian student update has no changes")
-	ErrCandidateInvalid = errors.New("guardian candidate does not exist")
+	ErrOutOfScope           = errors.New("student is outside the guardian scope")
+	ErrGradeRequired        = errors.New("grade is required for guardian-managed students")
+	ErrNoChanges            = errors.New("guardian student update has no changes")
+	ErrCandidateInvalid     = errors.New("guardian candidate does not exist")
+	ErrConfirmationRequired = errors.New("confirmation is required")
 )
+
+// GuardianSessionRevoker is implemented by the identity service. Identity
+// tokens remain behind internal/identity; this narrow callback keeps that
+// accessor out of the tenant data package.
+type GuardianSessionRevoker interface {
+	RevokeGuardianSessionsAndOTPs(context.Context, ids.XID, ids.XID, ids.XID) error
+}
 
 type ReviewWarning struct {
 	Code    string `json:"code"`
@@ -68,9 +76,114 @@ type ProfileInput struct {
 	Phone              *string
 }
 
-type Service struct{ database *data.DB }
+type Service struct {
+	database *data.DB
+	sessions GuardianSessionRevoker
+}
 
-func New(database *data.DB) *Service { return &Service{database: database} }
+func New(database *data.DB, sessions ...GuardianSessionRevoker) *Service {
+	var revoker GuardianSessionRevoker
+	if len(sessions) > 0 {
+		revoker = sessions[0]
+	}
+	return &Service{database: database, sessions: revoker}
+}
+
+// Detach removes only this guardian's relationship. If it was the last
+// active guardian, the student is hard-deleted when no dependent history
+// exists, otherwise it is de-identified and retained for history.
+func (s *Service) Detach(ctx context.Context, principal auth.GuardianPrincipal, studentID ids.XID, confirmed bool, actor audit.Actor) error {
+	if !confirmed {
+		return ErrConfirmationRequired
+	}
+	if s == nil || s.database == nil {
+		return errors.New("detach guardian student: data service is nil")
+	}
+	return s.database.InTenant(ctx, string(principal.OrganizationID), actor, func(ctx context.Context, tx *data.Tx) error {
+		if err := ensureYearScope(ctx, tx, principal, studentID); err != nil {
+			return err
+		}
+		removed, err := tx.DeleteGuardianRelationshipForStudent(ctx, principal.SchoolYearID, principal.AdultID, studentID)
+		if err != nil {
+			return err
+		}
+		if !removed {
+			return ErrOutOfScope
+		}
+		other, err := tx.CountOtherActiveGuardians(ctx, principal.SchoolYearID, studentID, principal.AdultID)
+		if err != nil {
+			return err
+		}
+		outcome := "detached"
+		if other == 0 {
+			associated, err := tx.CountStudentAssociatedData(ctx, principal.SchoolYearID, studentID)
+			if err != nil {
+				return err
+			}
+			if associated == 0 {
+				if err := tx.HardDeleteStudent(ctx, principal.SchoolYearID, studentID); err != nil {
+					return err
+				}
+				outcome = "hard_deleted"
+			} else {
+				if _, err := tx.DeidentifyStudent(ctx, principal.SchoolYearID, studentID); err != nil {
+					return err
+				}
+				outcome = "deidentified"
+			}
+		}
+		return tx.Record(ctx, audit.Entry{Action: audit.ActionGuardianDetach, ObjectType: "student", ObjectID: &studentID, SchoolYearID: &principal.SchoolYearID, ChangeSummary: json.RawMessage(fmt.Sprintf(`{"outcome":%q}`, outcome))})
+	})
+}
+
+// DeleteSelf removes the guardian adult profile and applies the same
+// relationship outcome to each student. A linked administrative account is
+// deliberately untouched.
+func (s *Service) DeleteSelf(ctx context.Context, principal auth.GuardianPrincipal, confirmed bool, actor audit.Actor) error {
+	if !confirmed {
+		return ErrConfirmationRequired
+	}
+	if s == nil || s.database == nil {
+		return errors.New("delete guardian profile: data service is nil")
+	}
+	err := s.database.InTenant(ctx, string(principal.OrganizationID), actor, func(ctx context.Context, tx *data.Tx) error {
+		students, err := tx.DeleteGuardianRelationshipsForAdult(ctx, principal.SchoolYearID, principal.AdultID)
+		if err != nil {
+			return err
+		}
+		for _, studentID := range students {
+			other, err := tx.CountOtherActiveGuardians(ctx, principal.SchoolYearID, studentID, principal.AdultID)
+			if err != nil {
+				return err
+			}
+			if other != 0 {
+				continue
+			}
+			associated, err := tx.CountStudentAssociatedData(ctx, principal.SchoolYearID, studentID)
+			if err != nil {
+				return err
+			}
+			if associated == 0 {
+				if err := tx.HardDeleteStudent(ctx, principal.SchoolYearID, studentID); err != nil {
+					return err
+				}
+			} else if _, err := tx.DeidentifyStudent(ctx, principal.SchoolYearID, studentID); err != nil {
+				return err
+			}
+		}
+		if _, err := tx.SoftDeleteAdult(ctx, principal.SchoolYearID, principal.AdultID); err != nil {
+			return err
+		}
+		return tx.Record(ctx, audit.Entry{Action: audit.ActionPersonalDataDelete, ObjectType: "adult", ObjectID: &principal.AdultID, SchoolYearID: &principal.SchoolYearID, ChangeSummary: json.RawMessage(`{"surface":"guardian_self_delete"}`)})
+	})
+	if err != nil {
+		return err
+	}
+	if s.sessions != nil {
+		return s.sessions.RevokeGuardianSessionsAndOTPs(ctx, principal.OrganizationID, principal.SchoolYearID, principal.AdultID)
+	}
+	return nil
+}
 
 func (s *Service) List(ctx context.Context, principal auth.GuardianPrincipal) ([]Student, error) {
 	if s == nil || s.database == nil {

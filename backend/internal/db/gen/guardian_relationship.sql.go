@@ -11,6 +11,32 @@ import (
 	"github.com/chrismott/miniclass/internal/ids"
 )
 
+const countOtherActiveGuardians = `-- name: CountOtherActiveGuardians :one
+select count(*) from guardian_relationships gr
+join adults a on a.id = gr.adult_id and a.organization_id = gr.organization_id and a.school_year_id = gr.school_year_id
+where gr.organization_id = $1 and gr.school_year_id = $2 and gr.student_id = $3
+  and gr.adult_id <> $4 and a.deleted_at is null
+`
+
+type CountOtherActiveGuardiansParams struct {
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+	StudentID      ids.XID `json:"student_id"`
+	AdultID        ids.XID `json:"adult_id"`
+}
+
+func (q *Queries) CountOtherActiveGuardians(ctx context.Context, arg CountOtherActiveGuardiansParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countOtherActiveGuardians,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+		arg.StudentID,
+		arg.AdultID,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createGuardianRelationship = `-- name: CreateGuardianRelationship :one
 insert into guardian_relationships (organization_id, school_year_id, adult_id, student_id, relationship_type)
 values ($1, $2, $3, $4, $5)
@@ -64,6 +90,63 @@ func (q *Queries) DeleteGuardianRelationship(ctx context.Context, arg DeleteGuar
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const deleteGuardianRelationshipForStudent = `-- name: DeleteGuardianRelationshipForStudent :execrows
+delete from guardian_relationships
+where organization_id = $1 and school_year_id = $2 and adult_id = $3 and student_id = $4
+`
+
+type DeleteGuardianRelationshipForStudentParams struct {
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+	AdultID        ids.XID `json:"adult_id"`
+	StudentID      ids.XID `json:"student_id"`
+}
+
+func (q *Queries) DeleteGuardianRelationshipForStudent(ctx context.Context, arg DeleteGuardianRelationshipForStudentParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteGuardianRelationshipForStudent,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+		arg.AdultID,
+		arg.StudentID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const deleteGuardianRelationshipsForAdult = `-- name: DeleteGuardianRelationshipsForAdult :many
+delete from guardian_relationships
+where organization_id = $1 and school_year_id = $2 and adult_id = $3
+returning student_id
+`
+
+type DeleteGuardianRelationshipsForAdultParams struct {
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+	AdultID        ids.XID `json:"adult_id"`
+}
+
+func (q *Queries) DeleteGuardianRelationshipsForAdult(ctx context.Context, arg DeleteGuardianRelationshipsForAdultParams) ([]ids.XID, error) {
+	rows, err := q.db.Query(ctx, deleteGuardianRelationshipsForAdult, arg.OrganizationID, arg.SchoolYearID, arg.AdultID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ids.XID{}
+	for rows.Next() {
+		var student_id ids.XID
+		if err := rows.Scan(&student_id); err != nil {
+			return nil, err
+		}
+		items = append(items, student_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const findGuardianRelationshipForRegistry = `-- name: FindGuardianRelationshipForRegistry :one
@@ -217,6 +300,38 @@ func (q *Queries) ListGuardianRelationships(ctx context.Context, arg ListGuardia
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listGuardianStudentIDsForAdult = `-- name: ListGuardianStudentIDsForAdult :many
+select student_id from guardian_relationships
+where organization_id = $1 and school_year_id = $2 and adult_id = $3
+order by student_id
+`
+
+type ListGuardianStudentIDsForAdultParams struct {
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+	AdultID        ids.XID `json:"adult_id"`
+}
+
+func (q *Queries) ListGuardianStudentIDsForAdult(ctx context.Context, arg ListGuardianStudentIDsForAdultParams) ([]ids.XID, error) {
+	rows, err := q.db.Query(ctx, listGuardianStudentIDsForAdult, arg.OrganizationID, arg.SchoolYearID, arg.AdultID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ids.XID{}
+	for rows.Next() {
+		var student_id ids.XID
+		if err := rows.Scan(&student_id); err != nil {
+			return nil, err
+		}
+		items = append(items, student_id)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

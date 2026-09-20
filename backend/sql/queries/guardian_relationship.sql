@@ -43,6 +43,26 @@ returning id, organization_id, school_year_id, adult_id, student_id, relationshi
 delete from guardian_relationships
 where id = $1 and organization_id = $2 and school_year_id = $3;
 
+-- name: DeleteGuardianRelationshipForStudent :execrows
+delete from guardian_relationships
+where organization_id = $1 and school_year_id = $2 and adult_id = $3 and student_id = $4;
+
+-- name: ListGuardianStudentIDsForAdult :many
+select student_id from guardian_relationships
+where organization_id = $1 and school_year_id = $2 and adult_id = $3
+order by student_id;
+
+-- name: DeleteGuardianRelationshipsForAdult :many
+delete from guardian_relationships
+where organization_id = $1 and school_year_id = $2 and adult_id = $3
+returning student_id;
+
+-- name: CountOtherActiveGuardians :one
+select count(*) from guardian_relationships gr
+join adults a on a.id = gr.adult_id and a.organization_id = gr.organization_id and a.school_year_id = gr.school_year_id
+where gr.organization_id = $1 and gr.school_year_id = $2 and gr.student_id = $3
+  and gr.adult_id <> $4 and a.deleted_at is null;
+
 -- name: ListAllGuardianRelationshipsForRegistry :many
 select id, organization_id, school_year_id, adult_id, student_id, relationship_type, created_at, updated_at
 from guardian_relationships

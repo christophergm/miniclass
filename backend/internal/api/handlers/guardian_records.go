@@ -23,6 +23,8 @@ type GuardianRecordsService interface {
 	Create(context.Context, auth.GuardianPrincipal, guardianrecords.CreateInput, audit.Actor) (guardianrecords.Student, error)
 	Update(context.Context, auth.GuardianPrincipal, ids.XID, guardianrecords.UpdateInput, audit.Actor) (guardianrecords.Student, error)
 	UpdateProfile(context.Context, auth.GuardianPrincipal, guardianrecords.ProfileInput, audit.Actor) error
+	Detach(context.Context, auth.GuardianPrincipal, ids.XID, bool, audit.Actor) error
+	DeleteSelf(context.Context, auth.GuardianPrincipal, bool, audit.Actor) error
 }
 
 type GuardianRecordsHandler struct{ service GuardianRecordsService }
@@ -101,6 +103,18 @@ type GuardianProfileInput struct {
 type GuardianProfileOutput struct {
 	Body struct {
 		Updated bool `json:"updated"`
+	}
+}
+type GuardianConfirmationInput struct {
+	Body struct {
+		Confirm bool `json:"confirm"`
+	}
+}
+type GuardianDeleteOutput struct{}
+type GuardianStudentDeleteInput struct {
+	GuardianStudentPathInput
+	Body struct {
+		Confirm bool `json:"confirm"`
 	}
 }
 
@@ -194,6 +208,34 @@ func (h *GuardianRecordsHandler) Update(ctx context.Context, input *GuardianStud
 	return &GuardianStudentOutput{Body: guardianStudentResponse(row)}, nil
 }
 
+func (h *GuardianRecordsHandler) Detach(ctx context.Context, input *GuardianStudentDeleteInput) (*GuardianDeleteOutput, error) {
+	principal, err := guardianRecordsPrincipal(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if input == nil || strings.TrimSpace(input.StudentID) == "" {
+		return nil, problems.New(http.StatusNotFound, problems.ResourceNotFound, "student not found")
+	}
+	if err := h.service.Detach(ctx, principal, ids.XID(input.StudentID), input.Body.Confirm, guardianRecordsActor(principal)); err != nil {
+		return nil, guardianRecordsProblem(err)
+	}
+	return &GuardianDeleteOutput{}, nil
+}
+
+func (h *GuardianRecordsHandler) DeleteSelf(ctx context.Context, input *GuardianConfirmationInput) (*GuardianDeleteOutput, error) {
+	principal, err := guardianRecordsPrincipal(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if input == nil {
+		return nil, problems.New(http.StatusBadRequest, problems.ResourceNotFound, "confirmation is required")
+	}
+	if err := h.service.DeleteSelf(ctx, principal, input.Body.Confirm, guardianRecordsActor(principal)); err != nil {
+		return nil, guardianRecordsProblem(err)
+	}
+	return &GuardianDeleteOutput{}, nil
+}
+
 func (h *GuardianRecordsHandler) UpdateProfile(ctx context.Context, input *GuardianProfileInput) (*GuardianProfileOutput, error) {
 	principal, err := guardianRecordsPrincipal(ctx)
 	if err != nil {
@@ -254,6 +296,8 @@ func guardianRecordsProblem(err error) error {
 		return problems.New(http.StatusNotFound, problems.ResourceNotFound, "student not found")
 	case errors.Is(err, guardianrecords.ErrGradeRequired):
 		return problems.New(http.StatusBadRequest, problems.ResourceNotFound, "grade is required")
+	case errors.Is(err, guardianrecords.ErrConfirmationRequired):
+		return problems.New(http.StatusBadRequest, problems.ResourceNotFound, "confirmation is required")
 	case errors.Is(err, guardianrecords.ErrNoChanges), errors.Is(err, people.ErrNoChanges):
 		return problems.New(http.StatusConflict, problems.SchoolYearTransitionInvalid, "no permitted changes were supplied")
 	case data.IsSchoolYearClosed(err):
