@@ -90,6 +90,23 @@ returning id, token_hash, purpose, expires_at, revoked_at, consumed_at, generati
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
     mfa_generation, parent_token_id, mailbox_verified_at;
 
+-- name: LockGuardianOnboardingEmail :exec
+select pg_advisory_xact_lock(hashtextextended(sqlc.arg(organization_id)::text || ':' || sqlc.arg(school_year_id)::text || ':' || lower(sqlc.arg(email)), 0));
+
+-- name: LockGuardianRegistrationEntry :one
+select id
+from access_tokens
+where id = $1
+  and purpose = 'guardian_registration_entry'
+for update;
+
+-- name: CountRecentGuardianOnboardingSessionsForParent :one
+select count(*)
+from access_tokens
+where purpose = 'guardian_onboarding_session'
+  and parent_token_id = $1
+  and created_at >= $2;
+
 -- name: CreateGuardianOnboardingSession :one
 insert into access_tokens (token_hash, purpose, expires_at, generation, organization_id, school_year_id, parent_token_id, last_seen_at, idle_expires_at)
 values ($1, 'guardian_onboarding_session', $2, 1, $3, $4, $5, $6, $7)
@@ -204,24 +221,24 @@ where id = $1
 -- name: CreateGuardianInvitationContact :one
 insert into guardian_invitation_contacts (organization_id, school_year_id, invitation_token_id, email)
 values ($1, $2, $3, $4)
-returning id, organization_id, school_year_id, invitation_token_id, email, created_at, updated_at;
+returning id, organization_id, school_year_id, invitation_token_id, email, created_at, updated_at, accepted_consent_id;
 
 -- name: GetGuardianInvitationContactByEmail :one
-select id, organization_id, school_year_id, invitation_token_id, email, created_at, updated_at
+select id, organization_id, school_year_id, invitation_token_id, email, created_at, updated_at, accepted_consent_id
 from guardian_invitation_contacts
 where organization_id = $1
   and school_year_id = $2
   and lower(email) = lower($3);
 
 -- name: GetGuardianInvitationContactByID :one
-select id, organization_id, school_year_id, invitation_token_id, email, created_at, updated_at
+select id, organization_id, school_year_id, invitation_token_id, email, created_at, updated_at, accepted_consent_id
 from guardian_invitation_contacts
 where id = $1
   and organization_id = $2
   and school_year_id = $3;
 
 -- name: GetGuardianInvitationContactByTokenID :one
-select id, organization_id, school_year_id, invitation_token_id, email, created_at, updated_at
+select id, organization_id, school_year_id, invitation_token_id, email, created_at, updated_at, accepted_consent_id
 from guardian_invitation_contacts
 where invitation_token_id = $1
   and organization_id = $2
@@ -229,11 +246,24 @@ where invitation_token_id = $1
 
 -- name: UpdateGuardianInvitationContactToken :one
 update guardian_invitation_contacts
-set invitation_token_id = $4
+set invitation_token_id = $4,
+    accepted_consent_id = null
 where id = $1
   and organization_id = $2
   and school_year_id = $3
-returning id, organization_id, school_year_id, invitation_token_id, email, created_at, updated_at;
+returning id, organization_id, school_year_id, invitation_token_id, email, created_at, updated_at, accepted_consent_id;
+
+-- name: LinkGuardianInvitationContactConsent :execrows
+update guardian_invitation_contacts c
+set accepted_consent_id = $4
+from access_tokens t
+where c.organization_id = $1
+  and c.school_year_id = $2
+  and lower(c.email) = lower($3)
+  and c.accepted_consent_id is null
+  and t.id = c.invitation_token_id
+  and t.purpose = 'guardian_invitation'
+  and t.consumed_at is not null;
 
 -- name: ListGuardianInvitationContacts :many
 select c.id, c.organization_id, c.school_year_id, c.invitation_token_id, c.email, c.created_at, c.updated_at,
@@ -254,13 +284,13 @@ delete from guardian_invitation_contacts
 where id = $1 and organization_id = $2 and school_year_id = $3;
 
 -- name: ListAllGuardianInvitationContactsForRegistry :many
-select id, organization_id, school_year_id, invitation_token_id, email, created_at, updated_at
+select id, organization_id, school_year_id, invitation_token_id, email, created_at, updated_at, accepted_consent_id
 from guardian_invitation_contacts
 where organization_id = $1
 order by id;
 
 -- name: FindGuardianInvitationContactForRegistry :one
-select id, organization_id, school_year_id, invitation_token_id, email, created_at, updated_at
+select id, organization_id, school_year_id, invitation_token_id, email, created_at, updated_at, accepted_consent_id
 from guardian_invitation_contacts
 where id = $1 and organization_id = $2;
 

@@ -19,29 +19,30 @@ const apiBasePath = "/api"
 
 // RouterOptions configures the HTTP router independently of process startup.
 type RouterOptions struct {
-	AllowedOrigins         []string
-	Database               handlers.DatabasePinger
-	Logger                 *slog.Logger
-	TrustedProxyCIDRs      []string
-	Version                string
-	Identity               auth.AccountResolver
-	Claimer                handlers.InvitationClaimer
-	Administrators         handlers.AdministratorManager
-	InvitationClaimBaseURL string
-	SchoolYears            handlers.SchoolYearService
-	AuditLog               handlers.AuditLogReader
-	Vocabularies           handlers.VocabularyService
-	Adults                 handlers.AdultService
-	Students               handlers.StudentService
-	GuardianRelationships  handlers.GuardianRelationshipService
-	GuardianRecords        handlers.GuardianRecordsService
-	ImportPreview          handlers.ImportPreviewService
-	ImportCommit           handlers.ImportCommitService
-	Programs               handlers.ProgramService
-	Verifier               auth.Verifier
-	AdultAuth              auth.AdultAuthentication
-	GuardianOnboarding     handlers.GuardianOnboardingService
-	Sessions               auth.SessionResolver
+	AllowedOrigins              []string
+	Database                    handlers.DatabasePinger
+	Logger                      *slog.Logger
+	TrustedProxyCIDRs           []string
+	GuardianOnboardingRateLimit GuardianOnboardingRateLimitSettings
+	Version                     string
+	Identity                    auth.AccountResolver
+	Claimer                     handlers.InvitationClaimer
+	Administrators              handlers.AdministratorManager
+	InvitationClaimBaseURL      string
+	SchoolYears                 handlers.SchoolYearService
+	AuditLog                    handlers.AuditLogReader
+	Vocabularies                handlers.VocabularyService
+	Adults                      handlers.AdultService
+	Students                    handlers.StudentService
+	GuardianRelationships       handlers.GuardianRelationshipService
+	GuardianRecords             handlers.GuardianRecordsService
+	ImportPreview               handlers.ImportPreviewService
+	ImportCommit                handlers.ImportCommitService
+	Programs                    handlers.ProgramService
+	Verifier                    auth.Verifier
+	AdultAuth                   auth.AdultAuthentication
+	GuardianOnboarding          handlers.GuardianOnboardingService
+	Sessions                    auth.SessionResolver
 }
 
 // NewRouter builds the complete API router and middleware chain. Routes are
@@ -69,6 +70,7 @@ func newRouter(options RouterOptions) (chi.Router, huma.API) {
 	router.Use(
 		middleware.RequestID,
 		TrustedProxyRealIP(options.TrustedProxyCIDRs...),
+		GuardianOnboardingRateLimit(logger, options.GuardianOnboardingRateLimit),
 		RequestLogger(logger),
 		Recoverer(logger),
 		cors.Handler(cors.Options{
@@ -191,12 +193,12 @@ func registerOperations(api huma.API, options RouterOptions) {
 	registerOperation(api, huma.Operation{
 		OperationID: "begin-guardian-onboarding", Method: http.MethodPost,
 		Path: apiBasePath + "/guardian/onboarding/begin", Summary: "Start guardian onboarding with a registration entry",
-		Errors: []int{http.StatusNotFound},
+		Errors: []int{http.StatusNotFound, http.StatusTooManyRequests},
 	}, auth.CapabilityPublic, false, guardianOnboarding.Begin)
 	registerOperation(api, huma.Operation{
 		OperationID: "redeem-guardian-invitation", Method: http.MethodPost,
 		Path: apiBasePath + "/guardian/onboarding/invitation/redeem", Summary: "Redeem a guardian invitation",
-		Errors: []int{http.StatusNotFound},
+		Errors: []int{http.StatusNotFound, http.StatusTooManyRequests},
 	}, auth.CapabilityPublic, false, guardianOnboarding.Redeem)
 	registerOperation(api, huma.Operation{
 		OperationID: "request-guardian-onboarding-otp", Method: http.MethodPost,
@@ -219,7 +221,7 @@ func registerOperations(api huma.API, options RouterOptions) {
 		Errors: []int{http.StatusBadRequest, http.StatusConflict, http.StatusUnauthorized},
 	}, auth.CapabilityPublic, false, guardianOnboarding.Complete)
 	registerOperation(api, huma.Operation{
-		OperationID: "get-guardian-onboarding-session", Method: http.MethodGet,
+		OperationID: "get-guardian-onboarding-session", Method: http.MethodPost,
 		Path: apiBasePath + "/guardian/onboarding/session", Summary: "Read the current guardian onboarding session",
 		Errors: []int{http.StatusUnauthorized},
 	}, auth.CapabilityPublic, false, guardianOnboarding.GetSession)

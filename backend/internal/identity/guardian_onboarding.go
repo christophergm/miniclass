@@ -22,15 +22,17 @@ import (
 )
 
 const (
-	guardianRegistrationValidity  = 7 * 24 * time.Hour
-	guardianInvitationValidity    = 7 * 24 * time.Hour
-	guardianOnboardingAbsolute    = 2 * time.Hour
-	guardianOnboardingIdle        = 30 * time.Minute
-	guardianOnboardingOTPValidity = 10 * time.Minute
-	guardianOnboardingOTPWindow   = 10 * time.Minute
-	guardianOnboardingOTPRequests = 3
-	guardianOnboardingOTPAttempts = 5
-	guardianInvitationImportLimit = 500
+	guardianRegistrationValidity      = 7 * 24 * time.Hour
+	guardianInvitationValidity        = 7 * 24 * time.Hour
+	guardianOnboardingAbsolute        = 2 * time.Hour
+	guardianOnboardingIdle            = 30 * time.Minute
+	guardianOnboardingOTPValidity     = 10 * time.Minute
+	guardianOnboardingOTPWindow       = 10 * time.Minute
+	guardianOnboardingOTPRequests     = 3
+	guardianOnboardingOTPAttempts     = 5
+	guardianOnboardingSessionWindow   = 10 * time.Minute
+	guardianOnboardingSessionRequests = 10
+	guardianInvitationImportLimit     = 500
 )
 
 func (s *Store) CreateRegistrationEntry(ctx context.Context, organizationID, schoolYearID ids.XID, actor audit.Actor, now time.Time) (guardian.RegistrationEntry, error) {
@@ -491,6 +493,13 @@ func (s *Store) AcceptConsent(ctx context.Context, input guardian.ConsentInput) 
 			if policy.SignupNotice != nil && (existing.SignupNoticeVersion == nil || *existing.SignupNoticeVersion != policy.SignupNotice.Version || !bytes.Equal(existing.SignupNoticeHash, policy.SignupNotice.Hash)) {
 				return guardian.ErrConsentRequired
 			}
+			invitationAccepted, err := tx.LinkGuardianInvitationContactConsent(ctx, *session.SchoolYearID, email, existing.ID)
+			if err != nil {
+				return err
+			}
+			if invitationAccepted {
+				return tx.Record(ctx, audit.Entry{Action: audit.ActionGuardianTermsAccepted, ObjectType: "guardian_onboarding_consent", ObjectID: &existing.ID, SchoolYearID: session.SchoolYearID, Reason: source, ChangeSummary: jsonObject(map[string]any{"invitation_accepted": true, "repaired": true})})
+			}
 			tx.NoAuditRequired("guardian onboarding consent was already recorded")
 			return nil
 		} else if !errors.Is(err, pgx.ErrNoRows) {
@@ -500,7 +509,11 @@ func (s *Store) AcceptConsent(ctx context.Context, input guardian.ConsentInput) 
 		if err != nil {
 			return err
 		}
-		return tx.Record(ctx, audit.Entry{Action: audit.ActionGuardianTermsAccepted, ObjectType: "guardian_onboarding_consent", ObjectID: &consent.ID, SchoolYearID: session.SchoolYearID, Reason: source, ChangeSummary: jsonObject(map[string]any{"terms_version": guardian.TermsVersion, "privacy_version": guardian.PrivacyVersion, "signup_notice_version": noticeVersion})})
+		invitationAccepted, err := tx.LinkGuardianInvitationContactConsent(ctx, *session.SchoolYearID, email, consent.ID)
+		if err != nil {
+			return err
+		}
+		return tx.Record(ctx, audit.Entry{Action: audit.ActionGuardianTermsAccepted, ObjectType: "guardian_onboarding_consent", ObjectID: &consent.ID, SchoolYearID: session.SchoolYearID, Reason: source, ChangeSummary: jsonObject(map[string]any{"terms_version": guardian.TermsVersion, "privacy_version": guardian.PrivacyVersion, "signup_notice_version": noticeVersion, "invitation_accepted": invitationAccepted})})
 	})
 	if err != nil {
 		return guardian.Session{}, fmt.Errorf("accept guardian consent: %w", err)
@@ -547,16 +560,36 @@ func (s *Store) Complete(ctx context.Context, input guardian.CompleteInput) (gua
 		} else if consent.SignupNoticeVersion != nil || len(consent.SignupNoticeHash) > 0 {
 			return guardian.ErrConsentRequired
 		}
-		intent := data.AdultParticipationUnavailable
-		adult, err := tx.CreateAdult(ctx, *session.SchoolYearID, input.AdultGivenName, input.AdultFamilyName, nil, stringPtr(consent.VerifiedEmail), nil, nil, &intent)
+		if input.GradeLevelID == "" || input.HomeroomID == "" {
+			return guardian.ErrStudentAttributesRequired
+		}
+		if err := tx.LockGuardianOnboardingEmail(ctx, *session.SchoolYearID, consent.VerifiedEmail); err != nil {
+			return err
+		}
+		if _, err := tx.GetGradeLevelByID(ctx, *session.SchoolYearID, input.GradeLevelID); err != nil {
+			return err
+		}
+		if _, err := tx.GetHomeroomByID(ctx, *session.SchoolYearID, input.HomeroomID); err != nil {
+			return err
+		}
+		adults, err := tx.FindActiveAdultsByEmail(ctx, *session.SchoolYearID, consent.VerifiedEmail)
 		if err != nil {
 			return err
 		}
-		var gradeID *ids.XID
-		if input.GradeLevelID != "" {
-			gradeID = &input.GradeLevelID
+		var adult data.Adult
+		switch len(adults) {
+		case 0:
+			intent := data.AdultParticipationUnavailable
+			adult, err = tx.CreateAdult(ctx, *session.SchoolYearID, input.AdultGivenName, input.AdultFamilyName, nil, stringPtr(consent.VerifiedEmail), nil, nil, &intent)
+			if err != nil {
+				return err
+			}
+		case 1:
+			adult = adults[0]
+		default:
+			return guardian.ErrOnboardingEmailConflict
 		}
-		student, err := tx.CreateStudent(ctx, *session.SchoolYearID, gradeID, input.HomeroomID, input.StudentGivenName, input.StudentFamilyName, nil, nil)
+		student, err := tx.CreateStudent(ctx, *session.SchoolYearID, &input.GradeLevelID, input.HomeroomID, input.StudentGivenName, input.StudentFamilyName, nil, nil)
 		if err != nil {
 			return err
 		}
@@ -686,7 +719,21 @@ func (s *Store) createOnboardingSession(ctx context.Context, organizationID, sch
 		return guardian.Session{}, err
 	}
 	var result guardian.Session
+	rateLimited := false
 	err = s.tenantDatabase.InTenant(ctx, string(organizationID), audit.Actor{Type: audit.ActorTypeLink, Label: "guardian onboarding"}, func(ctx context.Context, tx *data.Tx) error {
+		if source == "registration-entry" && parentTokenID != nil {
+			if err := tx.LockGuardianRegistrationEntry(ctx, *parentTokenID); err != nil {
+				return err
+			}
+			count, err := tx.CountRecentGuardianOnboardingSessionsForParent(ctx, *parentTokenID, now.Add(-guardianOnboardingSessionWindow))
+			if err != nil {
+				return err
+			}
+			if count >= guardianOnboardingSessionRequests {
+				rateLimited = true
+				return tx.Record(ctx, audit.Entry{Action: audit.ActionGuardianOnboardingRateLimited, ObjectType: "guardian_registration_entry", ObjectID: parentTokenID, SchoolYearID: &schoolYearID, ChangeSummary: jsonObject(map[string]any{"surface": "registration-entry", "limit": guardianOnboardingSessionRequests, "window_seconds": int(guardianOnboardingSessionWindow.Seconds())})})
+			}
+		}
 		created, err := tx.CreateGuardianOnboardingSession(ctx, bearer.Hash, now.Add(guardianOnboardingAbsolute), &organizationID, &schoolYearID, parentTokenID, now, now.Add(guardianOnboardingIdle))
 		if err != nil {
 			return err
@@ -706,6 +753,9 @@ func (s *Store) createOnboardingSession(ctx context.Context, organizationID, sch
 	})
 	if err != nil {
 		return guardian.Session{}, fmt.Errorf("create guardian onboarding session: %w", err)
+	}
+	if rateLimited {
+		return guardian.Session{}, guardian.ErrOnboardingRateLimit
 	}
 	return result, nil
 }

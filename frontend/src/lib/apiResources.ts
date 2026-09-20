@@ -150,8 +150,8 @@ export const resourceApi = {
     adult_family_name: string;
     student_given_name: string;
     student_family_name: string;
-    grade_level_id?: string;
-    homeroom_id?: string;
+    grade_level_id: string;
+    homeroom_id: string;
     relationship_type: string;
   }) => unwrap(api.POST("/api/guardian/onboarding/complete", { body: value })),
   getGuardianAuthContext: () => unwrap(api.GET("/api/auth/guardian")),

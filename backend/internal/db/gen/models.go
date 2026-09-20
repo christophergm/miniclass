@@ -674,6 +674,7 @@ type GuardianInvitationContact struct {
 	Email             string             `json:"email"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	AcceptedConsentID *ids.XID           `json:"accepted_consent_id"`
 }
 
 type GuardianOnboardingConsent struct {

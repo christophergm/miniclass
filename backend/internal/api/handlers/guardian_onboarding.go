@@ -293,8 +293,8 @@ type GuardianCompleteInput struct {
 		AdultFamilyName   string `json:"adult_family_name" minLength:"1"`
 		StudentGivenName  string `json:"student_given_name" minLength:"1"`
 		StudentFamilyName string `json:"student_family_name" minLength:"1"`
-		GradeLevelID      string `json:"grade_level_id,omitempty"`
-		HomeroomID        string `json:"homeroom_id,omitempty"`
+		GradeLevelID      string `json:"grade_level_id" minLength:"1"`
+		HomeroomID        string `json:"homeroom_id" minLength:"1"`
 		RelationshipType  string `json:"relationship_type" minLength:"1"`
 	}
 }
@@ -425,8 +425,8 @@ func (h *GuardianOnboardingHandler) Complete(ctx context.Context, input *Guardia
 }
 
 type GuardianSessionInput struct {
-	Query struct {
-		SessionToken string `query:"session_token" minLength:"1"`
+	Body struct {
+		SessionToken string `json:"session_token" minLength:"1"`
 	}
 }
 
@@ -434,10 +434,10 @@ func (h *GuardianOnboardingHandler) GetSession(ctx context.Context, input *Guard
 	if h == nil || h.service == nil {
 		return nil, guardianServiceUnavailable()
 	}
-	if input == nil || strings.TrimSpace(input.Query.SessionToken) == "" {
+	if input == nil || strings.TrimSpace(input.Body.SessionToken) == "" {
 		return nil, problems.New(http.StatusBadRequest, problems.SessionInvalid, "onboarding session is required")
 	}
-	session, err := h.service.GetSession(ctx, input.Query.SessionToken, time.Now().UTC())
+	session, err := h.service.GetSession(ctx, input.Body.SessionToken, time.Now().UTC())
 	if err != nil {
 		return nil, guardianOnboardingProblem(err)
 	}
@@ -463,7 +463,11 @@ func guardianOnboardingProblem(err error) error {
 	case errors.Is(err, guardian.ErrConsentInvalid), errors.Is(err, guardian.ErrSignupNoticeInvalid):
 		return problems.New(http.StatusBadRequest, problems.ConsentInvalid, "the submitted consent does not match the current policy")
 	case errors.Is(err, guardian.ErrOnboardingRateLimit):
-		return problems.New(http.StatusTooManyRequests, problems.RateLimited, "too many onboarding OTP requests")
+		return problems.New(http.StatusTooManyRequests, problems.RateLimited, "too many onboarding requests")
+	case errors.Is(err, guardian.ErrOnboardingEmailConflict):
+		return problems.New(http.StatusConflict, problems.ConsentInvalid, "this email requires administrator review before continuing")
+	case errors.Is(err, guardian.ErrStudentAttributesRequired):
+		return problems.New(http.StatusBadRequest, problems.ConsentInvalid, "grade and homeroom are required")
 	case errors.Is(err, guardian.ErrOTPInvalid):
 		return problems.New(http.StatusUnauthorized, problems.OTPInvalid, "OTP is invalid or expired")
 	case data.IsSchoolYearClosed(err):

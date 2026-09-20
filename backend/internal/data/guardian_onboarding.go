@@ -35,6 +35,7 @@ type GuardianInvitationContact struct {
 	SchoolYearID      ids.XID
 	InvitationTokenID ids.XID
 	Email             string
+	AcceptedConsentID *ids.XID
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 }
@@ -99,6 +100,19 @@ func (tx *Tx) ConsumeGuardianInvitationToken(ctx context.Context, id ids.XID, at
 		return GuardianToken{}, err
 	}
 	return guardianToken(row), nil
+}
+
+func (tx *Tx) LockGuardianOnboardingEmail(ctx context.Context, schoolYearID ids.XID, email string) error {
+	return tx.queries.LockGuardianOnboardingEmail(ctx, db.LockGuardianOnboardingEmailParams{OrganizationID: string(tx.organizationID), SchoolYearID: string(schoolYearID), Email: strings.ToLower(strings.TrimSpace(email))})
+}
+
+func (tx *Tx) LockGuardianRegistrationEntry(ctx context.Context, id ids.XID) error {
+	_, err := tx.queries.LockGuardianRegistrationEntry(ctx, id)
+	return err
+}
+
+func (tx *Tx) CountRecentGuardianOnboardingSessionsForParent(ctx context.Context, parentTokenID ids.XID, since time.Time) (int64, error) {
+	return tx.queries.CountRecentGuardianOnboardingSessionsForParent(ctx, db.CountRecentGuardianOnboardingSessionsForParentParams{ParentTokenID: &parentTokenID, CreatedAt: timestamp(since)})
 }
 
 func (tx *Tx) CreateGuardianOnboardingSession(ctx context.Context, tokenHash []byte, expiresAt time.Time, organizationID, schoolYearID, parentTokenID *ids.XID, now, idleExpiresAt time.Time) (GuardianToken, error) {
@@ -199,6 +213,11 @@ func (tx *Tx) UpdateGuardianInvitationContactToken(ctx context.Context, schoolYe
 		return GuardianInvitationContact{}, err
 	}
 	return guardianInvitationContact(row), nil
+}
+
+func (tx *Tx) LinkGuardianInvitationContactConsent(ctx context.Context, schoolYearID ids.XID, email string, consentID ids.XID) (bool, error) {
+	rows, err := tx.queries.LinkGuardianInvitationContactConsent(ctx, db.LinkGuardianInvitationContactConsentParams{OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, Lower: strings.ToLower(strings.TrimSpace(email)), AcceptedConsentID: &consentID})
+	return rows == 1, err
 }
 
 func (tx *Tx) ListGuardianInvitationContacts(ctx context.Context, schoolYearID ids.XID) ([]GuardianInvitationContactState, error) {
@@ -341,7 +360,7 @@ func guardianToken(row db.AccessToken) GuardianToken {
 }
 
 func guardianInvitationContact(row db.GuardianInvitationContact) GuardianInvitationContact {
-	return GuardianInvitationContact{ID: row.ID, OrganizationID: row.OrganizationID, SchoolYearID: row.SchoolYearID, InvitationTokenID: row.InvitationTokenID, Email: row.Email, CreatedAt: row.CreatedAt.Time, UpdatedAt: row.UpdatedAt.Time}
+	return GuardianInvitationContact{ID: row.ID, OrganizationID: row.OrganizationID, SchoolYearID: row.SchoolYearID, InvitationTokenID: row.InvitationTokenID, Email: row.Email, AcceptedConsentID: row.AcceptedConsentID, CreatedAt: row.CreatedAt.Time, UpdatedAt: row.UpdatedAt.Time}
 }
 
 func guardianInvitationContactState(row db.ListGuardianInvitationContactsRow) (GuardianInvitationContactState, error) {

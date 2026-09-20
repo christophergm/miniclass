@@ -22,7 +22,7 @@ help: ## Show this help message
 	@echo 'Usage: make [target]'
 	@echo ''
 	@echo 'Available targets:'
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
+	@grep -hE '^[a-zA-Z_-]+:.*## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*##[[:space:]]*"}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
 
 tools-install: ## Install required Go tools
 	@echo "Installing development tools..."
@@ -109,7 +109,8 @@ test: ## Run all backend unit and integration tests
 	go test -race -v ./... -count=1
 
 format: ## Verify Go formatting and run the Go vet analyzer
-	@files="$$(gofmt -l .)"; \
+	@gofmt="$$(go env GOROOT)/bin/gofmt"; \
+	files="$$($$gofmt -l .)"; \
 	if [ -n "$$files" ]; then \
 		echo "Unformatted Go files:"; \
 		echo "$$files"; \

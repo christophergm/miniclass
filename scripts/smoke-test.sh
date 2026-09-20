@@ -158,32 +158,24 @@ grep -Fq 'All systems operational' "$ROOT_DIR/frontend/src/features/health/Healt
   || die "frontend health page is missing the expected operational status"
 
 if [[ -z "$claim_url" ]]; then
-  existing_me="$(curl --silent --show-error --max-time 10 \
-    -H "Authorization: Bearer $smoke_token" \
-    "$API_BASE_URL/api/me" 2>/dev/null || true)"
-  if printf '%s' "$existing_me" | grep -Eq '"role"[[:space:]]*:[[:space:]]*"'; then
-    # A normal developer run has already used make db-seed to bind the Owner.
-    # Invite a synthetic administrator so the smoke test remains repeatable
-    # without trying to create a second organization for the same subject.
-    claim_email="smoke-admin-$(date +%s)-$$@example.test"
-    echo "Creating a synthetic administrator invitation for the claim check..."
-    invitation_response="$(curl --fail --silent --show-error --max-time 10 \
-      -H "Authorization: Bearer $smoke_token" \
-      -H 'Content-Type: application/json' \
-      -d "{\"email\":\"$claim_email\",\"role\":\"administrator\"}" \
-      "$API_BASE_URL/api/administrators")" \
-      || die "could not create the smoke-test administrator invitation"
-    claim_url="$(printf '%s\n' "$invitation_response" | sed -n 's/.*"claim_url":"\([^"]*\)".*/\1/p')"
-    claim_bearer="$(cd "$ROOT_DIR/backend" && go run ./cmd/devtoken \
-      -subject "$(dev_admin_subject "$claim_email")" \
-      -email "$claim_email" \
-      -lifetime 1h)" || die "could not mint the synthetic administrator claim token"
-  else
-    echo "Seeding an unclaimed Owner invitation..."
-    seed_output="$(cd "$ROOT_DIR" && make db-seed SEED_OWNER_SUBJECT= 2>&1 | tee "$LOG_DIR/seed.log")" \
-      || die "could not create the smoke-test seed organization"
-    claim_url="$(printf '%s\n' "$seed_output" | sed -n 's/^Owner invitation claim URL: //p')"
-  fi
+  # Use a unique, unclaimed Owner invitation for every run. A developer's
+  # existing Owner may already have MFA enrolled, whose recovery codes are not
+  # available to this script; reusing that account would make the MFA check
+  # non-repeatable. A fresh organization keeps the smoke flow self-contained.
+  claim_email="smoke-owner-$(date +%s)-$$@example.test"
+  claim_subject="$(dev_admin_subject "$claim_email")"
+  smoke_organization="Synthetic-Smoke-$(date +%s)-$$"
+  echo "Seeding an unclaimed synthetic Owner invitation for the claim check..."
+  seed_output="$(cd "$ROOT_DIR" && make db-seed \
+    SEED_ORGANIZATION_NAME="$smoke_organization" \
+    SEED_OWNER_EMAIL="$claim_email" \
+    SEED_OWNER_SUBJECT= 2>&1 | tee "$LOG_DIR/seed.log")" \
+    || die "could not create the smoke-test seed organization"
+  claim_url="$(printf '%s\n' "$seed_output" | sed -n 's/^Owner invitation claim URL: //p')"
+  claim_bearer="$(cd "$ROOT_DIR/backend" && go run ./cmd/devtoken \
+    -subject "$claim_subject" \
+    -email "$claim_email" \
+    -lifetime 1h)" || die "could not mint the synthetic Owner claim token"
 fi
 [[ -n "$claim_url" ]] || die "the seed output did not contain an Owner invitation claim URL"
 

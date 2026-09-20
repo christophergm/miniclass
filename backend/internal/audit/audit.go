@@ -79,6 +79,7 @@ const (
 	ActionGuardianInvitationRedeem       Action = "guardian_invitation_redeem"
 	ActionGuardianSignupNoticeChange     Action = "guardian_signup_notice_change"
 	ActionGuardianOnboardingStarted      Action = "guardian_onboarding_started"
+	ActionGuardianOnboardingRateLimited  Action = "guardian_onboarding_rate_limited"
 	ActionGuardianOnboardingOTPRequested Action = "guardian_onboarding_otp_requested"
 	ActionGuardianOnboardingOTPFailed    Action = "guardian_onboarding_otp_failed"
 	ActionGuardianOnboardingOTPVerified  Action = "guardian_onboarding_otp_verified"
@@ -150,6 +151,7 @@ var actions = []Action{
 	ActionGuardianInvitationRedeem,
 	ActionGuardianSignupNoticeChange,
 	ActionGuardianOnboardingStarted,
+	ActionGuardianOnboardingRateLimited,
 	ActionGuardianOnboardingOTPRequested,
 	ActionGuardianOnboardingOTPFailed,
 	ActionGuardianOnboardingOTPVerified,
