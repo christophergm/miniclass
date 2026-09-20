@@ -16,6 +16,7 @@ import (
 // ErrSchoolYearClosed identifies the database-enforced immutability error
 // shared by school-year-scoped tables.
 var ErrSchoolYearClosed = errors.New("school year is closed")
+var ErrSchoolYearPurged = errors.New("school year is purged")
 
 // SchoolYearState is the application view of the database enum.
 type SchoolYearState string
@@ -24,6 +25,7 @@ const (
 	SchoolYearSetup  SchoolYearState = "setup"
 	SchoolYearActive SchoolYearState = "active"
 	SchoolYearClosed SchoolYearState = "closed"
+	SchoolYearPurged SchoolYearState = "purged"
 )
 
 // SchoolYear is the tenant-safe application representation of a school year.
@@ -32,6 +34,8 @@ type SchoolYear struct {
 	OrganizationID ids.XID
 	Label          string
 	State          SchoolYearState
+	PurgedByUserID *ids.XID
+	PurgedAt       *time.Time
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }
@@ -121,6 +125,25 @@ func (tx *Tx) DeleteSchoolYear(ctx context.Context, id ids.XID) (int64, error) {
 	return rows, nil
 }
 
+// PurgeSchoolYear irreversibly removes the closed year's data and returns its
+// retained non-identifying shell. The database function owns the deletion
+// graph so restrictive foreign keys and append-only table privileges cannot
+// leave a partial purge.
+func (tx *Tx) PurgeSchoolYear(ctx context.Context, schoolYearID ids.XID, actorUserID ids.XID) (SchoolYear, error) {
+	if err := tx.queries.PurgeSchoolYear(ctx, db.PurgeSchoolYearParams{
+		TargetOrganizationID: tx.organizationID,
+		TargetSchoolYearID:   schoolYearID,
+		PurgeActorID:         actorUserID,
+	}); err != nil {
+		return SchoolYear{}, wrapSchoolYearError("purge school year", err)
+	}
+	row, err := tx.GetSchoolYearByID(ctx, schoolYearID)
+	if err != nil {
+		return SchoolYear{}, wrapSchoolYearError("read purged school year", err)
+	}
+	return row, nil
+}
+
 // PrepareSchoolYearReopen arms the shared trigger for the one audited,
 // Owner-only closed-to-active transition. The setting is LOCAL to this unit
 // of work and a reason is required by both the service and the trigger.
@@ -154,12 +177,19 @@ func validSchoolYearState(state SchoolYearState) bool {
 }
 
 func IsSchoolYearClosed(err error) bool {
-	return errors.Is(err, ErrSchoolYearClosed)
+	return errors.Is(err, ErrSchoolYearClosed) || isClosedYearDatabaseError(err)
+}
+
+func IsSchoolYearPurged(err error) bool {
+	return errors.Is(err, ErrSchoolYearPurged) || isPurgedYearDatabaseError(err)
 }
 
 func wrapSchoolYearError(operation string, err error) error {
 	if isClosedYearDatabaseError(err) {
 		return fmt.Errorf("%w: %v", ErrSchoolYearClosed, err)
+	}
+	if isPurgedYearDatabaseError(err) {
+		return fmt.Errorf("%w: %v", ErrSchoolYearPurged, err)
 	}
 	return fmt.Errorf("%s: %w", operation, err)
 }
@@ -167,6 +197,11 @@ func wrapSchoolYearError(operation string, err error) error {
 func isClosedYearDatabaseError(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "P0001" && pgErr.Message == "school year is closed"
+}
+
+func isPurgedYearDatabaseError(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "P0001" && pgErr.Message == "school year is purged"
 }
 
 func schoolYear(row db.SchoolYear) (SchoolYear, error) {
@@ -180,8 +215,17 @@ func schoolYear(row db.SchoolYear) (SchoolYear, error) {
 	}
 	return SchoolYear{
 		ID: row.ID, OrganizationID: row.OrganizationID, Label: row.Label,
-		State: SchoolYearState(row.State), CreatedAt: createdAt, UpdatedAt: updatedAt,
+		State: SchoolYearState(row.State), PurgedByUserID: row.PurgedByUserID,
+		PurgedAt: nullableSchoolYearTime(row.PurgedAt), CreatedAt: createdAt, UpdatedAt: updatedAt,
 	}, nil
+}
+
+func nullableSchoolYearTime(value pgtype.Timestamptz) *time.Time {
+	if !value.Valid {
+		return nil
+	}
+	result := value.Time
+	return &result
 }
 
 func schoolYearTime(value pgtype.Timestamptz, name string) (time.Time, error) {

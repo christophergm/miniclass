@@ -24,14 +24,13 @@ type Student struct {
 	GradeLevelID       *ids.XID
 	HomeroomID         ids.XID
 	ExternalIdentifier *string
-	PriorYearStudentID *ids.XID
 	DeletedAt          *time.Time
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
 }
 
 // CreateStudent inserts a student under the transaction tenant and year.
-func (tx *Tx) CreateStudent(ctx context.Context, schoolYearID ids.XID, gradeLevelID *ids.XID, homeroomID ids.XID, legalGivenName, legalFamilyName string, preferredGivenName, externalIdentifier *string, priorYearStudentID *ids.XID) (Student, error) {
+func (tx *Tx) CreateStudent(ctx context.Context, schoolYearID ids.XID, gradeLevelID *ids.XID, homeroomID ids.XID, legalGivenName, legalFamilyName string, preferredGivenName, externalIdentifier *string) (Student, error) {
 	legalGivenName = strings.TrimSpace(legalGivenName)
 	legalFamilyName = strings.TrimSpace(legalFamilyName)
 	if legalGivenName == "" || legalFamilyName == "" {
@@ -49,7 +48,6 @@ func (tx *Tx) CreateStudent(ctx context.Context, schoolYearID ids.XID, gradeLeve
 		GradeLevelID:       gradeLevelID,
 		HomeroomID:         homeroomID,
 		ExternalIdentifier: nullableStudentText(externalIdentifier),
-		PriorYearStudentID: priorYearStudentID,
 	})
 	if err != nil {
 		return Student{}, wrapStudentMutationError("create student", err)
@@ -101,7 +99,7 @@ func (tx *Tx) GetStudentByIDIncludingDeleted(ctx context.Context, schoolYearID, 
 }
 
 // UpdateStudent replaces the editable fields of one active student.
-func (tx *Tx) UpdateStudent(ctx context.Context, schoolYearID, id ids.XID, legalGivenName, legalFamilyName string, preferredGivenName *string, gradeLevelID *ids.XID, homeroomID ids.XID, externalIdentifier *string, priorYearStudentID *ids.XID) (Student, error) {
+func (tx *Tx) UpdateStudent(ctx context.Context, schoolYearID, id ids.XID, legalGivenName, legalFamilyName string, preferredGivenName *string, gradeLevelID *ids.XID, homeroomID ids.XID, externalIdentifier *string) (Student, error) {
 	legalGivenName = strings.TrimSpace(legalGivenName)
 	legalFamilyName = strings.TrimSpace(legalFamilyName)
 	if legalGivenName == "" || legalFamilyName == "" {
@@ -115,7 +113,6 @@ func (tx *Tx) UpdateStudent(ctx context.Context, schoolYearID, id ids.XID, legal
 		LegalGivenName: legalGivenName, LegalFamilyName: legalFamilyName,
 		PreferredGivenName: nullableStudentText(preferredGivenName), GradeLevelID: gradeLevelID,
 		HomeroomID: homeroomID, ExternalIdentifier: nullableStudentText(externalIdentifier),
-		PriorYearStudentID: priorYearStudentID,
 	})
 	if err != nil {
 		return Student{}, wrapStudentMutationError("update student", err)
@@ -232,7 +229,7 @@ func student(row db.Student) (Student, error) {
 		LegalGivenName: row.LegalGivenName, LegalFamilyName: row.LegalFamilyName,
 		PreferredGivenName: nullableStudentString(row.PreferredGivenName), GradeLevelID: row.GradeLevelID,
 		HomeroomID: row.HomeroomID, ExternalIdentifier: nullableStudentString(row.ExternalIdentifier),
-		PriorYearStudentID: row.PriorYearStudentID, DeletedAt: nullableStudentTime(row.DeletedAt),
+		DeletedAt: nullableStudentTime(row.DeletedAt),
 		CreatedAt: createdAt, UpdatedAt: updatedAt,
 	}, nil
 }

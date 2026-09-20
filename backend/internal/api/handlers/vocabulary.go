@@ -418,6 +418,8 @@ func vocabularyProblem(err error) error {
 		return problems.New(http.StatusBadRequest, problems.SchoolYearTransitionInvalid, err.Error())
 	case data.IsSchoolYearClosed(err):
 		return problems.New(http.StatusConflict, problems.SchoolYearClosed, "the school year is closed and cannot be changed")
+	case data.IsSchoolYearPurged(err):
+		return schoolYearPurgedProblem()
 	case isUniqueViolation(err):
 		return problems.New(http.StatusConflict, problems.HomeroomExternalIdentifierConflict, "the homeroom external identifier is already used in this school year")
 	case strings.Contains(err.Error(), "is empty"), strings.Contains(err.Error(), "must be positive"):

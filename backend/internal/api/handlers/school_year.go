@@ -25,16 +25,19 @@ type SchoolYearService interface {
 	Get(context.Context, string, ids.XID) (data.SchoolYear, error)
 	Update(context.Context, string, ids.XID, auth.OrganizationRole, audit.Actor, schoolyear.UpdateInput) (data.SchoolYear, error)
 	Delete(context.Context, string, ids.XID, audit.Actor) error
+	Purge(context.Context, string, ids.XID, auth.OrganizationRole, audit.Actor, string) (data.SchoolYear, error)
 }
 
 // SchoolYearResponse is the administrator-facing school-year resource.
 type SchoolYearResponse struct {
-	ID             string    `json:"id" doc:"Opaque school-year identifier."`
-	OrganizationID string    `json:"organization_id" doc:"Opaque organization identifier."`
-	Label          string    `json:"label" doc:"School-year display label."`
-	State          string    `json:"state" enum:"setup,active,closed" doc:"School-year lifecycle state."`
-	CreatedAt      time.Time `json:"created_at" doc:"Creation timestamp."`
-	UpdatedAt      time.Time `json:"updated_at" doc:"Last update timestamp."`
+	ID             string     `json:"id" doc:"Opaque school-year identifier."`
+	OrganizationID string     `json:"organization_id" doc:"Opaque organization identifier."`
+	Label          string     `json:"label" doc:"School-year display label."`
+	State          string     `json:"state" enum:"setup,active,closed,purged" doc:"School-year lifecycle state."`
+	PurgedByUserID *string    `json:"purged_by_user_id,omitempty" doc:"Opaque purge actor identifier."`
+	PurgedAt       *time.Time `json:"purged_at,omitempty" doc:"Time the year was purged."`
+	CreatedAt      time.Time  `json:"created_at" doc:"Creation timestamp."`
+	UpdatedAt      time.Time  `json:"updated_at" doc:"Last update timestamp."`
 }
 
 type SchoolYearListInput struct{}
@@ -75,6 +78,17 @@ type UpdateSchoolYearOutput struct {
 }
 
 type DeleteSchoolYearOutput struct{}
+
+type PurgeSchoolYearInput struct {
+	SchoolYearPathInput
+	Body struct {
+		Confirmation string `json:"confirmation" minLength:"1" doc:"Type PURGE followed by the exact school-year label to confirm irreversible deletion."`
+	}
+}
+
+type PurgeSchoolYearOutput struct {
+	Body SchoolYearResponse
+}
 
 // SchoolYearHandler exposes CRUD and lifecycle operations for one tenant.
 type SchoolYearHandler struct {
@@ -182,6 +196,24 @@ func (h *SchoolYearHandler) Delete(ctx context.Context, input *SchoolYearPathInp
 	return &DeleteSchoolYearOutput{}, nil
 }
 
+func (h *SchoolYearHandler) Purge(ctx context.Context, input *PurgeSchoolYearInput) (*PurgeSchoolYearOutput, error) {
+	account, err := schoolYearAccount(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if h == nil || h.service == nil {
+		return nil, problems.New(http.StatusInternalServerError, problems.DatabaseUnavailable, "school-year service is not configured")
+	}
+	if input == nil || strings.TrimSpace(input.SchoolYearID) == "" {
+		return nil, problems.New(http.StatusNotFound, problems.ResourceNotFound, "school year not found")
+	}
+	row, err := h.service.Purge(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), account.Role, schoolYearActor(account), input.Body.Confirmation)
+	if err != nil {
+		return nil, schoolYearProblem(err)
+	}
+	return &PurgeSchoolYearOutput{Body: schoolYearResponse(row)}, nil
+}
+
 func schoolYearAccount(ctx context.Context) (auth.AccountPrincipal, error) {
 	principal, ok := auth.PrincipalFromContext(ctx)
 	if !ok {
@@ -202,8 +234,17 @@ func schoolYearActor(account auth.AccountPrincipal) audit.Actor {
 func schoolYearResponse(row data.SchoolYear) SchoolYearResponse {
 	return SchoolYearResponse{
 		ID: string(row.ID), OrganizationID: string(row.OrganizationID), Label: row.Label,
-		State: string(row.State), CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+		State: string(row.State), PurgedByUserID: optionalSchoolYearXID(row.PurgedByUserID), PurgedAt: row.PurgedAt,
+		CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 	}
+}
+
+func optionalSchoolYearXID(value *ids.XID) *string {
+	if value == nil {
+		return nil
+	}
+	result := string(*value)
+	return &result
 }
 
 func schoolYearProblem(err error) error {
@@ -212,15 +253,25 @@ func schoolYearProblem(err error) error {
 		return problems.New(http.StatusNotFound, problems.ResourceNotFound, "school year not found")
 	case data.IsSchoolYearClosed(err):
 		return problems.New(http.StatusConflict, problems.SchoolYearClosed, "the school year is closed and cannot be changed")
+	case data.IsSchoolYearPurged(err):
+		return problems.New(http.StatusConflict, problems.SchoolYearPurged, "the school year has been purged and is unavailable")
 	case errors.Is(err, schoolyear.ErrReasonRequired):
 		return problems.New(http.StatusBadRequest, problems.SchoolYearReasonRequired, "a reason is required to reopen a closed school year")
 	case errors.Is(err, schoolyear.ErrOwnerRequired):
 		return problems.New(http.StatusForbidden, problems.CapabilityRequired, "only the Owner can reopen a closed school year")
+	case errors.Is(err, schoolyear.ErrPurgeOwnerRequired):
+		return problems.New(http.StatusForbidden, problems.CapabilityRequired, "only the Owner can purge a school year")
 	case errors.Is(err, schoolyear.ErrRoleRequired):
 		return problems.New(http.StatusForbidden, problems.CapabilityRequired, "Owner or Administrator role is required for this transition")
-	case errors.Is(err, schoolyear.ErrInvalidTransition), errors.Is(err, schoolyear.ErrNoChanges):
+	case errors.Is(err, schoolyear.ErrPurgeConfirmationRequired):
+		return problems.New(http.StatusBadRequest, problems.SchoolYearPurgeConfirmationRequired, "type PURGE followed by the exact school-year label to confirm irreversible deletion")
+	case errors.Is(err, schoolyear.ErrPurgeClosedRequired), errors.Is(err, schoolyear.ErrInvalidTransition), errors.Is(err, schoolyear.ErrNoChanges):
 		return problems.New(http.StatusConflict, problems.SchoolYearTransitionInvalid, err.Error())
 	default:
 		return problems.New(http.StatusInternalServerError, problems.InternalError, "unable to change school year")
 	}
+}
+
+func schoolYearPurgedProblem() error {
+	return problems.New(http.StatusConflict, problems.SchoolYearPurged, "the school year has been purged and is unavailable")
 }

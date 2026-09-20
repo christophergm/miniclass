@@ -1,5 +1,5 @@
 import { useState, type FormEvent, type ReactNode } from "react";
-import { Link, Outlet, useOutletContext, useParams } from "react-router-dom";
+import { Link, Outlet, useNavigate, useOutletContext, useParams } from "react-router-dom";
 
 import {
   Breadcrumb,
@@ -21,6 +21,7 @@ import { VocabularyContent } from "@/features/vocabulary/VocabularyPage";
 
 import {
   useCreateSchoolYear,
+  usePurgeSchoolYear,
   useSchoolYear,
   useSchoolYears,
   useUpdateSchoolYear,
@@ -34,11 +35,13 @@ function Problem({ error, fallback }: { error: unknown; fallback: string }) {
   const message =
     error instanceof ApiError && error.code === "school-year-closed"
       ? "This school year is closed and its records are read-only."
-      : error instanceof ApiError && error.status === 403
-        ? "Your administrator account does not have access to this action."
-        : error instanceof Error
-          ? error.message
-          : fallback;
+      : error instanceof ApiError && error.code === "school-year-purged"
+        ? "This school year has been purged and is unavailable."
+        : error instanceof ApiError && error.status === 403
+          ? "Your administrator account does not have access to this action."
+          : error instanceof Error
+            ? error.message
+            : fallback;
 
   return (
     <p
@@ -171,21 +174,33 @@ export function SchoolYearListPage() {
       )}
       {!isLoading && !isError && years && years.length > 0 && (
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {years.map((year) => (
-            <Link
-              className="rounded-lg border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md"
-              key={year.id}
-              to={`/y/${year.id}`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <h2 className="font-semibold">{year.label}</h2>
-                <StateBadge state={year.state} />
+          {years.map((year) =>
+            year.state === "purged" ? (
+              <div className="rounded-lg border bg-muted/30 p-5" key={year.id}>
+                <div className="flex items-start justify-between gap-3">
+                  <h2 className="font-semibold">{year.label}</h2>
+                  <StateBadge state={year.state} />
+                </div>
+                <p className="mt-4 text-sm text-muted-foreground">
+                  This year has been purged and is unavailable for ordinary operation.
+                </p>
               </div>
-              <p className="mt-4 text-sm text-muted-foreground">
-                Updated {formatDate(year.updated_at)}
-              </p>
-            </Link>
-          ))}
+            ) : (
+              <Link
+                className="rounded-lg border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md"
+                key={year.id}
+                to={`/y/${year.id}`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <h2 className="font-semibold">{year.label}</h2>
+                  <StateBadge state={year.state} />
+                </div>
+                <p className="mt-4 text-sm text-muted-foreground">
+                  Updated {formatDate(year.updated_at)}
+                </p>
+              </Link>
+            ),
+          )}
         </div>
       )}
     </PageFrame>
@@ -218,6 +233,10 @@ export function SchoolYearGuard() {
     );
   }
 
+  if (result.data.state === "purged") {
+    return <SchoolYearPurged year={result.data} />;
+  }
+
   return <Outlet context={result.data} />;
 }
 
@@ -233,10 +252,14 @@ export function SchoolYearSettingsPage() {
   // §11.1). The server decides whether it succeeds; this only avoids showing an
   // action that would be refused.
   const isOwner = useIsOwner();
+  const navigate = useNavigate();
   const update = useUpdateSchoolYear(year.id);
+  const purge = usePurgeSchoolYear(year.id);
   const [label, setLabel] = useState(year.label);
   const [reason, setReason] = useState("");
+  const [purgeConfirmation, setPurgeConfirmation] = useState("");
   const [editOpen, setEditOpen] = useState(false);
+  const [purgeOpen, setPurgeOpen] = useState(false);
   const readOnly = year.state === "closed";
 
   function openEditor() {
@@ -250,6 +273,21 @@ export function SchoolYearSettingsPage() {
     setReason("");
   }
 
+  function closePurge() {
+    setPurgeOpen(false);
+    setPurgeConfirmation("");
+  }
+
+  function submitPurge(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    purge.mutate(purgeConfirmation.trim(), {
+      onSuccess: () => {
+        closePurge();
+        navigate("/years", { replace: true });
+      },
+    });
+  }
+
   function saveLabel(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     update.mutate({ label: label.trim() }, { onSuccess: closeEditor });
@@ -257,7 +295,7 @@ export function SchoolYearSettingsPage() {
 
   // A reopen is the one transition that carries a reason, and the reason is
   // recorded as an audit entry rather than merely permitted (SPEC §5.4).
-  function transition(state: SchoolYearState) {
+  function transition(state: Exclude<SchoolYearState, "purged">) {
     update.mutate(
       {
         state,
@@ -301,6 +339,34 @@ export function SchoolYearSettingsPage() {
         <section className="mt-8 rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950">
           <h2 className="font-semibold">Read-only history</h2>
           <p className="mt-1">This year is closed. Its records can be viewed but not edited.</p>
+        </section>
+      )}
+
+      {year.state === "closed" && (
+        <section className="mt-8 rounded-lg border border-destructive/30 bg-destructive/5 p-5">
+          <h2 className="font-semibold text-destructive">Permanent deletion</h2>
+          <p className="mt-1 text-sm text-destructive/90">
+            Purging permanently removes this year&apos;s people, relationships, submissions, and
+            operational records. The year shell and a non-identifying audit fact are retained. This
+            cannot be undone.
+          </p>
+          {isOwner ? (
+            <Button
+              className="mt-4"
+              onClick={() => {
+                setPurgeConfirmation("");
+                setPurgeOpen(true);
+              }}
+              type="button"
+              variant="destructive"
+            >
+              Purge year permanently
+            </Button>
+          ) : (
+            <p className="mt-3 text-sm text-muted-foreground">
+              Only an Owner can permanently purge a closed school year.
+            </p>
+          )}
         </section>
       )}
 
@@ -424,7 +490,59 @@ export function SchoolYearSettingsPage() {
         </div>
       </ModalForm>
 
+      <ModalForm
+        dirty={Boolean(purgeConfirmation.trim())}
+        onClose={closePurge}
+        open={purgeOpen}
+        title="Permanently purge school year"
+        description={`This permanently removes all records for ${year.label}. Type PURGE ${year.label} exactly to continue.`}
+      >
+        <form className="space-y-4" onSubmit={submitPurge}>
+          <label className="block text-sm font-medium" htmlFor="school-year-purge-confirmation">
+            Confirmation
+            <Input
+              className="mt-2"
+              id="school-year-purge-confirmation"
+              onChange={(event) => setPurgeConfirmation(event.target.value)}
+              placeholder={`PURGE ${year.label}`}
+              required
+              value={purgeConfirmation}
+            />
+          </label>
+          <div className="flex gap-2">
+            <Button
+              disabled={purge.isPending || purgeConfirmation.trim() !== `PURGE ${year.label}`}
+              type="submit"
+              variant="destructive"
+            >
+              {purge.isPending ? "Purging…" : "Permanently purge"}
+            </Button>
+            <Button onClick={closePurge} type="button" variant="outline">
+              Cancel
+            </Button>
+          </div>
+          {purge.isError && (
+            <Problem error={purge.error} fallback="Unable to purge the school year." />
+          )}
+        </form>
+      </ModalForm>
+
       <VocabularyContent showReadOnlyNotice={false} year={year} />
+    </PageFrame>
+  );
+}
+
+export function SchoolYearPurged({ year }: { year: SchoolYear }) {
+  return (
+    <PageFrame>
+      <StateBadge state={year.state} />
+      <h1 className="mt-3 text-3xl font-semibold tracking-tight">School year purged</h1>
+      <p className="mt-3 max-w-xl text-sm text-muted-foreground">
+        {year.label} was permanently purged. Its records are unavailable and cannot be restored.
+      </p>
+      <Button className="mt-6" asChild>
+        <Link to="/years">Back to school years</Link>
+      </Button>
     </PageFrame>
   );
 }

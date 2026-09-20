@@ -15,36 +15,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestStudentCRUDSoftDeleteAndPriorYearLink(t *testing.T) {
+func TestStudentCRUDSoftDelete(t *testing.T) {
 	harness := testharness.Open(t)
 	ctx := harness.Context
 	organizationID := harness.MintOrganization(t)
 	actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "student integration test"}
-	priorYear, err := schoolyear.New(harness.Database).Create(ctx, string(organizationID), actor, "2025–2026")
-	require.NoError(t, err)
 	year, err := schoolyear.New(harness.Database).Create(ctx, string(organizationID), actor, "2026–2027")
-	require.NoError(t, err)
-	priorGrade, err := vocabulary.New(harness.Database).CreateGrade(ctx, string(organizationID), priorYear.ID, actor, "four", "Grade Four")
-	require.NoError(t, err)
-	priorHomeroom, err := vocabulary.New(harness.Database).CreateHomeroom(ctx, string(organizationID), priorYear.ID, actor, "Room A", nil)
 	require.NoError(t, err)
 	grade, err := vocabulary.New(harness.Database).CreateGrade(ctx, string(organizationID), year.ID, actor, "four", "Grade Four")
 	require.NoError(t, err)
 	homeroom, err := vocabulary.New(harness.Database).CreateHomeroom(ctx, string(organizationID), year.ID, actor, "Room A", nil)
 	require.NoError(t, err)
 	service := people.New(harness.Database)
-	prior, err := service.CreateStudent(ctx, string(organizationID), priorYear.ID, actor, people.StudentCreateInput{
-		LegalGivenName: "Alex", LegalFamilyName: "Rivera", GradeLevelID: xidPtr(priorGrade.ID), HomeroomID: priorHomeroom.ID,
-	})
-	require.NoError(t, err)
 	externalIdentifier := "student-1"
 	created, err := service.CreateStudent(ctx, string(organizationID), year.ID, actor, people.StudentCreateInput{
 		LegalGivenName: "Alexander", LegalFamilyName: "Rivera", PreferredGivenName: stringPointer("Alex"),
 		GradeLevelID: xidPtr(grade.ID), HomeroomID: homeroom.ID, ExternalIdentifier: &externalIdentifier,
-		PriorYearStudentID: &prior.ID,
 	})
 	require.NoError(t, err)
-	require.Equal(t, &prior.ID, created.PriorYearStudentID)
 
 	listed, err := service.ListStudents(ctx, string(organizationID), year.ID, false)
 	require.NoError(t, err)

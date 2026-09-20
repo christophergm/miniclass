@@ -11,16 +11,14 @@ import (
 func TestApplyStudentUpdatePreservesOmittedFieldsAndClearsOptionalValues(t *testing.T) {
 	preferred := "Alex"
 	external := "student-1"
-	prior := ids.XID("prior-student")
 	current := data.Student{
 		LegalGivenName: "Alexander", LegalFamilyName: "Rivera", PreferredGivenName: &preferred,
-		GradeLevelID: xidPointer("grade-1"), HomeroomID: "room-a", ExternalIdentifier: &external, PriorYearStudentID: &prior,
+		GradeLevelID: xidPointer("grade-1"), HomeroomID: "room-a", ExternalIdentifier: &external,
 	}
 	var clearPreferred *string
 	var clearExternal *string
-	var clearPrior *ids.XID
 	updated, changed := applyStudentUpdate(current, StudentUpdateInput{
-		PreferredGivenName: &clearPreferred, ExternalIdentifier: &clearExternal, PriorYearStudentID: &clearPrior,
+		PreferredGivenName: &clearPreferred, ExternalIdentifier: &clearExternal,
 	})
 	require.True(t, changed)
 	require.Equal(t, "Alexander", updated.LegalGivenName)
@@ -28,7 +26,6 @@ func TestApplyStudentUpdatePreservesOmittedFieldsAndClearsOptionalValues(t *test
 	require.Equal(t, ids.XID("grade-1"), *updated.GradeLevelID)
 	require.Equal(t, ids.XID("room-a"), updated.HomeroomID)
 	require.Nil(t, updated.ExternalIdentifier)
-	require.Nil(t, updated.PriorYearStudentID)
 }
 
 func TestApplyStudentUpdateRejectsNoChanges(t *testing.T) {

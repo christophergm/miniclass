@@ -14,7 +14,7 @@ import (
 const createSchoolYear = `-- name: CreateSchoolYear :one
 insert into school_years (organization_id, label)
 values ($1, $2)
-returning id, organization_id, label, state, created_at, updated_at
+returning id, organization_id, label, state, created_at, updated_at, purged_by_user_id, purged_at
 `
 
 type CreateSchoolYearParams struct {
@@ -32,6 +32,8 @@ func (q *Queries) CreateSchoolYear(ctx context.Context, arg CreateSchoolYearPara
 		&i.State,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PurgedByUserID,
+		&i.PurgedAt,
 	)
 	return i, err
 }
@@ -50,7 +52,7 @@ func (q *Queries) DeleteSchoolYear(ctx context.Context, id ids.XID) (int64, erro
 }
 
 const getSchoolYearByID = `-- name: GetSchoolYearByID :one
-select id, organization_id, label, state, created_at, updated_at
+select id, organization_id, label, state, created_at, updated_at, purged_by_user_id, purged_at
 from school_years
 where id = $1
 `
@@ -65,12 +67,14 @@ func (q *Queries) GetSchoolYearByID(ctx context.Context, id ids.XID) (SchoolYear
 		&i.State,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PurgedByUserID,
+		&i.PurgedAt,
 	)
 	return i, err
 }
 
 const listSchoolYears = `-- name: ListSchoolYears :many
-select id, organization_id, label, state, created_at, updated_at
+select id, organization_id, label, state, created_at, updated_at, purged_by_user_id, purged_at
 from school_years
 order by label, id
 `
@@ -91,6 +95,8 @@ func (q *Queries) ListSchoolYears(ctx context.Context) ([]SchoolYear, error) {
 			&i.State,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.PurgedByUserID,
+			&i.PurgedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -102,11 +108,26 @@ func (q *Queries) ListSchoolYears(ctx context.Context) ([]SchoolYear, error) {
 	return items, nil
 }
 
+const purgeSchoolYear = `-- name: PurgeSchoolYear :exec
+select public.purge_school_year($1, $2, $3)
+`
+
+type PurgeSchoolYearParams struct {
+	TargetOrganizationID ids.XID `json:"target_organization_id"`
+	TargetSchoolYearID   ids.XID `json:"target_school_year_id"`
+	PurgeActorID         ids.XID `json:"purge_actor_id"`
+}
+
+func (q *Queries) PurgeSchoolYear(ctx context.Context, arg PurgeSchoolYearParams) error {
+	_, err := q.db.Exec(ctx, purgeSchoolYear, arg.TargetOrganizationID, arg.TargetSchoolYearID, arg.PurgeActorID)
+	return err
+}
+
 const updateSchoolYearLabel = `-- name: UpdateSchoolYearLabel :one
 update school_years
 set label = $2
 where id = $1
-returning id, organization_id, label, state, created_at, updated_at
+returning id, organization_id, label, state, created_at, updated_at, purged_by_user_id, purged_at
 `
 
 type UpdateSchoolYearLabelParams struct {
@@ -124,6 +145,8 @@ func (q *Queries) UpdateSchoolYearLabel(ctx context.Context, arg UpdateSchoolYea
 		&i.State,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PurgedByUserID,
+		&i.PurgedAt,
 	)
 	return i, err
 }
@@ -132,7 +155,7 @@ const updateSchoolYearState = `-- name: UpdateSchoolYearState :one
 update school_years
 set state = $2
 where id = $1
-returning id, organization_id, label, state, created_at, updated_at
+returning id, organization_id, label, state, created_at, updated_at, purged_by_user_id, purged_at
 `
 
 type UpdateSchoolYearStateParams struct {
@@ -150,6 +173,8 @@ func (q *Queries) UpdateSchoolYearState(ctx context.Context, arg UpdateSchoolYea
 		&i.State,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PurgedByUserID,
+		&i.PurgedAt,
 	)
 	return i, err
 }

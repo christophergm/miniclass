@@ -56,7 +56,7 @@ func TestProgramMembershipRequiresGradeAndFlagsLaterRemoval(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		updated, err := tx.UpdateStudent(ctx, year.ID, graded.ID, current.LegalGivenName, current.LegalFamilyName, current.PreferredGivenName, nil, current.HomeroomID, current.ExternalIdentifier, current.PriorYearStudentID)
+		updated, err := tx.UpdateStudent(ctx, year.ID, graded.ID, current.LegalGivenName, current.LegalFamilyName, current.PreferredGivenName, nil, current.HomeroomID, current.ExternalIdentifier)
 		if err != nil {
 			return err
 		}

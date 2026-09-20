@@ -622,6 +622,8 @@ func preferenceProblem(err error) error {
 		return problems.New(http.StatusNotFound, problems.ResourceNotFound, "the preference instrument or student was not found")
 	case data.IsSchoolYearClosed(err):
 		return problems.New(http.StatusConflict, problems.SchoolYearClosed, "the school year is closed and cannot be changed")
+	case data.IsSchoolYearPurged(err):
+		return schoolYearPurgedProblem()
 	case errors.Is(err, preference.ErrRankedChoiceNotComplete), errors.Is(err, preference.ErrRankedChoiceInvalid), errors.Is(err, preference.ErrInterestAreaNotInProgram), strings.Contains(err.Error(), "required"), strings.Contains(err.Error(), "invalid"), strings.Contains(err.Error(), "repeated"):
 		return problems.New(http.StatusBadRequest, problems.ProgramConflict, err.Error())
 	default:

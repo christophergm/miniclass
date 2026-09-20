@@ -38,12 +38,23 @@ func TestSchoolYearRoutesUseTenantPrincipalAndCapability(t *testing.T) {
 	require.Equal(t, "year-test", string(service.updatedID))
 	require.NotNil(t, service.updatedInput.State)
 	require.Equal(t, data.SchoolYearActive, *service.updatedInput.State)
+
+	request = httptest.NewRequest(http.MethodPost, "/api/school-years/year-test/purge", strings.NewReader(`{"confirmation":"PURGE 2026–2027"}`))
+	request.Header.Set("Authorization", "Bearer "+token)
+	request.Header.Set("Content-Type", "application/json")
+	recording = httptest.NewRecorder()
+	router.ServeHTTP(recording, request)
+	require.Equal(t, http.StatusOK, recording.Code)
+	require.Equal(t, "year-test", string(service.purgedID))
+	require.Equal(t, "PURGE 2026–2027", service.purgeConfirmation)
 }
 
 type fakeSchoolYearService struct {
-	organizationID string
-	updatedID      ids.XID
-	updatedInput   schoolyear.UpdateInput
+	organizationID    string
+	updatedID         ids.XID
+	updatedInput      schoolyear.UpdateInput
+	purgedID          ids.XID
+	purgeConfirmation string
 }
 
 func (f *fakeSchoolYearService) Create(_ context.Context, organizationID string, _ audit.Actor, label string) (data.SchoolYear, error) {
@@ -72,4 +83,11 @@ func (f *fakeSchoolYearService) Update(_ context.Context, organizationID string,
 
 func (f *fakeSchoolYearService) Delete(context.Context, string, ids.XID, audit.Actor) error {
 	return nil
+}
+
+func (f *fakeSchoolYearService) Purge(_ context.Context, organizationID string, id ids.XID, _ auth.OrganizationRole, _ audit.Actor, confirmation string) (data.SchoolYear, error) {
+	f.organizationID = organizationID
+	f.purgedID = id
+	f.purgeConfirmation = confirmation
+	return data.SchoolYear{ID: id, OrganizationID: ids.XID(organizationID), Label: "2026–2027", State: data.SchoolYearPurged, CreatedAt: time.Unix(1, 0), UpdatedAt: time.Unix(1, 0)}, nil
 }

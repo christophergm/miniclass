@@ -151,6 +151,8 @@ func sessionNonParticipationProblem(err error) error {
 		return sessionNonParticipationNotFound()
 	case data.IsSchoolYearClosed(err):
 		return problems.New(http.StatusConflict, problems.SchoolYearClosed, "the school year is closed and cannot be changed")
+	case data.IsSchoolYearPurged(err):
+		return schoolYearPurgedProblem()
 	case errors.As(err, &pgErr) && pgErr.Code == "23505":
 		return problems.New(http.StatusConflict, problems.ProgramConflict, "the student is already marked as not participating in this session")
 	case errors.Is(err, programservice.ErrSessionNonParticipationNoChanges), errors.Is(err, programservice.ErrStudentNotProgramMember), strings.Contains(err.Error(), "reason is required"), strings.Contains(err.Error(), "student id"):

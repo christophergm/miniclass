@@ -112,6 +112,9 @@ func objectiveWeightsProblem(err error) error {
 	if data.IsSchoolYearClosed(err) {
 		return problems.New(http.StatusConflict, problems.SchoolYearClosed, "the school year is closed and cannot be changed")
 	}
+	if data.IsSchoolYearPurged(err) {
+		return schoolYearPurgedProblem()
+	}
 	if strings.Contains(err.Error(), "session not found") {
 		return sessionNotFound()
 	}

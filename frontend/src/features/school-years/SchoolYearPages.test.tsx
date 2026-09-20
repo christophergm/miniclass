@@ -14,6 +14,7 @@ import {
 } from "./SchoolYearPages";
 import {
   useCreateSchoolYear,
+  usePurgeSchoolYear,
   useSchoolYear,
   useSchoolYears,
   useUpdateSchoolYear,
@@ -23,6 +24,7 @@ vi.mock("./useSchoolYears", () => ({
   useSchoolYears: vi.fn(),
   useSchoolYear: vi.fn(),
   useCreateSchoolYear: vi.fn(),
+  usePurgeSchoolYear: vi.fn(),
   useUpdateSchoolYear: vi.fn(),
 }));
 
@@ -124,6 +126,12 @@ beforeEach(() => {
     isError: false,
     error: null,
   });
+  mockQuery(usePurgeSchoolYear, {
+    mutate: vi.fn(),
+    isPending: false,
+    isError: false,
+    error: null,
+  });
   vi.mocked(resourceApi.getMe).mockResolvedValue(account("Owner"));
 });
 
@@ -159,6 +167,24 @@ describe("SchoolYearSettingsPage", () => {
       expect(screen.queryByRole("button", { name: "Reopen year" })).not.toBeInTheDocument(),
     );
     expect(screen.getByText("Only an Owner can reopen a closed school year.")).toBeInTheDocument();
+  });
+
+  it("requires the exact confirmation phrase before an owner can purge a closed year", async () => {
+    const mutate = vi.fn();
+    mockQuery(usePurgeSchoolYear, { mutate, isPending: false, isError: false, error: null });
+    renderWorkspace();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Purge year permanently" }));
+    const dialog = screen.getByRole("dialog", { name: "Permanently purge school year" });
+    const submit = within(dialog).getByRole("button", { name: "Permanently purge" });
+    expect(submit).toBeDisabled();
+    fireEvent.change(within(dialog).getByLabelText("Confirmation"), {
+      target: { value: "PURGE 2025–26" },
+    });
+    expect(submit).toBeEnabled();
+    fireEvent.click(submit);
+
+    expect(mutate).toHaveBeenCalledWith("PURGE 2025–26", expect.anything());
   });
 
   it("offers a destructive close transition in the active year edit modal", async () => {
@@ -251,6 +277,19 @@ describe("SchoolYearSettingsPage", () => {
     expect(screen.getByRole("heading", { name: "School year not found" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Year details" })).not.toBeInTheDocument();
   });
+
+  it("renders a purged-year guard without ordinary workspace routes", () => {
+    mockQuery(useSchoolYear, {
+      data: year({ state: "purged" }),
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    renderWorkspace();
+
+    expect(screen.getByRole("heading", { name: "School year purged" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Settings" })).not.toBeInTheDocument();
+  });
 });
 
 describe("SchoolYearLayout", () => {
@@ -293,5 +332,20 @@ describe("SchoolYearListPage", () => {
     renderList();
 
     expect(screen.getByRole("link", { name: /2026–27/ })).toHaveAttribute("href", "/y/year-1");
+  });
+
+  it("does not link a purged year to the ordinary workspace", () => {
+    mockQuery(useSchoolYears, {
+      data: [year({ id: "year-purged", state: "purged" })],
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    renderList();
+
+    expect(
+      screen.getByText("This year has been purged and is unavailable for ordinary operation."),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /2025–26/ })).not.toBeInTheDocument();
   });
 });

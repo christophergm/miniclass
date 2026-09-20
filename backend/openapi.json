@@ -332,6 +332,7 @@
               "import_commit",
               "school_year_create",
               "school_year_state_transition",
+              "school_year_purge",
               "program_create",
               "membership_change",
               "session_create",
@@ -1101,10 +1102,6 @@
             "type": "string"
           },
           "preferred_given_name": {
-            "type": "string"
-          },
-          "prior_year_student_id": {
-            "description": "Opaque prior-year student identifier.",
             "type": "string"
           }
         },
@@ -4176,6 +4173,8 @@
           "resource-not-found",
           "route-not-found",
           "school-year-closed",
+          "school-year-purge-confirmation-required",
+          "school-year-purged",
           "school-year-reason-required",
           "school-year-transition-invalid",
           "session-invalid",
@@ -4350,6 +4349,29 @@
         },
         "required": [
           "missing_grade_count"
+        ],
+        "type": "object"
+      },
+      "PurgeSchoolYearInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/PurgeSchoolYearInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "confirmation": {
+            "description": "Type PURGE followed by the exact school-year label to confirm irreversible deletion.",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "confirmation"
         ],
         "type": "object"
       },
@@ -5171,12 +5193,22 @@
             "description": "Opaque organization identifier.",
             "type": "string"
           },
+          "purged_at": {
+            "description": "Time the year was purged.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "purged_by_user_id": {
+            "description": "Opaque purge actor identifier.",
+            "type": "string"
+          },
           "state": {
             "description": "School-year lifecycle state.",
             "enum": [
               "setup",
               "active",
-              "closed"
+              "closed",
+              "purged"
             ],
             "type": "string"
           },
@@ -5576,10 +5608,6 @@
             "type": "string"
           },
           "preferred_given_name": {
-            "type": "string"
-          },
-          "prior_year_student_id": {
-            "description": "Opaque prior-year student identifier.",
             "type": "string"
           },
           "school_year_id": {
@@ -6058,9 +6086,6 @@
             "type": "string"
           },
           "preferred_given_name": {
-            "type": "string"
-          },
-          "prior_year_student_id": {
             "type": "string"
           }
         },
@@ -17924,6 +17949,113 @@
         "x-required-capability": "manage_catalog"
       }
     },
+    "/api/school-years/{schoolYearID}/purge": {
+      "post": {
+        "operationId": "purge-school-year",
+        "parameters": [
+          {
+            "description": "Opaque school-year identifier.",
+            "in": "path",
+            "name": "schoolYearID",
+            "required": true,
+            "schema": {
+              "description": "Opaque school-year identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurgeSchoolYearInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchoolYearResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Permanently purge a closed school year",
+        "x-required-capability": "manage_school_year"
+      }
+    },
     "/api/school-years/{schoolYearID}/students": {
       "get": {
         "operationId": "list-students",
@@ -18710,6 +18842,8 @@
     "resource-not-found",
     "route-not-found",
     "school-year-closed",
+    "school-year-purge-confirmation-required",
+    "school-year-purged",
     "school-year-reason-required",
     "school-year-transition-invalid",
     "session-invalid",

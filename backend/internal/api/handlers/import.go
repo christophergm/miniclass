@@ -173,6 +173,8 @@ func importPreviewProblem(err error) error {
 		return problems.New(http.StatusNotFound, problems.ResourceNotFound, "import kind not found")
 	case errors.Is(err, ingest.ErrSchoolYearClosed):
 		return problems.New(http.StatusConflict, problems.SchoolYearClosed, "the school year is closed and cannot receive an import preview")
+	case errors.Is(err, ingest.ErrSchoolYearPurged):
+		return schoolYearPurgedProblem()
 	case errors.Is(err, ingest.ErrInvalidSource):
 		return problems.New(http.StatusBadRequest, problems.ImportInvalid, "the submitted import document is invalid")
 	case errors.Is(err, ingest.ErrUnsupportedKind):
@@ -197,6 +199,8 @@ func importCommitProblem(err error) error {
 		return problems.New(http.StatusConflict, problems.ImportInvalid, "the import cannot be committed while the preview contains error records")
 	case errors.Is(err, ingest.ErrSchoolYearClosed):
 		return problems.New(http.StatusConflict, problems.SchoolYearClosed, "the school year is closed and cannot receive an import commit")
+	case errors.Is(err, ingest.ErrSchoolYearPurged):
+		return schoolYearPurgedProblem()
 	case errors.Is(err, ingest.ErrInvalidSource):
 		return problems.New(http.StatusBadRequest, problems.ImportInvalid, "the submitted import document is invalid")
 	case errors.Is(err, ingest.ErrUnsupportedKind):

@@ -283,6 +283,8 @@ func adultProblem(err error) error {
 		return adultNotFound()
 	case data.IsSchoolYearClosed(err):
 		return problems.New(http.StatusConflict, problems.SchoolYearClosed, "the school year is closed and cannot be changed")
+	case data.IsSchoolYearPurged(err):
+		return schoolYearPurgedProblem()
 	case errors.As(err, &pgErr) && pgErr.Code == "23505":
 		return problems.New(http.StatusConflict, problems.AdultExternalIdentifierConflict, "the external identifier is already used in this school year")
 	case strings.Contains(err.Error(), "names are required"), strings.Contains(err.Error(), "invalid participation intent"):

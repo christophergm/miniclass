@@ -350,3 +350,14 @@
 - Repository/PR: commits `5fe92fd` and `526417b` are pushed to open non-draft PR #217, which references `Fixes #211`, is merge-clean, and has no actionable reviews or comments. All ten required CI checks pass on final head `526417b`; PR CI duration was about 146s, with Backend tests (145s), Generated code drift (107s), and Backend lint (82s) slowest. Local aggregate `make check` stops at Docker socket startup.
 - Open items: none; Workpad is complete and Detent owns the review-lane transition.
 - Skill draft: no — the existing tenant-isolation and generated-code procedures covered the work; no new broadly reusable method was discovered.
+
+## Current work — issue #214
+
+- Scope: remove cross-year student linkage and implement Owner-confirmed, irreversible closed-year purge per SPEC §§5.6, 8.7, 11.1, 21.4 and PLAN P4B-5.
+- Key files: `backend/migrations/20260919130000_purge_school_years.sql`, school-year data/service/API/generated files, student data/API/ingest paths, `backend/tests/integration/school_year_purge_test.go`, and `frontend/src/features/school-years/`.
+- Implementation: dropped `students.prior_year_student_id` from the live schema and application contract; added independent-year vocabulary coverage; added a security-definer purge graph for all current year-scoped tables, retained purged shell metadata, sanitized purge audit attribution, purged-state trigger/API handling, and owner-only exact confirmation UI.
+- Validation: `GOTOOLCHAIN=local go test ./... -count=1`, `GOTOOLCHAIN=local go test -race ./... -count=1`, `GOTOOLCHAIN=local go vet ./...`, `gofmt -l .`, `goose -dir migrations validate`, `make generate && git diff --exit-code`, and `git diff --check` pass. The database-backed purge test compiles but skips without `TEST_DATABASE_URL` and `TEST_APP_DATABASE_URL`; pinned `make format` is locally blocked by unavailable Go 1.26.4 toolchain download, and frontend dependencies are absent locally.
+- Repository/PR: commits `7962040`, `a772667`, `4709890`, `266d4fb`, and `fde1b08` are pushed to open non-draft PR [#220](https://github.com/christophergm/miniclass/pull/220), which references `Fixes #214` and is merge-clean. All ten required checks pass on handoff head `fde1b08` in run `35492842146`; Backend tests took 141s, Generated code drift 112s, Backend lint 93s, and Developer tooling 77s. Quiet-window wait 0s; local merge-gate `git diff --check` 0.01s; no post-merge main CI applies while the PR is open. No reviews, issue comments, or inline review comments require action.
+- Open items: none; Detent owns the completion-lane transition.
+- Blockers: none.
+- Skill draft: no — existing tenant-data and PostgreSQL isolation guidance covered this scoped schema/lifecycle change.
