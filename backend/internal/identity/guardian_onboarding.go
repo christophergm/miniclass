@@ -233,7 +233,6 @@ func (s *Store) UpdateSignupNotice(ctx context.Context, organizationID ids.XID, 
 	if s == nil || s.tenantDatabase == nil {
 		return guardian.Policy{}, errors.New("update guardian signup notice: identity store is nil")
 	}
-	now = onboardingNow(now)
 	var policy guardian.Policy
 	err := s.tenantDatabase.InTenant(ctx, string(organizationID), actor, func(ctx context.Context, tx *data.Tx) error {
 		current, err := tx.GetGuardianSignupNotice(ctx)
@@ -299,14 +298,15 @@ func (s *Store) Redeem(ctx context.Context, input guardian.RedeemInput) (guardia
 			return err
 		}
 		emailHash := hashEmail(contact.Email)
-		if _, err := tx.VerifyGuardianOnboardingSession(ctx, created.ID, emailHash[:], now); err != nil {
+		verified, err := tx.VerifyGuardianOnboardingSession(ctx, created.ID, emailHash[:], now)
+		if err != nil {
 			return err
 		}
 		policy, err := tx.GetGuardianSignupNotice(ctx)
 		if err != nil {
 			return err
 		}
-		result = sessionResponse(bearer.Value, created, policyFromNotice(policy), true, contact.Email)
+		result = sessionResponse(bearer.Value, verified, policyFromNotice(policy), true, contact.Email)
 		return tx.Record(ctx, audit.Entry{Action: audit.ActionGuardianInvitationRedeem, ObjectType: "guardian_invitation_contact", ObjectID: &contact.ID, SchoolYearID: token.SchoolYearID, ChangeSummary: jsonObject(map[string]any{"redeemed": true})})
 	})
 	if err != nil {

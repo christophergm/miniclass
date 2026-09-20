@@ -133,6 +133,8 @@ drop index if exists guardian_invitation_contacts_active_email_idx;
 drop table guardian_invitation_contacts;
 
 drop index if exists access_tokens_guardian_onboarding_parent_idx;
+drop index if exists access_tokens_session_user_idx;
+drop index if exists access_tokens_adult_otp_rate_idx;
 alter table access_tokens
     drop constraint if exists access_tokens_guardian_scope_check,
     drop constraint if exists access_tokens_parent_token_fk,
@@ -168,3 +170,11 @@ alter type access_token_purpose_guardian_onboarding_down rename to access_token_
 alter type access_token_purpose owner to miniclass_migrator;
 alter table access_tokens_guardian_onboarding_down rename to access_tokens;
 drop type access_token_purpose_guardian_onboarding_old;
+
+create index access_tokens_adult_otp_rate_idx
+    on access_tokens (purpose, organization_id, school_year_id, requested_email_hash, created_at)
+    where purpose = 'adult_otp';
+
+create index access_tokens_session_user_idx
+    on access_tokens (purpose, user_id)
+    where purpose = 'administrative_session' and revoked_at is null;

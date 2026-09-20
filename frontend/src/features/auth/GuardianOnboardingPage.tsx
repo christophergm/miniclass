@@ -294,7 +294,7 @@ export function GuardianOnboardingPage() {
               htmlFor={`guardian-${field}`}
               key={field}
             >
-              {field.replaceAll("_", " ")}
+              {field.replace(/_/g, " ")}
               <Input
                 id={`guardian-${field}`}
                 required

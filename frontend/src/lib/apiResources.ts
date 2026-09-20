@@ -142,8 +142,7 @@ export const resourceApi = {
         body: { session_token: sessionToken, ...value },
       }),
     ),
-  completeGuardianOnboarding: (
-    value: {
+  completeGuardianOnboarding: (value: {
       session_token: string;
       adult_given_name: string;
       adult_family_name: string;
@@ -152,8 +151,7 @@ export const resourceApi = {
       grade_level_id?: string;
       homeroom_id?: string;
       relationship_type: string;
-    },
-  ) => unwrap(api.POST("/api/guardian/onboarding/complete", { body: value })),
+  }) => unwrap(api.POST("/api/guardian/onboarding/complete", { body: value })),
   getGuardianAuthContext: () => unwrap(api.GET("/api/auth/guardian")),
   enrollMFA: () => unwrap(api.POST("/api/auth/mfa/enroll", {})),
   verifyMFA: (code?: string, recoveryCode?: string) =>
