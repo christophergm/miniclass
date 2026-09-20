@@ -280,15 +280,15 @@
 - Validation: `make GOTOOLCHAIN=local format`, full `GOTOOLCHAIN=local go test ./...`, focused
   correction tests, project-generated artifacts, and `git diff --check` pass. The first PR run
   found one frontend test-label assertion and one CI Biome-format difference; both are corrected
-  on the current source. `make lint-backend` is
-  environment-limited because installed golangci-lint was built with Go 1.27.1, not pinned Go
-  1.26.4. Migration round-trip, frontend dependency gates, and smoke remain to run in CI/current
-  environment as configured.
-- Repository/PR: commit `053594b` is pushed to open non-draft PR #218 with `Fixes #212`; the
-  current-head run `35488930108` passes all ten required checks.
-- Validation telemetry: PR CI ran 146s; slow checks were Backend tests 142s, Generated code drift
-  106s, and Developer tooling 76s. The local merge gate `git diff --check` is clean; quiet-window
-  wait was 0s; no post-merge main CI applies while the PR is open.
+  on the current source. Provisioned CI covers the environment-limited golangci-lint, migration,
+  frontend dependency, and smoke gates.
+- Repository/PR: commit `add9bff` is pushed to open non-draft PR #218 with `Fixes #212`; run
+  `35489239148` attempt 2 passes all ten required checks after one transient frontend dependency
+  installation retry.
+- Validation telemetry: the PR run completed in 213s including the 51s frontend retry; slow checks
+  were Backend tests 145s, Generated code drift 113s, and Developer tooling 78s. The local merge
+  gate `git diff --check` is clean; quiet-window wait was 0s; no post-merge main CI applies while
+  the PR is open.
 - Handoff: PR #218 is open, non-draft, merge-clean, references `Fixes #212`, has no actionable
   reviews or inline comments, and the persistent Workpad comment `5747346879` is complete. Detent
   owns the completion-lane transition.
