@@ -18,6 +18,8 @@ import (
 
 type GuardianRecordsService interface {
 	List(context.Context, auth.GuardianPrincipal) ([]guardianrecords.Student, error)
+	Vocabulary(context.Context, auth.GuardianPrincipal) (guardianrecords.Vocabulary, error)
+	GetProfile(context.Context, auth.GuardianPrincipal) (guardianrecords.Profile, error)
 	FindCandidates(context.Context, auth.GuardianPrincipal, guardianrecords.CandidateInput) ([]guardianrecords.Student, error)
 	Select(context.Context, auth.GuardianPrincipal, ids.XID, data.GuardianRelationshipType, audit.Actor) (guardianrecords.Student, error)
 	Create(context.Context, auth.GuardianPrincipal, guardianrecords.CreateInput, audit.Actor) (guardianrecords.Student, error)
@@ -52,6 +54,23 @@ type GuardianStudentReviewWarning struct {
 
 type GuardianStudentListOutput struct{ Body []GuardianStudentResponse }
 type GuardianStudentOutput struct{ Body GuardianStudentResponse }
+
+type GuardianVocabularyResponse struct {
+	GradeLevels []GuardianVocabularyOption `json:"grade_levels"`
+	Homerooms   []GuardianVocabularyOption `json:"homerooms"`
+}
+
+type GuardianVocabularyOutput struct{ Body GuardianVocabularyResponse }
+
+type GuardianProfileResponse struct {
+	LegalGivenName     string  `json:"legal_given_name"`
+	LegalFamilyName    string  `json:"legal_family_name"`
+	PreferredGivenName *string `json:"preferred_given_name,omitempty" nullable:"true"`
+	Email              *string `json:"email,omitempty" nullable:"true"`
+	Phone              *string `json:"phone,omitempty" nullable:"true"`
+}
+
+type GuardianProfileGetOutput struct{ Body GuardianProfileResponse }
 
 // GuardianCandidateResponse is deliberately narrower than the normal scoped
 // student response. Matching may show only the fields needed to recognize a
@@ -140,6 +159,38 @@ func (h *GuardianRecordsHandler) List(ctx context.Context, _ *struct{}) (*Guardi
 		return nil, guardianRecordsProblem(err)
 	}
 	return &GuardianStudentListOutput{Body: guardianStudentResponses(rows)}, nil
+}
+
+func (h *GuardianRecordsHandler) Vocabulary(ctx context.Context, _ *struct{}) (*GuardianVocabularyOutput, error) {
+	principal, err := guardianRecordsPrincipal(ctx)
+	if err != nil {
+		return nil, err
+	}
+	vocabulary, err := h.service.Vocabulary(ctx, principal)
+	if err != nil {
+		return nil, guardianRecordsProblem(err)
+	}
+	gradeLevels := make([]GuardianVocabularyOption, 0, len(vocabulary.GradeLevels))
+	for _, grade := range vocabulary.GradeLevels {
+		gradeLevels = append(gradeLevels, GuardianVocabularyOption{ID: string(grade.ID), Label: grade.Label})
+	}
+	homerooms := make([]GuardianVocabularyOption, 0, len(vocabulary.Homerooms))
+	for _, homeroom := range vocabulary.Homerooms {
+		homerooms = append(homerooms, GuardianVocabularyOption{ID: string(homeroom.ID), Label: homeroom.Label})
+	}
+	return &GuardianVocabularyOutput{Body: GuardianVocabularyResponse{GradeLevels: gradeLevels, Homerooms: homerooms}}, nil
+}
+
+func (h *GuardianRecordsHandler) GetProfile(ctx context.Context, _ *struct{}) (*GuardianProfileGetOutput, error) {
+	principal, err := guardianRecordsPrincipal(ctx)
+	if err != nil {
+		return nil, err
+	}
+	profile, err := h.service.GetProfile(ctx, principal)
+	if err != nil {
+		return nil, guardianRecordsProblem(err)
+	}
+	return &GuardianProfileGetOutput{Body: GuardianProfileResponse{LegalGivenName: profile.LegalGivenName, LegalFamilyName: profile.LegalFamilyName, PreferredGivenName: profile.PreferredGivenName, Email: profile.Email, Phone: profile.Phone}}, nil
 }
 
 func (h *GuardianRecordsHandler) Candidates(ctx context.Context, input *GuardianCandidatesInput) (*GuardianCandidatesOutput, error) {

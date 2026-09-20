@@ -56,6 +56,10 @@ func TestGuardianOnboardingRequiresProofAndConsentBeforeRosterWrites(t *testing.
 	require.NoError(t, err)
 	session, err := store.Begin(ctx, guardian.BeginInput{EntryToken: entry.Token, Now: now})
 	require.NoError(t, err)
+	vocabulary, err := store.OnboardingVocabulary(ctx, session.Token, now)
+	require.NoError(t, err)
+	require.Equal(t, []guardian.VocabularyOption{{ID: grade.ID, Label: "Synthetic Grade"}}, vocabulary.GradeLevels)
+	require.Equal(t, []guardian.VocabularyOption{{ID: homeroom.ID, Label: "Synthetic Onboarding Room"}}, vocabulary.Homerooms)
 
 	_, err = store.Complete(ctx, guardian.CompleteInput{SessionToken: session.Token, AdultGivenName: "Guardian", AdultFamilyName: "One", StudentGivenName: "Student", StudentFamilyName: "One", HomeroomID: homeroom.ID, RelationshipType: data.GuardianRelationshipParent, Now: now})
 	require.ErrorIs(t, err, guardian.ErrMailboxUnverified)

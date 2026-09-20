@@ -667,6 +667,42 @@ func (s *Store) GetSession(ctx context.Context, bearer string, now time.Time) (g
 	return sessionResponse(bearer, guardianTokenFromIdentity(token), policy, consented, email), nil
 }
 
+// OnboardingVocabulary returns only active grade and homeroom choices for the
+// school year authenticated by the temporary onboarding session. It is kept
+// separate from the administrator vocabulary surface: possession of the
+// registration-session bearer is the authority for this deliberately narrow
+// disclosure.
+func (s *Store) OnboardingVocabulary(ctx context.Context, bearer string, now time.Time) (guardian.OnboardingVocabulary, error) {
+	token, err := s.lookupOnboardingSession(ctx, bearer, now, true)
+	if err != nil || token.OrganizationID == nil || token.SchoolYearID == nil {
+		return guardian.OnboardingVocabulary{}, guardian.ErrOnboardingInvalid
+	}
+	result := guardian.OnboardingVocabulary{}
+	err = s.tenantDatabase.InTenantRead(ctx, string(*token.OrganizationID), func(ctx context.Context, tx *data.Tx) error {
+		grades, err := tx.ListGradeLevels(ctx, *token.SchoolYearID, false)
+		if err != nil {
+			return err
+		}
+		homerooms, err := tx.ListHomerooms(ctx, *token.SchoolYearID, false)
+		if err != nil {
+			return err
+		}
+		result.GradeLevels = make([]guardian.VocabularyOption, 0, len(grades))
+		for _, grade := range grades {
+			result.GradeLevels = append(result.GradeLevels, guardian.VocabularyOption{ID: grade.ID, Label: grade.Label})
+		}
+		result.Homerooms = make([]guardian.VocabularyOption, 0, len(homerooms))
+		for _, homeroom := range homerooms {
+			result.Homerooms = append(result.Homerooms, guardian.VocabularyOption{ID: homeroom.ID, Label: homeroom.Name})
+		}
+		return nil
+	})
+	if err != nil {
+		return guardian.OnboardingVocabulary{}, fmt.Errorf("list guardian onboarding vocabulary: %w", err)
+	}
+	return result, nil
+}
+
 func (s *Store) lookupRegistrationEntry(ctx context.Context, bearer string, now time.Time) (identitydata.AccessToken, error) {
 	hash, err := HashAccessToken(strings.TrimSpace(bearer))
 	if err != nil {
