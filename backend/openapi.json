@@ -1428,6 +1428,35 @@
         ],
         "type": "object"
       },
+      "GuardianCandidateResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "grade_label": {
+            "type": "string"
+          },
+          "homeroom_label": {
+            "type": "string"
+          },
+          "id": {
+            "description": "Opaque selection handle for the candidate.",
+            "type": "string"
+          },
+          "legal_family_name": {
+            "type": "string"
+          },
+          "legal_given_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "legal_given_name",
+          "legal_family_name",
+          "grade_label",
+          "homeroom_label"
+        ],
+        "type": "object"
+      },
       "GuardianCandidatesInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -9483,7 +9512,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/GuardianStudentResponse"
+                    "$ref": "#/components/schemas/GuardianCandidateResponse"
                   },
                   "type": [
                     "array",
@@ -9561,7 +9590,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/GuardianStudentResponse"
+                    "$ref": "#/components/schemas/GuardianCandidateResponse"
                   },
                   "type": [
                     "array",

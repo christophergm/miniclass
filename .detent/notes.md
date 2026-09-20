@@ -380,7 +380,6 @@
 - Repository/PR: commits `5fe92fd` and `526417b` are pushed to open non-draft PR #217, which references `Fixes #211`, is merge-clean, and has no actionable reviews or comments. All ten required CI checks pass on final head `526417b`; PR CI duration was about 146s, with Backend tests (145s), Generated code drift (107s), and Backend lint (82s) slowest. Local aggregate `make check` stops at Docker socket startup.
 - Open items: none; Workpad is complete and Detent owns the review-lane transition.
 - Skill draft: no — the existing tenant-isolation and generated-code procedures covered the work; no new broadly reusable method was discovered.
-
 ## Current work — issue #214
 
 - Scope: remove cross-year student linkage and implement Owner-confirmed, irreversible closed-year purge per SPEC §§5.6, 8.7, 11.1, 21.4 and PLAN P4B-5.
@@ -391,3 +390,14 @@
 - Open items: none; Detent owns the completion-lane transition.
 - Blockers: none.
 - Skill draft: no — existing tenant-data and PostgreSQL isolation guidance covered this scoped schema/lifecycle change.
+
+## Current work — issue #213
+
+- Scope: Phase 4B integration, privacy, security, tenant-isolation, audit, artifact-regeneration, and purge regressions per SPEC §§9.2–9.4, 11, 18.2, 20.1, 21 and PLAN.md P4B-6.
+- Base: rebased onto current `origin/main` at `48909c5` after merged P4B-4/#212 and P4B-5/#214; P4B-1/#209, P4B-2/#210, and P4B-3/#211 are terminal.
+- Blockers: none; native `blocked_by` relations to #212 and #214 are terminal.
+- Workpad: issue comment https://github.com/christophergm/miniclass/issues/213#issuecomment-5747694887 is the persistent plan and now declares structured `detent-status: in_progress` with no blockers.
+- Implementation: added the minimal-disclosure guardian candidate response, exact capability contract coverage, cross-tenant/year/placeholder privacy and deletion integration tests, guardian self-delete revocation/deletion tests, review-signal and correction-audit tests, and purge authorization/audit assertions. Generated `backend/openapi.json` was regenerated.
+- Validation: `GOTOOLCHAIN=local go test ./... -count=1`, race-enabled backend tests, focused Phase 4B tests, `make format`, `make lint-backend`, `make generate`, and `git diff --check` pass. Docker-backed backend tests, migration round-trip, frontend tests/build, and smoke are locally unavailable because their configured services/dependencies are absent; local frontend lint also encounters a cached Biome 2.5.1 versus repository-pinned 2.5.5 formatter mismatch.
+- Open items: stage the final test-quality adjustment, commit/push, open a PR referencing `Fixes #213`, verify current-head CI/review state, then update the Workpad for handoff.
+- Skill draft: no — the existing tenant-entity and PostgreSQL isolation-harness procedures cover the reusable method; no new broadly reusable procedure has been discovered.
