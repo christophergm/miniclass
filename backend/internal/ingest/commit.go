@@ -43,6 +43,9 @@ func (s *Service) Commit(ctx context.Context, organizationID string, schoolYearI
 		if year.State == data.SchoolYearClosed {
 			return ErrSchoolYearClosed
 		}
+		if year.State == data.SchoolYearPurged {
+			return ErrSchoolYearPurged
+		}
 
 		parsed, err := kind.Parser(document)
 		if err != nil {
@@ -174,7 +177,7 @@ func commitRoster(ctx context.Context, request CommitRequest) error {
 			studentBySource[source.SourceExternalIdentifier] = matches[0]
 		case OutcomeCreate:
 			externalIdentifier := strings.TrimSpace(source.SourceExternalIdentifier)
-			created, err := request.Tx.CreateStudent(ctx, ids.XID(request.SchoolYearID), nil, homeroomID, source.GivenName, source.FamilyName, nil, &externalIdentifier, nil)
+			created, err := request.Tx.CreateStudent(ctx, ids.XID(request.SchoolYearID), nil, homeroomID, source.GivenName, source.FamilyName, nil, &externalIdentifier)
 			if err != nil {
 				return fmt.Errorf("create student %q: %w", source.SourceExternalIdentifier, err)
 			}
@@ -191,7 +194,7 @@ func commitRoster(ctx context.Context, request CommitRequest) error {
 			if strings.TrimSpace(source.FamilyName) != "" {
 				familyName = source.FamilyName
 			}
-			updated, err := request.Tx.UpdateStudent(ctx, ids.XID(request.SchoolYearID), current.ID, givenName, familyName, current.PreferredGivenName, current.GradeLevelID, homeroomID, current.ExternalIdentifier, current.PriorYearStudentID)
+			updated, err := request.Tx.UpdateStudent(ctx, ids.XID(request.SchoolYearID), current.ID, givenName, familyName, current.PreferredGivenName, current.GradeLevelID, homeroomID, current.ExternalIdentifier)
 			if err != nil {
 				return fmt.Errorf("update student %q: %w", source.SourceExternalIdentifier, err)
 			}
@@ -288,7 +291,7 @@ func commitGrades(ctx context.Context, request CommitRequest) error {
 		}
 		if _, err := request.Tx.UpdateStudent(ctx, ids.XID(request.SchoolYearID), student.ID,
 			student.LegalGivenName, student.LegalFamilyName, student.PreferredGivenName, &level.ID,
-			student.HomeroomID, student.ExternalIdentifier, student.PriorYearStudentID); err != nil {
+			student.HomeroomID, student.ExternalIdentifier); err != nil {
 			return fmt.Errorf("update grade for %q: %w", source.StudentName, err)
 		}
 		updated[student.ID] = struct{}{}

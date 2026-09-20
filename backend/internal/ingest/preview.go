@@ -17,6 +17,10 @@ import (
 // preview, even though closed records remain readable history.
 var ErrSchoolYearClosed = errors.New("school year is closed")
 
+// ErrSchoolYearPurged identifies a retained shell that cannot receive or
+// expose ordinary import operations.
+var ErrSchoolYearPurged = errors.New("school year is purged")
+
 // ErrInvalidSource identifies a document that cannot be parsed by its
 // registered source kind.
 var ErrInvalidSource = errors.New("import source is invalid")
@@ -104,6 +108,9 @@ func (s *Service) Preview(ctx context.Context, organizationID string, schoolYear
 		}
 		if year.State == data.SchoolYearClosed {
 			return ErrSchoolYearClosed
+		}
+		if year.State == data.SchoolYearPurged {
+			return ErrSchoolYearPurged
 		}
 
 		parsed, err := kind.Parser(document)

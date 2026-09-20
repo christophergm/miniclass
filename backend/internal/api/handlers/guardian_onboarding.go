@@ -466,6 +466,10 @@ func guardianOnboardingProblem(err error) error {
 		return problems.New(http.StatusTooManyRequests, problems.RateLimited, "too many onboarding OTP requests")
 	case errors.Is(err, guardian.ErrOTPInvalid):
 		return problems.New(http.StatusUnauthorized, problems.OTPInvalid, "OTP is invalid or expired")
+	case data.IsSchoolYearClosed(err):
+		return problems.New(http.StatusConflict, problems.SchoolYearClosed, "the school year is closed and cannot be changed")
+	case data.IsSchoolYearPurged(err):
+		return schoolYearPurgedProblem()
 	case errors.Is(err, pgx.ErrNoRows):
 		return problems.New(http.StatusNotFound, problems.ResourceNotFound, "guardian onboarding resource not found")
 	default:

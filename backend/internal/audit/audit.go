@@ -34,6 +34,7 @@ const (
 	ActionImportCommit                   Action = "import_commit"
 	ActionSchoolYearCreate               Action = "school_year_create"
 	ActionSchoolYearStateTransition      Action = "school_year_state_transition"
+	ActionSchoolYearPurge                Action = "school_year_purge"
 	ActionProgramCreate                  Action = "program_create"
 	ActionMembershipChange               Action = "membership_change"
 	ActionSessionCreate                  Action = "session_create"
@@ -104,6 +105,7 @@ var actions = []Action{
 	ActionImportCommit,
 	ActionSchoolYearCreate,
 	ActionSchoolYearStateTransition,
+	ActionSchoolYearPurge,
 	ActionProgramCreate,
 	ActionMembershipChange,
 	ActionSessionCreate,

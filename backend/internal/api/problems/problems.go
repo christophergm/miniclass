@@ -15,55 +15,57 @@ import (
 type Slug string
 
 const (
-	RouteNotFound                      Slug = "route-not-found"
-	MethodNotAllowed                   Slug = "method-not-allowed"
-	InternalError                      Slug = "internal-error"
-	DatabaseUnavailable                Slug = "database-unavailable"
-	AuthenticationRequired             Slug = "authentication-required"
-	InvalidToken                       Slug = "invalid-token"
-	AuthenticationUnavailable          Slug = "authentication-unavailable"
-	NoOrganization                     Slug = "no-organization"
-	MultipleOrganizations              Slug = "multiple-organizations"
-	CapabilityRequired                 Slug = "capability-required"
-	CapabilityNotDeclared              Slug = "capability-not-declared"
-	MFARequired                        Slug = "mfa-required"
-	SessionInvalid                     Slug = "session-invalid"
-	OTPInvalid                         Slug = "otp-invalid"
-	OTPDeliveryUnavailable             Slug = "otp-delivery-unavailable"
-	MFAAlreadyEnrolled                 Slug = "mfa-already-enrolled"
-	MFANotEnrolled                     Slug = "mfa-not-enrolled"
-	MFAInvalid                         Slug = "mfa-invalid"
-	MFAResetReasonRequired             Slug = "mfa-reset-reason-required"
-	AdultAccountLinkMissing            Slug = "adult-account-link-missing"
-	InvitationInvalid                  Slug = "invitation-invalid"
-	InvitationEmailMismatch            Slug = "invitation-email-mismatch"
-	InvitationEmailUnverified          Slug = "invitation-email-unverified"
-	AdministratorConflict              Slug = "administrator-conflict"
-	AdministratorRoleInvalid           Slug = "administrator-role-invalid"
-	LastOwner                          Slug = "last-owner"
-	InvitationNotPending               Slug = "invitation-not-pending"
-	RegistrationInvalid                Slug = "registration-invalid"
-	ConsentRequired                    Slug = "consent-required"
-	ConsentInvalid                     Slug = "consent-invalid"
-	RateLimited                        Slug = "rate-limited"
-	ResourceNotFound                   Slug = "resource-not-found"
-	SchoolYearClosed                   Slug = "school-year-closed"
-	SchoolYearTransitionInvalid        Slug = "school-year-transition-invalid"
-	SchoolYearReasonRequired           Slug = "school-year-reason-required"
-	InvalidAuditCursor                 Slug = "invalid-audit-cursor"
-	AdultExternalIdentifierConflict    Slug = "adult-external-identifier-conflict"
-	StudentExternalIdentifierConflict  Slug = "student-external-identifier-conflict"
-	HomeroomExternalIdentifierConflict Slug = "homeroom-external-identifier-conflict"
-	GuardianRelationshipConflict       Slug = "guardian-relationship-conflict"
-	ProgramConflict                    Slug = "program-conflict"
-	ProgramStudentGradeRequired        Slug = "program-student-grade-required"
-	SessionTransitionInvalid           Slug = "session-transition-invalid"
-	SessionTransitionGate              Slug = "session-transition-gate-failed"
-	SessionTransitionReasonRequired    Slug = "session-transition-reason-required"
-	SessionReadOnly                    Slug = "session-read-only"
-	ImportInvalid                      Slug = "import-invalid"
-	RestoreReasonRequired              Slug = "restore-reason-required"
-	RosterRecordNotDeleted             Slug = "roster-record-not-deleted"
+	RouteNotFound                       Slug = "route-not-found"
+	MethodNotAllowed                    Slug = "method-not-allowed"
+	InternalError                       Slug = "internal-error"
+	DatabaseUnavailable                 Slug = "database-unavailable"
+	AuthenticationRequired              Slug = "authentication-required"
+	InvalidToken                        Slug = "invalid-token"
+	AuthenticationUnavailable           Slug = "authentication-unavailable"
+	NoOrganization                      Slug = "no-organization"
+	MultipleOrganizations               Slug = "multiple-organizations"
+	CapabilityRequired                  Slug = "capability-required"
+	CapabilityNotDeclared               Slug = "capability-not-declared"
+	MFARequired                         Slug = "mfa-required"
+	SessionInvalid                      Slug = "session-invalid"
+	OTPInvalid                          Slug = "otp-invalid"
+	OTPDeliveryUnavailable              Slug = "otp-delivery-unavailable"
+	MFAAlreadyEnrolled                  Slug = "mfa-already-enrolled"
+	MFANotEnrolled                      Slug = "mfa-not-enrolled"
+	MFAInvalid                          Slug = "mfa-invalid"
+	MFAResetReasonRequired              Slug = "mfa-reset-reason-required"
+	AdultAccountLinkMissing             Slug = "adult-account-link-missing"
+	InvitationInvalid                   Slug = "invitation-invalid"
+	InvitationEmailMismatch             Slug = "invitation-email-mismatch"
+	InvitationEmailUnverified           Slug = "invitation-email-unverified"
+	AdministratorConflict               Slug = "administrator-conflict"
+	AdministratorRoleInvalid            Slug = "administrator-role-invalid"
+	LastOwner                           Slug = "last-owner"
+	InvitationNotPending                Slug = "invitation-not-pending"
+	RegistrationInvalid                 Slug = "registration-invalid"
+	ConsentRequired                     Slug = "consent-required"
+	ConsentInvalid                      Slug = "consent-invalid"
+	RateLimited                         Slug = "rate-limited"
+	ResourceNotFound                    Slug = "resource-not-found"
+	SchoolYearClosed                    Slug = "school-year-closed"
+	SchoolYearPurged                    Slug = "school-year-purged"
+	SchoolYearTransitionInvalid         Slug = "school-year-transition-invalid"
+	SchoolYearReasonRequired            Slug = "school-year-reason-required"
+	SchoolYearPurgeConfirmationRequired Slug = "school-year-purge-confirmation-required"
+	InvalidAuditCursor                  Slug = "invalid-audit-cursor"
+	AdultExternalIdentifierConflict     Slug = "adult-external-identifier-conflict"
+	StudentExternalIdentifierConflict   Slug = "student-external-identifier-conflict"
+	HomeroomExternalIdentifierConflict  Slug = "homeroom-external-identifier-conflict"
+	GuardianRelationshipConflict        Slug = "guardian-relationship-conflict"
+	ProgramConflict                     Slug = "program-conflict"
+	ProgramStudentGradeRequired         Slug = "program-student-grade-required"
+	SessionTransitionInvalid            Slug = "session-transition-invalid"
+	SessionTransitionGate               Slug = "session-transition-gate-failed"
+	SessionTransitionReasonRequired     Slug = "session-transition-reason-required"
+	SessionReadOnly                     Slug = "session-read-only"
+	ImportInvalid                       Slug = "import-invalid"
+	RestoreReasonRequired               Slug = "restore-reason-required"
+	RosterRecordNotDeleted              Slug = "roster-record-not-deleted"
 )
 
 // Definition describes one registered problem type.
@@ -73,53 +75,55 @@ type Definition struct {
 }
 
 var registry = map[Slug]Definition{
-	RouteNotFound:                      {Slug: RouteNotFound, Title: "Route not found"},
-	MethodNotAllowed:                   {Slug: MethodNotAllowed, Title: "Method not allowed"},
-	InternalError:                      {Slug: InternalError, Title: "Internal server error"},
-	DatabaseUnavailable:                {Slug: DatabaseUnavailable, Title: "Database unavailable"},
-	AuthenticationRequired:             {Slug: AuthenticationRequired, Title: "Authentication required"},
-	InvalidToken:                       {Slug: InvalidToken, Title: "Invalid token"},
-	AuthenticationUnavailable:          {Slug: AuthenticationUnavailable, Title: "Authentication unavailable"},
-	NoOrganization:                     {Slug: NoOrganization, Title: "No organization"},
-	MultipleOrganizations:              {Slug: MultipleOrganizations, Title: "Multiple organizations"},
-	CapabilityRequired:                 {Slug: CapabilityRequired, Title: "Capability required"},
-	CapabilityNotDeclared:              {Slug: CapabilityNotDeclared, Title: "Capability not declared"},
-	MFARequired:                        {Slug: MFARequired, Title: "MFA required"},
-	SessionInvalid:                     {Slug: SessionInvalid, Title: "Session invalid"},
-	OTPInvalid:                         {Slug: OTPInvalid, Title: "Invalid or expired OTP"},
-	OTPDeliveryUnavailable:             {Slug: OTPDeliveryUnavailable, Title: "OTP delivery unavailable"},
-	MFAAlreadyEnrolled:                 {Slug: MFAAlreadyEnrolled, Title: "MFA already enrolled"},
-	MFANotEnrolled:                     {Slug: MFANotEnrolled, Title: "MFA not enrolled"},
-	MFAInvalid:                         {Slug: MFAInvalid, Title: "Invalid MFA proof"},
-	MFAResetReasonRequired:             {Slug: MFAResetReasonRequired, Title: "MFA reset reason required"},
-	AdultAccountLinkMissing:            {Slug: AdultAccountLinkMissing, Title: "Adult account link missing"},
-	InvitationInvalid:                  {Slug: InvitationInvalid, Title: "Invitation invalid"},
-	InvitationEmailMismatch:            {Slug: InvitationEmailMismatch, Title: "Invitation email mismatch"},
-	InvitationEmailUnverified:          {Slug: InvitationEmailUnverified, Title: "Invitation email is not verified"},
-	AdministratorConflict:              {Slug: AdministratorConflict, Title: "Administrator conflict"},
-	AdministratorRoleInvalid:           {Slug: AdministratorRoleInvalid, Title: "Administrator role is invalid"},
-	LastOwner:                          {Slug: LastOwner, Title: "Last owner protection"},
-	InvitationNotPending:               {Slug: InvitationNotPending, Title: "Invitation is not pending"},
-	RegistrationInvalid:                {Slug: RegistrationInvalid, Title: "Registration entry invalid"},
-	ConsentRequired:                    {Slug: ConsentRequired, Title: "Consent required"},
-	ConsentInvalid:                     {Slug: ConsentInvalid, Title: "Consent invalid"},
-	RateLimited:                        {Slug: RateLimited, Title: "Rate limit exceeded"},
-	ResourceNotFound:                   {Slug: ResourceNotFound, Title: "Resource not found"},
-	SchoolYearClosed:                   {Slug: SchoolYearClosed, Title: "School year is closed"},
-	SchoolYearTransitionInvalid:        {Slug: SchoolYearTransitionInvalid, Title: "Invalid school-year transition"},
-	SchoolYearReasonRequired:           {Slug: SchoolYearReasonRequired, Title: "School-year transition reason required"},
-	InvalidAuditCursor:                 {Slug: InvalidAuditCursor, Title: "Invalid audit cursor"},
-	AdultExternalIdentifierConflict:    {Slug: AdultExternalIdentifierConflict, Title: "Adult external identifier conflict"},
-	StudentExternalIdentifierConflict:  {Slug: StudentExternalIdentifierConflict, Title: "Student external identifier conflict"},
-	HomeroomExternalIdentifierConflict: {Slug: HomeroomExternalIdentifierConflict, Title: "Homeroom external identifier conflict"},
-	GuardianRelationshipConflict:       {Slug: GuardianRelationshipConflict, Title: "Guardian relationship conflict"},
-	ProgramConflict:                    {Slug: ProgramConflict, Title: "Program conflict"},
-	ProgramStudentGradeRequired:        {Slug: ProgramStudentGradeRequired, Title: "Student grade required for program membership"},
-	SessionTransitionInvalid:           {Slug: SessionTransitionInvalid, Title: "Invalid session transition"},
-	SessionTransitionGate:              {Slug: SessionTransitionGate, Title: "Session transition gate failed"},
-	SessionTransitionReasonRequired:    {Slug: SessionTransitionReasonRequired, Title: "Session transition reason required"},
-	SessionReadOnly:                    {Slug: SessionReadOnly, Title: "Session is read-only"},
-	ImportInvalid:                      {Slug: ImportInvalid, Title: "Invalid import"},
+	RouteNotFound:                       {Slug: RouteNotFound, Title: "Route not found"},
+	MethodNotAllowed:                    {Slug: MethodNotAllowed, Title: "Method not allowed"},
+	InternalError:                       {Slug: InternalError, Title: "Internal server error"},
+	DatabaseUnavailable:                 {Slug: DatabaseUnavailable, Title: "Database unavailable"},
+	AuthenticationRequired:              {Slug: AuthenticationRequired, Title: "Authentication required"},
+	InvalidToken:                        {Slug: InvalidToken, Title: "Invalid token"},
+	AuthenticationUnavailable:           {Slug: AuthenticationUnavailable, Title: "Authentication unavailable"},
+	NoOrganization:                      {Slug: NoOrganization, Title: "No organization"},
+	MultipleOrganizations:               {Slug: MultipleOrganizations, Title: "Multiple organizations"},
+	CapabilityRequired:                  {Slug: CapabilityRequired, Title: "Capability required"},
+	CapabilityNotDeclared:               {Slug: CapabilityNotDeclared, Title: "Capability not declared"},
+	MFARequired:                         {Slug: MFARequired, Title: "MFA required"},
+	SessionInvalid:                      {Slug: SessionInvalid, Title: "Session invalid"},
+	OTPInvalid:                          {Slug: OTPInvalid, Title: "Invalid or expired OTP"},
+	OTPDeliveryUnavailable:              {Slug: OTPDeliveryUnavailable, Title: "OTP delivery unavailable"},
+	MFAAlreadyEnrolled:                  {Slug: MFAAlreadyEnrolled, Title: "MFA already enrolled"},
+	MFANotEnrolled:                      {Slug: MFANotEnrolled, Title: "MFA not enrolled"},
+	MFAInvalid:                          {Slug: MFAInvalid, Title: "Invalid MFA proof"},
+	MFAResetReasonRequired:              {Slug: MFAResetReasonRequired, Title: "MFA reset reason required"},
+	AdultAccountLinkMissing:             {Slug: AdultAccountLinkMissing, Title: "Adult account link missing"},
+	InvitationInvalid:                   {Slug: InvitationInvalid, Title: "Invitation invalid"},
+	InvitationEmailMismatch:             {Slug: InvitationEmailMismatch, Title: "Invitation email mismatch"},
+	InvitationEmailUnverified:           {Slug: InvitationEmailUnverified, Title: "Invitation email is not verified"},
+	AdministratorConflict:               {Slug: AdministratorConflict, Title: "Administrator conflict"},
+	AdministratorRoleInvalid:            {Slug: AdministratorRoleInvalid, Title: "Administrator role is invalid"},
+	LastOwner:                           {Slug: LastOwner, Title: "Last owner protection"},
+	InvitationNotPending:                {Slug: InvitationNotPending, Title: "Invitation is not pending"},
+	RegistrationInvalid:                 {Slug: RegistrationInvalid, Title: "Registration entry invalid"},
+	ConsentRequired:                     {Slug: ConsentRequired, Title: "Consent required"},
+	ConsentInvalid:                      {Slug: ConsentInvalid, Title: "Consent invalid"},
+	RateLimited:                         {Slug: RateLimited, Title: "Rate limit exceeded"},
+	ResourceNotFound:                    {Slug: ResourceNotFound, Title: "Resource not found"},
+	SchoolYearClosed:                    {Slug: SchoolYearClosed, Title: "School year is closed"},
+	SchoolYearPurged:                    {Slug: SchoolYearPurged, Title: "School year is purged"},
+	SchoolYearTransitionInvalid:         {Slug: SchoolYearTransitionInvalid, Title: "Invalid school-year transition"},
+	SchoolYearReasonRequired:            {Slug: SchoolYearReasonRequired, Title: "School-year transition reason required"},
+	SchoolYearPurgeConfirmationRequired: {Slug: SchoolYearPurgeConfirmationRequired, Title: "School-year purge confirmation required"},
+	InvalidAuditCursor:                  {Slug: InvalidAuditCursor, Title: "Invalid audit cursor"},
+	AdultExternalIdentifierConflict:     {Slug: AdultExternalIdentifierConflict, Title: "Adult external identifier conflict"},
+	StudentExternalIdentifierConflict:   {Slug: StudentExternalIdentifierConflict, Title: "Student external identifier conflict"},
+	HomeroomExternalIdentifierConflict:  {Slug: HomeroomExternalIdentifierConflict, Title: "Homeroom external identifier conflict"},
+	GuardianRelationshipConflict:        {Slug: GuardianRelationshipConflict, Title: "Guardian relationship conflict"},
+	ProgramConflict:                     {Slug: ProgramConflict, Title: "Program conflict"},
+	ProgramStudentGradeRequired:         {Slug: ProgramStudentGradeRequired, Title: "Student grade required for program membership"},
+	SessionTransitionInvalid:            {Slug: SessionTransitionInvalid, Title: "Invalid session transition"},
+	SessionTransitionGate:               {Slug: SessionTransitionGate, Title: "Session transition gate failed"},
+	SessionTransitionReasonRequired:     {Slug: SessionTransitionReasonRequired, Title: "Session transition reason required"},
+	SessionReadOnly:                     {Slug: SessionReadOnly, Title: "Session is read-only"},
+	ImportInvalid:                       {Slug: ImportInvalid, Title: "Invalid import"},
 }
 
 // Definitions returns the registry in stable slug order for contract

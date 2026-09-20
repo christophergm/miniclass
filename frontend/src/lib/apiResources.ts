@@ -222,6 +222,13 @@ export const resourceApi = {
         body: update,
       }),
     ),
+  purgeSchoolYear: (schoolYearID: string, confirmation: string) =>
+    unwrap(
+      api.POST("/api/school-years/{schoolYearID}/purge", {
+        params: { path: { schoolYearID } },
+        body: { confirmation },
+      }),
+    ),
 
   listPrograms: (schoolYearID: string) =>
     unwrapList(

@@ -41,7 +41,6 @@ type StudentResponse struct {
 	GradeLevelID       *string    `json:"grade_level_id" nullable:"true" doc:"Opaque grade-level identifier."`
 	HomeroomID         string     `json:"homeroom_id" doc:"Opaque homeroom identifier."`
 	ExternalIdentifier *string    `json:"external_identifier,omitempty"`
-	PriorYearStudentID *string    `json:"prior_year_student_id,omitempty" doc:"Opaque prior-year student identifier."`
 	DisplayName        string     `json:"display_name"`
 	DeletedAt          *time.Time `json:"deleted_at,omitempty"`
 	CreatedAt          time.Time  `json:"created_at"`
@@ -70,7 +69,6 @@ type CreateStudentInput struct {
 		GradeLevelID       *string `json:"grade_level_id,omitempty" nullable:"true" minLength:"1" doc:"Opaque grade-level identifier."`
 		HomeroomID         string  `json:"homeroom_id" minLength:"1" doc:"Opaque homeroom identifier."`
 		ExternalIdentifier *string `json:"external_identifier,omitempty"`
-		PriorYearStudentID *string `json:"prior_year_student_id,omitempty" doc:"Opaque prior-year student identifier."`
 	}
 }
 
@@ -89,7 +87,6 @@ type UpdateStudentInput struct {
 		GradeLevelID       *string `json:"grade_level_id,omitempty" nullable:"true" minLength:"1"`
 		HomeroomID         *string `json:"homeroom_id,omitempty" minLength:"1"`
 		ExternalIdentifier *string `json:"external_identifier,omitempty"`
-		PriorYearStudentID *string `json:"prior_year_student_id,omitempty"`
 	}
 }
 
@@ -128,11 +125,6 @@ func (h *StudentHandler) Create(ctx context.Context, input *CreateStudentInput) 
 	if h == nil || h.service == nil || input == nil || strings.TrimSpace(input.SchoolYearID) == "" {
 		return nil, studentNotFound()
 	}
-	var priorYearStudentID *ids.XID
-	if input.Body.PriorYearStudentID != nil && strings.TrimSpace(*input.Body.PriorYearStudentID) != "" {
-		value := ids.XID(strings.TrimSpace(*input.Body.PriorYearStudentID))
-		priorYearStudentID = &value
-	}
 	var gradeLevelID *ids.XID
 	if input.Body.GradeLevelID != nil && strings.TrimSpace(*input.Body.GradeLevelID) != "" {
 		value := ids.XID(strings.TrimSpace(*input.Body.GradeLevelID))
@@ -142,7 +134,6 @@ func (h *StudentHandler) Create(ctx context.Context, input *CreateStudentInput) 
 		LegalGivenName: input.Body.LegalGivenName, LegalFamilyName: input.Body.LegalFamilyName,
 		PreferredGivenName: input.Body.PreferredGivenName, GradeLevelID: gradeLevelID,
 		HomeroomID: ids.XID(input.Body.HomeroomID), ExternalIdentifier: input.Body.ExternalIdentifier,
-		PriorYearStudentID: priorYearStudentID,
 	})
 	if err != nil {
 		return nil, studentProblem(err)
@@ -190,14 +181,6 @@ func (h *StudentHandler) Update(ctx context.Context, input *UpdateStudentInput) 
 		value := input.Body.ExternalIdentifier
 		serviceInput.ExternalIdentifier = &value
 	}
-	if input.Body.PriorYearStudentID != nil {
-		var value *ids.XID
-		if strings.TrimSpace(*input.Body.PriorYearStudentID) != "" {
-			converted := ids.XID(strings.TrimSpace(*input.Body.PriorYearStudentID))
-			value = &converted
-		}
-		serviceInput.PriorYearStudentID = &value
-	}
 	row, err := h.service.UpdateStudent(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), ids.XID(input.StudentID), adultActor(account), serviceInput)
 	if err != nil {
 		return nil, studentProblem(err)
@@ -237,18 +220,13 @@ func (h *StudentHandler) Restore(ctx context.Context, input *RestoreStudentInput
 func studentResponse(row data.Student) StudentResponse {
 	preferred := row.PreferredGivenName
 	legalGiven, legalFamily := row.LegalGivenName, row.LegalFamilyName
-	var priorYearStudentID *string
-	if row.PriorYearStudentID != nil {
-		value := string(*row.PriorYearStudentID)
-		priorYearStudentID = &value
-	}
 	return StudentResponse{
 		ID: string(row.ID), OrganizationID: string(row.OrganizationID), SchoolYearID: string(row.SchoolYearID),
 		LegalGivenName: row.LegalGivenName, LegalFamilyName: row.LegalFamilyName, PreferredGivenName: row.PreferredGivenName,
 		GradeLevelID: optionalXIDString(row.GradeLevelID), HomeroomID: string(row.HomeroomID), ExternalIdentifier: row.ExternalIdentifier,
-		PriorYearStudentID: priorYearStudentID, DisplayName: people.DisplayName(preferred, &legalGiven, &legalFamily),
-		DeletedAt: row.DeletedAt,
-		CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+		DisplayName: people.DisplayName(preferred, &legalGiven, &legalFamily),
+		DeletedAt:   row.DeletedAt,
+		CreatedAt:   row.CreatedAt, UpdatedAt: row.UpdatedAt,
 	}
 }
 
@@ -271,10 +249,12 @@ func studentProblem(err error) error {
 		return studentNotFound()
 	case data.IsSchoolYearClosed(err):
 		return problems.New(http.StatusConflict, problems.SchoolYearClosed, "the school year is closed and cannot be changed")
+	case data.IsSchoolYearPurged(err):
+		return schoolYearPurgedProblem()
 	case errors.As(err, &pgErr) && pgErr.Code == "23505":
 		return problems.New(http.StatusConflict, problems.StudentExternalIdentifierConflict, "the external identifier is already used in this school year")
 	case errors.As(err, &pgErr) && pgErr.Code == "23503":
-		return problems.New(http.StatusBadRequest, problems.ResourceNotFound, "the referenced grade, homeroom, or prior-year student is invalid")
+		return problems.New(http.StatusBadRequest, problems.ResourceNotFound, "the referenced grade or homeroom is invalid")
 	case strings.Contains(err.Error(), "legal names are required"), strings.Contains(err.Error(), "school year and homeroom are required"), strings.Contains(err.Error(), "homeroom is required"):
 		return problems.New(http.StatusBadRequest, problems.ResourceNotFound, err.Error())
 	case errors.Is(err, people.ErrStudentNoChanges):

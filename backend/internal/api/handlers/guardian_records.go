@@ -302,6 +302,8 @@ func guardianRecordsProblem(err error) error {
 		return problems.New(http.StatusConflict, problems.SchoolYearTransitionInvalid, "no permitted changes were supplied")
 	case data.IsSchoolYearClosed(err):
 		return problems.New(http.StatusConflict, problems.SchoolYearClosed, "the school year is closed and cannot be changed")
+	case data.IsSchoolYearPurged(err):
+		return schoolYearPurgedProblem()
 	default:
 		return problems.New(http.StatusInternalServerError, problems.InternalError, "unable to change guardian records")
 	}

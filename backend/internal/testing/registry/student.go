@@ -84,7 +84,7 @@ func updateStudentByID(ctx context.Context, tx *data.Tx, id ids.XID) (bool, erro
 		return false, nil
 	}
 	updatedName := row.LegalGivenName + " updated"
-	_, err = tx.UpdateStudent(ctx, yearID, id, updatedName, row.LegalFamilyName, row.PreferredGivenName, row.GradeLevelID, row.HomeroomID, row.ExternalIdentifier, row.PriorYearStudentID)
+	_, err = tx.UpdateStudent(ctx, yearID, id, updatedName, row.LegalFamilyName, row.PreferredGivenName, row.GradeLevelID, row.HomeroomID, row.ExternalIdentifier)
 	return err == nil, err
 }
 

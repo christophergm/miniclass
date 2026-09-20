@@ -196,6 +196,8 @@ func guardianRelationshipProblem(err error) error {
 		return guardianRelationshipNotFound()
 	case data.IsSchoolYearClosed(err):
 		return problems.New(http.StatusConflict, problems.SchoolYearClosed, "the school year is closed and cannot be changed")
+	case data.IsSchoolYearPurged(err):
+		return schoolYearPurgedProblem()
 	case errors.As(err, &pgErr) && pgErr.Code == "23505":
 		return problems.New(http.StatusConflict, problems.GuardianRelationshipConflict, "the guardian relationship already exists")
 	case strings.Contains(err.Error(), "invalid relationship type"):

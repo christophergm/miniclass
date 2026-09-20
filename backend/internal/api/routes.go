@@ -448,6 +448,13 @@ func registerOperations(api huma.API, options RouterOptions) {
 		Summary:     "Delete a school year",
 		Errors:      []int{http.StatusNotFound, http.StatusConflict},
 	}, auth.CapabilityManageSchoolYear, false, schoolYears.Delete)
+	registerOperation(api, huma.Operation{
+		OperationID: "purge-school-year",
+		Method:      http.MethodPost,
+		Path:        apiBasePath + "/school-years/{schoolYearID}/purge",
+		Summary:     "Permanently purge a closed school year",
+		Errors:      []int{http.StatusBadRequest, http.StatusForbidden, http.StatusNotFound, http.StatusConflict},
+	}, auth.CapabilityManageSchoolYear, false, schoolYears.Purge)
 
 	vocabularies := handlers.NewVocabularyHandler(options.Vocabularies)
 	registerOperation(api, huma.Operation{

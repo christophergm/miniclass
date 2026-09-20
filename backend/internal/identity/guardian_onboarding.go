@@ -556,7 +556,7 @@ func (s *Store) Complete(ctx context.Context, input guardian.CompleteInput) (gua
 		if input.GradeLevelID != "" {
 			gradeID = &input.GradeLevelID
 		}
-		student, err := tx.CreateStudent(ctx, *session.SchoolYearID, gradeID, input.HomeroomID, input.StudentGivenName, input.StudentFamilyName, nil, nil, nil)
+		student, err := tx.CreateStudent(ctx, *session.SchoolYearID, gradeID, input.HomeroomID, input.StudentGivenName, input.StudentFamilyName, nil, nil)
 		if err != nil {
 			return err
 		}

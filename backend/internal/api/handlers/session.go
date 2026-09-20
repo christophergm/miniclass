@@ -465,6 +465,8 @@ func sessionProblem(err error) error {
 		return meetingDateNotFound()
 	case data.IsSchoolYearClosed(err):
 		return problems.New(http.StatusConflict, problems.SchoolYearClosed, "the school year is closed and cannot be changed")
+	case data.IsSchoolYearPurged(err):
+		return schoolYearPurgedProblem()
 	case errors.Is(err, programservice.ErrSessionTransitionInvalid):
 		return problems.New(http.StatusConflict, problems.SessionTransitionInvalid, err.Error())
 	case errors.Is(err, programservice.ErrSessionTransitionGate):

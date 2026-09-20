@@ -348,6 +348,8 @@ func surveyProblem(err error) error {
 		return problems.New(http.StatusBadRequest, problems.ProgramConflict, err.Error())
 	case data.IsSchoolYearClosed(err):
 		return problems.New(http.StatusConflict, problems.SchoolYearClosed, "the school year is closed and cannot be changed")
+	case data.IsSchoolYearPurged(err):
+		return schoolYearPurgedProblem()
 	case errors.Is(err, preference.ErrSurveyDefinitionLocked), errors.Is(err, preference.ErrSurveyHasSubmissions), errors.Is(err, preference.ErrSurveyTransitionInvalid), errors.Is(err, preference.ErrSurveyNotAcceptingSubmissions):
 		return problems.New(http.StatusConflict, problems.ProgramConflict, err.Error())
 	case errors.Is(err, preference.ErrSurveyClosingTimeRequired), errors.Is(err, preference.ErrSurveyClosingTimeInvalid), errors.Is(err, preference.ErrSurveyQuestionRequired), errors.Is(err, preference.ErrSurveyScaleRequired), errors.Is(err, preference.ErrSurveyAudienceInvalid), strings.Contains(err.Error(), "requires a reason"), strings.Contains(err.Error(), "is required"), strings.Contains(err.Error(), "is invalid"), strings.Contains(err.Error(), "is repeated"):

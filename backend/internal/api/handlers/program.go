@@ -499,6 +499,8 @@ func interestAreaProblem(err error) error {
 		return interestAreaNotFound()
 	case data.IsSchoolYearClosed(err):
 		return problems.New(http.StatusConflict, problems.SchoolYearClosed, "the school year is closed and cannot be changed")
+	case data.IsSchoolYearPurged(err):
+		return schoolYearPurgedProblem()
 	case errors.As(err, &pgErr) && pgErr.Code == "23505":
 		return problems.New(http.StatusConflict, problems.ProgramConflict, "the interest-area label is already used in this program")
 	case strings.Contains(err.Error(), "label is required"), errors.Is(err, programservice.ErrInterestAreaNoChanges):
@@ -516,6 +518,8 @@ func programProblem(err error) error {
 		return problems.New(http.StatusBadRequest, problems.ProgramStudentGradeRequired, err.Error())
 	case data.IsSchoolYearClosed(err):
 		return problems.New(http.StatusConflict, problems.SchoolYearClosed, "the school year is closed and cannot be changed")
+	case data.IsSchoolYearPurged(err):
+		return schoolYearPurgedProblem()
 	case errors.As(err, &pgErr) && pgErr.Code == "23505":
 		return problems.New(http.StatusConflict, problems.ProgramConflict, "the program or membership already exists")
 	case strings.Contains(err.Error(), "name is required") || strings.Contains(err.Error(), "student id"):

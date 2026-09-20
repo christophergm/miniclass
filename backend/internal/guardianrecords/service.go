@@ -302,7 +302,7 @@ func (s *Service) Create(ctx context.Context, principal auth.GuardianPrincipal, 
 		if _, err := tx.GetHomeroomByID(ctx, principal.SchoolYearID, input.HomeroomID); err != nil {
 			return err
 		}
-		student, err := tx.CreateStudent(ctx, principal.SchoolYearID, &input.GradeLevelID, input.HomeroomID, input.LegalGivenName, input.LegalFamilyName, input.PreferredGivenName, nil, nil)
+		student, err := tx.CreateStudent(ctx, principal.SchoolYearID, &input.GradeLevelID, input.HomeroomID, input.LegalGivenName, input.LegalFamilyName, input.PreferredGivenName, nil)
 		if err != nil {
 			return err
 		}
@@ -370,7 +370,7 @@ func (s *Service) Update(ctx context.Context, principal auth.GuardianPrincipal, 
 		if _, err := tx.GetHomeroomByID(ctx, principal.SchoolYearID, homeroom); err != nil {
 			return err
 		}
-		updated, err := tx.UpdateStudent(ctx, principal.SchoolYearID, studentID, given, family, preferred, grade, homeroom, current.ExternalIdentifier, current.PriorYearStudentID)
+		updated, err := tx.UpdateStudent(ctx, principal.SchoolYearID, studentID, given, family, preferred, grade, homeroom, current.ExternalIdentifier)
 		if err != nil {
 			return err
 		}

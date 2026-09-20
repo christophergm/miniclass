@@ -25,6 +25,14 @@ var (
 	ErrOwnerRequired = errors.New("owner role is required to reopen a school year")
 	// ErrReasonRequired identifies an unaudited or unexplained reopen attempt.
 	ErrReasonRequired = errors.New("reason is required to reopen a school year")
+	// ErrPurgeOwnerRequired identifies the irreversible purge boundary.
+	ErrPurgeOwnerRequired = errors.New("owner role is required to purge a school year")
+	// ErrPurgeClosedRequired prevents purging setup, active, or already-purged years.
+	ErrPurgeClosedRequired = errors.New("only a closed school year can be purged")
+	// ErrPurgeConfirmationRequired prevents an accidental irreversible action.
+	ErrPurgeConfirmationRequired = errors.New("purge confirmation is required")
+	// ErrPurgeActorRequired prevents a purge without a retained Owner identity.
+	ErrPurgeActorRequired = errors.New("purge actor is required")
 	// ErrNoChanges avoids opening a write transaction that cannot produce an
 	// audit entry.
 	ErrNoChanges = errors.New("school year update has no changes")
@@ -214,6 +222,52 @@ func (s *Service) Delete(ctx context.Context, organizationID string, id ids.XID,
 		return fmt.Errorf("delete school year: %w", err)
 	}
 	return nil
+}
+
+// Purge irreversibly removes a closed year's personal and operational data and
+// leaves its non-identifying shell. The confirmation is deliberately tied to
+// the displayed year label so the UI cannot turn this into a one-click delete.
+func (s *Service) Purge(ctx context.Context, organizationID string, id ids.XID, role auth.OrganizationRole, actor audit.Actor, confirmation string) (data.SchoolYear, error) {
+	if s == nil || s.database == nil {
+		return data.SchoolYear{}, errors.New("purge school year: data service is nil")
+	}
+	if role != auth.RoleOwner {
+		return data.SchoolYear{}, ErrPurgeOwnerRequired
+	}
+	if actor.UserID == nil {
+		return data.SchoolYear{}, ErrPurgeActorRequired
+	}
+
+	var result data.SchoolYear
+	// Purge retains only the opaque actor identifier and a non-identifying
+	// audit label. The ordinary account email must not survive as purge data.
+	purgeActor := actor
+	purgeActor.Label = "Owner"
+	err := s.database.InTenant(ctx, organizationID, purgeActor, func(ctx context.Context, tx *data.Tx) error {
+		current, err := tx.GetSchoolYearByID(ctx, id)
+		if err != nil {
+			return err
+		}
+		if current.State != data.SchoolYearClosed {
+			return ErrPurgeClosedRequired
+		}
+		expected := "PURGE " + current.Label
+		if confirmation != expected {
+			return ErrPurgeConfirmationRequired
+		}
+		result, err = tx.PurgeSchoolYear(ctx, id, *actor.UserID)
+		if err != nil {
+			return err
+		}
+		return tx.Record(ctx, audit.Entry{
+			Action: audit.ActionSchoolYearPurge, ObjectType: "school_year", ObjectID: &id,
+			SchoolYearID: &id, ChangeSummary: summary(map[string]any{"purged": true}),
+		})
+	})
+	if err != nil {
+		return data.SchoolYear{}, fmt.Errorf("purge school year: %w", err)
+	}
+	return result, nil
 }
 
 func validateTransition(from, to data.SchoolYearState, role auth.OrganizationRole, reason string) error {

@@ -22,7 +22,6 @@ type StudentCreateInput struct {
 	GradeLevelID       *ids.XID
 	HomeroomID         ids.XID
 	ExternalIdentifier *string
-	PriorYearStudentID *ids.XID
 }
 
 type StudentUpdateInput struct {
@@ -32,7 +31,6 @@ type StudentUpdateInput struct {
 	GradeLevelID       *ids.XID
 	HomeroomID         *ids.XID
 	ExternalIdentifier **string
-	PriorYearStudentID **ids.XID
 }
 
 // CreateStudent creates a year-scoped student and records the roster change.
@@ -45,7 +43,7 @@ func (s *Service) CreateStudent(ctx context.Context, organizationID string, scho
 		if _, err := tx.GetSchoolYearByID(ctx, schoolYearID); err != nil {
 			return err
 		}
-		created, err := tx.CreateStudent(ctx, schoolYearID, input.GradeLevelID, input.HomeroomID, input.LegalGivenName, input.LegalFamilyName, input.PreferredGivenName, input.ExternalIdentifier, input.PriorYearStudentID)
+		created, err := tx.CreateStudent(ctx, schoolYearID, input.GradeLevelID, input.HomeroomID, input.LegalGivenName, input.LegalFamilyName, input.PreferredGivenName, input.ExternalIdentifier)
 		if err != nil {
 			return err
 		}
@@ -142,7 +140,7 @@ func (s *Service) UpdateStudent(ctx context.Context, organizationID string, scho
 		if !changed {
 			return ErrStudentNoChanges
 		}
-		updated, err := tx.UpdateStudent(ctx, schoolYearID, id, updatedInput.LegalGivenName, updatedInput.LegalFamilyName, updatedInput.PreferredGivenName, updatedInput.GradeLevelID, updatedInput.HomeroomID, updatedInput.ExternalIdentifier, updatedInput.PriorYearStudentID)
+		updated, err := tx.UpdateStudent(ctx, schoolYearID, id, updatedInput.LegalGivenName, updatedInput.LegalFamilyName, updatedInput.PreferredGivenName, updatedInput.GradeLevelID, updatedInput.HomeroomID, updatedInput.ExternalIdentifier)
 		if err != nil {
 			return err
 		}
@@ -189,7 +187,6 @@ type studentUpdateValues struct {
 	GradeLevelID       *ids.XID
 	HomeroomID         ids.XID
 	ExternalIdentifier *string
-	PriorYearStudentID *ids.XID
 }
 
 func applyStudentUpdate(current data.Student, input StudentUpdateInput) (studentUpdateValues, bool) {
@@ -197,7 +194,6 @@ func applyStudentUpdate(current data.Student, input StudentUpdateInput) (student
 		LegalGivenName: current.LegalGivenName, LegalFamilyName: current.LegalFamilyName,
 		PreferredGivenName: current.PreferredGivenName, GradeLevelID: current.GradeLevelID,
 		HomeroomID: current.HomeroomID, ExternalIdentifier: current.ExternalIdentifier,
-		PriorYearStudentID: current.PriorYearStudentID,
 	}
 	changed := false
 	if input.LegalGivenName != nil && strings.TrimSpace(*input.LegalGivenName) != current.LegalGivenName {
@@ -217,9 +213,6 @@ func applyStudentUpdate(current data.Student, input StudentUpdateInput) (student
 	}
 	if input.ExternalIdentifier != nil && !sameStudentOptionalString(result.ExternalIdentifier, *input.ExternalIdentifier) {
 		result.ExternalIdentifier, changed = *input.ExternalIdentifier, true
-	}
-	if input.PriorYearStudentID != nil && !sameStudentOptionalID(result.PriorYearStudentID, *input.PriorYearStudentID) {
-		result.PriorYearStudentID, changed = *input.PriorYearStudentID, true
 	}
 	return result, changed
 }
@@ -262,6 +255,5 @@ func studentSummaryFields(student *data.Student) map[string]any {
 		"legal_given_name": student.LegalGivenName, "legal_family_name": student.LegalFamilyName,
 		"preferred_given_name": student.PreferredGivenName, "grade_level_id": student.GradeLevelID,
 		"homeroom_id": student.HomeroomID, "external_identifier": student.ExternalIdentifier,
-		"prior_year_student_id": student.PriorYearStudentID,
 	}
 }

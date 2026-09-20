@@ -503,6 +503,7 @@ const (
 	SchoolYearStateSetup  SchoolYearState = "setup"
 	SchoolYearStateActive SchoolYearState = "active"
 	SchoolYearStateClosed SchoolYearState = "closed"
+	SchoolYearStatePurged SchoolYearState = "purged"
 )
 
 func (e *SchoolYearState) Scan(src interface{}) error {
@@ -977,6 +978,8 @@ type SchoolYear struct {
 	State          SchoolYearState    `json:"state"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	PurgedByUserID *ids.XID           `json:"purged_by_user_id"`
+	PurgedAt       pgtype.Timestamptz `json:"purged_at"`
 }
 
 type Session struct {
@@ -1039,7 +1042,6 @@ type Student struct {
 	GradeLevelID       *ids.XID           `json:"grade_level_id"`
 	HomeroomID         ids.XID            `json:"homeroom_id"`
 	ExternalIdentifier pgtype.Text        `json:"external_identifier"`
-	PriorYearStudentID *ids.XID           `json:"prior_year_student_id"`
 	DeletedAt          pgtype.Timestamptz `json:"deleted_at"`
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`

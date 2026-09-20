@@ -117,8 +117,7 @@ func verifySchemaContract(t *testing.T, harness *testharness.Harness) {
 		"audit_log": {},
 	}
 	yearScopedForeignKeyExceptions := map[string]struct{}{
-		"audit_log":                      {},
-		"students.prior_year_student_id": {},
+		"audit_log": {},
 	}
 
 	rows, err := harness.Migrator.Query(harness.Context, `

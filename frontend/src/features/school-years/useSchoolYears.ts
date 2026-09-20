@@ -46,3 +46,14 @@ export function useUpdateSchoolYear(id: string) {
     },
   });
 }
+
+export function usePurgeSchoolYear(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (confirmation: string) => resourceApi.purgeSchoolYear(id, confirmation),
+    onSuccess: async (year: SchoolYear) => {
+      queryClient.setQueryData([...schoolYearsKey, id], year);
+      await queryClient.invalidateQueries({ queryKey: schoolYearsKey });
+    },
+  });
+}

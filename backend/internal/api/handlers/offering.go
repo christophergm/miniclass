@@ -195,6 +195,8 @@ func offeringProblem(err error) error {
 		return offeringNotFound()
 	case data.IsSchoolYearClosed(err):
 		return problems.New(http.StatusConflict, problems.SchoolYearClosed, "the school year is closed and cannot be changed")
+	case data.IsSchoolYearPurged(err):
+		return schoolYearPurgedProblem()
 	case errors.Is(err, programservice.ErrSessionReadOnly):
 		return problems.New(http.StatusConflict, problems.SessionReadOnly, err.Error())
 	case errors.As(err, &pgErr) && pgErr.Code == "23505":

@@ -47,13 +47,11 @@ insert into students (
     preferred_given_name,
     grade_level_id,
     homeroom_id,
-    external_identifier,
-    prior_year_student_id
+    external_identifier
 )
-values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+values ($1, $2, $3, $4, $5, $6, $7, $8)
 returning id, organization_id, school_year_id, legal_given_name, legal_family_name,
-    preferred_given_name, grade_level_id, homeroom_id, external_identifier,
-    prior_year_student_id, deleted_at, created_at, updated_at
+    preferred_given_name, grade_level_id, homeroom_id, external_identifier, deleted_at, created_at, updated_at
 `
 
 type CreateStudentParams struct {
@@ -65,7 +63,6 @@ type CreateStudentParams struct {
 	GradeLevelID       *ids.XID    `json:"grade_level_id"`
 	HomeroomID         ids.XID     `json:"homeroom_id"`
 	ExternalIdentifier pgtype.Text `json:"external_identifier"`
-	PriorYearStudentID *ids.XID    `json:"prior_year_student_id"`
 }
 
 func (q *Queries) CreateStudent(ctx context.Context, arg CreateStudentParams) (Student, error) {
@@ -78,7 +75,6 @@ func (q *Queries) CreateStudent(ctx context.Context, arg CreateStudentParams) (S
 		arg.GradeLevelID,
 		arg.HomeroomID,
 		arg.ExternalIdentifier,
-		arg.PriorYearStudentID,
 	)
 	var i Student
 	err := row.Scan(
@@ -91,7 +87,6 @@ func (q *Queries) CreateStudent(ctx context.Context, arg CreateStudentParams) (S
 		&i.GradeLevelID,
 		&i.HomeroomID,
 		&i.ExternalIdentifier,
-		&i.PriorYearStudentID,
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -106,8 +101,7 @@ set legal_given_name = 'Deleted student', legal_family_name = 'Deleted student',
     deleted_at = coalesce(deleted_at, now())
 where id = $1 and organization_id = $2 and school_year_id = $3 and deleted_at is null
 returning id, organization_id, school_year_id, legal_given_name, legal_family_name,
-    preferred_given_name, grade_level_id, homeroom_id, external_identifier,
-    prior_year_student_id, deleted_at, created_at, updated_at
+    preferred_given_name, grade_level_id, homeroom_id, external_identifier, deleted_at, created_at, updated_at
 `
 
 type DeidentifyStudentParams struct {
@@ -129,7 +123,6 @@ func (q *Queries) DeidentifyStudent(ctx context.Context, arg DeidentifyStudentPa
 		&i.GradeLevelID,
 		&i.HomeroomID,
 		&i.ExternalIdentifier,
-		&i.PriorYearStudentID,
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -139,8 +132,7 @@ func (q *Queries) DeidentifyStudent(ctx context.Context, arg DeidentifyStudentPa
 
 const findStudentForRegistry = `-- name: FindStudentForRegistry :one
 select id, organization_id, school_year_id, legal_given_name, legal_family_name,
-    preferred_given_name, grade_level_id, homeroom_id, external_identifier,
-    prior_year_student_id, deleted_at, created_at, updated_at
+    preferred_given_name, grade_level_id, homeroom_id, external_identifier, deleted_at, created_at, updated_at
 from students
 where id = $1
   and organization_id = $2
@@ -165,7 +157,6 @@ func (q *Queries) FindStudentForRegistry(ctx context.Context, arg FindStudentFor
 		&i.GradeLevelID,
 		&i.HomeroomID,
 		&i.ExternalIdentifier,
-		&i.PriorYearStudentID,
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -175,8 +166,7 @@ func (q *Queries) FindStudentForRegistry(ctx context.Context, arg FindStudentFor
 
 const getStudentByID = `-- name: GetStudentByID :one
 select id, organization_id, school_year_id, legal_given_name, legal_family_name,
-    preferred_given_name, grade_level_id, homeroom_id, external_identifier,
-    prior_year_student_id, deleted_at, created_at, updated_at
+    preferred_given_name, grade_level_id, homeroom_id, external_identifier, deleted_at, created_at, updated_at
 from students
 where id = $1
   and organization_id = $2
@@ -203,7 +193,6 @@ func (q *Queries) GetStudentByID(ctx context.Context, arg GetStudentByIDParams) 
 		&i.GradeLevelID,
 		&i.HomeroomID,
 		&i.ExternalIdentifier,
-		&i.PriorYearStudentID,
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -213,8 +202,7 @@ func (q *Queries) GetStudentByID(ctx context.Context, arg GetStudentByIDParams) 
 
 const getStudentByIDIncludingDeleted = `-- name: GetStudentByIDIncludingDeleted :one
 select id, organization_id, school_year_id, legal_given_name, legal_family_name,
-    preferred_given_name, grade_level_id, homeroom_id, external_identifier,
-    prior_year_student_id, deleted_at, created_at, updated_at
+    preferred_given_name, grade_level_id, homeroom_id, external_identifier, deleted_at, created_at, updated_at
 from students
 where id = $1
   and organization_id = $2
@@ -240,7 +228,6 @@ func (q *Queries) GetStudentByIDIncludingDeleted(ctx context.Context, arg GetStu
 		&i.GradeLevelID,
 		&i.HomeroomID,
 		&i.ExternalIdentifier,
-		&i.PriorYearStudentID,
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -400,8 +387,7 @@ func (q *Queries) HardDeleteStudentSurveySubmissions(ctx context.Context, arg Ha
 
 const listAllActiveStudentsForRegistry = `-- name: ListAllActiveStudentsForRegistry :many
 select id, organization_id, school_year_id, legal_given_name, legal_family_name,
-    preferred_given_name, grade_level_id, homeroom_id, external_identifier,
-    prior_year_student_id, deleted_at, created_at, updated_at
+    preferred_given_name, grade_level_id, homeroom_id, external_identifier, deleted_at, created_at, updated_at
 from students
 where organization_id = $1
   and deleted_at is null
@@ -427,7 +413,6 @@ func (q *Queries) ListAllActiveStudentsForRegistry(ctx context.Context, organiza
 			&i.GradeLevelID,
 			&i.HomeroomID,
 			&i.ExternalIdentifier,
-			&i.PriorYearStudentID,
 			&i.DeletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -444,8 +429,7 @@ func (q *Queries) ListAllActiveStudentsForRegistry(ctx context.Context, organiza
 
 const listStudents = `-- name: ListStudents :many
 select id, organization_id, school_year_id, legal_given_name, legal_family_name,
-    preferred_given_name, grade_level_id, homeroom_id, external_identifier,
-    prior_year_student_id, deleted_at, created_at, updated_at
+    preferred_given_name, grade_level_id, homeroom_id, external_identifier, deleted_at, created_at, updated_at
 from students
 where organization_id = $1
   and school_year_id = $2
@@ -478,7 +462,6 @@ func (q *Queries) ListStudents(ctx context.Context, arg ListStudentsParams) ([]S
 			&i.GradeLevelID,
 			&i.HomeroomID,
 			&i.ExternalIdentifier,
-			&i.PriorYearStudentID,
 			&i.DeletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -501,8 +484,7 @@ where id = $1
   and school_year_id = $3
   and deleted_at is not null
 returning id, organization_id, school_year_id, legal_given_name, legal_family_name,
-    preferred_given_name, grade_level_id, homeroom_id, external_identifier,
-    prior_year_student_id, deleted_at, created_at, updated_at
+    preferred_given_name, grade_level_id, homeroom_id, external_identifier, deleted_at, created_at, updated_at
 `
 
 type RestoreStudentParams struct {
@@ -524,7 +506,6 @@ func (q *Queries) RestoreStudent(ctx context.Context, arg RestoreStudentParams) 
 		&i.GradeLevelID,
 		&i.HomeroomID,
 		&i.ExternalIdentifier,
-		&i.PriorYearStudentID,
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -562,15 +543,13 @@ set legal_given_name = $4,
     preferred_given_name = $6,
     grade_level_id = $7,
     homeroom_id = $8,
-    external_identifier = $9,
-    prior_year_student_id = $10
+    external_identifier = $9
 where id = $1
   and organization_id = $2
   and school_year_id = $3
   and deleted_at is null
 returning id, organization_id, school_year_id, legal_given_name, legal_family_name,
-    preferred_given_name, grade_level_id, homeroom_id, external_identifier,
-    prior_year_student_id, deleted_at, created_at, updated_at
+    preferred_given_name, grade_level_id, homeroom_id, external_identifier, deleted_at, created_at, updated_at
 `
 
 type UpdateStudentParams struct {
@@ -583,7 +562,6 @@ type UpdateStudentParams struct {
 	GradeLevelID       *ids.XID    `json:"grade_level_id"`
 	HomeroomID         ids.XID     `json:"homeroom_id"`
 	ExternalIdentifier pgtype.Text `json:"external_identifier"`
-	PriorYearStudentID *ids.XID    `json:"prior_year_student_id"`
 }
 
 func (q *Queries) UpdateStudent(ctx context.Context, arg UpdateStudentParams) (Student, error) {
@@ -597,7 +575,6 @@ func (q *Queries) UpdateStudent(ctx context.Context, arg UpdateStudentParams) (S
 		arg.GradeLevelID,
 		arg.HomeroomID,
 		arg.ExternalIdentifier,
-		arg.PriorYearStudentID,
 	)
 	var i Student
 	err := row.Scan(
@@ -610,7 +587,6 @@ func (q *Queries) UpdateStudent(ctx context.Context, arg UpdateStudentParams) (S
 		&i.GradeLevelID,
 		&i.HomeroomID,
 		&i.ExternalIdentifier,
-		&i.PriorYearStudentID,
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
