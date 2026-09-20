@@ -53,6 +53,18 @@ type GuardianStudentReviewWarning struct {
 type GuardianStudentListOutput struct{ Body []GuardianStudentResponse }
 type GuardianStudentOutput struct{ Body GuardianStudentResponse }
 
+// GuardianCandidateResponse is deliberately narrower than the normal scoped
+// student response. Matching may show only the fields needed to recognize a
+// possible student; the full guardian record, preferred name, and vocabulary
+// identifiers are not part of this render surface.
+type GuardianCandidateResponse struct {
+	ID              string `json:"id" doc:"Opaque selection handle for the candidate."`
+	LegalGivenName  string `json:"legal_given_name"`
+	LegalFamilyName string `json:"legal_family_name"`
+	GradeLabel      string `json:"grade_label"`
+	HomeroomLabel   string `json:"homeroom_label"`
+}
+
 type GuardianCandidatesInput struct {
 	Body struct {
 		GivenName  string `json:"given_name" minLength:"1"`
@@ -63,7 +75,7 @@ type GuardianCandidatesQueryInput struct {
 	GivenName  string `query:"given_name" minLength:"1"`
 	FamilyName string `query:"family_name" minLength:"1"`
 }
-type GuardianCandidatesOutput struct{ Body []GuardianStudentResponse }
+type GuardianCandidatesOutput struct{ Body []GuardianCandidateResponse }
 
 type GuardianStudentCreateInput struct {
 	Body struct {
@@ -142,7 +154,7 @@ func (h *GuardianRecordsHandler) Candidates(ctx context.Context, input *Guardian
 	if err != nil {
 		return nil, guardianRecordsProblem(err)
 	}
-	return &GuardianCandidatesOutput{Body: guardianStudentResponses(rows)}, nil
+	return &GuardianCandidatesOutput{Body: guardianCandidateResponses(rows)}, nil
 }
 
 func (h *GuardianRecordsHandler) CandidatesQuery(ctx context.Context, input *GuardianCandidatesQueryInput) (*GuardianCandidatesOutput, error) {
@@ -157,7 +169,7 @@ func (h *GuardianRecordsHandler) CandidatesQuery(ctx context.Context, input *Gua
 	if err != nil {
 		return nil, guardianRecordsProblem(err)
 	}
-	return &GuardianCandidatesOutput{Body: guardianStudentResponses(rows)}, nil
+	return &GuardianCandidatesOutput{Body: guardianCandidateResponses(rows)}, nil
 }
 
 func (h *GuardianRecordsHandler) Create(ctx context.Context, input *GuardianStudentCreateInput) (*GuardianStudentOutput, error) {
@@ -275,6 +287,21 @@ func guardianStudentResponses(rows []guardianrecords.Student) []GuardianStudentR
 	}
 	return result
 }
+
+func guardianCandidateResponses(rows []guardianrecords.Student) []GuardianCandidateResponse {
+	result := make([]GuardianCandidateResponse, 0, len(rows))
+	for _, row := range rows {
+		result = append(result, GuardianCandidateResponse{
+			ID:              string(row.ID),
+			LegalGivenName:  row.LegalGivenName,
+			LegalFamilyName: row.LegalFamilyName,
+			GradeLabel:      row.GradeLabel,
+			HomeroomLabel:   row.HomeroomLabel,
+		})
+	}
+	return result
+}
+
 func guardianStudentResponse(row guardianrecords.Student) GuardianStudentResponse {
 	var gradeID *string
 	if row.GradeLevelID != nil {

@@ -103,6 +103,8 @@ func TestSchoolYearPurgeRetainsShellAndDoesNotCrossTenantOrYear(t *testing.T) {
 	require.NoError(t, err)
 
 	userActor := audit.Actor{Type: audit.ActorTypeUser, UserID: &userID, Label: "purge-owner@example.test"}
+	_, err = service.Purge(ctx, string(foreignOrganizationID), target.ID, authRoleOwner, userActor, "PURGE Synthetic purge target")
+	require.Error(t, err, "a foreign organisation must not purge the target year")
 	_, err = service.Purge(ctx, string(organizationID), target.ID, authRoleAdministrator, userActor, "PURGE Synthetic purge target")
 	require.ErrorIs(t, err, schoolyear.ErrPurgeOwnerRequired)
 	_, err = service.Purge(ctx, string(organizationID), target.ID, authRoleOwner, userActor, "wrong confirmation")
@@ -148,14 +150,17 @@ func TestSchoolYearPurgeRetainsShellAndDoesNotCrossTenantOrYear(t *testing.T) {
 	}
 
 	var auditCount int64
-	var action, actorLabel string
+	var action, actorLabel, recordedActorID string
+	var occurredAt time.Time
 	require.NoError(t, migratorTx.QueryRow(ctx, `
-		select count(*), min(action), min(actor_label)
+		select count(*), min(action), min(actor_label), min(actor_user_id)::text, min(occurred_at)
 		from audit_log
-		where organization_id = $1 and school_year_id = $2`, organizationID, target.ID).Scan(&auditCount, &action, &actorLabel))
+		where organization_id = $1 and school_year_id = $2`, organizationID, target.ID).Scan(&auditCount, &action, &actorLabel, &recordedActorID, &occurredAt))
 	require.Equal(t, int64(1), auditCount)
 	require.Equal(t, string(audit.ActionSchoolYearPurge), action)
 	require.Equal(t, "Owner", actorLabel)
+	require.Equal(t, string(userID), recordedActorID)
+	require.False(t, occurredAt.IsZero())
 
 	retainedStudents, err := factory.CreateStudent(ctx, sibling.ID, people.StudentCreateInput{
 		LegalGivenName: "Synthetic", LegalFamilyName: "Second Sibling",
