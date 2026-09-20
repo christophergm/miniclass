@@ -11,6 +11,7 @@ import (
 	"github.com/chrismott/miniclass/internal/schoolyear"
 	testharness "github.com/chrismott/miniclass/internal/testing"
 	"github.com/chrismott/miniclass/internal/testing/factories"
+	"github.com/chrismott/miniclass/internal/vocabulary"
 	"github.com/stretchr/testify/require"
 )
 
@@ -92,10 +93,9 @@ func TestSchoolYearPurgeRetainsShellAndDoesNotCrossTenantOrYear(t *testing.T) {
 	// source is consulted or copied.
 	newYear, err := factory.CreateSchoolYear(ctx, "Synthetic independent year")
 	require.NoError(t, err)
-	var newYearGradeCount int64
-	require.NoError(t, harness.Migrator.QueryRow(ctx, `
-		select count(*) from grade_levels where organization_id = $1 and school_year_id = $2`, organizationID, newYear.ID).Scan(&newYearGradeCount))
-	require.Zero(t, newYearGradeCount)
+	vocabularySnapshot, err := vocabulary.New(harness.Database).List(ctx, string(organizationID), newYear.ID, true)
+	require.NoError(t, err)
+	require.Empty(t, vocabularySnapshot.Grades)
 
 	_, err = service.Update(ctx, string(organizationID), target.ID, authRoleOwner, adminActor, schoolyear.UpdateInput{State: statePtr(data.SchoolYearActive)})
 	require.NoError(t, err)
@@ -126,20 +126,30 @@ func TestSchoolYearPurgeRetainsShellAndDoesNotCrossTenantOrYear(t *testing.T) {
 		group by table_name
 		order by table_name`)
 	require.NoError(t, err)
-	defer rows.Close()
+	var tableNames []string
 	for rows.Next() {
 		var tableName string
 		require.NoError(t, rows.Scan(&tableName))
-		query := "select count(*) from " + quoteIdentifier(harness.Schema) + "." + quoteIdentifier(tableName) + " where organization_id = $1 and school_year_id = $2"
-		var count int64
-		require.NoError(t, harness.Migrator.QueryRow(ctx, query, organizationID, target.ID).Scan(&count), tableName)
-		require.Zero(t, count, tableName+" retained purged-year rows")
+		tableNames = append(tableNames, tableName)
 	}
 	require.NoError(t, rows.Err())
+	rows.Close()
+
+	migratorTx, err := harness.Migrator.Begin(ctx)
+	require.NoError(t, err)
+	defer migratorTx.Rollback(ctx)
+	_, err = migratorTx.Exec(ctx, "select set_config('app.organization_id', $1, true)", organizationID)
+	require.NoError(t, err)
+	for _, tableName := range tableNames {
+		query := "select count(*) from " + quoteIdentifier(harness.Schema) + "." + quoteIdentifier(tableName) + " where organization_id = $1 and school_year_id = $2"
+		var count int64
+		require.NoError(t, migratorTx.QueryRow(ctx, query, organizationID, target.ID).Scan(&count), tableName)
+		require.Zero(t, count, tableName+" retained purged-year rows")
+	}
 
 	var auditCount int64
 	var action, actorLabel string
-	require.NoError(t, harness.Migrator.QueryRow(ctx, `
+	require.NoError(t, migratorTx.QueryRow(ctx, `
 		select count(*), min(action), min(actor_label)
 		from audit_log
 		where organization_id = $1 and school_year_id = $2`, organizationID, target.ID).Scan(&auditCount, &action, &actorLabel))
@@ -180,7 +190,7 @@ func TestSchoolYearPurgeRetainsShellAndDoesNotCrossTenantOrYear(t *testing.T) {
 	require.True(t, data.IsSchoolYearPurged(err), "purged edit = %v", err)
 
 	var shellCount int64
-	require.NoError(t, harness.Migrator.QueryRow(ctx, `
+	require.NoError(t, migratorTx.QueryRow(ctx, `
 		select count(*) from school_years where organization_id = $1 and id = $2 and state = 'purged'`, organizationID, target.ID).Scan(&shellCount))
 	require.Equal(t, int64(1), shellCount)
 
