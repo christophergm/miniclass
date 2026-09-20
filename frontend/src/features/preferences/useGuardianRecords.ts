@@ -8,10 +8,19 @@ export function useGuardianStudents() {
   return useQuery({ queryKey: key, queryFn: resourceApi.listGuardianStudents });
 }
 
-export function useGuardianStudentCandidates(givenName: string, familyName: string, enabled = true) {
+export function useGuardianStudentCandidates(
+  givenName: string,
+  familyName: string,
+  enabled = true,
+) {
   return useQuery({
     enabled: enabled && Boolean(givenName.trim()) && Boolean(familyName.trim()),
-    queryKey: [...key, "candidates", givenName.trim().toLowerCase(), familyName.trim().toLowerCase()],
+    queryKey: [
+      ...key,
+      "candidates",
+      givenName.trim().toLowerCase(),
+      familyName.trim().toLowerCase(),
+    ],
     queryFn: () => resourceApi.findGuardianStudentCandidates(givenName.trim(), familyName.trim()),
   });
 }
@@ -35,8 +44,13 @@ export function useGuardianStudentMutation() {
 export function useGuardianStudentUpdate() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ studentID, value }: { studentID: string; value: Parameters<typeof resourceApi.updateGuardianStudent>[1] }) =>
-      resourceApi.updateGuardianStudent(studentID, value),
+    mutationFn: ({
+      studentID,
+      value,
+    }: {
+      studentID: string;
+      value: Parameters<typeof resourceApi.updateGuardianStudent>[1];
+    }) => resourceApi.updateGuardianStudent(studentID, value),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: key }),
   });
 }

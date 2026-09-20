@@ -164,11 +164,13 @@ export const resourceApi = {
     ),
   createOrSelectGuardianStudent: (value: Schemas["GuardianStudentCreateInputBody"]) =>
     unwrap(api.POST("/api/guardian/students", { body: value })),
-  updateGuardianStudent: (
-    studentID: string,
-    value: Schemas["GuardianStudentUpdateInputBody"],
-  ) =>
-    unwrap(api.PATCH("/api/guardian/students/{studentID}", { params: { path: { studentID } }, body: value })),
+  updateGuardianStudent: (studentID: string, value: Schemas["GuardianStudentUpdateInputBody"]) =>
+    unwrap(
+      api.PATCH("/api/guardian/students/{studentID}", {
+        params: { path: { studentID } },
+        body: value,
+      }),
+    ),
   updateGuardianProfile: (value: Schemas["GuardianProfileInputBody"]) =>
     unwrap(api.PATCH("/api/guardian/profile", { body: value })),
   enrollMFA: () => unwrap(api.POST("/api/auth/mfa/enroll", {})),
