@@ -187,6 +187,11 @@ func registerOperations(api huma.API, options RouterOptions) {
 		Errors: []int{http.StatusNotFound, http.StatusConflict},
 	}, auth.CapabilityManageRoster, false, guardianOnboarding.RevokeOnboardingSession)
 	registerOperation(api, huma.Operation{
+		OperationID: "get-guardian-signup-notice", Method: http.MethodGet,
+		Path: apiBasePath + "/guardian-signup-notice", Summary: "Read the organization guardian signup notice",
+		Errors: []int{http.StatusNotFound},
+	}, auth.CapabilityManageRoster, false, guardianOnboarding.GetSignupNotice)
+	registerOperation(api, huma.Operation{
 		OperationID: "update-guardian-signup-notice", Method: http.MethodPatch,
 		Path: apiBasePath + "/guardian-signup-notice", Summary: "Update the organization guardian signup notice",
 		Errors: []int{http.StatusBadRequest, http.StatusConflict},

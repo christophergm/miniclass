@@ -342,6 +342,17 @@ export function SchoolYearSettingsPage() {
         </section>
       )}
 
+      <section className="mt-8 rounded-lg border bg-card p-5 shadow-sm">
+        <h2 className="font-semibold">Guardian onboarding</h2>
+        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+          Issue and revoke guardian registration links, import manually distributed invitations,
+          export their status, and manage the organization signup notice.
+        </p>
+        <Button className="mt-4" asChild variant="outline">
+          <Link to={`/y/${year.id}/onboarding`}>Manage guardian onboarding</Link>
+        </Button>
+      </section>
+
       {year.state === "closed" && (
         <section className="mt-8 rounded-lg border border-destructive/30 bg-destructive/5 p-5">
           <h2 className="font-semibold text-destructive">Permanent deletion</h2>
