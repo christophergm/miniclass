@@ -230,6 +230,10 @@ func TestPhase4BReviewSignalsJoinPlaceholderDuplicateAndActivityEvidence(t *test
 		LegalGivenName: " alex ", LegalFamilyName: "RIVERA", GradeLevelID: xidPtr(tenant.gradeID), HomeroomID: tenant.homeroomID,
 	})
 	require.NoError(t, err)
+	_, err = peopleService.CreateGuardianRelationship(ctx, string(tenant.organizationID), tenant.year.ID, actor, people.GuardianRelationshipCreateInput{
+		AdultID: tenant.adult.ID, StudentID: duplicateOne.ID, RelationshipType: data.GuardianRelationshipParent,
+	})
+	require.NoError(t, err)
 	firstExternal := "review-one"
 	secondExternal := "review-two"
 	firstExternalPtr := &firstExternal
