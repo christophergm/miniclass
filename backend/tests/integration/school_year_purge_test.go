@@ -137,7 +137,7 @@ func TestSchoolYearPurgeRetainsShellAndDoesNotCrossTenantOrYear(t *testing.T) {
 
 	migratorTx, err := harness.Migrator.Begin(ctx)
 	require.NoError(t, err)
-	defer migratorTx.Rollback(ctx)
+	defer func() { _ = migratorTx.Rollback(ctx) }()
 	_, err = migratorTx.Exec(ctx, "select set_config('app.organization_id', $1, true)", organizationID)
 	require.NoError(t, err)
 	for _, tableName := range tableNames {
