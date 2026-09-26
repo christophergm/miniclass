@@ -58,6 +58,7 @@ export type GuardianStudent = Schemas["GuardianStudentResponse"];
 export type GuardianStudentReviewWarning = Schemas["GuardianStudentReviewWarning"];
 export type GuardianRegistrationEntry = Schemas["GuardianRegistrationEntryResponse"];
 export type GuardianInvitationImport = Schemas["InvitationImportResult"];
+export type MFAStatus = Schemas["MFAStatusOutputBody"];
 export type MFAEnrollment = Schemas["MFAEnrollmentOutputBody"];
 export type AdministrativeSession = Schemas["AdministrativeSessionOutputBody"];
 export type AdultAccountLink = Schemas["AdultAccountLinkResponse"];
@@ -195,6 +196,7 @@ export const resourceApi = {
     ),
   updateGuardianProfile: (value: Schemas["GuardianProfileInputBody"]) =>
     unwrap(api.PATCH("/api/guardian/profile", { body: value })),
+  getMFAStatus: () => unwrap(api.GET("/api/auth/mfa/status")),
   enrollMFA: () => unwrap(api.POST("/api/auth/mfa/enroll", {})),
   verifyMFA: (code?: string, recoveryCode?: string) =>
     unwrap(api.POST("/api/auth/mfa/verify", { body: { code, recovery_code: recoveryCode } })),

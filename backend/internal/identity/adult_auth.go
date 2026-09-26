@@ -383,6 +383,17 @@ func (s *Store) VerifyMFAForGuardian(ctx context.Context, guardian auth.Guardian
 	return s.VerifyMFA(ctx, auth.MFAVerification{UserID: link.UserID, OrganizationID: guardian.OrganizationID, Code: code, RecoveryCode: recoveryCode, Now: now})
 }
 
+func (s *Store) MFAEnrolled(ctx context.Context, userID ids.XID) (bool, error) {
+	if s == nil || s.database == nil {
+		return false, errors.New("read MFA state: identity store is nil")
+	}
+	state, err := s.mfaState(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+	return mfaIsEnrolled(state), nil
+}
+
 func (s *Store) EnrollMFA(ctx context.Context, userID, organizationID ids.XID, actor audit.Actor, now time.Time) (auth.MFAEnrollment, error) {
 	if s == nil || s.database == nil {
 		return auth.MFAEnrollment{}, errors.New("enroll MFA: identity store is nil")
@@ -419,7 +430,7 @@ func (s *Store) EnrollMFA(ctx context.Context, userID, organizationID ids.XID, a
 		if err != nil {
 			return err
 		}
-		if len(current.Secret) != 0 {
+		if mfaIsEnrolled(current) {
 			return auth.ErrMFAAlreadyEnrolled
 		}
 		state, err = tx.SetMFASecret(ctx, userID, ciphertext, now)
@@ -624,6 +635,10 @@ func (s *Store) userBelongsToOrganization(ctx context.Context, userID, organizat
 		return err
 	})
 	return belongs, err
+}
+
+func mfaIsEnrolled(state identitydata.MFAState) bool {
+	return len(state.Secret) != 0 && state.EnrolledAt != nil
 }
 
 func (s *Store) mfaState(ctx context.Context, userID ids.XID) (identitydata.MFAState, error) {

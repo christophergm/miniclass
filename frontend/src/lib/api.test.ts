@@ -6,6 +6,7 @@ import {
   fieldErrorMap,
   unwrap,
   unwrapList,
+  onMfaRequired,
   unwrapNoContent,
 } from "./api";
 import { onSessionEnded } from "./auth";
@@ -203,6 +204,58 @@ describe("response handling", () => {
       status: 502,
       message: "The API request failed with status 502",
     });
+  });
+
+  it("reports an MFA challenge without treating it as a lost session", async () => {
+    const required = vi.fn();
+    const unsubscribe = onMfaRequired(required);
+    try {
+      const { client } = stubClient(
+        () =>
+          new Response(
+            JSON.stringify({
+              type: "mfa-required",
+              title: "MFA required",
+              detail: "a recent MFA proof is required for administrative access",
+            }),
+            { status: 403, headers: { "Content-Type": "application/problem+json" } },
+          ),
+      );
+
+      await expect(unwrap(client.GET("/api/school-years"))).rejects.toMatchObject({
+        status: 403,
+        code: "mfa-required",
+      });
+      expect(required).toHaveBeenCalledTimes(1);
+    } finally {
+      unsubscribe();
+    }
+  });
+
+  it("does not report ordinary authorization denials as MFA challenges", async () => {
+    const required = vi.fn();
+    const unsubscribe = onMfaRequired(required);
+    try {
+      const { client } = stubClient(
+        () =>
+          new Response(
+            JSON.stringify({
+              type: "capability-required",
+              title: "Capability required",
+              detail: "the principal lacks the required capability",
+            }),
+            { status: 403, headers: { "Content-Type": "application/problem+json" } },
+          ),
+      );
+
+      await expect(unwrap(client.GET("/api/school-years"))).rejects.toMatchObject({
+        status: 403,
+        code: "capability-required",
+      });
+      expect(required).not.toHaveBeenCalled();
+    } finally {
+      unsubscribe();
+    }
   });
 
   it("reports an invalid bearer as a terminal session event", async () => {

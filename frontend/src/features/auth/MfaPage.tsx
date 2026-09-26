@@ -1,5 +1,6 @@
-import { useState, type FormEvent } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useEffect, useState, type FormEvent } from "react";
+import { QRCodeSVG } from "qrcode.react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +12,15 @@ import { AuthErrorMessage, AuthLayout } from "./AuthLayout";
 import { errorMessage } from "./auth-utils";
 
 function safeRedirect(value: string | null): string {
-  return value && value.startsWith("/") && !value.startsWith("//") ? value : "/years";
+  return value && value.startsWith("/") && !value.startsWith("//") && !value.startsWith("/mfa")
+    ? value
+    : "/years";
+}
+
+function authenticatorUri(secret: string): string {
+  const issuer = "MiniClass";
+  const account = "Administrator";
+  return `otpauth://totp/${encodeURIComponent(`${issuer}:${account}`)}?secret=${encodeURIComponent(secret)}&issuer=${encodeURIComponent(issuer)}`;
 }
 
 export function MfaPage() {
@@ -19,21 +28,40 @@ export function MfaPage() {
   const [searchParams] = useSearchParams();
   const guardianMode = searchParams.get("mode") === "guardian";
   const [enrollment, setEnrollment] = useState<MFAEnrollment | null>(null);
-  const [needsVerification, setNeedsVerification] = useState(guardianMode);
+  const [mfaEnrolled, setMfaEnrolled] = useState<boolean | null>(guardianMode ? true : null);
+  const [statusError, setStatusError] = useState<string | null>(null);
   const [recoveryMode, setRecoveryMode] = useState(false);
   const [proof, setProof] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (guardianMode) return;
+
+    let cancelled = false;
+    void resourceApi
+      .getMFAStatus()
+      .then(({ enrolled }) => {
+        if (!cancelled) setMfaEnrolled(enrolled);
+      })
+      .catch((reason) => {
+        if (!cancelled) setStatusError(errorMessage(reason));
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [guardianMode]);
 
   async function startEnrollment() {
     setError(null);
     setIsSubmitting(true);
     try {
       setEnrollment(await resourceApi.enrollMFA());
-      setNeedsVerification(true);
+      setMfaEnrolled(true);
     } catch (reason) {
       if (reason instanceof ApiError && reason.code === "mfa-already-enrolled") {
-        setNeedsVerification(true);
+        setMfaEnrolled(true);
       } else {
         setError(errorMessage(reason));
       }
@@ -68,18 +96,34 @@ export function MfaPage() {
         <p className="mt-2 text-sm text-muted-foreground">
           MiniClass requires a fresh MFA proof before administrator data or actions are available.
         </p>
+        {searchParams.has("redirect") && (
+          <p className="mt-2 text-sm text-muted-foreground" role="status">
+            Verify MFA to continue to the page you requested.
+          </p>
+        )}
       </div>
 
-      {error && (
+      {(statusError || error) && (
         <div className="mt-6">
-          <AuthErrorMessage message={error} />
+          <AuthErrorMessage message={statusError ?? error ?? ""} />
         </div>
       )}
 
       {enrollment && (
-        <section className="mt-6 space-y-3 rounded-md border bg-muted/30 p-4">
+        <section className="mt-6 space-y-4 rounded-md border bg-muted/30 p-4">
           <h2 className="font-medium">Add this account to your authenticator</h2>
-          <p className="break-all font-mono text-sm">{enrollment.secret}</p>
+          <div className="flex justify-center rounded-md bg-white p-4">
+            <QRCodeSVG
+              aria-label="Scan this QR code with your authenticator app"
+              value={authenticatorUri(enrollment.secret)}
+              size={192}
+              includeMargin
+            />
+          </div>
+          <details className="text-sm">
+            <summary className="cursor-pointer font-medium">Can&apos;t scan the code?</summary>
+            <p className="mt-2 break-all font-mono text-xs">{enrollment.secret}</p>
+          </details>
           <p className="text-sm text-muted-foreground">
             Save these recovery codes somewhere secure. Each code works once.
           </p>
@@ -91,7 +135,11 @@ export function MfaPage() {
         </section>
       )}
 
-      {needsVerification ? (
+      {mfaEnrolled === null ? (
+        <p className="mt-6 text-sm text-muted-foreground" role="status">
+          Checking your MFA setup…
+        </p>
+      ) : mfaEnrolled ? (
         <form className="mt-6 space-y-4" onSubmit={verify}>
           <label className="block space-y-2 text-sm font-medium" htmlFor="mfa-proof">
             {recoveryMode ? "Recovery code" : "Authenticator code"}
@@ -122,6 +170,9 @@ export function MfaPage() {
         </form>
       ) : (
         <div className="mt-6 space-y-4">
+          <p className="text-sm text-muted-foreground">
+            MFA is not configured for this account yet. Set it up before continuing.
+          </p>
           <Button
             className="w-full"
             type="button"
@@ -132,6 +183,12 @@ export function MfaPage() {
           </Button>
         </div>
       )}
+
+      <div className="mt-6 flex justify-end text-sm">
+        <Link className="text-muted-foreground hover:text-foreground" to="/health">
+          System health
+        </Link>
+      </div>
     </AuthLayout>
   );
 }

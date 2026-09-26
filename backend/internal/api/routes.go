@@ -338,6 +338,10 @@ func registerOperations(api huma.API, options RouterOptions) {
 		Errors: []int{http.StatusBadRequest},
 	}, auth.CapabilitySession, false, adultAuth.Revoke)
 	registerOperation(api, huma.Operation{
+		OperationID: "get-mfa-status", Method: http.MethodGet,
+		Path: apiBasePath + "/auth/mfa/status", Summary: "Read the authenticated adult's MFA enrollment status",
+	}, auth.CapabilityAuthenticated, false, adultAuth.MFAStatus)
+	registerOperation(api, huma.Operation{
 		OperationID: "enroll-mfa", Method: http.MethodPost,
 		Path: apiBasePath + "/auth/mfa/enroll", Summary: "Enroll the authenticated adult in MFA",
 		Errors: []int{http.StatusConflict},

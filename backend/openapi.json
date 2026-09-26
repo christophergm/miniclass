@@ -3369,6 +3369,27 @@
         ],
         "type": "object"
       },
+      "MFAStatusOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/MFAStatusOutputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "enrolled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enrolled"
+        ],
+        "type": "object"
+      },
       "MeOrganization": {
         "additionalProperties": false,
         "properties": {
@@ -8100,6 +8121,40 @@
         ],
         "summary": "Reset an adult's MFA enrollment",
         "x-required-capability": "manage_administrators"
+      }
+    },
+    "/api/auth/mfa/status": {
+      "get": {
+        "operationId": "get-mfa-status",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MFAStatusOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Read the authenticated adult's MFA enrollment status",
+        "x-required-capability": "authenticated"
       }
     },
     "/api/auth/mfa/verify": {

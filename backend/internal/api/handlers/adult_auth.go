@@ -139,6 +139,29 @@ func (h *AdultAuthHandler) Revoke(ctx context.Context, _ *struct{}) (*RevokeSess
 	return &RevokeSessionOutput{}, nil
 }
 
+type MFAStatusOutput struct {
+	Body struct {
+		Enrolled bool `json:"enrolled"`
+	}
+}
+
+func (h *AdultAuthHandler) MFAStatus(ctx context.Context, _ *struct{}) (*MFAStatusOutput, error) {
+	principal, err := accountPrincipal(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if h == nil || h.service == nil {
+		return nil, problems.New(http.StatusInternalServerError, problems.AuthenticationUnavailable, "adult authentication is not configured")
+	}
+	enrolled, err := h.service.MFAEnrolled(ctx, principal.UserID)
+	if err != nil {
+		return nil, adultAuthProblem(err)
+	}
+	return &MFAStatusOutput{Body: struct {
+		Enrolled bool `json:"enrolled"`
+	}{Enrolled: enrolled}}, nil
+}
+
 type MFAEnrollmentOutput struct {
 	Body struct {
 		Secret        string   `json:"secret"`

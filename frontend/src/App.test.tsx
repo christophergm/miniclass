@@ -90,6 +90,43 @@ describe("App routing", () => {
     expect(screen.getByLabelText("Email")).toBeInTheDocument();
   });
 
+  it("sends an MFA-challenged administrator to MFA and preserves the requested page", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = requestUrl(input);
+        if (url.endsWith("/api/me")) {
+          return jsonResponse({
+            principal: { id: "user-test", email: "admin@example.com" },
+            organization: { id: "org-test", name: "Test organisation" },
+            role: "Owner",
+          });
+        }
+        if (url.endsWith("/api/school-years")) {
+          return new Response(
+            JSON.stringify({
+              type: "mfa-required",
+              title: "MFA required",
+              detail: "a recent MFA proof is required for administrative access",
+            }),
+            { status: 403, headers: { "Content-Type": "application/problem+json" } },
+          );
+        }
+        return jsonResponse([]);
+      }),
+    );
+
+    renderApp("/years", authenticatedClient());
+
+    expect(
+      await screen.findByRole("heading", { name: "Secure administrator access" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Verify MFA to continue to the page you requested."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "System health" })).toHaveAttribute("href", "/health");
+  });
+
   it("lands an authenticated user on the school-year list without a dashboard", async () => {
     vi.stubGlobal(
       "fetch",

@@ -116,6 +116,7 @@ type AdultAuthentication interface {
 	ResolveSession(context.Context, string) (Principal, error)
 	RevokeSession(context.Context, string) error
 	RevokeSessionByID(context.Context, ids.XID) error
+	MFAEnrolled(context.Context, ids.XID) (bool, error)
 	EnrollMFA(context.Context, ids.XID, ids.XID, audit.Actor, time.Time) (MFAEnrollment, error)
 	VerifyMFA(context.Context, MFAVerification) (AdministrativeSession, error)
 	ResetMFA(context.Context, MFAReset) error

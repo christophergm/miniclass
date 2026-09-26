@@ -1,6 +1,8 @@
-import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
+import { useEffect } from "react";
+import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 
 import { AppShell } from "@/components/AppShell";
+import { onMfaRequired } from "@/lib/api";
 import { hasApplicationSession, type AuthClient } from "@/lib/auth";
 import { AuthProvider } from "@/lib/hooks/AuthProvider";
 import { useAuth } from "@/lib/hooks/useAuth";
@@ -76,6 +78,18 @@ export function AppWithAuth({ authClient }: { authClient: AuthClient | null }) {
 }
 
 function AppRoutes() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    return onMfaRequired(() => {
+      if (location.pathname === "/mfa") return;
+
+      const redirect = `${location.pathname}${location.search}${location.hash}`;
+      navigate(`/mfa?redirect=${encodeURIComponent(redirect)}`, { replace: true });
+    });
+  }, [location.hash, location.pathname, location.search, navigate]);
+
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />

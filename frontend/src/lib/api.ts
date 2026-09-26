@@ -62,6 +62,22 @@ export type ApiClientOptions = {
   getAccessToken?: () => Promise<string | null>;
 };
 
+type MfaRequiredListener = () => void;
+const mfaRequiredListeners = new Set<MfaRequiredListener>();
+
+// MFA is a step-up challenge rather than a lost login. Keep its signal separate
+// from session-ended events so the router can preserve the original destination.
+export function onMfaRequired(listener: MfaRequiredListener): () => void {
+  mfaRequiredListeners.add(listener);
+  return () => mfaRequiredListeners.delete(listener);
+}
+
+function reportMfaRequired(): void {
+  for (const listener of mfaRequiredListeners) {
+    listener();
+  }
+}
+
 const configuredBaseUrl = import.meta.env.VITE_API_URL ?? "";
 
 // VITE_API_URL is normally unset, meaning "same origin as the app". The client
@@ -116,6 +132,9 @@ function problemError(response: Response, problem: unknown): ApiError {
     details?.detail ?? details?.title ?? `The API request failed with status ${response.status}`;
   if (response.status === 401 && details?.type === "invalid-token") {
     reportSessionEnded({ kind: "api-invalid-token" });
+  }
+  if (response.status === 403 && details?.type === "mfa-required") {
+    reportMfaRequired();
   }
   return new ApiError("http", message, response.status, details?.type, details?.errors ?? []);
 }
