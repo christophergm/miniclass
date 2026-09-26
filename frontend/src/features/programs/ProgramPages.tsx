@@ -1,4 +1,5 @@
-import { useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { X } from "lucide-react";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useOutletContext, useParams } from "react-router-dom";
 
 import {
@@ -150,12 +151,20 @@ function MeetingDateDraftList({
   dates: string[];
   onChange: (dates: string[]) => void;
 }) {
-  const [newDate, setNewDate] = useState("");
-  const addDate = () => {
-    if (!newDate) return;
-    onChange([...dates, newDate]);
-    setNewDate("");
+  const [highlightedDateIndex, setHighlightedDateIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (highlightedDateIndex === null) return;
+    const timeout = window.setTimeout(() => setHighlightedDateIndex(null), 900);
+    return () => window.clearTimeout(timeout);
+  }, [highlightedDateIndex]);
+
+  const addDate = (date: string) => {
+    const meetingDates = [...dates, date].sort();
+    onChange(meetingDates);
+    setHighlightedDateIndex(meetingDates.lastIndexOf(date));
   };
+
   return (
     <div className="space-y-3">
       {dates.length === 0 && (
@@ -173,6 +182,9 @@ function MeetingDateDraftList({
           <div className="flex items-center gap-2" key={`${date}-${index}`}>
             <DatePicker
               aria-label={`Meeting date ${index + 1}`}
+              className={`w-56 rounded-md shadow-[0_0_0_3px] transition-shadow duration-1000 ease-out motion-reduce:transition-none ${
+                index === highlightedDateIndex ? "shadow-primary/30" : "shadow-transparent"
+              }`}
               onChange={(value) =>
                 onChange(dates.map((item, itemIndex) => (itemIndex === index ? value : item)))
               }
@@ -183,21 +195,22 @@ function MeetingDateDraftList({
               aria-label={`Remove meeting date ${index + 1}`}
               disabled={dates.length === 1}
               onClick={() => onChange(dates.filter((_, itemIndex) => itemIndex !== index))}
-              size="sm"
+              size="icon"
               type="button"
               variant="outline"
             >
-              Remove
+              <X className="h-4 w-4" />
             </Button>
           </div>
         ))}
       </div>
-      <div className="flex gap-2">
-        <DatePicker aria-label="New meeting date" onChange={setNewDate} value={newDate} />
-        <Button disabled={!newDate} onClick={addDate} type="button" variant="outline">
-          Add date
-        </Button>
-      </div>
+      <DatePicker
+        aria-label="Add a date"
+        className="w-56"
+        emptyLabel="Add a date"
+        onChange={addDate}
+        value=""
+      />
     </div>
   );
 }
@@ -206,6 +219,7 @@ function SessionForm({
   value,
   onChange,
   onSubmit,
+  onCancel,
   pending,
   error,
   submitLabel,
@@ -214,6 +228,7 @@ function SessionForm({
   value: SessionDraft;
   onChange: (value: SessionDraft) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onCancel: () => void;
   pending: boolean;
   error: unknown;
   submitLabel: string;
@@ -278,17 +293,22 @@ function SessionForm({
           </label>
         </div>
       )}
-      <Button
-        disabled={
-          pending ||
-          !value.name.trim() ||
-          value.meetingDates.length === 0 ||
-          value.meetingDates.some((date) => !date)
-        }
-        type="submit"
-      >
-        {pending ? "Saving…" : submitLabel}
-      </Button>
+      <div className="flex gap-2">
+        <Button
+          disabled={
+            pending ||
+            !value.name.trim() ||
+            value.meetingDates.length === 0 ||
+            value.meetingDates.some((date) => !date)
+          }
+          type="submit"
+        >
+          {pending ? "Saving…" : submitLabel}
+        </Button>
+        <Button disabled={pending} onClick={onCancel} type="button" variant="outline">
+          Cancel
+        </Button>
+      </div>
       {error != null ? <Problem error={error} fallback="Unable to save the session." /> : null}
     </form>
   );
@@ -738,6 +758,7 @@ export function ProgramDetailPage() {
         >
           <SessionForm
             error={createSession.error || updateSession.error}
+            onCancel={() => setSessionEditor(null)}
             onChange={setSessionDraft}
             onSubmit={submitSession}
             pending={createSession.isPending || updateSession.isPending}
@@ -1969,6 +1990,7 @@ export function SessionPage() {
       >
         <SessionForm
           error={updateSession.error}
+          onCancel={() => setSessionEditorOpen(false)}
           onChange={setSessionDraft}
           onSubmit={submitSession}
           pending={updateSession.isPending}

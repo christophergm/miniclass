@@ -732,7 +732,7 @@ describe("SessionPage", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("requires a meeting date before creating a session", () => {
+  it("adds a selected date immediately when creating a session", () => {
     renderProgram();
 
     fireEvent.click(screen.getByRole("button", { name: "Create session" }));
@@ -742,11 +742,30 @@ describe("SessionPage", () => {
       target: { value: "Spring session" },
     });
     expect(within(dialog).getByRole("button", { name: "Create session" })).toBeDisabled();
-    fireEvent.change(screen.getByLabelText("New meeting date"), {
+    expect(within(dialog).getByText("Add a date")).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Add date" })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Add a date"), {
+      target: { value: "2027-03-15" },
+    });
+    fireEvent.change(screen.getByLabelText("Add a date"), {
       target: { value: "2027-03-01" },
     });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Add date" }));
+    expect(
+      within(dialog)
+        .getAllByLabelText(/^Meeting date \d+$/)
+        .map((input) => (input as HTMLInputElement).value),
+    ).toEqual(["2027-03-01", "2027-03-15"]);
     expect(within(dialog).getByRole("button", { name: "Create session" })).toBeEnabled();
+  });
+
+  it("cancels session edits without saving", () => {
+    renderSession();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit session" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByRole("dialog", { name: "Edit session" })).not.toBeInTheDocument();
+    expect(mocks.sessionUpdate).not.toHaveBeenCalled();
   });
 
   it("renders a labeled create page and maps Maximum enrollment to capacity", () => {
