@@ -311,11 +311,10 @@ describe("people roster pages", () => {
     expect(screen.queryByText("Ada Zephyr")).not.toBeInTheDocument();
   });
 
-  // The external identifier is an opaque source key: it matters when reconciling
-  // one record against the export, and is noise in a roster scanned by name. It
-  // stays on the detail page, where a single record is being worked on. Both
-  // tables are asserted because they share the one PeopleTable.
-  it("keeps the external identifier out of the roster tables but on the detail page", async () => {
+  // External identifiers are integration-only source keys, so they are not
+  // displayed in roster tables or person detail forms. Both tables are asserted
+  // because they share the one PeopleTable.
+  it("keeps the external identifier out of roster tables and detail forms", async () => {
     const identifiedStudent = { ...students[0], external_identifier: "platform-9f3" };
     vi.spyOn(studentApi, "list").mockResolvedValue([identifiedStudent]);
     vi.spyOn(adultApi, "list").mockResolvedValue([
@@ -340,7 +339,8 @@ describe("people roster pages", () => {
     adultListing.unmount();
 
     renderStudents("/y/year-1/students/student-2");
-    expect(await screen.findByLabelText("External identifier")).toHaveValue("platform-9f3");
+    await screen.findByLabelText("Given name");
+    expect(screen.queryByLabelText("External identifier")).not.toBeInTheDocument();
   });
 
   // SPEC §10.1 makes grade ordinal and states the ordering is the definition's,
@@ -636,8 +636,8 @@ describe("people roster pages", () => {
     renderStudents("/y/year-1/students/new");
     await waitFor(() => expect(screen.getByLabelText("Grade")).toContainHTML("Second grade"));
 
-    fireEvent.change(screen.getByLabelText("Legal given name"), { target: { value: "Ada" } });
-    fireEvent.change(screen.getByLabelText("Legal family name"), { target: { value: "Zephyr" } });
+    fireEvent.change(screen.getByLabelText("Given name"), { target: { value: "Ada" } });
+    fireEvent.change(screen.getByLabelText("Family name"), { target: { value: "Zephyr" } });
     fireEvent.change(screen.getByLabelText("Grade"), { target: { value: "grade-2" } });
     fireEvent.change(screen.getByLabelText("Homeroom"), { target: { value: "homeroom-c" } });
     fireEvent.change(screen.getByLabelText(/Correction reason \/ source authority/), {
@@ -659,16 +659,14 @@ describe("people roster pages", () => {
   it("renders server field errors inline without client-side validation", async () => {
     vi.spyOn(studentCorrectionApi, "create").mockRejectedValue(
       new ApiError("http", "Please correct the highlighted fields.", 422, "validation-error", [
-        { location: "body.legal_given_name", message: "Legal given name is required." },
+        { location: "body.legal_given_name", message: "Given name is required." },
       ]),
     );
 
     renderStudents("/y/year-1/students/new");
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    await waitFor(() =>
-      expect(screen.getByText("Legal given name is required.")).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText("Given name is required.")).toBeInTheDocument());
     expect(screen.getAllByRole("alert")[0]).toHaveTextContent(
       "Please correct the highlighted fields.",
     );

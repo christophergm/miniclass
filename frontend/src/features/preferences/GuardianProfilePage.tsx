@@ -86,8 +86,8 @@ export function GuardianProfilePage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-4 py-8">
-      <Link className="text-sm font-medium text-primary hover:underline" to="/guardian/students">
-        ← Back to your students
+      <Link className="text-sm font-medium text-primary hover:underline" to="/guardian/preferences">
+        ← Back to preference forms
       </Link>
       <h1 className="mt-4 text-3xl font-semibold tracking-tight">Your guardian profile</h1>
       <p className="mt-2 text-sm text-muted-foreground">

@@ -726,7 +726,7 @@ Two entities and one relationship, all scoped to a school year.
 
 | Field | Notes |
 |---|---|
-| Legal given name, legal family name | Required |
+| Given name, family name | Required |
 | Preferred given name | Optional; displayed in preference to the legal name wherever a person is named |
 | Grade | Concrete ordinal attribute, drawn from the school year's vocabulary (§10.1) |
 | Homeroom | Concrete categorical attribute drawn from the school year's vocabulary; required by v1 guardian add/edit forms and before operational use (§10.1, §11.5) |

@@ -161,9 +161,7 @@ describe("response handling", () => {
             type: "validation-error",
             title: "Invalid request",
             detail: "The request contains invalid fields.",
-            errors: [
-              { location: "body.legal_given_name", message: "Legal given name is required." },
-            ],
+            errors: [{ location: "body.legal_given_name", message: "Given name is required." }],
           }),
           { status: 422, headers: { "Content-Type": "application/problem+json" } },
         ),
@@ -176,9 +174,7 @@ describe("response handling", () => {
       code: "validation-error",
       status: 422,
       message: "The request contains invalid fields.",
-      fieldErrors: [
-        { location: "body.legal_given_name", message: "Legal given name is required." },
-      ],
+      fieldErrors: [{ location: "body.legal_given_name", message: "Given name is required." }],
     });
   });
 
@@ -288,12 +284,12 @@ describe("response handling", () => {
 describe("fieldErrorMap", () => {
   it("keys form fields by the last segment of the RFC 9457 location", () => {
     const error = new ApiError("http", "Invalid request", 422, "validation-error", [
-      { location: "body.legal_given_name", message: "Legal given name is required." },
+      { location: "body.legal_given_name", message: "Given name is required." },
       { location: "body.grade_level_id", message: "Grade is required." },
     ]);
 
     expect(fieldErrorMap(error)).toEqual({
-      legal_given_name: "Legal given name is required.",
+      legal_given_name: "Given name is required.",
       grade_level_id: "Grade is required.",
     });
   });

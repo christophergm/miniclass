@@ -86,13 +86,15 @@ type GuardianCandidateResponse struct {
 
 type GuardianCandidatesInput struct {
 	Body struct {
-		GivenName  string `json:"given_name" minLength:"1"`
-		FamilyName string `json:"family_name" minLength:"1"`
+		GivenName     string `json:"given_name" minLength:"1"`
+		PreferredName string `json:"preferred_name,omitempty"`
+		FamilyName    string `json:"family_name" minLength:"1"`
 	}
 }
 type GuardianCandidatesQueryInput struct {
-	GivenName  string `query:"given_name" minLength:"1"`
-	FamilyName string `query:"family_name" minLength:"1"`
+	GivenName     string `query:"given_name" minLength:"1"`
+	PreferredName string `query:"preferred_name"`
+	FamilyName    string `query:"family_name" minLength:"1"`
 }
 type GuardianCandidatesOutput struct{ Body []GuardianCandidateResponse }
 
@@ -201,7 +203,7 @@ func (h *GuardianRecordsHandler) Candidates(ctx context.Context, input *Guardian
 	if input == nil {
 		return nil, problems.New(http.StatusBadRequest, problems.ResourceNotFound, "student names are required")
 	}
-	rows, err := h.service.FindCandidates(ctx, principal, guardianrecords.CandidateInput{GivenName: input.Body.GivenName, FamilyName: input.Body.FamilyName})
+	rows, err := h.service.FindCandidates(ctx, principal, guardianrecords.CandidateInput{GivenName: input.Body.GivenName, PreferredName: input.Body.PreferredName, FamilyName: input.Body.FamilyName})
 	if err != nil {
 		return nil, guardianRecordsProblem(err)
 	}
@@ -216,7 +218,7 @@ func (h *GuardianRecordsHandler) CandidatesQuery(ctx context.Context, input *Gua
 	if input == nil {
 		return nil, problems.New(http.StatusBadRequest, problems.ResourceNotFound, "student names are required")
 	}
-	rows, err := h.service.FindCandidates(ctx, principal, guardianrecords.CandidateInput{GivenName: input.GivenName, FamilyName: input.FamilyName})
+	rows, err := h.service.FindCandidates(ctx, principal, guardianrecords.CandidateInput{GivenName: input.GivenName, PreferredName: input.PreferredName, FamilyName: input.FamilyName})
 	if err != nil {
 		return nil, guardianRecordsProblem(err)
 	}

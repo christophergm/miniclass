@@ -3,7 +3,7 @@ package people
 import "strings"
 
 // DisplayName composes the canonical person name. A preferred given name is
-// used wherever a person is named, while the legal family name remains the
+// used wherever a person is named, while the family name remains the
 // family-name component.
 func DisplayName(preferredGivenName, legalGivenName, legalFamilyName *string) string {
 	given := ""

@@ -569,14 +569,14 @@ export function PersonDetailPage({ kind }: PageProps) {
       >
         <div className="grid gap-5 sm:grid-cols-2">
           <Field
-            label="Legal given name"
+            label="Given name"
             name="legal_given_name"
             value={values.legal_given_name}
             error={fieldErrors.legal_given_name}
             onChange={(value) => setValues({ ...values, legal_given_name: value })}
           />
           <Field
-            label="Legal family name"
+            label="Family name"
             name="legal_family_name"
             value={values.legal_family_name}
             error={fieldErrors.legal_family_name}
@@ -590,13 +590,7 @@ export function PersonDetailPage({ kind }: PageProps) {
             onChange={(value) => setValues({ ...values, preferred_given_name: value })}
             hint="The API's display name is used in lists and headings."
           />
-          <Field
-            label="External identifier"
-            name="external_identifier"
-            value={values.external_identifier}
-            error={fieldErrors.external_identifier}
-            onChange={(value) => setValues({ ...values, external_identifier: value })}
-          />
+
           {kind === "student" && (
             <Field
               label="Correction reason / source authority"
@@ -704,7 +698,6 @@ type StudentInputValues = {
   legal_given_name: string;
   legal_family_name: string;
   preferred_given_name: string;
-  external_identifier: string;
   grade_level_id: string;
   homeroom_id: string;
   correction_reason: string;
@@ -713,7 +706,6 @@ type AdultInputValues = {
   legal_given_name: string;
   legal_family_name: string;
   preferred_given_name: string;
-  external_identifier: string;
   email: string;
   phone: string;
   participation_intent: Exclude<ParticipationIntent, null> | "";
@@ -725,7 +717,6 @@ function emptyValues(kind: PersonKind): PersonInputValues {
         legal_given_name: "",
         legal_family_name: "",
         preferred_given_name: "",
-        external_identifier: "",
         grade_level_id: "",
         homeroom_id: "",
         correction_reason: "",
@@ -734,7 +725,6 @@ function emptyValues(kind: PersonKind): PersonInputValues {
         legal_given_name: "",
         legal_family_name: "",
         preferred_given_name: "",
-        external_identifier: "",
         email: "",
         phone: "",
         participation_intent: "",
@@ -746,7 +736,6 @@ function valuesFromPerson(kind: PersonKind, person: PersonSummary): PersonInputV
     legal_given_name: person.legal_given_name,
     legal_family_name: person.legal_family_name,
     preferred_given_name: person.preferred_given_name ?? "",
-    external_identifier: person.external_identifier ?? "",
   };
   return kind === "student"
     ? {
@@ -782,7 +771,6 @@ function savePerson(
       reason: student.correction_reason,
       ...optional("grade_level_id", student.grade_level_id),
       ...optional("preferred_given_name", student.preferred_given_name),
-      ...optional("external_identifier", student.external_identifier),
     };
     return personId
       ? studentCorrectionApi.update(schoolYearId, personId, body)
@@ -795,7 +783,6 @@ function savePerson(
     legal_family_name: adult.legal_family_name,
     participation_intent: adult.participation_intent || undefined,
     ...optional("preferred_given_name", adult.preferred_given_name),
-    ...optional("external_identifier", adult.external_identifier),
     ...optional("email", adult.email),
     ...optional("phone", adult.phone),
   };

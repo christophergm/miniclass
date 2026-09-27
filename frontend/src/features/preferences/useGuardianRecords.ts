@@ -20,6 +20,7 @@ export function useGuardianProfile() {
 
 export function useGuardianStudentCandidates(
   givenName: string,
+  preferredName: string,
   familyName: string,
   enabled = true,
 ) {
@@ -29,9 +30,15 @@ export function useGuardianStudentCandidates(
       ...key,
       "candidates",
       givenName.trim().toLowerCase(),
+      preferredName.trim().toLowerCase(),
       familyName.trim().toLowerCase(),
     ],
-    queryFn: () => resourceApi.findGuardianStudentCandidates(givenName.trim(), familyName.trim()),
+    queryFn: () =>
+      resourceApi.findGuardianStudentCandidates(
+        givenName.trim(),
+        preferredName.trim() || undefined,
+        familyName.trim(),
+      ),
   });
 }
 

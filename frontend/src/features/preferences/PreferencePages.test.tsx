@@ -117,6 +117,43 @@ describe("preference pages", () => {
     ]);
   });
 
+  it("guides guardians to add a student when none are linked", () => {
+    mocks.guardianForms = { school_year_id: "year-1", students: [] };
+    render(
+      <MemoryRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
+        <GuardianPreferencePage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole("heading", { name: "No students linked yet" })).toBeInTheDocument();
+    expect(
+      screen.getByText(/Add or link a student to help with their preference forms/i),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Add or link a student" })).toHaveAttribute(
+      "href",
+      "/guardian/students",
+    );
+  });
+
+  it("shows a form placeholder for each linked student without an open form", () => {
+    mocks.guardianForms = {
+      school_year_id: "year-1",
+      students: [{ student_id: "student-1", display_name: "Synthetic Student", forms: [] }],
+    };
+    render(
+      <MemoryRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
+        <GuardianPreferencePage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("No forms for Synthetic Student just yet")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /A preference form will appear here when your school opens one for this student/i,
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("renders every currently scoped guardian student as an independent form", () => {
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
     render(

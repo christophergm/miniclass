@@ -182,10 +182,20 @@ export const resourceApi = {
   getGuardianAuthContext: () => unwrap(api.GET("/api/auth/guardian")),
   listGuardianStudents: () => unwrapList(api.GET("/api/guardian/students")),
   getGuardianVocabulary: () => unwrap(api.GET("/api/guardian/vocabulary")),
-  findGuardianStudentCandidates: (givenName: string, familyName: string) =>
+  findGuardianStudentCandidates: (
+    givenName: string,
+    preferredName: string | undefined,
+    familyName: string,
+  ) =>
     unwrapList(
       api.GET("/api/guardian/students/candidates", {
-        params: { query: { given_name: givenName, family_name: familyName } },
+        params: {
+          query: {
+            given_name: givenName,
+            preferred_name: preferredName,
+            family_name: familyName,
+          },
+        },
       }),
     ),
   createOrSelectGuardianStudent: (value: Schemas["GuardianStudentCreateInputBody"]) =>

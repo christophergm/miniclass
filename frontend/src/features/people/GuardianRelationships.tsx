@@ -93,9 +93,9 @@ export function GuardianRelationships({
         Guardian relationships
       </h2>
       <p className="mt-2 text-sm text-muted-foreground">
-        These typed links describe who acts for a student. They are the only record of a family the
-        system keeps, so everything it needs about one — who to contact, whose preferences cover
-        which children — is read from here.
+        {kind === "student"
+          ? "These are the adults who registered themselves as guardians for this student. Guardians can edit the student's record and help the student access preference surveys. Administrators should generally not create or edit these relationships unless a guardian asks them to do so on their behalf."
+          : "These are the students this adult registered as a guardian for. Guardians can edit each student's record and help students access preference surveys. Administrators should generally not create or edit these relationships unless a guardian asks them to do so on their behalf."}
       </p>
       {error !== null && (
         <p

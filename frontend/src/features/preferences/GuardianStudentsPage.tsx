@@ -26,16 +26,36 @@ export function GuardianStudentsPage() {
   const [gradeID, setGradeID] = useState("");
   const [homeroomID, setHomeroomID] = useState("");
   const [relationshipType, setRelationshipType] = useState<RelationshipType>("parent");
+  const [hasSearchedCandidates, setHasSearchedCandidates] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<GuardianStudent | null>(null);
   const [removing, setRemoving] = useState<GuardianStudent | null>(null);
   const [removalConfirmed, setRemovalConfirmed] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
-  const candidates = useGuardianStudentCandidates(givenName, familyName, false);
+  const candidates = useGuardianStudentCandidates(givenName, preferredName, familyName, false);
   const save = useGuardianStudentMutation();
   const update = useGuardianStudentUpdate();
   const detach = useGuardianStudentDetach();
   const grades = vocabulary.data?.grade_levels ?? [];
   const homerooms = vocabulary.data?.homerooms ?? [];
+  const linkedStudents = students.data ?? [];
+  const matchingComplete =
+    hasSearchedCandidates && !candidates.isFetching && candidates.data !== undefined;
+
+  function resetNewStudent() {
+    setGivenName("");
+    setFamilyName("");
+    setPreferredName("");
+    setGradeID("");
+    setHomeroomID("");
+    setRelationshipType("parent");
+    setHasSearchedCandidates(false);
+  }
+
+  function openAddStudent() {
+    resetNewStudent();
+    setAddOpen(true);
+  }
 
   function submitNew() {
     setStatus(null);
@@ -50,11 +70,8 @@ export function GuardianStudentsPage() {
       },
       {
         onSuccess: () => {
-          setGivenName("");
-          setFamilyName("");
-          setPreferredName("");
-          setGradeID("");
-          setHomeroomID("");
+          resetNewStudent();
+          setAddOpen(false);
           setStatus("Your student and guardian relationship were saved.");
         },
       },
@@ -78,8 +95,8 @@ export function GuardianStudentsPage() {
       </div>
       <h1 className="mt-4 text-3xl font-semibold tracking-tight">Your students</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Add or update only students currently in your guardian scope. Matching shows only the name,
-        grade, and homeroom needed to choose a record.
+        These are the students registered with Mini Class who are linked to you. You can add or edit
+        your student links so you can help each student complete preference surveys.
       </p>
       {status && (
         <p
@@ -97,64 +114,91 @@ export function GuardianStudentsPage() {
           {error instanceof Error ? error.message : "Unable to update your guardian records."}
         </p>
       )}
-      <ul className="mt-6 space-y-3">
-        {(students.data ?? []).map((student) => (
-          <li className="rounded-lg border bg-card p-4" key={student.id}>
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <div className="font-medium">
-                  {student.preferred_given_name || student.legal_given_name}{" "}
-                  {student.legal_family_name}
+      {linkedStudents.length === 0 ? (
+        <section
+          aria-labelledby="no-linked-students-heading"
+          className="mt-6 rounded-xl border border-dashed bg-card p-6 text-center shadow-sm"
+        >
+          <span
+            aria-hidden="true"
+            className="inline-flex size-12 items-center justify-center rounded-full bg-primary/10 text-2xl"
+          >
+            ✨
+          </span>
+          <h2 className="mt-4 text-lg font-semibold" id="no-linked-students-heading">
+            No students linked yet
+          </h2>
+          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+            Add a student to Mini Class, or search for a student another guardian has already added
+            to link them to your account.
+          </p>
+        </section>
+      ) : (
+        <ul className="mt-6 space-y-3">
+          {linkedStudents.map((student) => (
+            <li className="rounded-lg border bg-card p-4" key={student.id}>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="font-medium">
+                    {student.preferred_given_name || student.legal_given_name}{" "}
+                    {student.legal_family_name}
+                  </div>
+                  <div className="mt-1 text-sm text-muted-foreground">
+                    {student.grade_label} · {student.homeroom_label}
+                  </div>
                 </div>
-                <div className="mt-1 text-sm text-muted-foreground">
-                  {student.grade_label} · {student.homeroom_label}
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                    onClick={() => setEditing(student)}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    size="sm"
+                    type="button"
+                    variant="destructive"
+                    onClick={() => {
+                      setRemovalConfirmed(false);
+                      setRemoving(student);
+                    }}
+                  >
+                    Remove
+                  </Button>
                 </div>
               </div>
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                  onClick={() => setEditing(student)}
-                >
-                  Edit
-                </Button>
-                <Button
-                  size="sm"
-                  type="button"
-                  variant="destructive"
-                  onClick={() => {
-                    setRemovalConfirmed(false);
-                    setRemoving(student);
-                  }}
-                >
-                  Remove
-                </Button>
-              </div>
-            </div>
-            {(student.warnings ?? []).map((warning) => (
-              <p className="mt-2 text-sm text-amber-800" key={warning.code}>
-                {warning.message}
-              </p>
-            ))}
-          </li>
-        ))}
-      </ul>
-      <section className="mt-8 rounded-lg border bg-card p-5" aria-labelledby="add-student-heading">
-        <h2 id="add-student-heading" className="text-xl font-semibold">
-          Add a student
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Enter the name first to check for an existing record in this school year.
-        </p>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              {(student.warnings ?? []).map((warning) => (
+                <p className="mt-2 text-sm text-amber-800" key={warning.code}>
+                  {warning.message}
+                </p>
+              ))}
+            </li>
+          ))}
+        </ul>
+      )}
+      <Button className="mt-6" type="button" onClick={openAddStudent}>
+        Add student
+      </Button>
+
+      <ModalForm
+        onClose={() => setAddOpen(false)}
+        open={addOpen}
+        title="Add a student"
+        description="Enter the name first to check for an existing record in this school year."
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
           <label className="text-sm font-medium" htmlFor="guardian-student-given-name">
             Given name
             <Input
               className="mt-2"
               id="guardian-student-given-name"
               value={givenName}
-              onChange={(event) => setGivenName(event.target.value)}
+              onChange={(event) => {
+                setGivenName(event.target.value);
+                setHasSearchedCandidates(false);
+              }}
             />
           </label>
           <label className="text-sm font-medium" htmlFor="guardian-student-family-name">
@@ -163,20 +207,62 @@ export function GuardianStudentsPage() {
               className="mt-2"
               id="guardian-student-family-name"
               value={familyName}
-              onChange={(event) => setFamilyName(event.target.value)}
+              onChange={(event) => {
+                setFamilyName(event.target.value);
+                setHasSearchedCandidates(false);
+              }}
+            />
+          </label>
+          <label className="text-sm font-medium" htmlFor="guardian-student-preferred-name">
+            Preferred name (optional)
+            <Input
+              className="mt-2"
+              id="guardian-student-preferred-name"
+              value={preferredName}
+              onChange={(event) => {
+                setPreferredName(event.target.value);
+                setHasSearchedCandidates(false);
+              }}
             />
           </label>
         </div>
-        <Button
-          className="mt-4"
-          type="button"
-          variant="outline"
-          disabled={!givenName.trim() || !familyName.trim()}
-          onClick={() => candidates.refetch()}
-        >
-          Find possible matches
-        </Button>
-        {candidates.data && candidates.data.length > 0 && (
+        {hasSearchedCandidates ? (
+          <p
+            className={
+              matchingComplete && candidates.data && candidates.data.length > 0
+                ? "mt-4 rounded-md border border-green-700 bg-green-700/5 p-3 text-sm text-green-700"
+                : "mt-4 rounded-md border border-dashed bg-muted/40 p-3 text-sm text-muted-foreground"
+            }
+          >
+            {candidates.isFetching
+              ? "Looking for possible matches…"
+              : candidates.data?.length === 0
+                ? "No matching students were found. You can go ahead and create a new student below."
+                : candidates.data?.length === 1
+                  ? "1 matching student found. You can select it or create a new student below."
+                  : `${candidates.data?.length} matching students found. You can select one or create a new student below.`}
+          </p>
+        ) : (
+          <Button
+            className="mt-4"
+            type="button"
+            disabled={!givenName.trim() || !familyName.trim()}
+            onClick={() => {
+              setHasSearchedCandidates(true);
+              candidates.refetch();
+            }}
+          >
+            Find possible matches
+          </Button>
+        )}
+        <div className="mt-4">
+          <RelationshipSelect
+            disabled={!matchingComplete}
+            value={relationshipType}
+            onChange={setRelationshipType}
+          />
+        </div>
+        {matchingComplete && candidates.data && candidates.data.length > 0 && (
           <div className="mt-4 rounded-md border p-3">
             <p className="text-sm font-medium">Possible matches</p>
             <ul className="mt-2 space-y-2">
@@ -189,11 +275,17 @@ export function GuardianStudentsPage() {
                   <Button
                     type="button"
                     size="sm"
-                    disabled={save.isPending}
+                    disabled={!matchingComplete || save.isPending}
                     onClick={() =>
                       save.mutate(
                         { student_id: candidate.id, relationship_type: relationshipType },
-                        { onSuccess: () => setStatus("Your guardian relationship was saved.") },
+                        {
+                          onSuccess: () => {
+                            resetNewStudent();
+                            setAddOpen(false);
+                            setStatus("Your guardian relationship was saved.");
+                          },
+                        },
                       )
                     }
                   >
@@ -209,22 +301,13 @@ export function GuardianStudentsPage() {
           </div>
         )}
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          <label className="text-sm font-medium" htmlFor="guardian-student-preferred-name">
-            Preferred name (optional)
-            <Input
-              className="mt-2"
-              id="guardian-student-preferred-name"
-              value={preferredName}
-              onChange={(event) => setPreferredName(event.target.value)}
-            />
-          </label>
-          <RelationshipSelect value={relationshipType} onChange={setRelationshipType} />
           <VocabularySelect
             idPrefix="guardian-student-new"
             label="Grade"
             options={grades}
             placeholder="Choose grade"
             value={gradeID}
+            disabled={!matchingComplete}
             onChange={setGradeID}
           />
           <VocabularySelect
@@ -233,6 +316,7 @@ export function GuardianStudentsPage() {
             options={homerooms}
             placeholder="Choose homeroom/classroom"
             value={homeroomID}
+            disabled={!matchingComplete}
             onChange={setHomeroomID}
           />
         </div>
@@ -240,13 +324,18 @@ export function GuardianStudentsPage() {
           className="mt-5"
           type="button"
           disabled={
-            save.isPending || !givenName.trim() || !familyName.trim() || !gradeID || !homeroomID
+            save.isPending ||
+            !matchingComplete ||
+            !givenName.trim() ||
+            !familyName.trim() ||
+            !gradeID ||
+            !homeroomID
           }
           onClick={submitNew}
         >
           {save.isPending ? "Saving…" : "Create new student"}
         </Button>
-      </section>
+      </ModalForm>
 
       <ModalForm
         onClose={() => setEditing(null)}
@@ -448,9 +537,11 @@ function StudentEditor({
 
 function RelationshipSelect({
   value,
+  disabled = false,
   onChange,
 }: {
   value: RelationshipType;
+  disabled?: boolean;
   onChange: (value: RelationshipType) => void;
 }) {
   return (
@@ -458,6 +549,7 @@ function RelationshipSelect({
       Relationship
       <select
         className="mt-2 flex h-9 w-full rounded-md border bg-transparent px-3 text-sm"
+        disabled={disabled}
         id="guardian-student-relationship"
         value={value}
         onChange={(event) => onChange(event.target.value as RelationshipType)}
@@ -475,6 +567,7 @@ function VocabularySelect({
   label,
   idPrefix,
   value,
+  disabled = false,
   onChange,
   options,
   placeholder,
@@ -482,6 +575,7 @@ function VocabularySelect({
   label: string;
   idPrefix: string;
   value: string;
+  disabled?: boolean;
   onChange: (value: string) => void;
   options: Array<{ id: string; label: string }>;
   placeholder: string;
@@ -494,6 +588,7 @@ function VocabularySelect({
       {label}
       <select
         className="mt-2 flex h-9 w-full rounded-md border bg-transparent px-3 text-sm"
+        disabled={disabled}
         id={`${idPrefix}-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
         required
         value={value}
