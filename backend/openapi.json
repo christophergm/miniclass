@@ -1476,6 +1476,9 @@
           "given_name": {
             "minLength": 1,
             "type": "string"
+          },
+          "preferred_name": {
+            "type": "string"
           }
         },
         "required": [
@@ -9749,6 +9752,14 @@
             "name": "given_name",
             "schema": {
               "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "preferred_name",
+            "schema": {
               "type": "string"
             }
           },

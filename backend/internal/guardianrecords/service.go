@@ -6,12 +6,15 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"unicode"
 
 	"github.com/chrismott/miniclass/internal/audit"
 	"github.com/chrismott/miniclass/internal/auth"
 	"github.com/chrismott/miniclass/internal/data"
 	"github.com/chrismott/miniclass/internal/ids"
 	"github.com/chrismott/miniclass/internal/people"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/unicode/norm"
 )
 
 var (
@@ -69,8 +72,9 @@ type Profile struct {
 }
 
 type CandidateInput struct {
-	GivenName  string
-	FamilyName string
+	GivenName     string
+	PreferredName string
+	FamilyName    string
 }
 
 type CreateInput struct {
@@ -296,8 +300,8 @@ func (s *Service) FindCandidates(ctx context.Context, principal auth.GuardianPri
 	if s == nil || s.database == nil {
 		return nil, errors.New("find guardian student candidates: data service is nil")
 	}
-	given, family := normalize(input.GivenName), normalize(input.FamilyName)
-	if given == "" || family == "" {
+	given, preferred, family := normalize(input.GivenName), normalize(input.PreferredName), normalize(input.FamilyName)
+	if (given == "" && preferred == "") || family == "" {
 		return []Student{}, nil
 	}
 	var result []Student
@@ -307,11 +311,15 @@ func (s *Service) FindCandidates(ctx context.Context, principal auth.GuardianPri
 			return err
 		}
 		for _, student := range students {
-			givenMatches := normalize(student.LegalGivenName) == given
+			legalGiven := normalize(student.LegalGivenName)
+			storedPreferred := ""
 			if student.PreferredGivenName != nil {
-				givenMatches = givenMatches || normalize(*student.PreferredGivenName) == given
+				storedPreferred = normalize(*student.PreferredGivenName)
 			}
-			if isPlaceholder(student) || !givenMatches || normalize(student.LegalFamilyName) != family {
+			nameMatches :=
+				(given != "" && (given == legalGiven || given == storedPreferred)) ||
+					(preferred != "" && (preferred == legalGiven || preferred == storedPreferred))
+			if isPlaceholder(student) || !nameMatches || normalize(student.LegalFamilyName) != family {
 				continue
 			}
 			view, err := studentView(ctx, tx, student)
@@ -536,7 +544,24 @@ func studentView(ctx context.Context, tx *data.Tx, student data.Student) (Studen
 }
 
 func normalize(value string) string {
-	return strings.Join(strings.Fields(strings.ToLower(strings.TrimSpace(value))), " ")
+	decomposed := norm.NFD.String(strings.TrimSpace(value))
+	var folded strings.Builder
+	for _, r := range decomposed {
+		if unicode.Is(unicode.Mn, r) || isNamePunctuation(r) {
+			continue
+		}
+		folded.WriteRune(r)
+	}
+	return strings.Join(strings.Fields(cases.Fold().String(folded.String())), " ")
+}
+
+func isNamePunctuation(r rune) bool {
+	switch r {
+	case '\'', '‘', '’', 'ʼ', '-', '‐', '‑', '‒', '–', '—', '―':
+		return true
+	default:
+		return false
+	}
 }
 
 func isPlaceholder(student data.Student) bool {

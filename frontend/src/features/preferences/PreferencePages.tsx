@@ -300,96 +300,139 @@ export function GuardianPreferencePage() {
   return (
     <PageFrame>
       <div>
-        <p className="text-sm font-medium text-primary">Guardian mode</p>
+        <p className="text-sm font-medium text-primary">Guardian space</p>
         <h1 className="mt-1 text-3xl font-semibold tracking-tight">Preference forms</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          These are the open forms for students currently linked to your guardian account. Changes
-          are saved per student.
+        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+          When a preference form opens for a student linked to you, you can complete it together
+          here. Your responses are saved separately for each student.
         </p>
       </div>
       {students.length === 0 ? (
-        <p className="mt-8 rounded-lg border bg-card p-5 text-sm text-muted-foreground">
-          No linked student currently has an open preference form.
-        </p>
+        <section
+          aria-labelledby="no-preference-forms-heading"
+          className="mt-8 rounded-xl border border-dashed bg-card p-6 text-center shadow-sm"
+        >
+          <span
+            aria-hidden="true"
+            className="inline-flex size-12 items-center justify-center rounded-full bg-primary/10 text-2xl"
+          >
+            ✨
+          </span>
+          <h2 className="mt-4 text-lg font-semibold" id="no-preference-forms-heading">
+            No students linked yet
+          </h2>
+          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+            Add or link a student to help with their preference forms when they open.
+          </p>
+          <Link
+            className="mt-4 inline-flex text-sm font-medium text-primary hover:underline"
+            to="/guardian/students"
+          >
+            Add or link a student
+          </Link>
+        </section>
       ) : (
         <div className="mt-8 space-y-8">
           {students.map((student) => (
             <section key={student.student_id}>
               <h2 className="mb-3 text-xl font-semibold">{student.display_name}</h2>
-              <div className="space-y-5">
-                {(student.forms ?? []).map((form) => {
-                  const key = `${student.student_id}:${form.type}:${form.id}`;
-                  return (
-                    <PreferenceFormEditor
-                      error={
-                        interestSubmit.error instanceof Error
-                          ? interestSubmit.error.message
-                          : rankedSubmit.error instanceof Error
-                            ? rankedSubmit.error.message
-                            : null
-                      }
-                      form={form}
-                      isSubmitting={interestSubmit.isPending || rankedSubmit.isPending}
-                      key={key}
-                      onSubmit={(value) => {
-                        setSaved(null);
-                        if (form.type === "interest_profile") {
-                          interestSubmit.mutate(
-                            {
-                              schoolYearID: form.school_year_id,
-                              programID: form.program_id,
-                              surveyID: form.id,
-                              studentID: student.student_id,
-                              answers: value as PreferenceInterestAnswerInput[],
-                            },
-                            { onSuccess: () => setSaved(key) },
-                          );
-                        } else {
-                          rankedSubmit.mutate(
-                            {
-                              schoolYearID: form.school_year_id,
-                              programID: form.program_id,
-                              sessionID: form.session_id ?? form.id,
-                              studentID: student.student_id,
-                              responses: value as PreferenceRankedAnswerInput[],
-                            },
-                            { onSuccess: () => setSaved(key) },
-                          );
+              {(student.forms ?? []).length === 0 ? (
+                <div className="rounded-xl border border-dashed bg-card p-5 text-center">
+                  <span
+                    aria-hidden="true"
+                    className="inline-flex size-10 items-center justify-center rounded-full bg-primary/10 text-xl"
+                  >
+                    ✨
+                  </span>
+                  <p className="mt-3 font-medium">No forms for {student.display_name} just yet</p>
+                  <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
+                    A preference form will appear here when your school opens one for this student.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-5">
+                  {(student.forms ?? []).map((form) => {
+                    const key = `${student.student_id}:${form.type}:${form.id}`;
+                    return (
+                      <PreferenceFormEditor
+                        error={
+                          interestSubmit.error instanceof Error
+                            ? interestSubmit.error.message
+                            : rankedSubmit.error instanceof Error
+                              ? rankedSubmit.error.message
+                              : null
                         }
-                      }}
-                      saved={saved === key}
-                      submitLabel="Save for this student"
-                    />
-                  );
-                })}
-              </div>
+                        form={form}
+                        isSubmitting={interestSubmit.isPending || rankedSubmit.isPending}
+                        key={key}
+                        onSubmit={(value) => {
+                          setSaved(null);
+                          if (form.type === "interest_profile") {
+                            interestSubmit.mutate(
+                              {
+                                schoolYearID: form.school_year_id,
+                                programID: form.program_id,
+                                surveyID: form.id,
+                                studentID: student.student_id,
+                                answers: value as PreferenceInterestAnswerInput[],
+                              },
+                              { onSuccess: () => setSaved(key) },
+                            );
+                          } else {
+                            rankedSubmit.mutate(
+                              {
+                                schoolYearID: form.school_year_id,
+                                programID: form.program_id,
+                                sessionID: form.session_id ?? form.id,
+                                studentID: student.student_id,
+                                responses: value as PreferenceRankedAnswerInput[],
+                              },
+                              { onSuccess: () => setSaved(key) },
+                            );
+                          }
+                        }}
+                        saved={saved === key}
+                        submitLabel="Save for this student"
+                      />
+                    );
+                  })}
+                </div>
+              )}
             </section>
           ))}
         </div>
       )}
-      <div className="mt-8 space-y-2">
-        <Link
-          className="block text-sm font-medium text-primary hover:underline"
-          to="/guardian/students"
-        >
-          Manage your students
-        </Link>
-        <Link
-          className="block text-sm font-medium text-primary hover:underline"
-          to="/guardian/profile"
-        >
-          Manage your profile
-        </Link>
-        <Link
-          className="block text-sm font-medium text-primary hover:underline"
-          to="/mfa?mode=guardian"
-        >
-          Request administrator access
-        </Link>
-        <Link className="block text-sm font-medium text-primary hover:underline" to="/sign-in">
-          Administrator sign in
-        </Link>
-      </div>
+      <nav aria-label="Guardian account tools" className="mt-8 rounded-xl border bg-card p-5">
+        <h2 className="font-semibold">Guardian tools</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Keep your student links and contact details up to date.
+        </p>
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          <Link
+            className="rounded-lg border px-4 py-3 text-sm font-medium text-primary transition-colors hover:bg-accent hover:underline"
+            to="/guardian/students"
+          >
+            Your students
+          </Link>
+          <Link
+            className="rounded-lg border px-4 py-3 text-sm font-medium text-primary transition-colors hover:bg-accent hover:underline"
+            to="/guardian/profile"
+          >
+            Your profile
+          </Link>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2">
+          <Link
+            className="text-sm font-medium text-primary hover:underline"
+            to="/mfa?mode=guardian"
+          >
+            Request administrator access
+          </Link>
+          <Link className="text-sm font-medium text-primary hover:underline" to="/sign-in">
+            Administrator sign in
+          </Link>
+        </div>
+      </nav>
     </PageFrame>
   );
 }

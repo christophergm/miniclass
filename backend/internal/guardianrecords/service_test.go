@@ -7,8 +7,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNormalizeCollapsesCaseAndWhitespace(t *testing.T) {
-	require.Equal(t, "casey one", normalize("  Casey   ONE "))
+func TestNormalizeFoldsUnicodeAndNamePunctuation(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{name: "case and whitespace", input: "  Casey   ONE ", want: "casey one"},
+		{name: "diacritics", input: "Zoë Díaz", want: "zoe diaz"},
+		{name: "apostrophe", input: "O’Connor", want: "oconnor"},
+		{name: "hyphen", input: "Mary—Jane", want: "maryjane"},
+		{name: "punctuation leaves whitespace", input: "Mary - Jane", want: "mary jane"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			require.Equal(t, test.want, normalize(test.input))
+		})
+	}
 }
 
 func TestPlaceholderStudentsAreNeverCandidates(t *testing.T) {

@@ -11,7 +11,7 @@ the ordered path; it deliberately explains nothing that the ADR already argues.
 
 | Tool | Used for |
 | --- | --- |
-| Docker with Compose, daemon running | PostgreSQL and Adminer |
+| Docker with Compose, daemon running | PostgreSQL, Adminer, and Mailpit |
 | Go 1.26+ | the API, migrations, and the `cmd/*` tools |
 | Bun 1.3+ | the frontend |
 | `make`, `openssl`, `awk`, `curl`, `psql` | the setup, login and reset paths |
@@ -117,6 +117,25 @@ reports `healthy` and `connected`, the problem is identity, not the stack — st
 
 Adminer, for looking at the data directly, is at <http://localhost:8081> (server `postgres`, the
 credentials in `.env`); start it with `docker compose up -d adminer`.
+
+### Testing email one-time codes locally
+
+Mailpit is the local SMTP sink. It captures email without delivering it externally. Start it before
+the API, then add the following local-only values to the root `.env` (using the Mailpit SMTP port if
+you changed it):
+
+```sh
+docker compose up -d mailpit
+```
+
+```text
+AUTH_SMTP_ADDRESS=localhost:1025
+AUTH_SMTP_FROM=noreply@example.test
+```
+
+Restart `make dev-backend` after changing `.env`, then view captured messages at
+<http://localhost:8025>. Copy the six-digit code from the message into the browser; it is not
+written to logs or stored in recoverable form in the database.
 
 For everything else — the full command surface, the quality gates, and a longer troubleshooting
 table — see [`README.md`](./README.md).

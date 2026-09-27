@@ -50,6 +50,23 @@ func TestGuardianRecordsUsePrivacySafeLiveScopeAndWarnings(t *testing.T) {
 	require.Len(t, candidates, 1)
 	require.Equal(t, second.ID, candidates[0].ID)
 	require.Equal(t, "Relationship Room GuardianRecords", candidates[0].HomeroomLabel)
+
+	crossNameStudent, err := peopleService.CreateStudent(ctx, string(tenant.organizationID), tenant.year.ID, actor, people.StudentCreateInput{
+		LegalGivenName: "Alex", PreferredGivenName: stringPtr("Lex"), LegalFamilyName: "CrossName", GradeLevelID: xidPtr(tenant.gradeID), HomeroomID: tenant.homeroomID,
+	})
+	require.NoError(t, err)
+	for _, input := range []guardianrecords.CandidateInput{
+		{GivenName: "Alex", FamilyName: "CrossName"},
+		{GivenName: "Lex", FamilyName: "CrossName"},
+		{GivenName: "Different", PreferredName: "Alex", FamilyName: "CrossName"},
+		{GivenName: "Different", PreferredName: "Lex", FamilyName: "CrossName"},
+	} {
+		matches, err := service.FindCandidates(ctx, principal, input)
+		require.NoError(t, err)
+		require.Len(t, matches, 1)
+		require.Equal(t, crossNameStudent.ID, matches[0].ID)
+	}
+
 	// The response type has no external identifier, email, or other guardian edge fields.
 	selected, err := service.Select(ctx, principal, second.ID, data.GuardianRelationshipParent, audit.Actor{Type: audit.ActorTypeLink, Label: "guardian:" + string(tenant.adult.ID)})
 	require.NoError(t, err)

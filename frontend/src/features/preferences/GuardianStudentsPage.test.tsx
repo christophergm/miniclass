@@ -23,8 +23,11 @@ const student = {
   warnings: [],
 };
 
+let linkedStudents = [student];
+let candidateMatches: Array<typeof student> = [];
+
 vi.mock("./useGuardianRecords", () => ({
-  useGuardianStudents: () => ({ data: [student], error: null }),
+  useGuardianStudents: () => ({ data: linkedStudents, error: null }),
   useGuardianVocabulary: () => ({
     data: {
       grade_levels: [{ id: "grade-1", label: "Fourth grade" }],
@@ -32,7 +35,7 @@ vi.mock("./useGuardianRecords", () => ({
     },
     error: null,
   }),
-  useGuardianStudentCandidates: () => ({ data: [], refetch: vi.fn() }),
+  useGuardianStudentCandidates: () => ({ data: candidateMatches, refetch: vi.fn() }),
   useGuardianStudentMutation: () => ({ mutate: vi.fn(), isPending: false, error: null }),
   useGuardianStudentUpdate: () => ({ mutate: mocks.updateMutate, isPending: false, error: null }),
   useGuardianStudentDetach: () => ({ mutate: mocks.detachMutate, isPending: false, error: null }),
@@ -40,8 +43,95 @@ vi.mock("./useGuardianRecords", () => ({
 
 describe("GuardianStudentsPage", () => {
   beforeEach(() => {
+    linkedStudents = [student];
+    candidateMatches = [];
     mocks.updateMutate.mockReset();
     mocks.detachMutate.mockReset();
+  });
+
+  it("explains how to add or link a student when none are linked", () => {
+    linkedStudents = [];
+    renderWithQueryClient(
+      <MemoryRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
+        <GuardianStudentsPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole("heading", { name: "No students linked yet" })).toBeInTheDocument();
+    expect(
+      screen.getByText(/search for a student another guardian has already added/i),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add student" })).toBeInTheDocument();
+  });
+
+  it("opens the add-student form in a modal with preferred name before matching", () => {
+    renderWithQueryClient(
+      <MemoryRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
+        <GuardianStudentsPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByRole("dialog", { name: "Add a student" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Add student" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Add a student" });
+    const preferredName = within(dialog).getByLabelText("Preferred name (optional)");
+    const findMatches = within(dialog).getByRole("button", { name: "Find possible matches" });
+    expect(
+      preferredName.compareDocumentPosition(findMatches) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("highlights the matching-result message when matches are found", () => {
+    candidateMatches = [student];
+    renderWithQueryClient(
+      <MemoryRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
+        <GuardianStudentsPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Add student" }));
+    const dialog = screen.getByRole("dialog", { name: "Add a student" });
+    fireEvent.change(within(dialog).getByLabelText("Given name"), { target: { value: "Sam" } });
+    fireEvent.change(within(dialog).getByLabelText("Family name"), { target: { value: "Lee" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Find possible matches" }));
+
+    const result = screen.getByText(/1 matching student found/i);
+    expect(result).toHaveClass("border-green-700", "text-green-700");
+    expect(dialog).not.toHaveClass("border-green-700");
+    fireEvent.change(within(dialog).getByLabelText("Given name"), { target: { value: "Samuel" } });
+    expect(screen.queryByText(/1 matching student found/i)).not.toBeInTheDocument();
+  });
+
+  it("explains when no matching student is found and clears the message when names change", () => {
+    renderWithQueryClient(
+      <MemoryRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
+        <GuardianStudentsPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Add student" }));
+    const dialog = screen.getByRole("dialog", { name: "Add a student" });
+    fireEvent.change(within(dialog).getByLabelText("Given name"), { target: { value: "Sam" } });
+    fireEvent.change(within(dialog).getByLabelText("Family name"), { target: { value: "Lee" } });
+    expect(within(dialog).getByLabelText("Relationship")).toBeDisabled();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Find possible matches" }));
+
+    expect(screen.getByText(/No matching students were found/i)).toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole("button", { name: "Find possible matches" }),
+    ).not.toBeInTheDocument();
+    expect(within(dialog).getByLabelText("Relationship")).toBeEnabled();
+    fireEvent.change(within(dialog).getByLabelText("Given name"), { target: { value: "Samuel" } });
+    expect(screen.queryByText(/No matching students were found/i)).not.toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Find possible matches" })).toBeVisible();
+    expect(within(dialog).getByLabelText("Relationship")).toBeDisabled();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Find possible matches" }));
+    expect(screen.getByText(/No matching students were found/i)).toBeInTheDocument();
+    fireEvent.change(within(dialog).getByLabelText("Family name"), { target: { value: "Leigh" } });
+    expect(screen.queryByText(/No matching students were found/i)).not.toBeInTheDocument();
+    expect(within(dialog).getByLabelText("Relationship")).toBeDisabled();
   });
 
   it("edits a guardian-scoped student with accessible vocabulary choices", () => {
