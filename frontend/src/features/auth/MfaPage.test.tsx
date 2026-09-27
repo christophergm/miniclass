@@ -13,7 +13,10 @@ function jsonResponse(body: unknown) {
 
 function renderMfa() {
   return render(
-    <MemoryRouter initialEntries={["/mfa?redirect=%2Fyears"]}>
+    <MemoryRouter
+      future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+      initialEntries={["/mfa?redirect=%2Fyears"]}
+    >
       <MfaPage />
     </MemoryRouter>,
   );

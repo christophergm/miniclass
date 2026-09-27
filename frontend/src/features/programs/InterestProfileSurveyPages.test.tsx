@@ -121,6 +121,7 @@ function renderPage(currentYear = year("active")) {
   }
   return renderWithQueryClient(
     <MemoryRouter
+      future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
       initialEntries={["/y/year-1/programs/program-1/settings/interest-profile-surveys"]}
     >
       <Routes>

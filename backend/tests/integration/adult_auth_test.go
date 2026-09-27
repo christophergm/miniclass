@@ -47,7 +47,7 @@ func TestAdultOTPGuardianScopeAndMFAStepUp(t *testing.T) {
 	require.NoError(t, err)
 
 	providerSubject := "adult-auth-owner"
-	userEmail := "owner@example.test"
+	userEmail := "adult-auth-owner@example.test"
 	var userID string
 	require.NoError(t, harness.Migrator.QueryRow(ctx, `
 		insert into users (provider_subject, email)

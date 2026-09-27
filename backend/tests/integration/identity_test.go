@@ -2,20 +2,12 @@ package integration
 
 import (
 	"context"
-	"fmt"
 	"net/url"
-	"os"
-	"path/filepath"
-	"runtime"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/chrismott/miniclass/internal/data"
 	"github.com/chrismott/miniclass/internal/identity"
-	"github.com/jackc/pgx/v5/pgxpool"
-	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/pressly/goose/v3"
+	testharness "github.com/chrismott/miniclass/internal/testing"
 	"github.com/stretchr/testify/require"
 )
 
@@ -80,51 +72,6 @@ func TestIdentityBootstrapAndInvitationRegeneration(t *testing.T) {
 
 func openIdentityStore(t *testing.T) (*identity.Store, context.Context) {
 	t.Helper()
-	testDatabaseURL := strings.TrimSpace(os.Getenv("TEST_DATABASE_URL"))
-	if testDatabaseURL == "" {
-		t.Skip("TEST_DATABASE_URL is required for the PostgreSQL integration test")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	t.Cleanup(cancel)
-	adminPool, err := pgxpool.New(ctx, testDatabaseURL)
-	require.NoError(t, err)
-	if err != nil {
-		return nil, ctx
-	}
-	require.NoError(t, adminPool.Ping(ctx))
-	t.Cleanup(adminPool.Close)
-
-	schemaName := fmt.Sprintf("miniclass_identity_%d", time.Now().UnixNano())
-	_, err = adminPool.Exec(ctx, "create schema "+schemaName)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		_, cleanupErr := adminPool.Exec(context.Background(), "drop schema if exists "+schemaName+" cascade")
-		require.NoError(t, cleanupErr)
-	})
-
-	schemaURL, err := withSearchPath(testDatabaseURL, schemaName)
-	require.NoError(t, err)
-	gooseDB, err := goose.OpenDBWithDriver("postgres", schemaURL)
-	require.NoError(t, err)
-	if err != nil {
-		return nil, ctx
-	}
-	t.Cleanup(func() { require.NoError(t, gooseDB.Close()) })
-	require.NoError(t, goose.Up(gooseDB, migrationsPath(t), goose.WithAllowMissing()))
-
-	database, err := data.NewFromURL(ctx, schemaURL)
-	require.NoError(t, err)
-	if err != nil {
-		return nil, ctx
-	}
-	t.Cleanup(database.Close)
-	return identity.NewStore(database), ctx
-}
-
-func migrationsPath(t *testing.T) string {
-	t.Helper()
-	_, currentFile, _, ok := runtime.Caller(0)
-	require.True(t, ok)
-	return filepath.Join(filepath.Dir(currentFile), "..", "..", "migrations")
+	harness := testharness.Open(t)
+	return identity.NewStore(harness.Database), harness.Context
 }

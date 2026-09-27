@@ -23,7 +23,10 @@ function renderApp(path: string, authClient: AuthClient | null) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[path]}>
+      <MemoryRouter
+        future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+        initialEntries={[path]}
+      >
         <AppWithAuth authClient={authClient} />
       </MemoryRouter>
     </QueryClientProvider>,

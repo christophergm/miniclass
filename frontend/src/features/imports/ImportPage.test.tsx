@@ -32,7 +32,10 @@ function preview(overrides: Partial<ImportPreview> = {}): ImportPreview {
 
 function renderImport() {
   return renderWithQueryClient(
-    <MemoryRouter initialEntries={["/y/year-1/imports"]}>
+    <MemoryRouter
+      future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+      initialEntries={["/y/year-1/imports"]}
+    >
       <Routes>
         <Route element={<ImportPage />} path="/y/:schoolYearId/imports" />
       </Routes>

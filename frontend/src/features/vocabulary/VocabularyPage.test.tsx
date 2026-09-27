@@ -61,7 +61,10 @@ function renderVocabulary(currentYear = year()) {
   }
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={["/y/year-1/vocabulary"]}>
+      <MemoryRouter
+        future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+        initialEntries={["/y/year-1/vocabulary"]}
+      >
         <Routes>
           <Route element={<ContextRoute />} path="/y/:schoolYearId/vocabulary">
             <Route element={<VocabularyPage />} index />

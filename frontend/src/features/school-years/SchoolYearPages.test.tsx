@@ -76,7 +76,10 @@ function mockQuery<Hook extends (...args: never[]) => unknown>(hook: Hook, value
 // isolation.
 function renderWorkspace() {
   return renderWithQueryClient(
-    <MemoryRouter initialEntries={["/y/year-test"]}>
+    <MemoryRouter
+      future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+      initialEntries={["/y/year-test"]}
+    >
       <Routes>
         <Route element={<SchoolYearGuard />} path="/y/:schoolYearId">
           <Route element={<SchoolYearSettingsPage />} index />
@@ -88,7 +91,7 @@ function renderWorkspace() {
 
 function renderList() {
   return renderWithQueryClient(
-    <MemoryRouter>
+    <MemoryRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
       <SchoolYearListPage />
     </MemoryRouter>,
   );
@@ -96,7 +99,10 @@ function renderList() {
 
 function renderLayout(path = "/y/year-test/programs") {
   return renderWithQueryClient(
-    <MemoryRouter initialEntries={[path]}>
+    <MemoryRouter
+      future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+      initialEntries={[path]}
+    >
       <Routes>
         <Route element={<SchoolYearGuard />} path="/y/:schoolYearId">
           <Route element={<SchoolYearLayout />}>

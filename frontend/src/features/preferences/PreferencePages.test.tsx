@@ -96,6 +96,7 @@ describe("preference pages", () => {
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
     render(
       <MemoryRouter
+        future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
         initialEntries={["/respond/year-1/program-1/survey-1?organization_id=org-1&code=secret"]}
       >
         <Routes>
@@ -119,7 +120,7 @@ describe("preference pages", () => {
   it("renders every currently scoped guardian student as an independent form", () => {
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
         <GuardianPreferencePage />
       </MemoryRouter>,
     );

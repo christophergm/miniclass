@@ -7,6 +7,13 @@ import { renderWithQueryClient } from "@/test/queryClient";
 import { GuardianProfilePage } from "./GuardianProfilePage";
 
 const mocks = vi.hoisted(() => ({
+  profile: {
+    legal_given_name: "Morgan",
+    legal_family_name: "Lee",
+    preferred_given_name: "Mo",
+    email: "guardian@example.test",
+    phone: "555-0100",
+  },
   updateMutate: vi.fn(),
   deleteMutate: vi.fn(),
   clearSession: vi.fn(),
@@ -14,13 +21,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("./useGuardianRecords", () => ({
   useGuardianProfile: () => ({
-    data: {
-      legal_given_name: "Morgan",
-      legal_family_name: "Lee",
-      preferred_given_name: "Mo",
-      email: "guardian@example.test",
-      phone: "555-0100",
-    },
+    data: mocks.profile,
     isLoading: false,
     error: null,
   }),

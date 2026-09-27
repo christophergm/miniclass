@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	gotesting "testing"
 	"time"
 
@@ -21,9 +22,14 @@ import (
 )
 
 // Harness owns one schema-isolated database with separate migrator and app
-// role pools. Tests create their own organizations through the migrator pool,
-// then exercise application access through data.DB and the app role.
+// role pools. Each test creates its own organization through the migrator pool,
+// then exercises application access through data.DB and the app role.
 const harnessMigrationLockID int64 = 4_939_441_364_617_518_915
+
+var (
+	harnessMu     sync.Mutex
+	sharedHarness *Harness
+)
 
 type Harness struct {
 	Context  context.Context
@@ -31,41 +37,51 @@ type Harness struct {
 	App      *pgxpool.Pool
 	Database *data.DB
 	Schema   string
+
+	bootstrap *pgxpool.Pool
 }
 
-// Open creates and migrates one isolated schema for the package's tests.
+// Open returns the package-wide schema-isolated harness. The schema is created
+// and migrated once, so tests must use a distinct organization for their data.
+// Call Close from the package's TestMain after all tests have completed.
 func Open(t gotesting.TB) *Harness {
 	t.Helper()
+	harnessMu.Lock()
+	defer harnessMu.Unlock()
+	if sharedHarness != nil {
+		return sharedHarness
+	}
+
 	migratorURL := strings.TrimSpace(os.Getenv("TEST_DATABASE_URL"))
 	appURL := strings.TrimSpace(os.Getenv("TEST_APP_DATABASE_URL"))
 	if migratorURL == "" || appURL == "" {
 		t.Skip("TEST_DATABASE_URL and TEST_APP_DATABASE_URL are required for isolation tests")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	t.Cleanup(cancel)
+	setupCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
 
-	bootstrapPool, err := pgxpool.New(ctx, migratorURL)
+	bootstrapPool, err := pgxpool.New(setupCtx, migratorURL)
 	require.NoError(t, err)
 	if err != nil {
 		return nil
 	}
-	require.NoError(t, bootstrapPool.Ping(ctx))
+	require.NoError(t, bootstrapPool.Ping(setupCtx))
 
 	schemaName := fmt.Sprintf("miniclass_isolation_%d", time.Now().UnixNano())
-	_, err = bootstrapPool.Exec(ctx, "create schema "+schemaName)
+	_, err = bootstrapPool.Exec(setupCtx, "create schema "+schemaName)
 	require.NoError(t, err)
 
 	migratorSchemaURL, err := withSearchPath(migratorURL, schemaName)
 	require.NoError(t, err)
 	appSchemaURL, err := withSearchPath(appURL, schemaName)
 	require.NoError(t, err)
-	migrator, err := pgxpool.New(ctx, migratorSchemaURL)
+	migrator, err := pgxpool.New(setupCtx, migratorSchemaURL)
 	require.NoError(t, err)
 	if err != nil {
 		return nil
 	}
-	require.NoError(t, migrator.Ping(ctx))
+	require.NoError(t, migrator.Ping(setupCtx))
 
 	gooseDB, err := goose.OpenDBWithDriver("postgres", migratorSchemaURL)
 	require.NoError(t, err)
@@ -77,7 +93,7 @@ func Open(t gotesting.TB) *Harness {
 	// for the complete migration run across concurrently executing test packages.
 	gooseDB.SetMaxOpenConns(1)
 	gooseDB.SetMaxIdleConns(1)
-	_, err = gooseDB.ExecContext(ctx, "select pg_advisory_lock($1)", harnessMigrationLockID)
+	_, err = gooseDB.ExecContext(setupCtx, "select pg_advisory_lock($1)", harnessMigrationLockID)
 	require.NoError(t, err)
 	if err != nil {
 		return nil
@@ -90,40 +106,54 @@ func Open(t gotesting.TB) *Harness {
 		}
 	}()
 	require.NoError(t, goose.Up(gooseDB, migrationsPath(t), goose.WithAllowMissing()))
-	_, err = gooseDB.ExecContext(ctx, "select pg_advisory_unlock($1)", harnessMigrationLockID)
+	_, err = gooseDB.ExecContext(setupCtx, "select pg_advisory_unlock($1)", harnessMigrationLockID)
 	require.NoError(t, err)
 	migrationLocked = false
 	require.NoError(t, gooseDB.Close())
 
-	app, err := pgxpool.New(ctx, appSchemaURL)
+	app, err := pgxpool.New(setupCtx, appSchemaURL)
 	require.NoError(t, err)
 	if err != nil {
 		return nil
 	}
-	require.NoError(t, app.Ping(ctx))
+	require.NoError(t, app.Ping(setupCtx))
 
-	database, err := data.NewApplicationFromURL(ctx, appSchemaURL)
+	database, err := data.NewApplicationFromURL(setupCtx, appSchemaURL)
 	require.NoError(t, err)
 	if err != nil {
 		return nil
 	}
 
-	harness := &Harness{
-		Context:  ctx,
-		Migrator: migrator,
-		App:      app,
-		Database: database,
-		Schema:   schemaName,
+	sharedHarness = &Harness{
+		Context:   context.Background(),
+		Migrator:  migrator,
+		App:       app,
+		Database:  database,
+		Schema:    schemaName,
+		bootstrap: bootstrapPool,
 	}
-	t.Cleanup(func() {
-		database.Close()
-		app.Close()
-		_, cleanupErr := bootstrapPool.Exec(context.Background(), "drop schema if exists "+schemaName+" cascade")
-		require.NoError(t, cleanupErr)
-		migrator.Close()
-		bootstrapPool.Close()
-	})
-	return harness
+	return sharedHarness
+}
+
+// Close releases the package-wide harness and drops its isolated schema.
+func Close() error {
+	harnessMu.Lock()
+	harness := sharedHarness
+	sharedHarness = nil
+	harnessMu.Unlock()
+	if harness == nil {
+		return nil
+	}
+
+	harness.Database.Close()
+	harness.App.Close()
+	harness.Migrator.Close()
+	_, err := harness.bootstrap.Exec(context.Background(), "drop schema if exists "+harness.Schema+" cascade")
+	harness.bootstrap.Close()
+	if err != nil {
+		return fmt.Errorf("drop shared test schema: %w", err)
+	}
+	return nil
 }
 
 // MintOrganization creates synthetic tenant data without using the app role.

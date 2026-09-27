@@ -181,7 +181,10 @@ function YearContextRoute() {
 
 function renderStudents(path = "/y/year-1/students") {
   return renderWithQueryClient(
-    <MemoryRouter initialEntries={[path]}>
+    <MemoryRouter
+      future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+      initialEntries={[path]}
+    >
       <Routes>
         <Route element={<YearContextRoute />} path="/y/:schoolYearId">
           <Route path="students" element={<StudentListPage />} />
@@ -194,7 +197,10 @@ function renderStudents(path = "/y/year-1/students") {
 
 function renderAdults(path = "/y/year-1/adults") {
   return renderWithQueryClient(
-    <MemoryRouter initialEntries={[path]}>
+    <MemoryRouter
+      future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+      initialEntries={[path]}
+    >
       <Routes>
         <Route element={<YearContextRoute />} path="/y/:schoolYearId">
           <Route path="adults" element={<AdultListPage />} />
@@ -582,7 +588,10 @@ describe("people roster pages", () => {
       // these pages used to run did not, so every read went out twice.
       renderWithQueryClient(
         <StrictMode>
-          <MemoryRouter initialEntries={[path]}>
+          <MemoryRouter
+            future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+            initialEntries={[path]}
+          >
             <Routes>
               <Route path="/y/:schoolYearId/students" element={<StudentListPage />} />
               <Route path="/y/:schoolYearId/students/:personId" element={<StudentDetailPage />} />
@@ -606,7 +615,10 @@ describe("people roster pages", () => {
     vi.spyOn(adultApi, "list").mockResolvedValue([adult]);
 
     renderWithQueryClient(
-      <MemoryRouter initialEntries={["/y/year-1/adults"]}>
+      <MemoryRouter
+        future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+        initialEntries={["/y/year-1/adults"]}
+      >
         <Routes>
           <Route path="/y/:schoolYearId/adults" element={<AdultListPage />} />
         </Routes>

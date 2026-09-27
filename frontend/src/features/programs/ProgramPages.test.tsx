@@ -300,7 +300,10 @@ function renderSession(currentYear = year("active")) {
     return <Outlet context={currentYear} />;
   }
   return renderWithQueryClient(
-    <MemoryRouter initialEntries={["/y/year-1/programs/program-1/sessions/session-1"]}>
+    <MemoryRouter
+      future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+      initialEntries={["/y/year-1/programs/program-1/sessions/session-1"]}
+    >
       <Routes>
         <Route element={<ContextRoute />} path="/y/:schoolYearId">
           <Route element={<SessionPage />} path="programs/:programId/sessions/:sessionId" />
@@ -315,7 +318,10 @@ function renderOffering(path: string, currentYear = year("active")) {
     return <Outlet context={currentYear} />;
   }
   return renderWithQueryClient(
-    <MemoryRouter initialEntries={[path]}>
+    <MemoryRouter
+      future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+      initialEntries={[path]}
+    >
       <Routes>
         <Route element={<ContextRoute />} path="/y/:schoolYearId">
           <Route
@@ -326,6 +332,7 @@ function renderOffering(path: string, currentYear = year("active")) {
             element={<OfferingPage />}
             path="programs/:programId/sessions/:sessionId/offerings/:offeringId/edit"
           />
+          <Route element={<p>Session detail</p>} path="programs/:programId/sessions/:sessionId" />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -337,7 +344,10 @@ function renderProgram(currentYear = year("active")) {
     return <Outlet context={currentYear} />;
   }
   return renderWithQueryClient(
-    <MemoryRouter initialEntries={["/y/year-1/programs/program-1"]}>
+    <MemoryRouter
+      future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+      initialEntries={["/y/year-1/programs/program-1"]}
+    >
       <Routes>
         <Route element={<ContextRoute />} path="/y/:schoolYearId">
           <Route element={<ProgramDetailPage />} path="programs/:programId" />
@@ -352,7 +362,10 @@ function renderProgramSettings(currentYear = year("active")) {
     return <Outlet context={currentYear} />;
   }
   return renderWithQueryClient(
-    <MemoryRouter initialEntries={["/y/year-1/programs/program-1/settings"]}>
+    <MemoryRouter
+      future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+      initialEntries={["/y/year-1/programs/program-1/settings"]}
+    >
       <Routes>
         <Route element={<ContextRoute />} path="/y/:schoolYearId">
           <Route element={<ProgramSettingsPage />} path="programs/:programId/settings" />
@@ -367,7 +380,10 @@ function renderMembership(currentYear = year("active")) {
     return <Outlet context={currentYear} />;
   }
   return renderWithQueryClient(
-    <MemoryRouter initialEntries={["/y/year-1/programs/program-1/settings/membership"]}>
+    <MemoryRouter
+      future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+      initialEntries={["/y/year-1/programs/program-1/settings/membership"]}
+    >
       <Routes>
         <Route element={<ContextRoute />} path="/y/:schoolYearId">
           <Route
@@ -385,7 +401,10 @@ function renderInterestAreas(currentYear = year("active")) {
     return <Outlet context={currentYear} />;
   }
   return renderWithQueryClient(
-    <MemoryRouter initialEntries={["/y/year-1/programs/program-1/settings/interest-areas"]}>
+    <MemoryRouter
+      future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+      initialEntries={["/y/year-1/programs/program-1/settings/interest-areas"]}
+    >
       <Routes>
         <Route element={<ContextRoute />} path="/y/:schoolYearId">
           <Route
@@ -403,7 +422,10 @@ function renderProgramList(currentYear = year("active")) {
     return <Outlet context={currentYear} />;
   }
   return renderWithQueryClient(
-    <MemoryRouter initialEntries={["/y/year-1/programs"]}>
+    <MemoryRouter
+      future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+      initialEntries={["/y/year-1/programs"]}
+    >
       <Routes>
         <Route element={<ContextRoute />} path="/y/:schoolYearId">
           <Route element={<ProgramListPage />} path="programs" />
@@ -418,7 +440,10 @@ function renderProgramYearEntry() {
     return <Outlet context={year("active")} />;
   }
   return renderWithQueryClient(
-    <MemoryRouter initialEntries={["/y/year-1"]}>
+    <MemoryRouter
+      future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+      initialEntries={["/y/year-1"]}
+    >
       <Routes>
         <Route element={<ContextRoute />} path="/y/:schoolYearId">
           <Route element={<ProgramYearEntryPage />} index />
@@ -435,7 +460,10 @@ function renderProgramObjectives(currentYear = year("active")) {
     return <Outlet context={currentYear} />;
   }
   return renderWithQueryClient(
-    <MemoryRouter initialEntries={["/y/year-1/programs/program-1/settings/assignment-planner"]}>
+    <MemoryRouter
+      future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+      initialEntries={["/y/year-1/programs/program-1/settings/assignment-planner"]}
+    >
       <Routes>
         <Route element={<ContextRoute />} path="/y/:schoolYearId">
           <Route
@@ -454,6 +482,7 @@ function renderSessionObjectives(currentYear = year("active")) {
   }
   return renderWithQueryClient(
     <MemoryRouter
+      future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
       initialEntries={["/y/year-1/programs/program-1/sessions/session-1/assignment-planner"]}
     >
       <Routes>
@@ -522,7 +551,10 @@ describe("program year entry", () => {
 
   it("keeps the complete Programs list directly reachable", () => {
     renderWithQueryClient(
-      <MemoryRouter initialEntries={["/y/year-1/programs"]}>
+      <MemoryRouter
+        future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+        initialEntries={["/y/year-1/programs"]}
+      >
         <Routes>
           <Route path="/y/:schoolYearId/programs" element={<p>Programs list</p>} />
         </Routes>
