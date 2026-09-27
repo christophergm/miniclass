@@ -54,7 +54,10 @@ function renderSettings() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={["/settings"]}>
+      <MemoryRouter
+        future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+        initialEntries={["/settings"]}
+      >
         <Routes>
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>

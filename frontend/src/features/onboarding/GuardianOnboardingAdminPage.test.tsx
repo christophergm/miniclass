@@ -69,7 +69,10 @@ function mutation<T>(mutate = vi.fn()) {
 
 function renderPage(path = "/y/year-test/onboarding") {
   return renderWithQueryClient(
-    <MemoryRouter initialEntries={[path]}>
+    <MemoryRouter
+      future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+      initialEntries={[path]}
+    >
       <Routes>
         <Route element={<Outlet context={year} />} path="/y/:schoolYearId">
           <Route element={<GuardianOnboardingAdminPage />} path="onboarding" />

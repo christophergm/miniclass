@@ -63,7 +63,7 @@ describe("guardian relationships", () => {
       .mockResolvedValue(relationship({ relationship_type: "guardian" }));
 
     renderWithQueryClient(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
         <GuardianRelationships kind="student" schoolYearId="year-1" personId="student-1" />
       </MemoryRouter>,
     );
@@ -85,7 +85,7 @@ describe("guardian relationships", () => {
     vi.spyOn(studentApi, "list").mockResolvedValue([riley]);
 
     renderWithQueryClient(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
         <GuardianRelationships kind="adult" schoolYearId="year-1" personId="adult-1" />
       </MemoryRouter>,
     );
@@ -102,7 +102,7 @@ describe("guardian relationships", () => {
     vi.spyOn(studentApi, "list").mockResolvedValue([riley]);
 
     renderWithQueryClient(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
         <GuardianRelationships kind="adult" schoolYearId="year-1" personId="adult-1" />
       </MemoryRouter>,
     );
@@ -121,7 +121,7 @@ describe("guardian relationships", () => {
     vi.spyOn(adultApi, "list").mockResolvedValue([morgan]);
 
     renderWithQueryClient(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
         <GuardianRelationships kind="student" schoolYearId="year-1" personId="student-1" />
       </MemoryRouter>,
     );
@@ -151,7 +151,7 @@ describe("guardian relationships", () => {
     const remove = vi.spyOn(guardianApi, "remove").mockResolvedValue();
 
     renderWithQueryClient(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
         <GuardianRelationships kind="adult" schoolYearId="year-1" personId="adult-1" />
       </MemoryRouter>,
     );
@@ -189,7 +189,7 @@ describe("guardian relationships", () => {
 
     renderWithQueryClient(
       <StrictMode>
-        <MemoryRouter>
+        <MemoryRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
           <GuardianRelationships kind="student" schoolYearId="year-1" personId="student-1" />
         </MemoryRouter>
       </StrictMode>,

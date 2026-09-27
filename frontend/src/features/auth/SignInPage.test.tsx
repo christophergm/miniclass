@@ -31,7 +31,10 @@ function renderSignIn(props: { localDevAuth: boolean; devToken: DevTokenStatus }
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={["/sign-in"]}>
+      <MemoryRouter
+        future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+        initialEntries={["/sign-in"]}
+      >
         <AuthProvider client={sessionlessClient()}>
           <SignInPage {...props} />
         </AuthProvider>
@@ -127,7 +130,10 @@ describe("sign-in page under local development auth", () => {
       <QueryClientProvider
         client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
       >
-        <MemoryRouter initialEntries={["/sign-in"]}>
+        <MemoryRouter
+          future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+          initialEntries={["/sign-in"]}
+        >
           <AuthProvider client={client}>
             <SessionSurface devToken={{ kind: "valid", expiresAt }} />
           </AuthProvider>
@@ -154,7 +160,10 @@ describe("sign-in page under local development auth", () => {
       <QueryClientProvider
         client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
       >
-        <MemoryRouter initialEntries={["/sign-in"]}>
+        <MemoryRouter
+          future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+          initialEntries={["/sign-in"]}
+        >
           <AuthProvider client={client}>
             <SignInPage />
           </AuthProvider>
@@ -167,9 +176,9 @@ describe("sign-in page under local development auth", () => {
       reportSessionEnded({ kind: "api-invalid-token" });
     });
 
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "Your session expired or is no longer valid. Please sign in again.",
-    );
+    expect(
+      screen.getByText("Your session expired or is no longer valid. Please sign in again."),
+    ).toHaveAttribute("role", "alert");
     expect(client.auth.signOut).toHaveBeenCalledTimes(1);
   });
 });

@@ -110,7 +110,10 @@ vi.mock("./usePrograms", () => ({
 describe("response tracking pages", () => {
   it("renders human-readable ranked-choice session states", () => {
     render(
-      <MemoryRouter initialEntries={["/tracking/year-1/program-1"]}>
+      <MemoryRouter
+        future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+        initialEntries={["/tracking/year-1/program-1"]}
+      >
         <Routes>
           <Route
             element={<ResponseTrackingIndexPage />}
@@ -130,7 +133,10 @@ describe("response tracking pages", () => {
 
   it("uses breadcrumbs on ranked-choice response tracking details", () => {
     render(
-      <MemoryRouter initialEntries={["/tracking/year-1/program-1/session-1"]}>
+      <MemoryRouter
+        future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+        initialEntries={["/tracking/year-1/program-1/session-1"]}
+      >
         <Routes>
           <Route
             element={<RankedChoiceResponseTrackingPage />}
@@ -150,7 +156,10 @@ describe("response tracking pages", () => {
 
   it("renders student totals and separate follow-up rows for multiple guardians", () => {
     render(
-      <MemoryRouter initialEntries={["/tracking/year-1/program-1/survey-1"]}>
+      <MemoryRouter
+        future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+        initialEntries={["/tracking/year-1/program-1/survey-1"]}
+      >
         <Routes>
           <Route
             element={<InterestProfileResponseTrackingPage />}

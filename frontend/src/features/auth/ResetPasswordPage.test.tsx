@@ -22,7 +22,10 @@ function renderReset(props: { localDevAuth: boolean; devToken: DevTokenStatus })
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={["/reset-password"]}>
+      <MemoryRouter
+        future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+        initialEntries={["/reset-password"]}
+      >
         <AuthProvider client={authClient()}>
           <ResetPasswordPage {...props} />
         </AuthProvider>
@@ -55,7 +58,10 @@ describe("reset-password page authentication paths", () => {
       <QueryClientProvider
         client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
       >
-        <MemoryRouter initialEntries={["/reset-password"]}>
+        <MemoryRouter
+          future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+          initialEntries={["/reset-password"]}
+        >
           <AuthProvider client={client}>
             <ResetPasswordPage localDevAuth={false} devToken={{ kind: "missing" }} />
           </AuthProvider>
