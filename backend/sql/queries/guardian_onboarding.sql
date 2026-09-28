@@ -2,34 +2,37 @@
 -- a tenant transaction is opened. Every write that changes tenant data still
 -- runs through internal/data and records an audit entry.
 
+-- name: LockGuardianRegistrationEntries :exec
+select pg_advisory_xact_lock(hashtextextended(sqlc.arg(organization_id)::text || ':' || sqlc.arg(school_year_id)::text || ':guardian_registration_entry', 0));
+
 -- name: CreateGuardianRegistrationEntry :one
 insert into access_tokens (token_hash, purpose, expires_at, generation, organization_id, school_year_id)
-values ($1, 'guardian_registration_entry', $2,
+values (null, 'guardian_registration_entry', $1,
     (select coalesce(max(generation), 0) + 1 from access_tokens
-     where purpose = 'guardian_registration_entry' and organization_id = $3 and school_year_id = $4),
-    $3, $4)
+     where purpose = 'guardian_registration_entry' and organization_id = $2 and school_year_id = $3),
+    $2, $3)
 returning id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation, parent_token_id, mailbox_verified_at;
+    mfa_generation, parent_token_id, mailbox_verified_at, guardian_registration_revocation_kind, guardian_registration_revoked_by_user_id;
 
--- name: GetGuardianRegistrationEntryByHash :one
-select id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
-    created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
-    verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation, parent_token_id, mailbox_verified_at
-from access_tokens
-where token_hash = $1
-  and purpose = 'guardian_registration_entry'
-  and revoked_at is null
-  and consumed_at is null
-  and expires_at > $2;
+-- name: GetGuardianRegistrationEntryByID :one
+-- This identity lookup deliberately reads only access_tokens. The school-year
+-- state is checked after the token supplies an organization ID and a tenant
+-- transaction can enforce row-level security.
+select t.*
+from access_tokens t
+where t.id = $1
+  and t.purpose = 'guardian_registration_entry'
+  and t.revoked_at is null
+  and t.consumed_at is null
+  and t.expires_at > $2;
 
 -- name: GetCurrentGuardianRegistrationEntry :one
 select id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation, parent_token_id, mailbox_verified_at
+    mfa_generation, parent_token_id, mailbox_verified_at, guardian_registration_revocation_kind, guardian_registration_revoked_by_user_id
 from access_tokens
 where purpose = 'guardian_registration_entry'
   and organization_id = $1
@@ -39,13 +42,56 @@ where purpose = 'guardian_registration_entry'
 order by generation desc, created_at desc, id desc
 limit 1;
 
--- name: RevokeGuardianRegistrationEntries :execrows
+-- name: RevokeActiveGuardianRegistrationEntry :execrows
 update access_tokens
-set revoked_at = coalesce(revoked_at, $3)
+set revoked_at = $3,
+    guardian_registration_revocation_kind = 'replaced',
+    guardian_registration_revoked_by_user_id = $4
 where purpose = 'guardian_registration_entry'
   and organization_id = $1
   and school_year_id = $2
-  and revoked_at is null;
+  and revoked_at is null
+  and consumed_at is null
+  and expires_at > $3;
+
+-- name: RevokeGuardianRegistrationEntryByID :execrows
+update access_tokens
+set revoked_at = $4,
+    guardian_registration_revocation_kind = 'manual',
+    guardian_registration_revoked_by_user_id = $5
+where id = $1
+  and purpose = 'guardian_registration_entry'
+  and organization_id = $2
+  and school_year_id = $3
+  and revoked_at is null
+  and consumed_at is null
+  and expires_at > $4;
+
+-- name: UpdateGuardianRegistrationEntryExpiry :one
+update access_tokens
+set expires_at = $4
+where id = $1
+  and organization_id = $2
+  and school_year_id = $3
+  and purpose = 'guardian_registration_entry'
+  and revoked_at is null
+  and consumed_at is null
+  and expires_at > now()
+returning id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
+    created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
+    verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
+    mfa_generation, parent_token_id, mailbox_verified_at, guardian_registration_revocation_kind, guardian_registration_revoked_by_user_id;
+
+-- name: ListGuardianRegistrationEntries :many
+select id, expires_at, revoked_at, guardian_registration_revocation_kind,
+    guardian_registration_revoked_by_user_id, generation, created_at
+from access_tokens
+where purpose = 'guardian_registration_entry'
+  and organization_id = $1
+  and school_year_id = $2
+  and (sqlc.narg(cursor_created_at)::timestamptz is null or (created_at, id) < (sqlc.narg(cursor_created_at), sqlc.narg(cursor_id)::public.xid20))
+order by created_at desc, id desc
+limit sqlc.arg(page_size);
 
 -- name: CreateGuardianInvitationToken :one
 insert into access_tokens (token_hash, purpose, expires_at, generation, organization_id, school_year_id)
@@ -56,13 +102,13 @@ values ($1, 'guardian_invitation', $2,
 returning id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation, parent_token_id, mailbox_verified_at;
+    mfa_generation, parent_token_id, mailbox_verified_at, guardian_registration_revocation_kind, guardian_registration_revoked_by_user_id;
 
 -- name: GetGuardianInvitationTokenByHash :one
 select id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation, parent_token_id, mailbox_verified_at
+    mfa_generation, parent_token_id, mailbox_verified_at, guardian_registration_revocation_kind, guardian_registration_revoked_by_user_id
 from access_tokens
 where token_hash = $1
   and purpose = 'guardian_invitation'
@@ -88,7 +134,7 @@ where id = $1
 returning id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation, parent_token_id, mailbox_verified_at;
+    mfa_generation, parent_token_id, mailbox_verified_at, guardian_registration_revocation_kind, guardian_registration_revoked_by_user_id;
 
 -- name: LockGuardianOnboardingEmail :exec
 select pg_advisory_xact_lock(hashtextextended(sqlc.arg(organization_id)::text || ':' || sqlc.arg(school_year_id)::text || ':' || lower(sqlc.arg(email)), 0));
@@ -113,13 +159,13 @@ values ($1, 'guardian_onboarding_session', $2, 1, $3, $4, $5, $6, $7)
 returning id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation, parent_token_id, mailbox_verified_at;
+    mfa_generation, parent_token_id, mailbox_verified_at, guardian_registration_revocation_kind, guardian_registration_revoked_by_user_id;
 
 -- name: GetGuardianOnboardingSessionByHash :one
 select id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation, parent_token_id, mailbox_verified_at
+    mfa_generation, parent_token_id, mailbox_verified_at, guardian_registration_revocation_kind, guardian_registration_revoked_by_user_id
 from access_tokens
 where token_hash = $1
   and purpose = 'guardian_onboarding_session'
@@ -148,7 +194,7 @@ where id = $1
 returning id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation, parent_token_id, mailbox_verified_at;
+    mfa_generation, parent_token_id, mailbox_verified_at, guardian_registration_revocation_kind, guardian_registration_revoked_by_user_id;
 
 -- name: CompleteGuardianOnboardingSession :execrows
 update access_tokens
@@ -173,13 +219,13 @@ values ($1, 'guardian_onboarding_otp', $2, 1, $3, $4, $5, $6, $7)
 returning id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation, parent_token_id, mailbox_verified_at;
+    mfa_generation, parent_token_id, mailbox_verified_at, guardian_registration_revocation_kind, guardian_registration_revoked_by_user_id;
 
 -- name: GetGuardianOnboardingOTPByHash :one
 select id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation, parent_token_id, mailbox_verified_at
+    mfa_generation, parent_token_id, mailbox_verified_at, guardian_registration_revocation_kind, guardian_registration_revoked_by_user_id
 from access_tokens
 where token_hash = $1
   and purpose = 'guardian_onboarding_otp';
@@ -206,7 +252,7 @@ where id = $1
 returning id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation, parent_token_id, mailbox_verified_at;
+    mfa_generation, parent_token_id, mailbox_verified_at, guardian_registration_revocation_kind, guardian_registration_revoked_by_user_id;
 
 -- name: IncrementGuardianOnboardingOTPAttempts :execrows
 update access_tokens
@@ -273,6 +319,29 @@ join access_tokens t on t.id = c.invitation_token_id
 where c.organization_id = $1
   and c.school_year_id = $2
 order by lower(c.email), c.id;
+
+-- name: ListGuardianInvitationContactPage :many
+select c.id, c.organization_id, c.school_year_id, c.invitation_token_id, c.email, c.created_at, c.updated_at,
+    t.expires_at, t.revoked_at, t.consumed_at, t.generation
+from guardian_invitation_contacts c
+join access_tokens t on t.id = c.invitation_token_id
+where c.organization_id = $1
+  and c.school_year_id = $2
+  and t.purpose = 'guardian_invitation'
+  and (sqlc.narg(cursor_created_at)::timestamptz is null or (c.created_at, c.id) < (sqlc.narg(cursor_created_at), sqlc.narg(cursor_id)::public.xid20))
+order by c.created_at desc, c.id desc
+limit sqlc.arg(page_size);
+
+-- name: CountOpenGuardianInvitationContacts :one
+select count(*)
+from guardian_invitation_contacts c
+join access_tokens t on t.id = c.invitation_token_id
+where c.organization_id = $1
+  and c.school_year_id = $2
+  and t.purpose = 'guardian_invitation'
+  and t.revoked_at is null
+  and t.consumed_at is null
+  and t.expires_at > $3;
 
 -- name: TouchGuardianInvitationContactForRegistry :execrows
 update guardian_invitation_contacts

@@ -51,6 +51,9 @@ describe("GuardianProfilePage", () => {
     );
 
     await waitFor(() => expect(screen.getByLabelText("Given name")).toHaveValue("Morgan"));
+    expect(screen.getByLabelText(/email \(read only\)/i)).toHaveValue("guardian@example.test");
+    expect(screen.getByLabelText(/email \(read only\)/i)).toHaveAttribute("readonly");
+    expect(screen.getByText(/we’ll first confirm the new one/i)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Phone (optional)"), { target: { value: "555-0199" } });
     fireEvent.click(screen.getByRole("button", { name: "Save profile" }));
 
@@ -59,7 +62,6 @@ describe("GuardianProfilePage", () => {
         legal_given_name: "Morgan",
         legal_family_name: "Lee",
         preferred_given_name: "Mo",
-        email: "guardian@example.test",
         phone: "555-0199",
       },
       expect.any(Object),

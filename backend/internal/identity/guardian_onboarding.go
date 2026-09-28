@@ -39,31 +39,151 @@ func (s *Store) CreateRegistrationEntry(ctx context.Context, organizationID, sch
 	if s == nil || s.tenantDatabase == nil {
 		return guardian.RegistrationEntry{}, errors.New("create guardian registration entry: identity store is nil")
 	}
-	now = onboardingNow(now)
-	bearer, err := GenerateAccessToken()
-	if err != nil {
-		return guardian.RegistrationEntry{}, err
+	return s.IssueRegistrationEntry(ctx, organizationID, schoolYearID, onboardingNow(now).Add(guardianRegistrationValidity), actor, now)
+}
+
+func (s *Store) IssueRegistrationEntry(ctx context.Context, organizationID, schoolYearID ids.XID, expiresAt time.Time, actor audit.Actor, now time.Time) (guardian.RegistrationEntry, error) {
+	if s == nil || s.tenantDatabase == nil {
+		return guardian.RegistrationEntry{}, errors.New("issue guardian registration entry: identity store is nil")
 	}
-	expiresAt := now.Add(guardianRegistrationValidity)
+	now = onboardingNow(now)
+	if !expiresAt.After(now) || expiresAt.After(now.AddDate(1, 0, 0)) {
+		return guardian.RegistrationEntry{}, guardian.ErrRegistrationInvalid
+	}
 	var result guardian.RegistrationEntry
-	err = s.tenantDatabase.InTenant(ctx, string(organizationID), actor, func(ctx context.Context, tx *data.Tx) error {
-		if _, err := tx.GetSchoolYearByID(ctx, schoolYearID); err != nil {
-			return err
-		}
-		if _, err := tx.RevokeGuardianRegistrationEntries(ctx, organizationID, schoolYearID, now); err != nil {
-			return err
-		}
-		created, err := tx.CreateGuardianRegistrationEntry(ctx, bearer.Hash, expiresAt, organizationID, schoolYearID)
+	err := s.tenantDatabase.InTenant(ctx, string(organizationID), actor, func(ctx context.Context, tx *data.Tx) error {
+		year, err := tx.GetSchoolYearByID(ctx, schoolYearID)
 		if err != nil {
 			return err
 		}
-		result = guardian.RegistrationEntry{ID: created.ID, OrganizationID: organizationID, SchoolYearID: schoolYearID, Token: bearer.Value, ExpiresAt: created.ExpiresAt, Generation: created.Generation}
-		return tx.Record(ctx, audit.Entry{Action: audit.ActionGuardianRegistrationChange, ObjectType: "guardian_registration_entry", ObjectID: &created.ID, SchoolYearID: &schoolYearID, ChangeSummary: jsonObject(map[string]any{"issued": true, "generation": created.Generation})})
+		if year.State == data.SchoolYearClosed || year.State == data.SchoolYearPurged {
+			return guardian.ErrRegistrationInvalid
+		}
+		if err := tx.LockGuardianRegistrationEntries(ctx, schoolYearID); err != nil {
+			return err
+		}
+		if _, err := tx.RevokeActiveGuardianRegistrationEntry(ctx, schoolYearID, now, actor.UserID); err != nil {
+			return err
+		}
+		created, err := tx.CreateGuardianRegistrationEntry(ctx, expiresAt, organizationID, schoolYearID)
+		if err != nil {
+			return err
+		}
+		result = guardian.RegistrationEntry{ID: created.ID, OrganizationID: organizationID, SchoolYearID: schoolYearID, ExpiresAt: created.ExpiresAt, CreatedAt: created.CreatedAt, Generation: created.Generation, Status: "active"}
+		return tx.Record(ctx, audit.Entry{Action: audit.ActionGuardianRegistrationChange, ObjectType: "guardian_registration_entry", ObjectID: &created.ID, SchoolYearID: &schoolYearID, ChangeSummary: jsonObject(map[string]any{"issued": true, "generation": created.Generation}), Reason: replacementReason(created.Generation)})
 	})
 	if err != nil {
-		return guardian.RegistrationEntry{}, fmt.Errorf("create guardian registration entry: %w", err)
+		return guardian.RegistrationEntry{}, fmt.Errorf("issue guardian registration entry: %w", err)
 	}
 	return result, nil
+}
+
+func replacementReason(generation int) string {
+	if generation <= 1 {
+		return "Generated"
+	}
+	return fmt.Sprintf("Replaced by generation %d", generation)
+}
+
+func (s *Store) ListRegistrationEntries(ctx context.Context, organizationID, schoolYearID ids.XID, cursor *guardian.RegistrationEntryCursor, limit int32, now time.Time) (guardian.RegistrationEntryPage, error) {
+	if s == nil || s.tenantDatabase == nil {
+		return guardian.RegistrationEntryPage{}, errors.New("list guardian registration entries: identity store is nil")
+	}
+	if limit < 1 || limit > 100 {
+		return guardian.RegistrationEntryPage{}, guardian.ErrRegistrationInvalid
+	}
+	var page guardian.RegistrationEntryPage
+	err := s.tenantDatabase.InTenantRead(ctx, string(organizationID), func(ctx context.Context, tx *data.Tx) error {
+		var dataCursor data.GuardianRegistrationEntryCursor
+		if cursor != nil {
+			dataCursor = data.GuardianRegistrationEntryCursor{CreatedAt: &cursor.CreatedAt, ID: &cursor.ID}
+		}
+		rows, err := tx.ListGuardianRegistrationEntries(ctx, schoolYearID, dataCursor, limit)
+		if err != nil {
+			return err
+		}
+		page.Entries = make([]guardian.RegistrationEntry, 0, len(rows))
+		for _, row := range rows {
+			page.Entries = append(page.Entries, guardianRegistrationEntry(row, onboardingNow(now)))
+		}
+		if len(rows) == int(limit) {
+			last := rows[len(rows)-1]
+			page.NextCursor = &guardian.RegistrationEntryCursor{CreatedAt: last.CreatedAt, ID: last.ID}
+		}
+		return nil
+	})
+	return page, err
+}
+
+func (s *Store) UpdateRegistrationEntry(ctx context.Context, organizationID, schoolYearID, id ids.XID, input guardian.RegistrationEntryUpdateInput, actor audit.Actor, now time.Time) (guardian.RegistrationEntry, error) {
+	if s == nil || s.tenantDatabase == nil {
+		return guardian.RegistrationEntry{}, errors.New("update guardian registration entry: identity store is nil")
+	}
+	now = onboardingNow(now)
+	if !input.ExpiresAt.After(now) {
+		return guardian.RegistrationEntry{}, guardian.ErrRegistrationInvalid
+	}
+	var result guardian.RegistrationEntry
+	err := s.tenantDatabase.InTenant(ctx, string(organizationID), actor, func(ctx context.Context, tx *data.Tx) error {
+		year, err := tx.GetSchoolYearByID(ctx, schoolYearID)
+		if err != nil {
+			return err
+		}
+		if year.State == data.SchoolYearClosed || year.State == data.SchoolYearPurged {
+			return guardian.ErrRegistrationInvalid
+		}
+		if err := tx.LockGuardianRegistrationEntries(ctx, schoolYearID); err != nil {
+			return err
+		}
+		current, err := tx.UpdateGuardianRegistrationEntryExpiry(ctx, schoolYearID, id, input.ExpiresAt.UTC())
+		if err != nil {
+			return err
+		}
+		if input.ExpiresAt.After(current.CreatedAt.AddDate(1, 0, 0)) {
+			return guardian.ErrRegistrationInvalid
+		}
+		result = guardian.RegistrationEntry{ID: current.ID, OrganizationID: organizationID, SchoolYearID: schoolYearID, ExpiresAt: current.ExpiresAt, Generation: current.Generation, CreatedAt: current.CreatedAt, Status: "active"}
+		return tx.Record(ctx, audit.Entry{Action: audit.ActionGuardianRegistrationChange, ObjectType: "guardian_registration_entry", ObjectID: &id, SchoolYearID: &schoolYearID, ChangeSummary: jsonObject(map[string]any{"expires_at": current.ExpiresAt})})
+	})
+	return result, err
+}
+
+func (s *Store) RevokeRegistrationEntryByID(ctx context.Context, organizationID, schoolYearID, id ids.XID, actor audit.Actor, now time.Time) error {
+	if s == nil || s.tenantDatabase == nil {
+		return errors.New("revoke guardian registration entry: identity store is nil")
+	}
+	now = onboardingNow(now)
+	return s.tenantDatabase.InTenant(ctx, string(organizationID), actor, func(ctx context.Context, tx *data.Tx) error {
+		year, err := tx.GetSchoolYearByID(ctx, schoolYearID)
+		if err != nil {
+			return err
+		}
+		if year.State == data.SchoolYearClosed || year.State == data.SchoolYearPurged {
+			return guardian.ErrRegistrationInvalid
+		}
+		revoked, err := tx.RevokeGuardianRegistrationEntryByID(ctx, schoolYearID, id, now, actor.UserID)
+		if err != nil {
+			return err
+		}
+		if !revoked {
+			return guardian.ErrRegistrationInvalid
+		}
+		return tx.Record(ctx, audit.Entry{Action: audit.ActionGuardianRegistrationChange, ObjectType: "guardian_registration_entry", ObjectID: &id, SchoolYearID: &schoolYearID, ChangeSummary: jsonObject(map[string]any{"revoked": true, "reason": "Manually revoked"}), Reason: "Manually revoked"})
+	})
+}
+
+func guardianRegistrationEntry(row data.GuardianRegistrationEntryState, now time.Time) guardian.RegistrationEntry {
+	status := "active"
+	if row.RevokedAt != nil {
+		status = "revoked"
+	} else if !row.ExpiresAt.After(now) {
+		status = "expired"
+	}
+	kind := ""
+	if row.RevocationKind != nil {
+		kind = *row.RevocationKind
+	}
+	return guardian.RegistrationEntry{ID: row.ID, ExpiresAt: row.ExpiresAt, CreatedAt: row.CreatedAt, RevokedAt: row.RevokedAt, RevocationKind: kind, RevokedByUserID: row.RevokedByUserID, Generation: row.Generation, Status: status}
 }
 
 func (s *Store) GetRegistrationEntry(ctx context.Context, organizationID, schoolYearID ids.XID) (guardian.RegistrationEntry, error) {
@@ -79,7 +199,7 @@ func (s *Store) GetRegistrationEntry(ctx context.Context, organizationID, school
 	if err != nil {
 		return guardian.RegistrationEntry{}, err
 	}
-	return guardian.RegistrationEntry{ID: entry.ID, OrganizationID: valueOrEmpty(entry.OrganizationID), SchoolYearID: valueOrEmpty(entry.SchoolYearID), ExpiresAt: entry.ExpiresAt, Generation: entry.Generation}, nil
+	return guardian.RegistrationEntry{ID: entry.ID, OrganizationID: valueOrEmpty(entry.OrganizationID), SchoolYearID: valueOrEmpty(entry.SchoolYearID), ExpiresAt: entry.ExpiresAt, CreatedAt: entry.CreatedAt, Generation: entry.Generation, Status: "active"}, nil
 }
 
 func (s *Store) RevokeRegistrationEntry(ctx context.Context, organizationID, schoolYearID ids.XID, actor audit.Actor, now time.Time) error {
@@ -88,11 +208,11 @@ func (s *Store) RevokeRegistrationEntry(ctx context.Context, organizationID, sch
 	}
 	now = onboardingNow(now)
 	return s.tenantDatabase.InTenant(ctx, string(organizationID), actor, func(ctx context.Context, tx *data.Tx) error {
-		count, err := tx.RevokeGuardianRegistrationEntries(ctx, organizationID, schoolYearID, now)
+		count, err := tx.RevokeActiveGuardianRegistrationEntry(ctx, schoolYearID, now, actor.UserID)
 		if err != nil {
 			return err
 		}
-		return tx.Record(ctx, audit.Entry{Action: audit.ActionGuardianRegistrationChange, ObjectType: "guardian_registration_entry", SchoolYearID: &schoolYearID, ChangeSummary: jsonObject(map[string]any{"revoked": count > 0})})
+		return tx.Record(ctx, audit.Entry{Action: audit.ActionGuardianRegistrationChange, ObjectType: "guardian_registration_entry", SchoolYearID: &schoolYearID, ChangeSummary: jsonObject(map[string]any{"revoked": count > 0, "reason": "Manually revoked"}), Reason: "Manually revoked"})
 	})
 }
 
@@ -191,6 +311,45 @@ func (s *Store) ListInvitationContacts(ctx context.Context, organizationID, scho
 		result = append(result, guardian.InvitationExportRow{Email: contact.Email, Status: status, ExpiresAt: contact.ExpiresAt, CreatedAt: contact.CreatedAt, ConsumedAt: contact.ConsumedAt})
 	}
 	return result, nil
+}
+
+func (s *Store) ListInvitationContactPage(ctx context.Context, organizationID, schoolYearID ids.XID, cursor *guardian.InvitationContactCursor, limit int32, now time.Time) (guardian.InvitationContactPage, error) {
+	if s == nil || s.tenantDatabase == nil {
+		return guardian.InvitationContactPage{}, errors.New("list guardian invitation page: identity store is nil")
+	}
+	if limit < 1 || limit > 100 {
+		return guardian.InvitationContactPage{}, guardian.ErrInvitationInvalid
+	}
+	now = onboardingNow(now)
+	var page guardian.InvitationContactPage
+	err := s.tenantDatabase.InTenantRead(ctx, string(organizationID), func(ctx context.Context, tx *data.Tx) error {
+		var dataCursor data.GuardianInvitationContactCursor
+		if cursor != nil {
+			dataCursor = data.GuardianInvitationContactCursor{CreatedAt: &cursor.CreatedAt, ID: &cursor.ID}
+		}
+		contacts, err := tx.ListGuardianInvitationContactPage(ctx, schoolYearID, dataCursor, limit+1)
+		if err != nil {
+			return err
+		}
+		page.OpenCount, err = tx.CountOpenGuardianInvitationContacts(ctx, schoolYearID, now)
+		if err != nil {
+			return err
+		}
+		if len(contacts) > int(limit) {
+			next := contacts[limit-1]
+			page.NextCursor = &guardian.InvitationContactCursor{CreatedAt: next.CreatedAt, ID: next.ID}
+			contacts = contacts[:limit]
+		}
+		page.Contacts = make([]guardian.InvitationContactPageRow, 0, len(contacts))
+		for _, contact := range contacts {
+			page.Contacts = append(page.Contacts, guardian.InvitationContactPageRow{ID: contact.ID, Email: contact.Email, Status: invitationStatus(contact, now), ExpiresAt: contact.ExpiresAt, CreatedAt: contact.CreatedAt})
+		}
+		return nil
+	})
+	if err != nil {
+		return guardian.InvitationContactPage{}, err
+	}
+	return page, nil
 }
 
 func (s *Store) RevokeInvitationContact(ctx context.Context, organizationID, schoolYearID, contactID ids.XID, actor audit.Actor, now time.Time) error {
@@ -556,6 +715,10 @@ func (s *Store) Complete(ctx context.Context, input guardian.CompleteInput) (gua
 	if session.MailboxVerifiedAt == nil {
 		return guardian.Completion{}, guardian.ErrMailboxUnverified
 	}
+	sessionBearer, err := GenerateAccessToken()
+	if err != nil {
+		return guardian.Completion{}, fmt.Errorf("complete guardian onboarding: generate guardian session: %w", err)
+	}
 	var result guardian.Completion
 	err = s.tenantDatabase.InTenant(ctx, string(*session.OrganizationID), audit.Actor{Type: audit.ActorTypeLink, Label: "guardian onboarding"}, func(ctx context.Context, tx *data.Tx) error {
 		consent, err := tx.GetGuardianOnboardingConsent(ctx, *session.SchoolYearID, session.ID)
@@ -579,16 +742,7 @@ func (s *Store) Complete(ctx context.Context, input guardian.CompleteInput) (gua
 		} else if consent.SignupNoticeVersion != nil || len(consent.SignupNoticeHash) > 0 {
 			return guardian.ErrConsentRequired
 		}
-		if input.GradeLevelID == "" || input.HomeroomID == "" {
-			return guardian.ErrStudentAttributesRequired
-		}
 		if err := tx.LockGuardianOnboardingEmail(ctx, *session.SchoolYearID, consent.VerifiedEmail); err != nil {
-			return err
-		}
-		if _, err := tx.GetGradeLevelByID(ctx, *session.SchoolYearID, input.GradeLevelID); err != nil {
-			return err
-		}
-		if _, err := tx.GetHomeroomByID(ctx, *session.SchoolYearID, input.HomeroomID); err != nil {
 			return err
 		}
 		adults, err := tx.FindActiveAdultsByEmail(ctx, *session.SchoolYearID, consent.VerifiedEmail)
@@ -608,14 +762,6 @@ func (s *Store) Complete(ctx context.Context, input guardian.CompleteInput) (gua
 		default:
 			return guardian.ErrOnboardingEmailConflict
 		}
-		student, err := tx.CreateStudentWithMetadata(ctx, *session.SchoolYearID, &input.GradeLevelID, input.HomeroomID, input.StudentGivenName, input.StudentFamilyName, nil, nil, false, "guardian")
-		if err != nil {
-			return err
-		}
-		relationship, err := tx.CreateGuardianRelationship(ctx, *session.SchoolYearID, adult.ID, student.ID, input.RelationshipType)
-		if err != nil {
-			return err
-		}
 		completed, err := tx.CompleteGuardianOnboardingSession(ctx, session.ID, now)
 		if err != nil {
 			return err
@@ -623,8 +769,16 @@ func (s *Store) Complete(ctx context.Context, input guardian.CompleteInput) (gua
 		if !completed {
 			return guardian.ErrOnboardingInvalid
 		}
-		result = guardian.Completion{AdultID: adult.ID, StudentID: student.ID, RelationshipID: relationship.ID, OrganizationID: *session.OrganizationID, SchoolYearID: *session.SchoolYearID}
-		return tx.Record(ctx, audit.Entry{Action: audit.ActionGuardianOnboardingCompleted, ObjectType: "guardian_onboarding_session", ObjectID: &session.ID, SchoolYearID: session.SchoolYearID, Reason: consent.SourceSurface, ChangeSummary: jsonObject(map[string]any{"adult_id": adult.ID, "student_id": student.ID, "relationship_id": relationship.ID, "consent_id": consent.ID, "mailbox_verified": true})})
+		scope, err := tx.ResolveGuardianScope(ctx, *session.SchoolYearID, adult.ID)
+		if err != nil {
+			return err
+		}
+		credential, err := tx.CreateGuardianSession(ctx, sessionBearer.Hash, now.Add(guardianSessionAbsolute), *session.SchoolYearID, adult.ID, now.Add(guardianSessionIdle), now)
+		if err != nil {
+			return err
+		}
+		result = guardian.Completion{AdultID: adult.ID, OrganizationID: *session.OrganizationID, SchoolYearID: *session.SchoolYearID, SessionToken: sessionBearer.Value, SessionID: credential.ID, ExpiresAt: credential.ExpiresAt, IdleExpiresAt: credential.IdleExpiresAt, StudentIDs: scope.StudentIDs}
+		return tx.Record(ctx, audit.Entry{Action: audit.ActionGuardianOnboardingCompleted, ObjectType: "guardian_onboarding_session", ObjectID: &session.ID, SchoolYearID: session.SchoolYearID, Reason: consent.SourceSurface, ChangeSummary: jsonObject(map[string]any{"adult_id": adult.ID, "consent_id": consent.ID, "mailbox_verified": true, "guardian_session_id": credential.ID})})
 	})
 	if err != nil {
 		return guardian.Completion{}, fmt.Errorf("complete guardian onboarding: %w", err)
@@ -703,16 +857,16 @@ func (s *Store) OnboardingVocabulary(ctx context.Context, bearer string, now tim
 	return result, nil
 }
 
-func (s *Store) lookupRegistrationEntry(ctx context.Context, bearer string, now time.Time) (identitydata.AccessToken, error) {
-	hash, err := HashAccessToken(strings.TrimSpace(bearer))
-	if err != nil {
+func (s *Store) lookupRegistrationEntry(ctx context.Context, id string, now time.Time) (identitydata.AccessToken, error) {
+	id = strings.TrimSpace(id)
+	if id == "" {
 		return identitydata.AccessToken{}, guardian.ErrRegistrationInvalid
 	}
 	now = onboardingNow(now)
 	var token identitydata.AccessToken
-	err = s.databaseIdentity().InReadTx(ctx, func(ctx context.Context, tx *identitydata.Tx) error {
+	err := s.databaseIdentity().InReadTx(ctx, func(ctx context.Context, tx *identitydata.Tx) error {
 		var err error
-		token, err = tx.GetGuardianRegistrationEntryByHash(ctx, hash, now)
+		token, err = tx.GetGuardianRegistrationEntryByID(ctx, ids.XID(id), now)
 		return err
 	})
 	return token, err
@@ -776,6 +930,12 @@ func (s *Store) createOnboardingSession(ctx context.Context, organizationID, sch
 	var result guardian.Session
 	rateLimited := false
 	err = s.tenantDatabase.InTenant(ctx, string(organizationID), audit.Actor{Type: audit.ActorTypeLink, Label: "guardian onboarding"}, func(ctx context.Context, tx *data.Tx) error {
+		if source == "registration-entry" {
+			year, err := tx.GetSchoolYearByID(ctx, schoolYearID)
+			if err != nil || year.State != data.SchoolYearActive {
+				return guardian.ErrRegistrationInvalid
+			}
+		}
 		if source == "registration-entry" && parentTokenID != nil {
 			if err := tx.LockGuardianRegistrationEntry(ctx, *parentTokenID); err != nil {
 				return err

@@ -147,9 +147,11 @@ describe("SchoolYearSettingsPage", () => {
     mockQuery(useUpdateSchoolYear, { mutate, isPending: false, isError: false, error: null });
     renderWorkspace();
 
+    expect(screen.getByRole("heading", { name: "2025–26" })).toBeInTheDocument();
+    expect(screen.getByText("closed")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Read-only history" })).toBeInTheDocument();
     expect(screen.queryByLabelText("Display label")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit school year" }));
     expect(screen.getByRole("dialog", { name: "Edit school year" })).toBeInTheDocument();
     expect(screen.getByLabelText("Display label")).toBeDisabled();
     fireEvent.change(await screen.findByLabelText("Reason for reopening"), {
@@ -168,7 +170,7 @@ describe("SchoolYearSettingsPage", () => {
     renderWorkspace();
 
     expect(screen.getByRole("heading", { name: "Read-only history" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit school year" }));
     await waitFor(() =>
       expect(screen.queryByRole("button", { name: "Reopen year" })).not.toBeInTheDocument(),
     );
@@ -205,7 +207,7 @@ describe("SchoolYearSettingsPage", () => {
     renderWorkspace();
 
     expect(screen.queryByRole("heading", { name: "Read-only history" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit school year" }));
     const close = screen.getByRole("button", { name: "Close year" });
     expect(close).toHaveClass("bg-destructive");
     fireEvent.click(close);
@@ -225,7 +227,7 @@ describe("SchoolYearSettingsPage", () => {
     mockQuery(useUpdateSchoolYear, { mutate, isPending: false, isError: false, error: null });
     renderWorkspace();
 
-    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit school year" }));
     fireEvent.click(screen.getByRole("button", { name: "Activate year" }));
 
     expect(mutate).toHaveBeenCalledWith({ state: "active" }, expect.anything());
@@ -242,7 +244,7 @@ describe("SchoolYearSettingsPage", () => {
     mockQuery(useUpdateSchoolYear, { mutate, isPending: false, isError: false, error: null });
     renderWorkspace();
 
-    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit school year" }));
     expect(screen.getByText("Jan 1, 2026")).toBeInTheDocument();
     expect(screen.getByText("Jan 2, 2026")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Display label"), { target: { value: "2026–27" } });

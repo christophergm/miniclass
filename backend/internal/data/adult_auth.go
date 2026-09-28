@@ -10,6 +10,7 @@ import (
 	db "github.com/chrismott/miniclass/internal/db/gen"
 	"github.com/chrismott/miniclass/internal/ids"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // AdultAccountLink is the explicit, tenant-scoped association between an
@@ -31,11 +32,40 @@ type GuardianScope struct {
 	StudentIDs []ids.XID
 }
 
+// GuardianSessionCredential is the persisted portion of a guardian access
+// session created within a tenant unit of work.
+type GuardianSessionCredential struct {
+	ID            ids.XID
+	ExpiresAt     time.Time
+	IdleExpiresAt time.Time
+}
+
 func (scope GuardianScope) AdultEmail() string {
 	if scope.Adult.Email == nil {
 		return ""
 	}
 	return *scope.Adult.Email
+}
+
+// CreateGuardianSession persists a normal guardian access session in the
+// current tenant transaction. Callers must already have authorized the adult.
+func (tx *Tx) CreateGuardianSession(ctx context.Context, tokenHash []byte, expiresAt time.Time, schoolYearID, adultID ids.XID, idleExpiresAt, lastSeenAt time.Time) (GuardianSessionCredential, error) {
+	if tx == nil || tx.queries == nil {
+		return GuardianSessionCredential{}, errors.New("create guardian session: transaction is nil")
+	}
+	row, err := tx.queries.CreateGuardianSession(ctx, db.CreateGuardianSessionParams{
+		TokenHash:      tokenHash,
+		ExpiresAt:      pgtype.Timestamptz{Time: expiresAt, Valid: true},
+		OrganizationID: &tx.organizationID,
+		SchoolYearID:   &schoolYearID,
+		AdultID:        &adultID,
+		IdleExpiresAt:  pgtype.Timestamptz{Time: idleExpiresAt, Valid: true},
+		LastSeenAt:     pgtype.Timestamptz{Time: lastSeenAt, Valid: true},
+	})
+	if err != nil {
+		return GuardianSessionCredential{}, err
+	}
+	return GuardianSessionCredential{ID: row.ID, ExpiresAt: row.ExpiresAt.Time, IdleExpiresAt: row.IdleExpiresAt.Time}, nil
 }
 
 func (tx *Tx) CreateAdultAccountLink(ctx context.Context, schoolYearID, adultID, userID ids.XID) (AdultAccountLink, error) {

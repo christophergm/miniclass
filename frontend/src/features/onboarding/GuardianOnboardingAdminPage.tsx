@@ -1,6 +1,8 @@
+import { Copy } from "lucide-react";
 import { useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 import { Link, useOutletContext, useParams } from "react-router-dom";
 
+import { Badge } from "@/components/ui/badge";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -23,25 +25,25 @@ import {
 import { ApiError } from "@/lib/api";
 import type {
   GuardianInvitationImport,
-  GuardianOnboardingPolicy,
-  GuardianRegistrationEntry,
+  GuardianRegistrationLink,
   SchoolYear,
 } from "@/lib/apiResources";
 import { useAccount } from "@/lib/hooks/useAccount";
 
 import {
   useExportGuardianInvitationContacts,
+  useGuardianInvitationContacts,
+  useGuardianRegistrationLinks,
   useGuardianSignupNotice,
   useImportGuardianInvitationContacts,
-  useIssueGuardianRegistrationEntry,
-  useGuardianRegistrationEntry,
+  useIssueGuardianRegistrationLink,
   useRevokeGuardianInvitationContact,
-  useRevokeGuardianOnboardingSession,
-  useRevokeGuardianRegistrationEntry,
+  useRevokeGuardianRegistrationLink,
+  useUpdateGuardianRegistrationLink,
   useUpdateGuardianSignupNotice,
 } from "./useGuardianOnboardingAdmin";
 
-type RevocationTarget = { kind: "invitation"; id: string } | { kind: "session"; id: string } | null;
+type RevocationTarget = { id: string } | null;
 
 function formatDateTime(value: string) {
   const date = new Date(value);
@@ -61,10 +63,61 @@ function problemMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
 
-function guardianOnboardingLink(parameter: "entry" | "invitation", token: string) {
+function guardianOnboardingLink(parameter: "invitation", token: string) {
   const path = `/guardian/onboarding?${new URLSearchParams({ [parameter]: token })}`;
   const origin = globalThis.location?.origin;
   return origin && origin !== "null" ? new URL(path, origin).toString() : path;
+}
+
+function guardianRegistrationLinkURL(linkID: string) {
+  const path = `/guardian/onboarding/${linkID}`;
+  const origin = globalThis.location?.origin;
+  return origin && origin !== "null" ? new URL(path, origin).toString() : path;
+}
+
+function localDateInputValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function defaultExpirationDate() {
+  const date = new Date();
+  date.setDate(date.getDate() + 30);
+  return localDateInputValue(date);
+}
+
+function endOfLocalDay(date: string) {
+  const [year, month, day] = date.split("-").map(Number);
+  return new Date(year, month - 1, day, 23, 59, 59, 999).toISOString();
+}
+
+function daysUntil(date: string) {
+  const [year, month, day] = date.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  const today = new Date();
+  const selectedDay = Date.UTC(year, month - 1, day);
+  const currentDay = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  return Math.round((selectedDay - currentDay) / (24 * 60 * 60 * 1000));
+}
+
+function registrationLinkStatus(link: GuardianRegistrationLink) {
+  if (link.revoked_at) return "Revoked";
+  return new Date(link.expires_at).getTime() <= Date.now() ? "Expired" : "Active";
+}
+
+function registrationLinkActiveUntil(link: GuardianRegistrationLink) {
+  if (!link.revoked_at) return link.expires_at;
+  return new Date(link.revoked_at).getTime() < new Date(link.expires_at).getTime()
+    ? link.revoked_at
+    : link.expires_at;
+}
+
+function registrationLinkStatusVariant(status: string) {
+  if (status === "Active") return "success";
+  if (status === "Revoked") return "secondary";
+  return "warning";
 }
 
 async function copyText(value: string) {
@@ -112,8 +165,14 @@ function LinkDisclosure({
   return (
     <div className="mt-3 flex flex-col gap-2 sm:flex-row">
       <Input aria-label={`${label} link`} className="font-mono text-xs" readOnly value={value} />
-      <Button onClick={() => onCopy(value, label)} type="button" variant="outline">
-        Copy link
+      <Button
+        aria-label={`Copy ${label} link`}
+        onClick={() => onCopy(value, label)}
+        size="icon"
+        type="button"
+        variant="outline"
+      >
+        <Copy aria-hidden="true" className="size-4" />
       </Button>
     </div>
   );
@@ -208,24 +267,42 @@ export function GuardianOnboardingAdminPage() {
   const canManageOnboarding = role === "owner" || role === "administrator";
   const readOnly = year.state === "closed";
   const schoolYearID = schoolYearId ?? "";
-  const registrationEntry = useGuardianRegistrationEntry(schoolYearId, canManageOnboarding);
-  const issueRegistrationEntry = useIssueGuardianRegistrationEntry(schoolYearID);
-  const revokeRegistrationEntry = useRevokeGuardianRegistrationEntry(schoolYearID);
+  const [registrationCursor, setRegistrationCursor] = useState<string | undefined>();
+  const [registrationCursorHistory, setRegistrationCursorHistory] = useState<string[]>([]);
+  const [invitationCursor, setInvitationCursor] = useState<string | undefined>();
+  const [invitationCursorHistory, setInvitationCursorHistory] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState<"shared" | "individual">("shared");
+  const registrationLinks = useGuardianRegistrationLinks(
+    schoolYearId,
+    canManageOnboarding,
+    registrationCursor,
+  );
+  const issueRegistrationLink = useIssueGuardianRegistrationLink(schoolYearID);
+  const updateRegistrationLink = useUpdateGuardianRegistrationLink(schoolYearID);
+  const revokeRegistrationLink = useRevokeGuardianRegistrationLink(schoolYearID);
   const importContacts = useImportGuardianInvitationContacts(schoolYearID);
+  const invitationContacts = useGuardianInvitationContacts(
+    schoolYearId,
+    canManageOnboarding,
+    invitationCursor,
+  );
   const exportContacts = useExportGuardianInvitationContacts(schoolYearID);
   const revokeContact = useRevokeGuardianInvitationContact(schoolYearID);
-  const revokeSession = useRevokeGuardianOnboardingSession(schoolYearID);
   const configuredSignupNotice = useGuardianSignupNotice(canManageOnboarding);
   const updateSignupNotice = useUpdateGuardianSignupNotice();
-  const [issuedEntry, setIssuedEntry] = useState<GuardianRegistrationEntry | null>(null);
+  const [issuedLink, setIssuedLink] = useState<GuardianRegistrationLink | null>(null);
+  const [issueReplacementOpen, setIssueReplacementOpen] = useState(false);
+  const [expirationDate, setExpirationDate] = useState(defaultExpirationDate);
+  const [editingLink, setEditingLink] = useState<GuardianRegistrationLink | null>(null);
   const [document, setDocument] = useState<File | null>(null);
   const [importResult, setImportResult] = useState<GuardianInvitationImport | null>(null);
-  const [registrationRevokeOpen, setRegistrationRevokeOpen] = useState(false);
+  const [registrationRevokeLink, setRegistrationRevokeLink] =
+    useState<GuardianRegistrationLink | null>(null);
   const [revocationTarget, setRevocationTarget] = useState<RevocationTarget>(null);
-  const [contactID, setContactID] = useState("");
-  const [sessionID, setSessionID] = useState("");
+
   const [signupNoticeDraft, setSignupNoticeDraft] = useState<string | null>(null);
-  const [savedPolicy, setSavedPolicy] = useState<GuardianOnboardingPolicy | null>(null);
+
+  const [signupNoticeEditOpen, setSignupNoticeEditOpen] = useState(false);
   const [removeNoticeOpen, setRemoveNoticeOpen] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [copyError, setCopyError] = useState<string | null>(null);
@@ -243,12 +320,21 @@ export function GuardianOnboardingAdminPage() {
   }
 
   function issueLink() {
-    issueRegistrationEntry.mutate(undefined, {
-      onSuccess: (entry) => {
-        setIssuedEntry(entry);
+    issueRegistrationLink.mutate(endOfLocalDay(expirationDate), {
+      onSuccess: (link) => {
+        setIssuedLink(link);
         setCopied(null);
+        setIssueReplacementOpen(false);
       },
     });
+  }
+
+  function saveExpiration() {
+    if (!editingLink) return;
+    updateRegistrationLink.mutate(
+      { linkID: editingLink.id, expiresAt: endOfLocalDay(expirationDate) },
+      { onSuccess: () => setEditingLink(null) },
+    );
   }
 
   function importInvitationContacts(event: FormEvent<HTMLFormElement>) {
@@ -257,25 +343,10 @@ export function GuardianOnboardingAdminPage() {
     importContacts.mutate(document, { onSuccess: setImportResult });
   }
 
-  function startContactRevocation(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (contactID.trim()) setRevocationTarget({ kind: "invitation", id: contactID.trim() });
-  }
-
-  function startSessionRevocation(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (sessionID.trim()) setRevocationTarget({ kind: "session", id: sessionID.trim() });
-  }
-
   function confirmRevocation() {
     if (!revocationTarget) return;
-    const mutation = revocationTarget.kind === "invitation" ? revokeContact : revokeSession;
-    mutation.mutate(revocationTarget.id, {
-      onSuccess: () => {
-        if (revocationTarget.kind === "invitation") setContactID("");
-        if (revocationTarget.kind === "session") setSessionID("");
-        setRevocationTarget(null);
-      },
+    revokeContact.mutate(revocationTarget.id, {
+      onSuccess: () => setRevocationTarget(null),
     });
   }
 
@@ -289,8 +360,8 @@ export function GuardianOnboardingAdminPage() {
     if (!content) return;
     updateSignupNotice.mutate(content, {
       onSuccess: (policy) => {
-        setSavedPolicy(policy);
         setSignupNoticeDraft(policy.signup_notice?.content ?? "");
+        setSignupNoticeEditOpen(false);
       },
     });
   }
@@ -321,21 +392,12 @@ export function GuardianOnboardingAdminPage() {
     );
   }
 
-  const activeEntry = registrationEntry.data;
-  const currentEntry = activeEntry ?? issuedEntry;
-  const currentEntryExpired =
-    currentEntry !== null &&
-    currentEntry !== undefined &&
-    new Date(currentEntry.expires_at).getTime() <= Date.now();
-  const activeEntryNotFound =
-    !currentEntry &&
-    registrationEntry.error instanceof ApiError &&
-    registrationEntry.error.status === 404;
-  const issuedEntryLink = issuedEntry?.token
-    ? guardianOnboardingLink("entry", issuedEntry.token)
-    : undefined;
-  const revocationMutation =
-    revocationTarget?.kind === "invitation" ? revokeContact : revokeSession;
+  const links = registrationLinks.data?.entries ?? [];
+  const activeRegistrationLink = links.find((link) => registrationLinkStatus(link) === "Active");
+  const hasActiveRegistrationLink = Boolean(activeRegistrationLink);
+  const expirationDays = daysUntil(expirationDate);
+  const issuedLinkURL = issuedLink ? guardianRegistrationLinkURL(issuedLink.id) : undefined;
+  const revocationMutation = revokeContact;
   const signupNotice =
     signupNoticeDraft ?? configuredSignupNotice.data?.signup_notice?.content ?? "";
 
@@ -370,6 +432,19 @@ export function GuardianOnboardingAdminPage() {
         </p>
       </div>
 
+      {year.state !== "active" && (
+        <section
+          className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950"
+          role="alert"
+        >
+          <h2 className="font-semibold">Guardian registration is unavailable</h2>
+          <p className="mt-1">
+            None of its shared registration or individual invitation links will work until the
+            school year is active. This school year is currently "{year.state}".
+          </p>
+        </section>
+      )}
+
       {readOnly && (
         <section className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950">
           <h2 className="font-semibold">Read-only history</h2>
@@ -380,317 +455,505 @@ export function GuardianOnboardingAdminPage() {
         </section>
       )}
 
-      <div className="mt-8 space-y-6">
+      <div className="mt-8 flex flex-col gap-6">
         <section
-          aria-labelledby="guardian-registration-entry"
+          aria-labelledby="guardian-welcome-preview"
           className="rounded-lg border bg-card p-5 shadow-sm"
         >
-          <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 className="font-semibold" id="guardian-welcome-preview">
+              Guardian welcome preview
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              This is the organization-specific welcome information guardians see during onboarding.
+            </p>
+          </div>
+          <div className="mt-5 grid gap-5 border-t pt-5 lg:grid-cols-2">
             <div>
-              <h2 className="font-semibold" id="guardian-registration-entry">
-                Shared registration link
-              </h2>
-              <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-                This organization-and-year link starts onboarding but grants no roster authority on
-                its own. Guardians still prove mailbox control and accept the current terms.
-              </p>
+              <h3 className="text-sm font-medium">Active registration link</h3>
+              {registrationLinks.isLoading ? (
+                <p className="mt-2 text-sm text-muted-foreground" role="status">
+                  Loading the active registration link…
+                </p>
+              ) : registrationLinks.isError ? (
+                <Problem
+                  error={registrationLinks.error}
+                  fallback="Unable to read registration-link history."
+                />
+              ) : activeRegistrationLink ? (
+                <LinkDisclosure
+                  label="Active shared registration"
+                  onCopy={onCopy}
+                  value={guardianRegistrationLinkURL(activeRegistrationLink.id)}
+                />
+              ) : (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  There is currently no active registration link.
+                </p>
+              )}
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                disabled={readOnly || issueRegistrationEntry.isPending}
-                onClick={issueLink}
-                type="button"
-              >
-                {issueRegistrationEntry.isPending
-                  ? "Issuing…"
-                  : currentEntry
-                    ? "Issue replacement link"
-                    : "Issue registration link"}
-              </Button>
-              {currentEntry && (
+            <div>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h3 className="text-sm font-medium">Organization signup notice</h3>
                 <Button
-                  disabled={readOnly || revokeRegistrationEntry.isPending}
-                  onClick={() => setRegistrationRevokeOpen(true)}
+                  disabled={readOnly || configuredSignupNotice.isLoading}
+                  onClick={() => setSignupNoticeEditOpen(true)}
                   type="button"
-                  variant="destructive"
+                  variant="outline"
                 >
-                  Revoke active link
+                  Edit
                 </Button>
+              </div>
+              {configuredSignupNotice.isLoading ? (
+                <p className="mt-2 text-sm text-muted-foreground" role="status">
+                  Loading the organization signup notice…
+                </p>
+              ) : configuredSignupNotice.isError ? (
+                <Problem
+                  error={configuredSignupNotice.error}
+                  fallback="Unable to read the organization signup notice."
+                />
+              ) : signupNotice ? (
+                <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">
+                  {signupNotice}
+                </p>
+              ) : (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  No organization signup notice has been added.
+                </p>
               )}
             </div>
           </div>
-          {registrationEntry.isLoading && (
-            <p className="mt-4 text-sm text-muted-foreground" role="status">
-              Checking the current registration link…
-            </p>
-          )}
-          {currentEntry && (
-            <dl className="mt-4 grid gap-3 rounded-md border bg-muted/30 p-4 text-sm sm:grid-cols-2">
-              <div>
-                <dt className="font-medium">Status</dt>
-                <dd className="mt-1 text-muted-foreground">
-                  {currentEntryExpired ? "Expired" : "Active"}, generation {currentEntry.generation}
-                </dd>
-              </div>
-              <div>
-                <dt className="font-medium">Expires</dt>
-                <dd className="mt-1 text-muted-foreground">
-                  {formatDateTime(currentEntry.expires_at)}
-                </dd>
-              </div>
-            </dl>
-          )}
-          {currentEntryExpired && (
-            <p className="mt-3 text-sm text-muted-foreground">
-              This link has expired and cannot start new onboarding. Issue a replacement before
-              distributing another shared link.
-            </p>
-          )}
-          {activeEntryNotFound && (
-            <p className="mt-4 text-sm text-muted-foreground">
-              No active shared registration link is currently issued for this year.
-            </p>
-          )}
-          {registrationEntry.isError && !activeEntryNotFound && (
-            <Problem
-              error={registrationEntry.error}
-              fallback="Unable to read the registration link."
-            />
-          )}
-          {issueRegistrationEntry.isError && (
-            <Problem
-              error={issueRegistrationEntry.error}
-              fallback="Unable to issue the registration link."
-            />
-          )}
-          {issuedEntryLink && (
-            <div className="mt-5 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
-              <p className="font-medium">Copy this newly issued link now.</p>
-              <p className="mt-1">
-                MiniClass stores only a hash, so this bearer link cannot be shown again after this
-                screen is left. Issuing a replacement invalidates the previous shared link.
-              </p>
-              <LinkDisclosure
-                label="Shared guardian registration"
-                onCopy={onCopy}
-                value={issuedEntryLink}
-              />
-            </div>
-          )}
         </section>
 
-        <section
-          aria-labelledby="guardian-invitations"
-          className="rounded-lg border bg-card p-5 shadow-sm"
-        >
-          <h2 className="font-semibold" id="guardian-invitations">
-            Invitation contacts
-          </h2>
-          <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-            Import a CSV with an <code>email</code> column to create invitation contact metadata.
-            This action sends no email and creates no adult, student, or guardian record. Copy the
-            returned links and distribute them manually.
-          </p>
-          <form
-            className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end"
-            onSubmit={importInvitationContacts}
-          >
-            <label className="block flex-1 text-sm font-medium" htmlFor="guardian-invitation-csv">
-              Invitation CSV
-              <Input
-                accept=".csv,text/csv"
-                className="mt-2 file:mr-3 file:rounded file:border-0 file:bg-secondary file:px-3 file:py-1 file:text-xs file:font-medium"
-                disabled={readOnly || importContacts.isPending}
-                id="guardian-invitation-csv"
-                onChange={onFileChange}
-                type="file"
-              />
-            </label>
-            <Button disabled={readOnly || !document || importContacts.isPending} type="submit">
-              {importContacts.isPending ? "Importing…" : "Import invitations"}
-            </Button>
-          </form>
-          {document && (
-            <p className="mt-3 text-sm text-muted-foreground">
-              Selected <span className="font-medium text-foreground">{document.name}</span> (
-              {document.size.toLocaleString()} bytes)
-            </p>
-          )}
-          {importContacts.isError && (
-            <Problem
-              error={importContacts.error}
-              fallback="Unable to import invitation contacts."
-            />
-          )}
-          <div className="mt-5 flex flex-wrap items-center gap-3 border-t pt-5">
+        <div>
+          <div aria-label="Registration management" className="flex items-end" role="tablist">
             <Button
-              disabled={exportContacts.isPending}
-              onClick={() =>
-                exportContacts.mutate(undefined, {
-                  onSuccess: (source) => downloadCSV(source),
-                })
-              }
+              aria-controls="shared-registration-panel"
+              aria-selected={activeTab === "shared"}
+              className="relative z-10 rounded-b-none border-b-0"
+              onClick={() => setActiveTab("shared")}
+              role="tab"
               type="button"
-              variant="outline"
+              variant={activeTab === "shared" ? "default" : "outline"}
             >
-              {exportContacts.isPending ? "Preparing export…" : "Download invitation status CSV"}
+              Shared registration
             </Button>
-            <p className="text-sm text-muted-foreground">
-              The export lists invitation status and timestamps, never bearer links, and is recorded
-              in the audit log.
-            </p>
-          </div>
-          {exportContacts.isError && (
-            <Problem error={exportContacts.error} fallback="Unable to export invitation status." />
-          )}
-          {importResult && (
-            <ImportResults
-              onCopy={onCopy}
-              onRevoke={(id) => setRevocationTarget({ kind: "invitation", id })}
-              result={importResult}
-            />
-          )}
-        </section>
-
-        <section
-          aria-labelledby="guardian-onboarding-revocation"
-          className="rounded-lg border bg-card p-5 shadow-sm"
-        >
-          <h2 className="font-semibold" id="guardian-onboarding-revocation">
-            Revoke a recorded invitation or onboarding session
-          </h2>
-          <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-            Revocation immediately invalidates the selected bearer credential and cannot be undone.
-            Contact IDs are returned with the current import results. Session IDs are recorded when
-            onboarding starts; find them in the{" "}
-            <Link
-              className="font-medium text-primary hover:underline"
-              to="/audit-log?object_type=guardian_onboarding_session"
+            <Button
+              aria-controls="individual-invitations-panel"
+              aria-label="Individual invitations"
+              aria-selected={activeTab === "individual"}
+              className="relative z-10 rounded-b-none border-b-0"
+              onClick={() => setActiveTab("individual")}
+              role="tab"
+              type="button"
+              variant={activeTab === "individual" ? "default" : "outline"}
             >
-              onboarding audit history
-            </Link>
-            .
-          </p>
-          <div className="mt-5 grid gap-5 lg:grid-cols-2">
-            <form className="rounded-md border bg-muted/30 p-4" onSubmit={startContactRevocation}>
-              <label className="block text-sm font-medium" htmlFor="guardian-invitation-contact-id">
-                Invitation contact ID
-                <Input
-                  className="mt-2 font-mono"
-                  disabled={readOnly}
-                  id="guardian-invitation-contact-id"
-                  onChange={(event) => setContactID(event.target.value)}
-                  placeholder="Opaque contact ID"
-                  required
-                  value={contactID}
-                />
-              </label>
-              <Button
-                className="mt-3"
-                disabled={readOnly || !contactID.trim()}
-                type="submit"
-                variant="destructive"
-              >
-                Revoke invitation
-              </Button>
-            </form>
-            <form className="rounded-md border bg-muted/30 p-4" onSubmit={startSessionRevocation}>
-              <label className="block text-sm font-medium" htmlFor="guardian-onboarding-session-id">
-                In-progress onboarding session ID
-                <Input
-                  className="mt-2 font-mono"
-                  disabled={readOnly}
-                  id="guardian-onboarding-session-id"
-                  onChange={(event) => setSessionID(event.target.value)}
-                  placeholder="Opaque onboarding session ID"
-                  required
-                  value={sessionID}
-                />
-              </label>
-              <Button
-                className="mt-3"
-                disabled={readOnly || !sessionID.trim()}
-                type="submit"
-                variant="destructive"
-              >
-                Revoke onboarding session
-              </Button>
-            </form>
+              Individual invitations
+              <Badge aria-hidden="true" variant="secondary">
+                {invitationContacts.data?.open_count ?? 0}
+              </Badge>
+            </Button>
           </div>
-        </section>
 
-        <section
-          aria-labelledby="guardian-signup-notice"
-          className="rounded-lg border bg-card p-5 shadow-sm"
-        >
-          <h2 className="font-semibold" id="guardian-signup-notice">
-            Organization signup notice
-          </h2>
-          <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-            Set or replace the organization-wide notice shown alongside terms and privacy during
-            guardian onboarding. Saving a replacement creates a new notice version; this notice is
-            not a substitute for the required terms or privacy acceptance.
-          </p>
-          {configuredSignupNotice.isLoading && (
-            <p className="mt-3 text-sm text-muted-foreground" role="status">
-              Loading the organization signup notice…
-            </p>
+          {activeTab === "shared" && (
+            <section
+              aria-labelledby="guardian-registration-links"
+              id="shared-registration-panel"
+              role="tabpanel"
+              className="-mt-px rounded-tl-none border bg-card p-5 shadow-sm"
+            >
+              <h2 className="font-semibold" id="guardian-registration-links">
+                Shared registration links
+              </h2>
+              <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
+                Issue a shared link for this organization and year. It starts onboarding but grants
+                no roster authority; guardians still verify their mailbox and accept current terms.
+              </p>
+              <div className="mt-5 flex flex-wrap items-end gap-3">
+                <label className="text-sm font-medium" htmlFor="registration-link-expiration">
+                  Expiration date
+                  <Input
+                    id="registration-link-expiration"
+                    className="mt-2"
+                    min={localDateInputValue(new Date())}
+                    onChange={(event) => setExpirationDate(event.target.value)}
+                    type="date"
+                    value={expirationDate}
+                  />
+                </label>
+                {expirationDays !== null && (
+                  <output
+                    className="pb-2 text-sm text-muted-foreground"
+                    htmlFor="registration-link-expiration"
+                  >
+                    {expirationDays} {expirationDays === 1 ? "day" : "days"}
+                  </output>
+                )}
+                <Button
+                  disabled={
+                    readOnly ||
+                    registrationLinks.isLoading ||
+                    issueRegistrationLink.isPending ||
+                    !expirationDate
+                  }
+                  onClick={() => {
+                    if (hasActiveRegistrationLink) {
+                      setIssueReplacementOpen(true);
+                      return;
+                    }
+                    issueLink();
+                  }}
+                  type="button"
+                >
+                  {issueRegistrationLink.isPending ? "Issuing…" : "Issue registration link"}
+                </Button>
+              </div>
+              <p className="mt-2 text-sm text-muted-foreground">
+                The link expires at 23:59:59 in your local time on the selected day.
+              </p>
+              {registrationLinks.isLoading && (
+                <p className="mt-4 text-sm text-muted-foreground" role="status">
+                  Loading registration-link history…
+                </p>
+              )}
+              {registrationLinks.isError && (
+                <Problem
+                  error={registrationLinks.error}
+                  fallback="Unable to read registration-link history."
+                />
+              )}
+              {!registrationLinks.isLoading && !registrationLinks.isError && (
+                <div className="mt-5 overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Shared link</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Active from</TableHead>
+                        <TableHead>Active until</TableHead>
+                        <TableHead>
+                          <span className="sr-only">Actions</span>
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {links.length === 0 ? (
+                        <TableRow>
+                          <TableCell className="text-muted-foreground" colSpan={5}>
+                            No shared registration links have been issued.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        links.map((link) => {
+                          const status = registrationLinkStatus(link);
+                          return (
+                            <TableRow key={link.id}>
+                              <TableCell className="max-w-72">
+                                <div className="flex items-center gap-1">
+                                  <span className="break-all font-mono text-xs">
+                                    {guardianRegistrationLinkURL(link.id)}
+                                  </span>
+                                  {status === "Active" && (
+                                    <Button
+                                      aria-label="Copy shared registration link"
+                                      className="shrink-0"
+                                      onClick={() =>
+                                        onCopy(
+                                          guardianRegistrationLinkURL(link.id),
+                                          "Shared guardian registration link",
+                                        )
+                                      }
+                                      size="icon"
+                                      type="button"
+                                      variant="outline"
+                                    >
+                                      <Copy aria-hidden="true" className="size-4" />
+                                    </Button>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={registrationLinkStatusVariant(status)}>
+                                  {status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>{formatDateTime(link.created_at)}</TableCell>
+                              <TableCell>
+                                {formatDateTime(registrationLinkActiveUntil(link))}
+                              </TableCell>
+                              <TableCell>
+                                {status === "Active" && (
+                                  <div className="flex gap-2">
+                                    <Button
+                                      onClick={() => {
+                                        setEditingLink(link);
+                                        setExpirationDate(link.expires_at.slice(0, 10));
+                                      }}
+                                      type="button"
+                                      variant="outline"
+                                    >
+                                      Edit expiration
+                                    </Button>
+                                    <Button
+                                      onClick={() => setRegistrationRevokeLink(link)}
+                                      type="button"
+                                      variant="destructive"
+                                    >
+                                      Revoke
+                                    </Button>
+                                  </div>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+              <div className="mt-4 flex gap-2">
+                <Button
+                  disabled={registrationCursorHistory.length === 0}
+                  onClick={() => {
+                    const previous =
+                      registrationCursorHistory[registrationCursorHistory.length - 1];
+                    setRegistrationCursorHistory((history) => history.slice(0, -1));
+                    setRegistrationCursor(previous);
+                  }}
+                  type="button"
+                  variant="outline"
+                >
+                  Prev
+                </Button>
+                <Button
+                  disabled={!registrationLinks.data?.next_cursor}
+                  onClick={() => {
+                    setRegistrationCursorHistory((history) => [
+                      ...history,
+                      registrationCursor ?? "",
+                    ]);
+                    setRegistrationCursor(registrationLinks.data?.next_cursor);
+                  }}
+                  type="button"
+                  variant="outline"
+                >
+                  Next
+                </Button>
+              </div>
+              {issueRegistrationLink.isError && (
+                <Problem
+                  error={issueRegistrationLink.error}
+                  fallback="Unable to issue the registration link."
+                />
+              )}
+              {issuedLinkURL && (
+                <div className="mt-5 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+                  <p className="font-medium">Copy this newly issued link now.</p>
+                  <p className="mt-1">
+                    It cannot be shown again after this screen is left. Issuing a replacement
+                    revokes the previously active link.
+                  </p>
+                  <LinkDisclosure
+                    label="Shared guardian registration"
+                    onCopy={onCopy}
+                    value={issuedLinkURL}
+                  />
+                </div>
+              )}
+            </section>
           )}
-          {configuredSignupNotice.data?.signup_notice && (
-            <p className="mt-3 text-sm text-muted-foreground">
-              Current notice version {configuredSignupNotice.data.signup_notice.version} is shown
-              below.
-            </p>
-          )}
-          {configuredSignupNotice.isError && (
-            <Problem
-              error={configuredSignupNotice.error}
-              fallback="Unable to read the organization signup notice."
-            />
-          )}
-          <form className="mt-5 space-y-3" onSubmit={saveSignupNotice}>
-            <label className="block text-sm font-medium" htmlFor="guardian-signup-notice-content">
-              Notice text
-              <textarea
-                className="mt-2 flex min-h-32 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={readOnly || updateSignupNotice.isPending}
-                id="guardian-signup-notice-content"
-                onChange={(event) => setSignupNoticeDraft(event.target.value)}
-                placeholder="Add an organization-specific notice for guardians"
-                value={signupNotice}
-              />
-            </label>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                disabled={readOnly || updateSignupNotice.isPending || !signupNotice.trim()}
-                type="submit"
+
+          {activeTab === "individual" && (
+            <section
+              aria-labelledby="guardian-invitations"
+              id="individual-invitations-panel"
+              role="tabpanel"
+              className="-mt-px rounded-tl-none border bg-card p-5 shadow-sm"
+            >
+              <h2 className="font-semibold" id="guardian-invitations">
+                Invitation contacts
+              </h2>
+              <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
+                Import a CSV with an <code>email</code> column to create invitation contact
+                metadata. This action sends no email and creates no adult, student, or guardian
+                record. Copy the returned links and distribute them manually.
+              </p>
+              <form
+                className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end"
+                onSubmit={importInvitationContacts}
               >
-                {updateSignupNotice.isPending ? "Saving…" : "Save replacement notice"}
-              </Button>
-              <Button
-                disabled={readOnly || updateSignupNotice.isPending}
-                onClick={() => setRemoveNoticeOpen(true)}
-                type="button"
-                variant="destructive"
-              >
-                Remove notice
-              </Button>
-            </div>
-          </form>
-          {savedPolicy && (
-            <p className="mt-4 rounded-md border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-              {savedPolicy.signup_notice
-                ? `Saved notice version ${savedPolicy.signup_notice.version}.`
-                : "The organization signup notice has been removed."}
-            </p>
+                <label
+                  className="block flex-1 text-sm font-medium"
+                  htmlFor="guardian-invitation-csv"
+                >
+                  Invitation CSV
+                  <Input
+                    accept=".csv,text/csv"
+                    className="mt-2 file:mr-3 file:rounded file:border-0 file:bg-secondary file:px-3 file:py-1 file:text-xs file:font-medium"
+                    disabled={readOnly || importContacts.isPending}
+                    id="guardian-invitation-csv"
+                    onChange={onFileChange}
+                    type="file"
+                  />
+                </label>
+                <Button disabled={readOnly || !document || importContacts.isPending} type="submit">
+                  {importContacts.isPending ? "Importing…" : "Import invitations"}
+                </Button>
+              </form>
+              {document && (
+                <p className="mt-3 text-sm text-muted-foreground">
+                  Selected <span className="font-medium text-foreground">{document.name}</span> (
+                  {document.size.toLocaleString()} bytes)
+                </p>
+              )}
+              {importContacts.isError && (
+                <Problem
+                  error={importContacts.error}
+                  fallback="Unable to import invitation contacts."
+                />
+              )}
+              <div className="mt-5 flex flex-wrap items-center gap-3 border-t pt-5">
+                <Button
+                  disabled={exportContacts.isPending}
+                  onClick={() =>
+                    exportContacts.mutate(undefined, {
+                      onSuccess: (source) => downloadCSV(source),
+                    })
+                  }
+                  type="button"
+                  variant="outline"
+                >
+                  {exportContacts.isPending
+                    ? "Preparing export…"
+                    : "Download invitation status CSV"}
+                </Button>
+                <p className="text-sm text-muted-foreground">
+                  The export lists invitation status and timestamps, never bearer links, and is
+                  recorded in the audit log.
+                </p>
+              </div>
+              {exportContacts.isError && (
+                <Problem
+                  error={exportContacts.error}
+                  fallback="Unable to export invitation status."
+                />
+              )}
+              {importResult && (
+                <ImportResults
+                  onCopy={onCopy}
+                  onRevoke={(id) => setRevocationTarget({ id })}
+                  result={importResult}
+                />
+              )}
+              <div className="mt-6 border-t pt-5">
+                <h3 className="font-semibold">Individual invitations</h3>
+                {invitationContacts.isLoading && (
+                  <p className="mt-3 text-sm text-muted-foreground" role="status">
+                    Loading invitations…
+                  </p>
+                )}
+                {invitationContacts.isError && (
+                  <Problem
+                    error={invitationContacts.error}
+                    fallback="Unable to read individual invitations."
+                  />
+                )}
+                {!invitationContacts.isLoading && !invitationContacts.isError && (
+                  <div className="mt-4 overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Email</TableHead>
+                          <TableHead>Issued</TableHead>
+                          <TableHead>Expires</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>
+                            <span className="sr-only">Actions</span>
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(invitationContacts.data?.contacts ?? []).length === 0 ? (
+                          <TableRow>
+                            <TableCell className="text-muted-foreground" colSpan={5}>
+                              No individual invitations have been issued.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          (invitationContacts.data?.contacts ?? []).map((contact) => (
+                            <TableRow key={contact.id}>
+                              <TableCell>{contact.email}</TableCell>
+                              <TableCell>{formatDateTime(contact.created_at)}</TableCell>
+                              <TableCell>{formatDateTime(contact.expires_at)}</TableCell>
+                              <TableCell>
+                                <Badge
+                                  variant={
+                                    contact.status === "pending"
+                                      ? "success"
+                                      : contact.status === "revoked"
+                                        ? "secondary"
+                                        : "warning"
+                                  }
+                                >
+                                  {contact.status === "pending"
+                                    ? "Active"
+                                    : contact.status === "redeemed"
+                                      ? "Accepted"
+                                      : contact.status[0].toUpperCase() + contact.status.slice(1)}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                {contact.status === "pending" && (
+                                  <Button
+                                    disabled={readOnly}
+                                    onClick={() => setRevocationTarget({ id: contact.id })}
+                                    type="button"
+                                    variant="destructive"
+                                  >
+                                    Revoke
+                                  </Button>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+                <div className="mt-4 flex gap-2">
+                  <Button
+                    disabled={invitationCursorHistory.length === 0}
+                    onClick={() => {
+                      const previous = invitationCursorHistory[invitationCursorHistory.length - 1];
+                      setInvitationCursorHistory((history) => history.slice(0, -1));
+                      setInvitationCursor(previous);
+                    }}
+                    type="button"
+                    variant="outline"
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    disabled={!invitationContacts.data?.next_cursor}
+                    onClick={() => {
+                      if (invitationCursor)
+                        setInvitationCursorHistory((history) => [...history, invitationCursor]);
+                      else setInvitationCursorHistory((history) => [...history, ""]);
+                      setInvitationCursor(invitationContacts.data?.next_cursor);
+                    }}
+                    type="button"
+                    variant="outline"
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            </section>
           )}
-          {updateSignupNotice.isError && (
-            <Problem
-              error={updateSignupNotice.error}
-              fallback="Unable to update the signup notice."
-            />
-          )}
-        </section>
+        </div>
       </div>
 
       {copied && (
@@ -702,40 +965,95 @@ export function GuardianOnboardingAdminPage() {
 
       <ModalForm
         dirty={false}
-        onClose={() => setRegistrationRevokeOpen(false)}
-        open={registrationRevokeOpen}
+        onClose={() => setIssueReplacementOpen(false)}
+        open={issueReplacementOpen}
+        title="Replace active registration link?"
+        description="Issuing this link will immediately invalidate the currently active shared registration link. Guardians will need the new link to start onboarding."
+      >
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button
+            disabled={issueRegistrationLink.isPending}
+            onClick={() => setIssueReplacementOpen(false)}
+            type="button"
+            variant="outline"
+          >
+            Cancel
+          </Button>
+          <Button disabled={issueRegistrationLink.isPending} onClick={issueLink} type="button">
+            {issueRegistrationLink.isPending ? "Issuing…" : "Issue replacement link"}
+          </Button>
+        </div>
+      </ModalForm>
+
+      <ModalForm
+        dirty={false}
+        onClose={() => setEditingLink(null)}
+        open={Boolean(editingLink)}
+        title="Edit registration-link expiration"
+        description="The selected link remains active through 23:59:59 local time on this date."
+      >
+        <div className="space-y-4">
+          <label className="block text-sm font-medium" htmlFor="edit-registration-link-expiration">
+            Expiration date
+            <Input
+              id="edit-registration-link-expiration"
+              className="mt-2"
+              onChange={(event) => setExpirationDate(event.target.value)}
+              type="date"
+              value={expirationDate}
+            />
+          </label>
+          <div className="flex gap-2">
+            <Button
+              disabled={updateRegistrationLink.isPending || !expirationDate}
+              onClick={saveExpiration}
+              type="button"
+            >
+              {updateRegistrationLink.isPending ? "Saving…" : "Save expiration"}
+            </Button>
+            <Button onClick={() => setEditingLink(null)} type="button" variant="outline">
+              Cancel
+            </Button>
+          </div>
+          {updateRegistrationLink.isError && (
+            <Problem
+              error={updateRegistrationLink.error}
+              fallback="Unable to update the registration-link expiration."
+            />
+          )}
+        </div>
+      </ModalForm>
+
+      <ModalForm
+        dirty={false}
+        onClose={() => setRegistrationRevokeLink(null)}
+        open={Boolean(registrationRevokeLink)}
         title="Revoke shared registration link"
-        description="This immediately invalidates the active link. Guardians who have not already started onboarding will need a newly issued link."
+        description="This immediately invalidates this link. Guardians who have not already started onboarding will need a newly issued link."
       >
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">This action is recorded in the audit log.</p>
           <div className="flex gap-2">
             <Button
-              disabled={revokeRegistrationEntry.isPending}
+              disabled={revokeRegistrationLink.isPending}
               onClick={() =>
-                revokeRegistrationEntry.mutate(undefined, {
-                  onSuccess: () => {
-                    setIssuedEntry(null);
-                    setRegistrationRevokeOpen(false);
-                  },
+                registrationRevokeLink &&
+                revokeRegistrationLink.mutate(registrationRevokeLink.id, {
+                  onSuccess: () => setRegistrationRevokeLink(null),
                 })
               }
               type="button"
               variant="destructive"
             >
-              {revokeRegistrationEntry.isPending ? "Revoking…" : "Revoke link"}
+              {revokeRegistrationLink.isPending ? "Revoking…" : "Revoke link"}
             </Button>
-            <Button
-              onClick={() => setRegistrationRevokeOpen(false)}
-              type="button"
-              variant="outline"
-            >
+            <Button onClick={() => setRegistrationRevokeLink(null)} type="button" variant="outline">
               Cancel
             </Button>
           </div>
-          {revokeRegistrationEntry.isError && (
+          {revokeRegistrationLink.isError && (
             <Problem
-              error={revokeRegistrationEntry.error}
+              error={revokeRegistrationLink.error}
               fallback="Unable to revoke the registration link."
             />
           )}
@@ -746,11 +1064,7 @@ export function GuardianOnboardingAdminPage() {
         dirty={false}
         onClose={() => setRevocationTarget(null)}
         open={Boolean(revocationTarget)}
-        title={
-          revocationTarget?.kind === "invitation"
-            ? "Revoke guardian invitation"
-            : "Revoke guardian onboarding session"
-        }
+        title="Revoke guardian invitation"
         description="This immediately invalidates the selected bearer credential. The action cannot be undone and is recorded in the audit log."
       >
         <div className="space-y-4">
@@ -780,6 +1094,57 @@ export function GuardianOnboardingAdminPage() {
       </ModalForm>
 
       <ModalForm
+        dirty={signupNoticeDraft !== null}
+        onClose={() => {
+          setSignupNoticeDraft(null);
+          setSignupNoticeEditOpen(false);
+        }}
+        open={signupNoticeEditOpen}
+        title="Edit organization signup notice"
+        description="This notice is shown alongside terms and privacy during guardian onboarding."
+      >
+        <form className="space-y-4" onSubmit={saveSignupNotice}>
+          <label className="block text-sm font-medium" htmlFor="guardian-signup-notice-content">
+            Notice text
+            <textarea
+              className="mt-2 flex min-h-32 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={readOnly || updateSignupNotice.isPending}
+              id="guardian-signup-notice-content"
+              onChange={(event) => setSignupNoticeDraft(event.target.value)}
+              placeholder="Add an organization-specific notice for guardians"
+              value={signupNotice}
+            />
+          </label>
+          <div className="flex flex-wrap justify-between gap-2">
+            <Button
+              disabled={readOnly || updateSignupNotice.isPending || !signupNotice.trim()}
+              type="submit"
+            >
+              {updateSignupNotice.isPending ? "Saving…" : "Save notice"}
+            </Button>
+            <Button
+              disabled={
+                readOnly ||
+                updateSignupNotice.isPending ||
+                !configuredSignupNotice.data?.signup_notice
+              }
+              onClick={() => setRemoveNoticeOpen(true)}
+              type="button"
+              variant="destructive"
+            >
+              Remove notice
+            </Button>
+          </div>
+          {updateSignupNotice.isError && (
+            <Problem
+              error={updateSignupNotice.error}
+              fallback="Unable to update the signup notice."
+            />
+          )}
+        </form>
+      </ModalForm>
+
+      <ModalForm
         dirty={false}
         onClose={() => setRemoveNoticeOpen(false)}
         open={removeNoticeOpen}
@@ -792,9 +1157,9 @@ export function GuardianOnboardingAdminPage() {
               disabled={updateSignupNotice.isPending}
               onClick={() =>
                 updateSignupNotice.mutate(null, {
-                  onSuccess: (policy) => {
-                    setSavedPolicy(policy);
+                  onSuccess: () => {
                     setSignupNoticeDraft("");
+                    setSignupNoticeEditOpen(false);
                     setRemoveNoticeOpen(false);
                   },
                 })

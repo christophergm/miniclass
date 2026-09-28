@@ -156,6 +156,26 @@ func registerOperations(api huma.API, options RouterOptions) {
 		Errors: []int{http.StatusNotFound, http.StatusConflict},
 	}, auth.CapabilityManageRoster, false, guardianOnboarding.CreateRegistrationEntry)
 	registerOperation(api, huma.Operation{
+		OperationID: "list-guardian-registration-links", Method: http.MethodGet,
+		Path: apiBasePath + "/school-years/{schoolYearID}/guardian-registration-links", Summary: "List guardian registration-link history",
+		Errors: []int{http.StatusBadRequest, http.StatusNotFound},
+	}, auth.CapabilityManageRoster, false, guardianOnboarding.ListRegistrationEntries)
+	registerOperation(api, huma.Operation{
+		OperationID: "create-guardian-registration-link", Method: http.MethodPost,
+		Path: apiBasePath + "/school-years/{schoolYearID}/guardian-registration-links", Summary: "Issue a guardian registration link",
+		Errors: []int{http.StatusBadRequest, http.StatusConflict},
+	}, auth.CapabilityManageRoster, false, guardianOnboarding.CreateRegistrationEntry)
+	registerOperation(api, huma.Operation{
+		OperationID: "update-guardian-registration-link", Method: http.MethodPatch,
+		Path: apiBasePath + "/school-years/{schoolYearID}/guardian-registration-links/{linkID}", Summary: "Update an active guardian registration link expiration",
+		Errors: []int{http.StatusBadRequest, http.StatusNotFound, http.StatusConflict},
+	}, auth.CapabilityManageRoster, false, guardianOnboarding.UpdateRegistrationEntry)
+	registerOperation(api, huma.Operation{
+		OperationID: "revoke-guardian-registration-link", Method: http.MethodPost,
+		Path: apiBasePath + "/school-years/{schoolYearID}/guardian-registration-links/{linkID}/revoke", Summary: "Revoke an active guardian registration link",
+		Errors: []int{http.StatusBadRequest, http.StatusNotFound, http.StatusConflict},
+	}, auth.CapabilityManageRoster, false, guardianOnboarding.RevokeRegistrationEntryByID)
+	registerOperation(api, huma.Operation{
 		OperationID: "get-guardian-registration-entry", Method: http.MethodGet,
 		Path: apiBasePath + "/school-years/{schoolYearID}/guardian-registration-entry", Summary: "Read the current guardian registration entry",
 		Errors: []int{http.StatusNotFound},
@@ -165,6 +185,11 @@ func registerOperations(api huma.API, options RouterOptions) {
 		Path: apiBasePath + "/school-years/{schoolYearID}/guardian-registration-entry/revoke", Summary: "Revoke a guardian registration entry",
 		Errors: []int{http.StatusNotFound, http.StatusConflict},
 	}, auth.CapabilityManageRoster, false, guardianOnboarding.RevokeRegistrationEntry)
+	registerOperation(api, huma.Operation{
+		OperationID: "list-guardian-invitation-contacts", Method: http.MethodGet,
+		Path: apiBasePath + "/school-years/{schoolYearID}/guardian-invitation-contacts", Summary: "List guardian invitation contacts",
+		Errors: []int{http.StatusBadRequest, http.StatusNotFound},
+	}, auth.CapabilityManageRoster, false, guardianOnboarding.ListInvitationContacts)
 	registerOperation(api, huma.Operation{
 		OperationID: "import-guardian-invitation-contacts", Method: http.MethodPost,
 		Path: apiBasePath + "/school-years/{schoolYearID}/guardian-invitation-contacts/import", Summary: "Import guardian invitation contacts from CSV",
@@ -209,6 +234,11 @@ func registerOperations(api huma.API, options RouterOptions) {
 		Path: apiBasePath + "/guardian/onboarding/begin", Summary: "Start guardian onboarding with a registration entry",
 		Errors: []int{http.StatusNotFound, http.StatusTooManyRequests},
 	}, auth.CapabilityPublic, false, guardianOnboarding.Begin)
+	registerOperation(api, huma.Operation{
+		OperationID: "begin-guardian-onboarding-link", Method: http.MethodPost,
+		Path: apiBasePath + "/guardian/onboarding/{registrationLinkID}/begin", Summary: "Start guardian onboarding with a shared registration link",
+		Errors: []int{http.StatusNotFound, http.StatusTooManyRequests},
+	}, auth.CapabilityPublic, false, guardianOnboarding.BeginPath)
 	registerOperation(api, huma.Operation{
 		OperationID: "redeem-guardian-invitation", Method: http.MethodPost,
 		Path: apiBasePath + "/guardian/onboarding/invitation/redeem", Summary: "Redeem a guardian invitation",

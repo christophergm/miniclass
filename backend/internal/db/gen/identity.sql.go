@@ -58,7 +58,7 @@ values ($1, $2, $3, $4)
 returning id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation, parent_token_id, mailbox_verified_at
+    mfa_generation, parent_token_id, mailbox_verified_at, guardian_registration_revocation_kind, guardian_registration_revoked_by_user_id
 `
 
 type CreateAccessTokenParams struct {
@@ -98,6 +98,8 @@ func (q *Queries) CreateAccessToken(ctx context.Context, arg CreateAccessTokenPa
 		&i.MfaGeneration,
 		&i.ParentTokenID,
 		&i.MailboxVerifiedAt,
+		&i.GuardianRegistrationRevocationKind,
+		&i.GuardianRegistrationRevokedByUserID,
 	)
 	return i, err
 }
@@ -227,7 +229,7 @@ const getAccessTokenByHash = `-- name: GetAccessTokenByHash :one
 select id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation, parent_token_id, mailbox_verified_at
+    mfa_generation, parent_token_id, mailbox_verified_at, guardian_registration_revocation_kind, guardian_registration_revoked_by_user_id
 from access_tokens
 where token_hash = $1
 `
@@ -257,6 +259,8 @@ func (q *Queries) GetAccessTokenByHash(ctx context.Context, tokenHash []byte) (A
 		&i.MfaGeneration,
 		&i.ParentTokenID,
 		&i.MailboxVerifiedAt,
+		&i.GuardianRegistrationRevocationKind,
+		&i.GuardianRegistrationRevokedByUserID,
 	)
 	return i, err
 }
@@ -265,7 +269,7 @@ const getAccessTokenByID = `-- name: GetAccessTokenByID :one
 select id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation, parent_token_id, mailbox_verified_at
+    mfa_generation, parent_token_id, mailbox_verified_at, guardian_registration_revocation_kind, guardian_registration_revoked_by_user_id
 from access_tokens
 where id = $1
 `
@@ -295,6 +299,8 @@ func (q *Queries) GetAccessTokenByID(ctx context.Context, id ids.XID) (AccessTok
 		&i.MfaGeneration,
 		&i.ParentTokenID,
 		&i.MailboxVerifiedAt,
+		&i.GuardianRegistrationRevocationKind,
+		&i.GuardianRegistrationRevokedByUserID,
 	)
 	return i, err
 }

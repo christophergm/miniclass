@@ -957,10 +957,11 @@ step-up MFA.
 
 Authentication and session requirements:
 
-- Registration, invitation and OTP endpoints MUST be rate-limited. Registration-entry tokens,
-  invitation tokens and OTP challenges MUST be stored only as verifiers. Invitation tokens and OTP
-  challenges MUST be short-lived and single-use. A successful challenge creates a revocable session;
-  it does not create an account or permanently copy the adult's student scope into the session.
+- Registration, invitation and OTP endpoints MUST be rate-limited. A shared registration entry link
+  is a stored public routing identifier as defined in §11.3; it is not a bearer credential. Personal
+  invitation tokens and OTP challenges MUST be stored only as verifiers, and MUST be short-lived and
+  single-use. A successful challenge creates a revocable session; it does not create an account or
+  permanently copy the adult's student scope into the session.
 - Sessions MUST have an absolute bound and an idle bound, and MUST be invalidatable server-side.
   Renewal MUST NOT restore a revoked session or an authorization that the current relationships no
   longer grant.
@@ -1001,8 +1002,9 @@ to administration. Survey mode MUST NOT expose administrative or program-wide da
   student-code denial, account-link scope, OTP single-use and expiry, MFA assurance and reset
   invalidation, code regeneration/revocation, and audit attribution. These tests are required for a
   new access path, not optional end-to-end coverage. Guardian registration additionally requires tests
-  for entry-link and invitation scope, terms acceptance before writes, minimal match disclosure, rate
-  limiting, and rejection of closed or revoked registration surfaces.
+  for public-link and invitation scope, terms acceptance before writes, minimal match disclosure, rate
+  limiting, registration-link history isolation, and neutral rejection of expired, revoked, closed, or
+  purged registration surfaces.
 
 ### 9.5 Share-link security model
 
@@ -1297,11 +1299,34 @@ accept the current terms before entering personal data.
 
 Requirements:
 
-- A registration entry link, if used, MUST be high-entropy, stored hashed, expiring, revocable and
-  regenerable. It MUST be bound to exactly one organization and school year and MUST NOT encode either
-  identifier.
-- Registration MUST have an opening and closing time. A closed or revoked registration surface MUST
-  reject onboarding cleanly and MUST NOT reveal whether any named person exists.
+- A shared registration entry link, if used, MUST be a system-generated opaque application XID
+  published at `/guardian/onboarding/{registrationLinkID}`. It is a public routing identifier, not a
+  bearer credential: its plaintext value MUST be stored, may be displayed to `Owner` and
+  `Administrator` roles with roster-management access, and MUST NOT encode its organization or school
+  year. The identifier only selects the registration surface; it MUST NOT grant consent, mailbox proof,
+  matching, roster access, or write authority.
+- A link is bound to exactly one organization and school year. There MUST be at most one active link
+  for a school year. Issuing a replacement MUST atomically revoke the preceding active link and retain
+  it in history; a link already expired when a replacement is issued remains expired.
+- An administrator chooses each link expiry. The default is 30 calendar days after issuance; the
+  selected date expires at 23:59:59 in the issuing administrator's browser timezone and is stored as
+  an unambiguous instant. Expiry MUST be later than issuance and no later than one year after original
+  issuance. An active link's expiry MAY be changed without changing its identifier, subject to those
+  same bounds. Expired and revoked links are immutable.
+- The administration surface MUST retain every issued link, including its public URL, status, issue
+  and expiry times, and any revocation time, kind, and actor. It MUST page this history, initially
+  loading no more than ten entries. Explicit revocation records `Manually revoked`; replacement records
+  `Replaced by generation N`; both are audited with the actor and time.
+- Registration opens only from an active link in an open school year. Closed or purged years are
+  history-only for administrators and their public links are unavailable. Expired, revoked, closed,
+  purged, or unknown public links MUST reject onboarding with the same neutral unavailable response
+  and MUST NOT reveal organization, year, link status, or whether any named person exists.
+- Opening a public link MUST show a landing surface. It MUST NOT create an onboarding session until
+  the guardian explicitly starts registration. The resulting registration and OTP endpoints remain
+  rate-limited and monitored for unusual activity (§22.5).
+- The prior hash-only shared registration-link scheme has no compatibility route. A transition to this
+  model MUST revoke existing hash-only shared links; personal invitations, OTPs, and sessions retain
+  their high-entropy hashed bearer-token lifecycle.
 - Guardian onboarding begins with verified mailbox control. The default proof is the same short-lived,
   single-use OTP mechanism used for guardian access (§9.3). A guardian MUST NOT create an adult
   record, create a student, select a matched student, or create a guardian relationship until the
@@ -1309,8 +1334,7 @@ Requirements:
 - Terms acceptance MUST record the organization, school year, verified email principal, terms version,
   privacy-notice version, timestamp and source surface. Acceptance is year-scoped. A later material
   terms change MAY require re-acceptance before further guardian writes.
-- Registration and OTP endpoints MUST be rate-limited and monitored for unusual activity (§22.5).
-  Protection against automated abuse MAY add a low-friction challenge, but MUST NOT require a password
+- Protection against automated abuse MAY add a low-friction challenge, but MUST NOT require a password
   account.
 
 **Invitation email import is the one permitted production bulk import exception.** Administrators MAY
@@ -1329,8 +1353,11 @@ accepted and linked to the resulting consent event.
 
 Automated bulk invitation delivery, bounce handling and reminders are deferred (§24.1). v1 may
 generate or export invitation links for administrators to distribute through existing channels.
-After onboarding, guardian access uses normal OTP; an invitation link is not a reusable magic-login
-link.
+A successful onboarding completion MAY exchange its still-current, mailbox-verified, single-use
+onboarding session for the guardian's first bounded guardian session; this avoids asking for the same
+mailbox proof twice. The onboarding session MUST be consumed by that exchange and the resulting
+session remains revocable. After that first session, guardian access uses normal OTP; an invitation
+link is not a reusable magic-login link.
 
 Guardian registration SHOULD feel like a short guided flow, not account creation. A guardian receives
 a bounded, revocable session after mailbox proof and terms acceptance, but does not receive a
@@ -1472,8 +1499,9 @@ are not revoked solely because regeneration was needed.
 Guardian onboarding, add-student, edit, detach, delete and adult self-deletion actions MUST atomically
 record the adult data, terms version, each student outcome, each guardian relationship created or
 removed, the organization and school year, actor, channel, submission time, and whether a candidate
-match was selected or bypassed. Plaintext OTPs, invitation tokens, registration-entry tokens and other
-bearer secrets MUST NOT be stored.
+match was selected or bypassed. A shared registration link's public routing XID is not a bearer secret
+and is stored as specified in §11.3. Plaintext OTPs, personal invitation tokens, and other bearer
+secrets MUST NOT be stored.
 
 Every created person and relationship MUST retain its creation provenance. Administrator add, edit,
 delete, de-identify, duplicate reconciliation, placeholder reconciliation and relationship removal
@@ -2996,7 +3024,7 @@ Every way personal data leaves the administrative interface, and its control:
 
 | Surface | Control |
 |---|---|
-| Guardian registration entry | Organization-and-year-scoped, expiring and revocable entry link; no write authority until mailbox proof and terms acceptance (§11.3) |
+| Guardian registration entry | Public organization-and-year-scoped routing link, expiring and revocable; no write authority until explicit start, mailbox proof, and terms acceptance (§11.3) |
 | Invitation email import/export | Production bulk exception for contact metadata only; no adult/student records before redemption (§11.3) |
 | Student matching | Guardian-authenticated; minimal candidate display only (§11.5) |
 | Guardian view | Authenticated; own profile and current guardian-scoped students only (§6.2) |
@@ -3142,7 +3170,7 @@ these questions are currently unanswerable even in principle (§3.3).
 | **Solve run** | An immutable record of one execution of the assignment engine (§20.2) |
 | **Share link** | An unauthenticated, session-scoped, expiring URL serving a published artifact (§9.5) |
 | **Guardian** | An adult with a recorded relationship to a student, normally self-asserted after mailbox proof and terms acceptance; the unit of submission scope and OTP addressing (§8.2, §11) |
-| **Registration entry link** | A high-entropy, organization-and-year-scoped link that routes a guardian to onboarding but grants no roster write authority without mailbox proof and terms acceptance (§11.3) |
+| **Registration entry link** | A stored public XID, scoped to one organization and school year, that routes a guardian to onboarding but grants no authority without an explicit start, mailbox proof, and terms acceptance (§11.3) |
 | **Invitation contact** | Imported email-only registration metadata for one organization and school year; not an adult, student or guardian record until redeemed (§11.3) |
 | **Placeholder student** | Administrator-created, intentionally de-identified student used to represent an unregistered child for operational placement (§11.7) |
 | **Purged year** | A closed school year whose personal and operational data has been removed, leaving only a non-identifying shell (§21.4) |

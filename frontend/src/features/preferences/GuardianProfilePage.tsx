@@ -61,7 +61,6 @@ export function GuardianProfilePage() {
         legal_given_name: draft.legalGivenName,
         legal_family_name: draft.legalFamilyName,
         preferred_given_name: draft.preferredGivenName,
-        email: draft.email,
         phone: draft.phone,
       },
       { onSuccess: () => setSaved(true) },
@@ -73,7 +72,6 @@ export function GuardianProfilePage() {
         legalGivenName: profile.data.legal_given_name,
         legalFamilyName: profile.data.legal_family_name,
         preferredGivenName: profile.data.preferred_given_name ?? "",
-        email: profile.data.email ?? "",
         phone: profile.data.phone ?? "",
       }
     : emptyDraft;
@@ -81,7 +79,6 @@ export function GuardianProfilePage() {
     draft.legalGivenName.trim() === current.legalGivenName &&
     draft.legalFamilyName.trim() === current.legalFamilyName &&
     draft.preferredGivenName.trim() === current.preferredGivenName &&
-    draft.email.trim() === current.email &&
     draft.phone.trim() === current.phone;
 
   return (
@@ -126,12 +123,6 @@ export function GuardianProfilePage() {
             onChange={(value) => updateDraft("preferredGivenName", value)}
           />
           <ProfileInput
-            label="Email (optional)"
-            type="email"
-            value={draft.email}
-            onChange={(value) => updateDraft("email", value)}
-          />
-          <ProfileInput
             label="Phone (optional)"
             type="tel"
             value={draft.phone}
@@ -168,6 +159,32 @@ export function GuardianProfilePage() {
           </Button>
         </form>
       )}
+      <section
+        className="mt-6 rounded-lg border bg-card p-5"
+        aria-labelledby="guardian-email-heading"
+      >
+        <h2 className="font-semibold" id="guardian-email-heading">
+          Email address
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          This is the verified address used to keep your guardian access secure.
+        </p>
+        <label className="mt-4 block text-sm font-medium" htmlFor="guardian-profile-email">
+          Email <span className="font-normal text-muted-foreground">(read only)</span>
+          <Input
+            aria-readonly="true"
+            className="mt-2 cursor-default border-dashed bg-muted text-muted-foreground shadow-none focus-visible:ring-0"
+            id="guardian-profile-email"
+            readOnly
+            type="email"
+            value={draft.email}
+          />
+        </label>
+        <p className="mt-3 text-sm text-muted-foreground">
+          To change this address, we’ll first confirm the new one. Email changes are not available
+          here yet.
+        </p>
+      </section>
       <section className="mt-8 rounded-lg border border-destructive/30 bg-destructive/5 p-5">
         <h2 className="font-semibold text-destructive">Delete your guardian profile</h2>
         <p className="mt-1 text-sm text-destructive/90">

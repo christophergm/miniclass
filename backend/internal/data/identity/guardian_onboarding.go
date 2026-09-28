@@ -9,9 +9,9 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-func (tx *Tx) CreateGuardianRegistrationEntry(ctx context.Context, tokenHash []byte, expiresAt time.Time, organizationID, schoolYearID ids.XID) (AccessToken, error) {
+func (tx *Tx) CreateGuardianRegistrationEntry(ctx context.Context, expiresAt time.Time, organizationID, schoolYearID ids.XID) (AccessToken, error) {
 	row, err := tx.queries.CreateGuardianRegistrationEntry(ctx, db.CreateGuardianRegistrationEntryParams{
-		TokenHash: tokenHash, ExpiresAt: timestamp(expiresAt), OrganizationID: &organizationID, SchoolYearID: &schoolYearID,
+		ExpiresAt: timestamp(expiresAt), OrganizationID: &organizationID, SchoolYearID: &schoolYearID,
 	})
 	if err != nil {
 		return AccessToken{}, err
@@ -19,8 +19,8 @@ func (tx *Tx) CreateGuardianRegistrationEntry(ctx context.Context, tokenHash []b
 	return accessToken(row)
 }
 
-func (tx *Tx) GetGuardianRegistrationEntryByHash(ctx context.Context, tokenHash []byte, now time.Time) (AccessToken, error) {
-	row, err := tx.queries.GetGuardianRegistrationEntryByHash(ctx, db.GetGuardianRegistrationEntryByHashParams{TokenHash: tokenHash, ExpiresAt: timestamp(now)})
+func (tx *Tx) GetGuardianRegistrationEntryByID(ctx context.Context, id ids.XID, now time.Time) (AccessToken, error) {
+	row, err := tx.queries.GetGuardianRegistrationEntryByID(ctx, db.GetGuardianRegistrationEntryByIDParams{ID: id, ExpiresAt: timestamp(now)})
 	if err != nil {
 		return AccessToken{}, err
 	}
@@ -35,9 +35,7 @@ func (tx *Tx) GetCurrentGuardianRegistrationEntry(ctx context.Context, organizat
 	return accessToken(row)
 }
 
-func (tx *Tx) RevokeGuardianRegistrationEntries(ctx context.Context, organizationID, schoolYearID ids.XID, at time.Time) (int64, error) {
-	return tx.queries.RevokeGuardianRegistrationEntries(ctx, db.RevokeGuardianRegistrationEntriesParams{OrganizationID: &organizationID, SchoolYearID: &schoolYearID, RevokedAt: timestamp(at)})
-}
+// Registration entries are tenant mutations and are revoked through data.Tx.
 
 func (tx *Tx) CreateGuardianInvitationToken(ctx context.Context, tokenHash []byte, expiresAt time.Time, organizationID, schoolYearID ids.XID) (AccessToken, error) {
 	row, err := tx.queries.CreateGuardianInvitationToken(ctx, db.CreateGuardianInvitationTokenParams{

@@ -5,6 +5,7 @@ import (
 	"math"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -121,14 +122,10 @@ func isGuardianOnboardingRateLimitedRoute(r *http.Request) bool {
 	if r.Method != http.MethodPost {
 		return false
 	}
-	switch r.URL.Path {
-	case apiBasePath + "/guardian/onboarding/begin",
-		apiBasePath + "/guardian/onboarding/invitation/redeem",
-		apiBasePath + "/guardian/onboarding/otp/request":
+	if r.URL.Path == apiBasePath+"/guardian/onboarding/begin" || r.URL.Path == apiBasePath+"/guardian/onboarding/invitation/redeem" || r.URL.Path == apiBasePath+"/guardian/onboarding/otp/request" {
 		return true
-	default:
-		return false
 	}
+	return strings.HasPrefix(r.URL.Path, apiBasePath+"/guardian/onboarding/") && strings.HasSuffix(r.URL.Path, "/begin")
 }
 
 func guardianOnboardingRateLimitKey(r *http.Request) string {

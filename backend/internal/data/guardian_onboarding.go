@@ -21,12 +21,28 @@ type GuardianToken struct {
 	Purpose            string
 	ExpiresAt          time.Time
 	Generation         int
+	CreatedAt          time.Time
 	OrganizationID     ids.XID
 	SchoolYearID       ids.XID
 	ParentTokenID      *ids.XID
 	RequestedEmailHash []byte
 	MailboxVerifiedAt  *time.Time
 	IdleExpiresAt      *time.Time
+}
+
+type GuardianRegistrationEntryState struct {
+	ID              ids.XID
+	ExpiresAt       time.Time
+	CreatedAt       time.Time
+	RevokedAt       *time.Time
+	RevocationKind  *string
+	RevokedByUserID *ids.XID
+	Generation      int
+}
+
+type GuardianRegistrationEntryCursor struct {
+	CreatedAt *time.Time
+	ID        *ids.XID
 }
 
 type GuardianInvitationContact struct {
@@ -46,6 +62,11 @@ type GuardianInvitationContactState struct {
 	RevokedAt  *time.Time
 	ConsumedAt *time.Time
 	Generation int
+}
+
+type GuardianInvitationContactCursor struct {
+	CreatedAt *time.Time
+	ID        *ids.XID
 }
 
 type GuardianOnboardingConsent struct {
@@ -69,16 +90,56 @@ type GuardianSignupNotice struct {
 	ContentHash    []byte
 }
 
-func (tx *Tx) CreateGuardianRegistrationEntry(ctx context.Context, tokenHash []byte, expiresAt time.Time, organizationID, schoolYearID ids.XID) (GuardianToken, error) {
-	row, err := tx.queries.CreateGuardianRegistrationEntry(ctx, db.CreateGuardianRegistrationEntryParams{TokenHash: tokenHash, ExpiresAt: timestamp(expiresAt), OrganizationID: &organizationID, SchoolYearID: &schoolYearID})
+func (tx *Tx) LockGuardianRegistrationEntries(ctx context.Context, schoolYearID ids.XID) error {
+	return tx.queries.LockGuardianRegistrationEntries(ctx, db.LockGuardianRegistrationEntriesParams{OrganizationID: string(tx.organizationID), SchoolYearID: string(schoolYearID)})
+}
+
+func (tx *Tx) CreateGuardianRegistrationEntry(ctx context.Context, expiresAt time.Time, organizationID, schoolYearID ids.XID) (GuardianToken, error) {
+	row, err := tx.queries.CreateGuardianRegistrationEntry(ctx, db.CreateGuardianRegistrationEntryParams{ExpiresAt: timestamp(expiresAt), OrganizationID: &organizationID, SchoolYearID: &schoolYearID})
 	if err != nil {
 		return GuardianToken{}, err
 	}
 	return guardianToken(row), nil
 }
 
-func (tx *Tx) RevokeGuardianRegistrationEntries(ctx context.Context, organizationID, schoolYearID ids.XID, at time.Time) (int64, error) {
-	return tx.queries.RevokeGuardianRegistrationEntries(ctx, db.RevokeGuardianRegistrationEntriesParams{OrganizationID: &organizationID, SchoolYearID: &schoolYearID, RevokedAt: timestamp(at)})
+func (tx *Tx) RevokeActiveGuardianRegistrationEntry(ctx context.Context, schoolYearID ids.XID, at time.Time, actorUserID *ids.XID) (int64, error) {
+	return tx.queries.RevokeActiveGuardianRegistrationEntry(ctx, db.RevokeActiveGuardianRegistrationEntryParams{OrganizationID: &tx.organizationID, SchoolYearID: &schoolYearID, RevokedAt: timestamp(at), GuardianRegistrationRevokedByUserID: actorUserID})
+}
+
+func (tx *Tx) RevokeGuardianRegistrationEntryByID(ctx context.Context, schoolYearID, id ids.XID, at time.Time, actorUserID *ids.XID) (bool, error) {
+	rows, err := tx.queries.RevokeGuardianRegistrationEntryByID(ctx, db.RevokeGuardianRegistrationEntryByIDParams{ID: id, OrganizationID: &tx.organizationID, SchoolYearID: &schoolYearID, RevokedAt: timestamp(at), GuardianRegistrationRevokedByUserID: actorUserID})
+	return rows == 1, err
+}
+
+func (tx *Tx) ListGuardianRegistrationEntries(ctx context.Context, schoolYearID ids.XID, cursor GuardianRegistrationEntryCursor, limit int32) ([]GuardianRegistrationEntryState, error) {
+	var createdAt pgtype.Timestamptz
+	if cursor.CreatedAt != nil && cursor.ID != nil {
+		createdAt = timestamp(*cursor.CreatedAt)
+	}
+	rows, err := tx.queries.ListGuardianRegistrationEntries(ctx, db.ListGuardianRegistrationEntriesParams{OrganizationID: &tx.organizationID, SchoolYearID: &schoolYearID, CursorCreatedAt: createdAt, CursorID: cursorID(cursor), PageSize: limit})
+	if err != nil {
+		return nil, err
+	}
+	result := make([]GuardianRegistrationEntryState, 0, len(rows))
+	for _, row := range rows {
+		result = append(result, GuardianRegistrationEntryState{ID: row.ID, ExpiresAt: row.ExpiresAt.Time, CreatedAt: row.CreatedAt.Time, RevokedAt: nullableTime(row.RevokedAt), RevocationKind: nullableString(row.GuardianRegistrationRevocationKind), RevokedByUserID: row.GuardianRegistrationRevokedByUserID, Generation: int(row.Generation)})
+	}
+	return result, nil
+}
+
+func cursorID(cursor GuardianRegistrationEntryCursor) *ids.XID {
+	if cursor.CreatedAt == nil || cursor.ID == nil {
+		return nil
+	}
+	return cursor.ID
+}
+
+func (tx *Tx) UpdateGuardianRegistrationEntryExpiry(ctx context.Context, schoolYearID, id ids.XID, expiresAt time.Time) (GuardianToken, error) {
+	row, err := tx.queries.UpdateGuardianRegistrationEntryExpiry(ctx, db.UpdateGuardianRegistrationEntryExpiryParams{ID: id, OrganizationID: &tx.organizationID, SchoolYearID: &schoolYearID, ExpiresAt: timestamp(expiresAt)})
+	if err != nil {
+		return GuardianToken{}, err
+	}
+	return guardianToken(row), nil
 }
 
 func (tx *Tx) CreateGuardianInvitationToken(ctx context.Context, tokenHash []byte, expiresAt time.Time, organizationID, schoolYearID ids.XID) (GuardianToken, error) {
@@ -236,6 +297,29 @@ func (tx *Tx) ListGuardianInvitationContacts(ctx context.Context, schoolYearID i
 	return result, nil
 }
 
+func (tx *Tx) ListGuardianInvitationContactPage(ctx context.Context, schoolYearID ids.XID, cursor GuardianInvitationContactCursor, limit int32) ([]GuardianInvitationContactState, error) {
+	var createdAt pgtype.Timestamptz
+	if cursor.CreatedAt != nil && cursor.ID != nil {
+		createdAt = timestamp(*cursor.CreatedAt)
+	}
+	rows, err := tx.queries.ListGuardianInvitationContactPage(ctx, db.ListGuardianInvitationContactPageParams{OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, CursorCreatedAt: createdAt, CursorID: cursorID(GuardianRegistrationEntryCursor(cursor)), PageSize: limit})
+	if err != nil {
+		return nil, err
+	}
+	result := make([]GuardianInvitationContactState, 0, len(rows))
+	for _, row := range rows {
+		if !row.ExpiresAt.Valid || !row.CreatedAt.Valid || !row.UpdatedAt.Valid {
+			return nil, fmt.Errorf("guardian invitation contact: required timestamp is null")
+		}
+		result = append(result, GuardianInvitationContactState{GuardianInvitationContact: GuardianInvitationContact{ID: row.ID, OrganizationID: row.OrganizationID, SchoolYearID: row.SchoolYearID, InvitationTokenID: row.InvitationTokenID, Email: row.Email, CreatedAt: row.CreatedAt.Time, UpdatedAt: row.UpdatedAt.Time}, ExpiresAt: row.ExpiresAt.Time, RevokedAt: nullableTime(row.RevokedAt), ConsumedAt: nullableTime(row.ConsumedAt), Generation: int(row.Generation)})
+	}
+	return result, nil
+}
+
+func (tx *Tx) CountOpenGuardianInvitationContacts(ctx context.Context, schoolYearID ids.XID, now time.Time) (int64, error) {
+	return tx.queries.CountOpenGuardianInvitationContacts(ctx, db.CountOpenGuardianInvitationContactsParams{OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ExpiresAt: timestamp(now)})
+}
+
 func (tx *Tx) TouchGuardianInvitationContactForRegistry(ctx context.Context, id ids.XID) (bool, error) {
 	rows, err := tx.queries.TouchGuardianInvitationContactForRegistry(ctx, db.TouchGuardianInvitationContactForRegistryParams{ID: id, OrganizationID: tx.organizationID})
 	return rows == 1, err
@@ -356,7 +440,7 @@ func (tx *Tx) UpdateGuardianSignupNotice(ctx context.Context, content *string, v
 }
 
 func guardianToken(row db.AccessToken) GuardianToken {
-	return GuardianToken{ID: row.ID, Purpose: string(row.Purpose), ExpiresAt: row.ExpiresAt.Time, Generation: int(row.Generation), OrganizationID: valueID(row.OrganizationID), SchoolYearID: valueID(row.SchoolYearID), ParentTokenID: row.ParentTokenID, RequestedEmailHash: append([]byte(nil), row.RequestedEmailHash...), MailboxVerifiedAt: nullableTime(row.MailboxVerifiedAt), IdleExpiresAt: nullableTime(row.IdleExpiresAt)}
+	return GuardianToken{ID: row.ID, Purpose: string(row.Purpose), ExpiresAt: row.ExpiresAt.Time, Generation: int(row.Generation), CreatedAt: row.CreatedAt.Time, OrganizationID: valueID(row.OrganizationID), SchoolYearID: valueID(row.SchoolYearID), ParentTokenID: row.ParentTokenID, RequestedEmailHash: append([]byte(nil), row.RequestedEmailHash...), MailboxVerifiedAt: nullableTime(row.MailboxVerifiedAt), IdleExpiresAt: nullableTime(row.IdleExpiresAt)}
 }
 
 func guardianInvitationContact(row db.GuardianInvitationContact) GuardianInvitationContact {
@@ -377,6 +461,14 @@ func guardianOnboardingConsent(row db.GuardianOnboardingConsent) GuardianOnboard
 		noticeVersion = &value
 	}
 	return GuardianOnboardingConsent{ID: row.ID, OrganizationID: row.OrganizationID, SchoolYearID: row.SchoolYearID, SessionTokenID: row.SessionTokenID, VerifiedEmail: row.VerifiedEmail, TermsVersion: row.TermsVersion, PrivacyVersion: row.PrivacyVersion, SignupNoticeVersion: noticeVersion, SignupNoticeHash: append([]byte(nil), row.SignupNoticeHash...), AcceptedAt: row.AcceptedAt.Time, SourceSurface: row.SourceSurface}
+}
+
+func nullableString(value pgtype.Text) *string {
+	if !value.Valid {
+		return nil
+	}
+	result := value.String
+	return &result
 }
 
 func valueID(value *ids.XID) ids.XID {
