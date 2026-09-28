@@ -154,7 +154,8 @@ so that `bun run dev -- --host 127.0.0.1` still works.
 
 `scripts/setup.sh` performs everything one-shot and idempotent — verify prerequisites, create `.env`
 if absent, generate keys if absent, `bun install`, start PostgreSQL, wait for readiness, apply
-migrations — and **never overwrites an existing `.env`**. `scripts/lib.sh` holds the helpers both
+migrations, and starts PostgreSQL and Mailpit — and **never overwrites an existing `.env`**.
+`scripts/lib.sh` holds the helpers both
 scripts need (`require_command`, `load_env`, `wait_for_postgres`, `log_dir`), so the smoke test and
 setup cannot drift into two different notions of "PostgreSQL is ready".
 
@@ -192,7 +193,8 @@ those root targets rather than restating their delegations, so a gate cannot div
 a developer runs by hand.
 
 Prerequisites differ per target because the needs differ. `dev-backend` takes `db-up`: the API needs
-PostgreSQL, and needs no token, because it verifies whatever arrives. `dev-frontend` takes
+PostgreSQL and local email testing needs Mailpit, while the API needs no token because it verifies
+whatever arrives. `dev-frontend` takes
 `token-mint`: Vite inlines `VITE_DEV_TOKEN` when it starts, and needs no database. `make dev`
 implements nothing at all — it prints both commands with their URLs and exits 0, which turns a bare
 Make error into an instruction.

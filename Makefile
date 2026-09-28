@@ -60,7 +60,7 @@ help: ## List every command, grouped
 	@echo ""
 	@echo "First time here? QUICKSTART.md is the ordered path."
 
-setup: ## Prepare a checkout: .env, signing keys, bun install, PostgreSQL, migrations
+setup: ## Prepare a checkout: .env, signing keys, bun install, PostgreSQL and Mailpit, migrations
 	@./scripts/setup.sh
 
 tools-install: ## Install the pinned Go tools (air, sqlc, goose, golangci-lint)
@@ -74,8 +74,8 @@ smoke: ## Run the full-stack smoke test in throwaway processes
 
 ##@ Database
 
-db-up: ## Start PostgreSQL and wait for it to be healthy
-	@docker compose up -d --wait postgres
+db-up: ## Start PostgreSQL and Mailpit; wait for PostgreSQL to be healthy
+	@docker compose up -d --wait postgres mailpit
 
 db-down: ## Stop the local database services; the data volume survives
 	@docker compose down
@@ -120,7 +120,7 @@ dev: ## Print how to run the two development processes
 	@echo "Nothing supervises them, so each hot-reloads and logs to its own terminal."
 	@echo "A checkout with no data yet needs 'make setup' and 'make db-seed' first."
 
-dev-backend: db-up ## Run the API with hot reload; needs PostgreSQL
+dev-backend: db-up ## Run the API with hot reload; starts PostgreSQL and Mailpit
 	@$(MAKE) -C backend dev
 
 dev-frontend: token-mint ## Run the Vite dev server with hot reload; needs a fresh dev token

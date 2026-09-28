@@ -134,11 +134,11 @@ log "Installing frontend dependencies..."
 (cd "$ROOT_DIR/frontend" && bun install) >"$LOG_DIR/bun-install.log" 2>&1 \
   || die "bun install failed (see $LOG_DIR/bun-install.log)"
 
-# 5. PostgreSQL.
+# 5. Local services.
 
-log "Starting PostgreSQL..."
-docker compose --env-file "$ENV_FILE" up -d postgres >"$LOG_DIR/compose-up.log" 2>&1 \
-  || die "could not start PostgreSQL (see $LOG_DIR/compose-up.log)"
+log "Starting PostgreSQL and Mailpit..."
+docker compose --env-file "$ENV_FILE" up -d postgres mailpit >"$LOG_DIR/compose-up.log" 2>&1 \
+  || die "could not start PostgreSQL and Mailpit (see $LOG_DIR/compose-up.log)"
 
 log "Waiting for PostgreSQL..."
 wait_for_postgres "$ENV_FILE" "$POSTGRES_USER" "$POSTGRES_DB" "$TIMEOUT_SECONDS" "$LOG_DIR/postgres-ready.log"
