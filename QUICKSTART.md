@@ -25,7 +25,7 @@ this list by hand.
 git clone https://github.com/christophergm/miniclass.git
 cd miniclass
 
-make setup         # .env, signing keys, bun install, PostgreSQL, migrations
+make setup         # .env, signing keys, bun install, PostgreSQL, Mailpit, migrations
 make db-seed       # a synthetic organisation, its roster, and a bound Owner login
 make tools-install # air, sqlc, goose and golangci-lint
 ```
@@ -55,9 +55,9 @@ administrator when the Owner created by `make db-seed` is already bound.
 ## What each command actually does
 
 **`make setup`** copies `.env.example` to `.env` (never overwriting an existing one), generates an
-ES256 keypair into a gitignored `.secrets/`, installs frontend dependencies, starts PostgreSQL, and
-applies migrations. It is idempotent, and it reports keys that `.env.example` has gained since your
-`.env` was copied rather than letting them read as empty.
+ES256 keypair into a gitignored `.secrets/`, installs frontend dependencies, starts PostgreSQL and
+Mailpit, and applies migrations. It is idempotent, and it reports keys that `.env.example` has gained
+since your `.env` was copied rather than letting them read as empty.
 
 **`make db-seed`** creates a fresh organisation with the deterministic synthetic corpus, issues its
 Owner invitation, and immediately claims that invitation for the local provider subject — so a
@@ -120,13 +120,9 @@ credentials in `.env`); start it with `docker compose up -d adminer`.
 
 ### Testing email one-time codes locally
 
-Mailpit is the local SMTP sink. It captures email without delivering it externally. Start it before
-the API, then add the following local-only values to the root `.env` (using the Mailpit SMTP port if
-you changed it):
-
-```sh
-docker compose up -d mailpit
-```
+Mailpit is the local SMTP sink. It captures email without delivering it externally. `make setup`
+and `make dev-backend` start it automatically. Add the following local-only values to the root `.env`
+(using the Mailpit SMTP port if you changed it):
 
 ```text
 AUTH_SMTP_ADDRESS=localhost:1025

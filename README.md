@@ -128,9 +128,9 @@ make dev-frontend    # terminal 2: app on http://localhost:5173
 
 `make dev` prints exactly those two lines and exits; there is no combined runner.
 
-Their prerequisites differ because their needs differ. `dev-backend` starts PostgreSQL first and
-needs no token, since it verifies whatever arrives. `dev-frontend` refreshes the development token
-first, because Vite inlines `VITE_DEV_TOKEN` when it starts — which is also why a token minted after
+Their prerequisites differ because their needs differ. `dev-backend` starts PostgreSQL and Mailpit
+first and needs no token, since it verifies whatever arrives. `dev-frontend` refreshes the development
+token first, because Vite inlines `VITE_DEV_TOKEN` when it starts — which is also why a token minted after
 Vite started does not take effect until Vite is restarted.
 
 **Access:**
@@ -140,6 +140,7 @@ Vite started does not take effect until Vite is restarted.
 | App | <http://localhost:5173> — signed in as `owner@example.test` in Synthetic Academy |
 | API | <http://localhost:8080/api/health> — unauthenticated by design, so it answers when a login does not |
 | Adminer | <http://localhost:8081> — server `postgres`, credentials from `.env`; start it with `docker compose up -d adminer` |
+| Mailpit | <http://localhost:8025> — local SMTP sink; started by `make setup` and `make dev-backend` |
 
 To check the whole stack, including the authenticated route, without touching the two terminals:
 
@@ -162,7 +163,7 @@ It keeps logs in a temporary directory under `TMPDIR` and prints the path.
 | Command | Does |
 |---|---|
 | `make help` | List every command, grouped |
-| `make setup` | Prepare a checkout: `.env`, signing keys, `bun install`, PostgreSQL, migrations |
+| `make setup` | Prepare a checkout: `.env`, signing keys, `bun install`, PostgreSQL and Mailpit, migrations |
 | `make tools-install` | Install the pinned Go tools (air, sqlc, goose, golangci-lint) |
 | `make generate` | Regenerate the committed backend artifacts (`internal/db/gen`, `openapi.json`) |
 | `make smoke` | Run the full-stack smoke test in throwaway processes, including invitation claiming |
@@ -171,7 +172,7 @@ It keeps logs in a temporary directory under `TMPDIR` and prints the path.
 
 | Command | Does |
 |---|---|
-| `make db-up` | Start PostgreSQL and wait for it to be healthy |
+| `make db-up` | Start PostgreSQL and Mailpit; wait for PostgreSQL to be healthy |
 | `make db-down` | Stop the local database services; the data volume survives |
 | `make db-migrate` | Apply every pending migration |
 | `make db-rollback` | Roll back the most recent migration |
@@ -199,7 +200,7 @@ or test database.
 | Command | Does |
 |---|---|
 | `make dev` | Print how to run the two development processes |
-| `make dev-backend` | Run the API with hot reload; starts PostgreSQL first |
+| `make dev-backend` | Run the API with hot reload; starts PostgreSQL and Mailpit first |
 | `make dev-frontend` | Run the Vite dev server with hot reload; refreshes the token first |
 | `make token-mint` | Refresh `VITE_DEV_TOKEN` in `.env` when it is stale (`FORCE=1` always mints) |
 
@@ -253,6 +254,8 @@ All ports are configurable in `.env` so that parallel worktrees can run simultan
 | Backend (Go API) | 8080 | `PORT` |
 | PostgreSQL | 5432 | `POSTGRES_PORT` |
 | Adminer | 8081 | `ADMINER_PORT` |
+| Mailpit SMTP | 1025 | `MAILPIT_SMTP_PORT` |
+| Mailpit web UI | 8025 | `MAILPIT_UI_PORT` |
 
 The browser reaches the API through the Vite dev proxy, so `VITE_API_URL` — the client bundle's API
 base — is **empty** locally and requests are same-origin relative `/api` calls. `API_PROXY_TARGET` is
