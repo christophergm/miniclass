@@ -368,6 +368,14 @@ func (tx *Tx) CreateGuardianOnboardingConsent(ctx context.Context, schoolYearID,
 	return guardianOnboardingConsent(row), nil
 }
 
+func (tx *Tx) GetCurrentGuardianOnboardingConsentByEmail(ctx context.Context, schoolYearID ids.XID, email string) (GuardianOnboardingConsent, error) {
+	row, err := tx.queries.GetCurrentGuardianOnboardingConsentByEmail(ctx, db.GetCurrentGuardianOnboardingConsentByEmailParams{OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, Lower: strings.TrimSpace(email)})
+	if err != nil {
+		return GuardianOnboardingConsent{}, err
+	}
+	return guardianOnboardingConsent(row), nil
+}
+
 func (tx *Tx) GetGuardianOnboardingConsent(ctx context.Context, schoolYearID, sessionTokenID ids.XID) (GuardianOnboardingConsent, error) {
 	row, err := tx.queries.GetGuardianOnboardingConsent(ctx, db.GetGuardianOnboardingConsentParams{SessionTokenID: sessionTokenID, OrganizationID: tx.organizationID, SchoolYearID: schoolYearID})
 	if err != nil {

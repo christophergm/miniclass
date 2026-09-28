@@ -374,6 +374,16 @@ returning id, organization_id, school_year_id, session_token_id, verified_email,
     terms_version, privacy_version, signup_notice_version, signup_notice_hash,
     accepted_at, source_surface;
 
+-- name: GetCurrentGuardianOnboardingConsentByEmail :one
+select id, organization_id, school_year_id, session_token_id, verified_email,
+    terms_version, privacy_version, signup_notice_version, signup_notice_hash,
+    accepted_at, source_surface
+from guardian_onboarding_consents
+where organization_id = $1 and school_year_id = $2
+  and lower(verified_email) = lower($3)
+order by accepted_at desc, id desc
+limit 1;
+
 -- name: GetGuardianOnboardingConsent :one
 select id, organization_id, school_year_id, session_token_id, verified_email,
     terms_version, privacy_version, signup_notice_version, signup_notice_hash,

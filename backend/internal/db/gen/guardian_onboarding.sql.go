@@ -622,6 +622,42 @@ func (q *Queries) FindGuardianOnboardingConsentForRegistry(ctx context.Context, 
 	return i, err
 }
 
+const getCurrentGuardianOnboardingConsentByEmail = `-- name: GetCurrentGuardianOnboardingConsentByEmail :one
+select id, organization_id, school_year_id, session_token_id, verified_email,
+    terms_version, privacy_version, signup_notice_version, signup_notice_hash,
+    accepted_at, source_surface
+from guardian_onboarding_consents
+where organization_id = $1 and school_year_id = $2
+  and lower(verified_email) = lower($3)
+order by accepted_at desc, id desc
+limit 1
+`
+
+type GetCurrentGuardianOnboardingConsentByEmailParams struct {
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+	Lower          string  `json:"lower"`
+}
+
+func (q *Queries) GetCurrentGuardianOnboardingConsentByEmail(ctx context.Context, arg GetCurrentGuardianOnboardingConsentByEmailParams) (GuardianOnboardingConsent, error) {
+	row := q.db.QueryRow(ctx, getCurrentGuardianOnboardingConsentByEmail, arg.OrganizationID, arg.SchoolYearID, arg.Lower)
+	var i GuardianOnboardingConsent
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.SchoolYearID,
+		&i.SessionTokenID,
+		&i.VerifiedEmail,
+		&i.TermsVersion,
+		&i.PrivacyVersion,
+		&i.SignupNoticeVersion,
+		&i.SignupNoticeHash,
+		&i.AcceptedAt,
+		&i.SourceSurface,
+	)
+	return i, err
+}
+
 const getCurrentGuardianRegistrationEntry = `-- name: GetCurrentGuardianRegistrationEntry :one
 select id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,

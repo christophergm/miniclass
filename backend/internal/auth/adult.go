@@ -50,6 +50,27 @@ type OTPVerification struct {
 	Now         time.Time
 }
 
+type GuardianLoginContext struct {
+	OrganizationID   ids.XID
+	SchoolYearID     ids.XID
+	OrganizationName string
+	SchoolYearLabel  string
+}
+
+type GuardianOTPVerificationResult struct {
+	GuardianSession
+	Session        *GuardianSession
+	SelectionToken string
+	Contexts       []GuardianLoginContext
+}
+
+type GuardianContextSelection struct {
+	SelectionToken string
+	OrganizationID ids.XID
+	SchoolYearID   ids.XID
+	Now            time.Time
+}
+
 type GuardianSession struct {
 	Bearer         string
 	SessionID      ids.XID
@@ -110,7 +131,8 @@ type AdultAccountLink struct {
 // AdultAuthentication contains the application-owned Phase 4 use cases.
 type AdultAuthentication interface {
 	RequestAdultOTP(context.Context, OTPRequest) (OTPRequestResult, error)
-	VerifyAdultOTP(context.Context, OTPVerification) (GuardianSession, error)
+	VerifyAdultOTP(context.Context, OTPVerification) (GuardianOTPVerificationResult, error)
+	SelectGuardianContext(context.Context, GuardianContextSelection) (GuardianSession, error)
 	CreateGuardianSessionForAccount(context.Context, ids.XID, ids.XID, ids.XID, time.Time) (GuardianSession, error)
 	VerifyMFAForGuardian(context.Context, GuardianPrincipal, string, string, time.Time) (AdministrativeSession, error)
 	ResolveSession(context.Context, string) (Principal, error)

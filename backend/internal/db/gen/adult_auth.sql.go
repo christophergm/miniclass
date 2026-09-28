@@ -14,7 +14,8 @@ import (
 
 const consumeAdultOTP = `-- name: ConsumeAdultOTP :one
 update access_tokens
-set consumed_at = now()
+set consumed_at = now(),
+    mailbox_verified_at = $5
 where id = $1
   and purpose = 'adult_otp'
   and verifier_hash = $2
@@ -29,10 +30,11 @@ returning id, token_hash, purpose, expires_at, revoked_at, consumed_at, generati
 `
 
 type ConsumeAdultOTPParams struct {
-	ID           ids.XID            `json:"id"`
-	VerifierHash []byte             `json:"verifier_hash"`
-	ExpiresAt    pgtype.Timestamptz `json:"expires_at"`
-	Attempts     int32              `json:"attempts"`
+	ID                ids.XID            `json:"id"`
+	VerifierHash      []byte             `json:"verifier_hash"`
+	ExpiresAt         pgtype.Timestamptz `json:"expires_at"`
+	Attempts          int32              `json:"attempts"`
+	MailboxVerifiedAt pgtype.Timestamptz `json:"mailbox_verified_at"`
 }
 
 func (q *Queries) ConsumeAdultOTP(ctx context.Context, arg ConsumeAdultOTPParams) (AccessToken, error) {
@@ -41,6 +43,7 @@ func (q *Queries) ConsumeAdultOTP(ctx context.Context, arg ConsumeAdultOTPParams
 		arg.VerifierHash,
 		arg.ExpiresAt,
 		arg.Attempts,
+		arg.MailboxVerifiedAt,
 	)
 	var i AccessToken
 	err := row.Scan(

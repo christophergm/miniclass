@@ -101,22 +101,17 @@ func (s *Store) RequestAdultOTP(ctx context.Context, input auth.OTPRequest) (aut
 		return auth.OTPRequestResult{}, errors.New("request adult OTP: identity store is nil")
 	}
 	input.Email = strings.ToLower(strings.TrimSpace(input.Email))
-	if input.OrganizationID == "" || input.SchoolYearID == "" || input.Email == "" {
-		return auth.OTPRequestResult{}, errors.New("request adult OTP: organization, school year, and email are required")
+	if input.Email == "" {
+		return auth.OTPRequestResult{}, errors.New("request adult OTP: email is required")
 	}
 	now := input.Now.UTC()
 	if input.Now.IsZero() {
 		now = time.Now().UTC()
 	}
 
-	var adults []data.Adult
-	err := s.tenantDatabase.InTenantRead(ctx, string(input.OrganizationID), func(ctx context.Context, tx *data.Tx) error {
-		var err error
-		adults, err = tx.FindActiveAdultsByEmail(ctx, input.SchoolYearID, input.Email)
-		return err
-	})
+	contexts, err := s.tenantDatabase.FindGuardianLoginContexts(ctx, input.Email)
 	if err != nil {
-		return auth.OTPRequestResult{}, fmt.Errorf("request adult OTP: find adult: %w", err)
+		return auth.OTPRequestResult{}, fmt.Errorf("request adult OTP: find guardian contexts: %w", err)
 	}
 	result := auth.OTPRequestResult{Accepted: true}
 	fakeChallenge, err := GenerateAccessToken()
@@ -124,9 +119,25 @@ func (s *Store) RequestAdultOTP(ctx context.Context, input auth.OTPRequest) (aut
 		return auth.OTPRequestResult{}, err
 	}
 	result.ChallengeID = fakeChallenge.Value
+	// Older callers may still provide a program context. Preserve their
+	// duplicate-email guard before the email-only flow discovers contexts across
+	// programs; either path remains neutral and never sends a code.
+	if input.OrganizationID != "" && input.SchoolYearID != "" {
+		var scopedAdults []data.Adult
+		if err := s.tenantDatabase.InTenantRead(ctx, string(input.OrganizationID), func(ctx context.Context, tx *data.Tx) error {
+			var err error
+			scopedAdults, err = tx.FindActiveAdultsByEmail(ctx, input.SchoolYearID, input.Email)
+			return err
+		}); err != nil {
+			return auth.OTPRequestResult{}, fmt.Errorf("request adult OTP: find scoped adults: %w", err)
+		}
+		if len(scopedAdults) != 1 {
+			return result, nil
+		}
+	}
 	// Unknown, missing, or duplicate email addresses deliberately take the
 	// same response path and never trigger delivery.
-	if len(adults) != 1 || adults[0].Email == nil {
+	if len(contexts) == 0 {
 		return result, nil
 	}
 
@@ -138,7 +149,9 @@ func (s *Store) RequestAdultOTP(ctx context.Context, input auth.OTPRequest) (aut
 	if err != nil {
 		return auth.OTPRequestResult{}, fmt.Errorf("request adult OTP: generate code: %w", err)
 	}
-	orgID, yearID, adultID := input.OrganizationID, input.SchoolYearID, adults[0].ID
+	// A single eligible context anchors the OTP. After mailbox proof, all
+	// eligible contexts for the verified mailbox are discovered and selected.
+	orgID, yearID, adultID := contexts[0].OrganizationID, contexts[0].SchoolYearID, contexts[0].AdultID
 	emailHash := sha256.Sum256([]byte(input.Email))
 	verifierHash := s.otpVerifier(code)
 	var challenge identitydata.AccessToken
@@ -179,12 +192,9 @@ func (s *Store) RequestAdultOTP(ctx context.Context, input auth.OTPRequest) (aut
 	return result, nil
 }
 
-func (s *Store) VerifyAdultOTP(ctx context.Context, input auth.OTPVerification) (auth.GuardianSession, error) {
-	if s == nil || s.database == nil || s.tenantDatabase == nil {
-		return auth.GuardianSession{}, errors.New("verify adult OTP: identity store is nil")
-	}
-	if input.ChallengeID == "" || strings.TrimSpace(input.Code) == "" {
-		return auth.GuardianSession{}, auth.ErrOTPInvalid
+func (s *Store) VerifyAdultOTP(ctx context.Context, input auth.OTPVerification) (auth.GuardianOTPVerificationResult, error) {
+	if s == nil || s.database == nil || s.tenantDatabase == nil || input.ChallengeID == "" || strings.TrimSpace(input.Code) == "" {
+		return auth.GuardianOTPVerificationResult{}, auth.ErrOTPInvalid
 	}
 	now := input.Now.UTC()
 	if input.Now.IsZero() {
@@ -192,54 +202,128 @@ func (s *Store) VerifyAdultOTP(ctx context.Context, input auth.OTPVerification) 
 	}
 	challengeHash, err := HashAccessToken(strings.TrimSpace(input.ChallengeID))
 	if err != nil {
-		return auth.GuardianSession{}, auth.ErrOTPInvalid
+		return auth.GuardianOTPVerificationResult{}, auth.ErrOTPInvalid
 	}
 	var challenge identitydata.AccessToken
-	err = s.databaseIdentity().InReadTx(ctx, func(ctx context.Context, tx *identitydata.Tx) error {
-		var err error
-		challenge, err = tx.GetAdultOTPByHash(ctx, challengeHash)
-		return err
-	})
-	if err != nil || challenge.OrganizationID == nil || challenge.SchoolYearID == nil || challenge.AdultID == nil {
-		return auth.GuardianSession{}, auth.ErrOTPInvalid
+	if err := s.databaseIdentity().InReadTx(ctx, func(ctx context.Context, tx *identitydata.Tx) error {
+		var readErr error
+		challenge, readErr = tx.GetAdultOTPByHash(ctx, challengeHash)
+		return readErr
+	}); err != nil || challenge.OrganizationID == nil || challenge.SchoolYearID == nil || challenge.AdultID == nil {
+		return auth.GuardianOTPVerificationResult{}, auth.ErrOTPInvalid
 	}
 	var scope data.GuardianScope
-	err = s.tenantDatabase.InTenantRead(ctx, string(*challenge.OrganizationID), func(ctx context.Context, tx *data.Tx) error {
-		var err error
-		scope, err = tx.ResolveGuardianScope(ctx, *challenge.SchoolYearID, *challenge.AdultID)
-		return err
-	})
-	if err != nil || len(scope.StudentIDs) == 0 {
-		return auth.GuardianSession{}, auth.ErrOTPInvalid
+	if err := s.tenantDatabase.InTenantRead(ctx, string(*challenge.OrganizationID), func(ctx context.Context, tx *data.Tx) error {
+		var readErr error
+		scope, readErr = tx.ResolveGuardianScope(ctx, *challenge.SchoolYearID, *challenge.AdultID)
+		return readErr
+	}); err != nil || scope.Adult.Email == nil {
+		return auth.GuardianOTPVerificationResult{}, auth.ErrOTPInvalid
 	}
-
-	sessionBearer, err := GenerateAccessToken()
-	if err != nil {
-		return auth.GuardianSession{}, err
-	}
-	var session identitydata.AccessToken
-	var invalid bool
+	invalid := false
 	err = s.databaseIdentity().InTx(ctx, func(ctx context.Context, tx *identitydata.Tx) error {
-		candidate, err := tx.ConsumeAdultOTP(ctx, challenge.ID, s.otpVerifier(strings.TrimSpace(input.Code)), now, auth.GuardianOTPAttempts)
-		if err != nil {
+		if _, consumeErr := tx.ConsumeAdultOTP(ctx, challenge.ID, s.otpVerifier(strings.TrimSpace(input.Code)), now, auth.GuardianOTPAttempts); consumeErr != nil {
 			_, incrementErr := tx.IncrementAdultOTPAttempts(ctx, challenge.ID, now, auth.GuardianOTPAttempts)
 			if incrementErr != nil {
 				return incrementErr
 			}
 			invalid = true
-			return nil
 		}
-		session, err = tx.CreateGuardianSession(ctx, sessionBearer.Hash, now.Add(guardianSessionAbsolute), challenge.OrganizationID, challenge.SchoolYearID, challenge.AdultID, now.Add(guardianSessionIdle), now)
-		_ = candidate
-		return err
+		return nil
 	})
 	if err != nil || invalid {
+		return auth.GuardianOTPVerificationResult{}, auth.ErrOTPInvalid
+	}
+	contexts, err := s.tenantDatabase.FindGuardianLoginContexts(ctx, *scope.Adult.Email)
+	if err != nil || len(contexts) == 0 {
+		return auth.GuardianOTPVerificationResult{}, auth.ErrOTPInvalid
+	}
+	result := auth.GuardianOTPVerificationResult{SelectionToken: input.ChallengeID, Contexts: guardianLoginContexts(contexts)}
+	if len(contexts) == 1 {
+		session, err := s.createGuardianSession(ctx, contexts[0], now)
+		if err != nil {
+			return auth.GuardianOTPVerificationResult{}, err
+		}
+		result.GuardianSession = session
+		result.Session = &session
+		result.SelectionToken = ""
+	}
+	return result, nil
+}
+
+func (s *Store) SelectGuardianContext(ctx context.Context, input auth.GuardianContextSelection) (auth.GuardianSession, error) {
+	if s == nil || s.database == nil || input.SelectionToken == "" || input.OrganizationID == "" || input.SchoolYearID == "" {
 		return auth.GuardianSession{}, auth.ErrOTPInvalid
 	}
-	if err := s.recordAuthAudit(ctx, string(*challenge.OrganizationID), audit.Entry{Action: audit.ActionOTPVerified, ObjectType: "guardian_session", ObjectID: &session.ID, SchoolYearID: challenge.SchoolYearID, ChangeSummary: []byte(`{"mode":"guardian"}`)}, now); err != nil {
+	now := input.Now.UTC()
+	if input.Now.IsZero() {
+		now = time.Now().UTC()
+	}
+	hash, err := HashAccessToken(strings.TrimSpace(input.SelectionToken))
+	if err != nil {
+		return auth.GuardianSession{}, auth.ErrOTPInvalid
+	}
+	var challenge identitydata.AccessToken
+	if err := s.databaseIdentity().InReadTx(ctx, func(ctx context.Context, tx *identitydata.Tx) error {
+		var readErr error
+		challenge, readErr = tx.GetAdultOTPByHash(ctx, hash)
+		return readErr
+	}); err != nil || challenge.ConsumedAt == nil || challenge.MailboxVerifiedAt == nil || !now.Before(challenge.ExpiresAt) || challenge.OrganizationID == nil || challenge.SchoolYearID == nil || challenge.AdultID == nil {
+		return auth.GuardianSession{}, auth.ErrOTPInvalid
+	}
+	var scope data.GuardianScope
+	if err := s.tenantDatabase.InTenantRead(ctx, string(*challenge.OrganizationID), func(ctx context.Context, tx *data.Tx) error {
+		var readErr error
+		scope, readErr = tx.ResolveGuardianScope(ctx, *challenge.SchoolYearID, *challenge.AdultID)
+		return readErr
+	}); err != nil || scope.Adult.Email == nil {
+		return auth.GuardianSession{}, auth.ErrOTPInvalid
+	}
+	contexts, err := s.tenantDatabase.FindGuardianLoginContexts(ctx, *scope.Adult.Email)
+	if err != nil {
 		return auth.GuardianSession{}, err
 	}
-	return auth.GuardianSession{Bearer: sessionBearer.Value, SessionID: session.ID, AdultID: *challenge.AdultID, OrganizationID: *challenge.OrganizationID, SchoolYearID: *challenge.SchoolYearID, ExpiresAt: session.ExpiresAt, IdleExpiresAt: dereferenceTime(session.IdleExpiresAt), StudentIDs: scope.StudentIDs}, nil
+	for _, item := range contexts {
+		if item.OrganizationID == input.OrganizationID && item.SchoolYearID == input.SchoolYearID {
+			return s.createGuardianSession(ctx, item, now)
+		}
+	}
+	return auth.GuardianSession{}, auth.ErrOTPInvalid
+}
+
+func guardianLoginContexts(contexts []data.GuardianLoginContext) []auth.GuardianLoginContext {
+	result := make([]auth.GuardianLoginContext, 0, len(contexts))
+	for _, context := range contexts {
+		result = append(result, auth.GuardianLoginContext{OrganizationID: context.OrganizationID, SchoolYearID: context.SchoolYearID, OrganizationName: context.OrganizationName, SchoolYearLabel: context.SchoolYearLabel})
+	}
+	return result
+}
+
+func (s *Store) createGuardianSession(ctx context.Context, loginContext data.GuardianLoginContext, now time.Time) (auth.GuardianSession, error) {
+	var scope data.GuardianScope
+	if err := s.tenantDatabase.InTenantRead(ctx, string(loginContext.OrganizationID), func(ctx context.Context, tx *data.Tx) error {
+		var readErr error
+		scope, readErr = tx.ResolveGuardianScope(ctx, loginContext.SchoolYearID, loginContext.AdultID)
+		return readErr
+	}); err != nil || len(scope.StudentIDs) == 0 {
+		return auth.GuardianSession{}, auth.ErrOTPInvalid
+	}
+	bearer, err := GenerateAccessToken()
+	if err != nil {
+		return auth.GuardianSession{}, err
+	}
+	var credential identitydata.AccessToken
+	if err := s.databaseIdentity().InTx(ctx, func(ctx context.Context, tx *identitydata.Tx) error {
+		var writeErr error
+		credential, writeErr = tx.CreateGuardianSession(ctx, bearer.Hash, now.Add(guardianSessionAbsolute), &loginContext.OrganizationID, &loginContext.SchoolYearID, &loginContext.AdultID, now.Add(guardianSessionIdle), now)
+		return writeErr
+	}); err != nil {
+		return auth.GuardianSession{}, err
+	}
+	if err := s.recordAuthAudit(ctx, string(loginContext.OrganizationID), audit.Entry{Action: audit.ActionOTPVerified, ObjectType: "guardian_session", ObjectID: &credential.ID, SchoolYearID: &loginContext.SchoolYearID, ChangeSummary: []byte(`{"mode":"guardian"}`)}, now); err != nil {
+		return auth.GuardianSession{}, err
+	}
+	return auth.GuardianSession{Bearer: bearer.Value, SessionID: credential.ID, AdultID: loginContext.AdultID, OrganizationID: loginContext.OrganizationID, SchoolYearID: loginContext.SchoolYearID, ExpiresAt: credential.ExpiresAt, IdleExpiresAt: dereferenceTime(credential.IdleExpiresAt), StudentIDs: scope.StudentIDs}, nil
 }
 
 func (s *Store) ResolveSession(ctx context.Context, bearer string) (auth.Principal, error) {
@@ -270,14 +354,39 @@ func (s *Store) ResolveSession(ctx context.Context, bearer string) (auth.Princip
 			return nil, auth.ErrSessionInvalid
 		}
 		var scope data.GuardianScope
+		var schoolYear data.SchoolYear
 		if err := s.tenantDatabase.InTenantRead(ctx, string(*token.OrganizationID), func(ctx context.Context, tx *data.Tx) error {
 			var err error
 			scope, err = tx.ResolveGuardianScope(ctx, *token.SchoolYearID, *token.AdultID)
+			if err != nil {
+				return err
+			}
+			schoolYear, err = tx.GetSchoolYearByID(ctx, *token.SchoolYearID)
 			return err
 		}); err != nil {
 			return nil, auth.ErrSessionInvalid
 		}
-		return auth.GuardianPrincipal{AdultID: *token.AdultID, OrganizationID: *token.OrganizationID, SchoolYearID: *token.SchoolYearID, SessionID: token.ID, Email: scope.AdultEmail(), StudentIDs: scope.StudentIDs}, nil
+		name := scope.Adult.LegalGivenName + " " + scope.Adult.LegalFamilyName
+		if scope.Adult.PreferredGivenName != nil && strings.TrimSpace(*scope.Adult.PreferredGivenName) != "" {
+			name = strings.TrimSpace(*scope.Adult.PreferredGivenName) + " " + scope.Adult.LegalFamilyName
+		}
+
+		// Returning email login intentionally discovers only adults with an active
+		// guardian relationship. A session created during shared-link onboarding
+		// remains valid even before its guardian has been linked to a student.
+		if len(scope.StudentIDs) == 0 {
+			return auth.GuardianPrincipal{AdultID: *token.AdultID, OrganizationID: *token.OrganizationID, SchoolYearID: *token.SchoolYearID, SessionID: token.ID, Email: scope.AdultEmail(), GuardianName: name, SchoolYearLabel: schoolYear.Label}, nil
+		}
+		contexts, err := s.tenantDatabase.FindGuardianLoginContexts(ctx, scope.AdultEmail())
+		if err != nil {
+			return nil, auth.ErrSessionInvalid
+		}
+		for _, item := range contexts {
+			if item.OrganizationID == *token.OrganizationID && item.SchoolYearID == *token.SchoolYearID && item.AdultID == *token.AdultID {
+				return auth.GuardianPrincipal{AdultID: *token.AdultID, OrganizationID: *token.OrganizationID, SchoolYearID: *token.SchoolYearID, SessionID: token.ID, Email: scope.AdultEmail(), GuardianName: name, OrganizationName: item.OrganizationName, SchoolYearLabel: item.SchoolYearLabel, StudentIDs: scope.StudentIDs}, nil
+			}
+		}
+		return auth.GuardianPrincipal{AdultID: *token.AdultID, OrganizationID: *token.OrganizationID, SchoolYearID: *token.SchoolYearID, SessionID: token.ID, Email: scope.AdultEmail(), GuardianName: name, SchoolYearLabel: schoolYear.Label, StudentIDs: scope.StudentIDs}, nil
 	case "administrative_session":
 		if token.UserID == nil || token.MfaGeneration == nil {
 			return nil, auth.ErrSessionInvalid

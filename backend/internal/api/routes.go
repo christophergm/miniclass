@@ -147,6 +147,11 @@ func registerOperations(api huma.API, options RouterOptions) {
 		Path: apiBasePath + "/auth/adult/otp/verify", Summary: "Verify a guardian email OTP",
 		Errors: []int{http.StatusUnauthorized},
 	}, auth.CapabilityPublic, false, adultAuth.VerifyOTP)
+	registerOperation(api, huma.Operation{
+		OperationID: "select-guardian-login-context", Method: http.MethodPost,
+		Path: apiBasePath + "/auth/adult/otp/context", Summary: "Select a verified guardian organization and school year",
+		Errors: []int{http.StatusUnauthorized},
+	}, auth.CapabilityPublic, false, adultAuth.SelectContext)
 
 	guardianOnboarding := handlers.NewGuardianOnboardingHandler(options.GuardianOnboarding)
 	guardianRecords := handlers.NewGuardianRecordsHandler(options.GuardianRecords)

@@ -5,9 +5,10 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { resourceApi, type GuardianOnboardingSession } from "@/lib/apiResources";
-import { setApplicationSession } from "@/lib/auth";
+import { clearApplicationSession, hasApplicationSession, setApplicationSession } from "@/lib/auth";
 
 import { errorMessage } from "./auth-utils";
+import { GuardianLogoutButton } from "./GuardianLogoutButton";
 import { GuardianOnboardingError, GuardianOnboardingLayout } from "./GuardianOnboardingLayout";
 
 type Completion = {
@@ -39,6 +40,7 @@ export function GuardianOnboardingPage() {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [registeringAsDifferentGuardian, setRegisteringAsDifferentGuardian] = useState(false);
   const startedLink = useRef<string | null>(null);
   const invitationToken = searchParams.get("invitation");
   const isSharedLink = Boolean(registrationLinkId);
@@ -46,6 +48,14 @@ export function GuardianOnboardingPage() {
     queryKey: ["guardian-onboarding-landing", registrationLinkId],
     queryFn: () => resourceApi.getGuardianOnboardingLanding(registrationLinkId ?? ""),
     enabled: isSharedLink,
+    retry: false,
+  });
+  const guardianSession = useQuery({
+    queryKey: ["guardian-onboarding-current-session"],
+    queryFn: () => resourceApi.getGuardianAuthContext(),
+    // An administrator bearer receives a non-guardian response and continues
+    // with ordinary shared-link onboarding.
+    enabled: isSharedLink && hasApplicationSession(),
     retry: false,
   });
 
@@ -85,6 +95,21 @@ export function GuardianOnboardingPage() {
     }
   }
 
+  async function beginDifferentProgram() {
+    setRegisteringAsDifferentGuardian(true);
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      await resourceApi.revokeAuthSession();
+    } catch {
+      // Local removal is deliberately unconditional: retaining a bearer after
+      // the guardian declines it would make the next screen ambiguous.
+    } finally {
+      clearApplicationSession();
+      await beginSharedRegistration();
+    }
+  }
+
   async function requestCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!session) return;
@@ -109,13 +134,13 @@ export function GuardianOnboardingPage() {
     setError(null);
     setIsSubmitting(true);
     try {
-      setSession(
-        await resourceApi.verifyGuardianOnboardingOTP(
-          session.session_token,
-          challengeID,
-          code.trim(),
-        ),
+      const next = await resourceApi.verifyGuardianOnboardingOTP(
+        session.session_token,
+        challengeID,
+        code.trim(),
       );
+      if (continueExistingGuardian(next)) return;
+      setSession(next);
       setChallengeID(null);
       setCode("");
     } catch (reason) {
@@ -131,14 +156,14 @@ export function GuardianOnboardingPage() {
     setError(null);
     setIsSubmitting(true);
     try {
-      setSession(
-        await resourceApi.acceptGuardianOnboardingConsent(session.session_token, {
-          email: email.trim(),
-          terms_version: session.policy.terms_version,
-          privacy_version: session.policy.privacy_version,
-          source_surface: "guardian_onboarding_web",
-        }),
-      );
+      const next = await resourceApi.acceptGuardianOnboardingConsent(session.session_token, {
+        email: email.trim(),
+        terms_version: session.policy.terms_version,
+        privacy_version: session.policy.privacy_version,
+        source_surface: "guardian_onboarding_web",
+      });
+      if (continueExistingGuardian(next)) return;
+      setSession(next);
     } catch (reason) {
       setError(errorMessage(reason));
     } finally {
@@ -165,6 +190,13 @@ export function GuardianOnboardingPage() {
     }
   }
 
+  function continueExistingGuardian(next: GuardianOnboardingSession): boolean {
+    if (!next.existing_guardian || !next.consented || !next.guardian_session_token) return false;
+    setApplicationSession(next.guardian_session_token);
+    navigate("/guardian/preferences", { replace: true });
+    return true;
+  }
+
   function updateCompletion(field: keyof Completion, value: string) {
     setCompletion((current) => ({ ...current, [field]: value }));
   }
@@ -182,7 +214,35 @@ export function GuardianOnboardingPage() {
         <>
           {error && <GuardianOnboardingError message={error} />}
 
-          {isSharedLink && !session && landing.isLoading ? (
+          {isSharedLink && guardianSession.isSuccess && !registeringAsDifferentGuardian ? (
+            <section className="text-center">
+              <h2 className="text-3xl font-black tracking-tight text-stone-950">
+                You’re already registered as {guardianSession.data.guardian_name} for{" "}
+                {guardianSession.data.organization_name} — {guardianSession.data.school_year_label}.
+              </h2>
+              <p className="mt-3 text-base leading-6 text-stone-700">
+                Continue as {guardianSession.data.guardian_name}?
+              </p>
+              <div className="mt-6 space-y-3">
+                <Button
+                  className={primaryButtonClass}
+                  onClick={() => navigate("/guardian/preferences")}
+                  type="button"
+                >
+                  Continue as {guardianSession.data.guardian_name}
+                </Button>
+                <Button
+                  className="h-auto w-full whitespace-normal border-2 border-stone-950 bg-[#fffaf0] px-4 py-3 font-black text-stone-950 shadow-[3px_3px_0_#1c1917] hover:bg-white"
+                  disabled={isSubmitting}
+                  onClick={() => void beginDifferentProgram()}
+                  type="button"
+                >
+                  No, that’s not me or I want to register for a different program
+                </Button>
+                <GuardianLogoutButton className="border-2 border-stone-950 bg-[#fffaf0] font-black text-stone-950 shadow-[2px_2px_0_#1c1917] hover:bg-white" />
+              </div>
+            </section>
+          ) : isSharedLink && !session && landing.isLoading ? (
             <p className="text-center text-sm font-medium text-stone-700" role="status">
               Opening your registration invitation…
             </p>

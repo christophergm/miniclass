@@ -189,12 +189,15 @@ func (p AccountPrincipal) RoleName() OrganizationRole   { return p.Role }
 // GuardianPrincipal is the narrow principal created by an adult OTP. Its
 // student scope is refreshed from live relationships by the session resolver.
 type GuardianPrincipal struct {
-	AdultID        ids.XID
-	OrganizationID ids.XID
-	SchoolYearID   ids.XID
-	SessionID      ids.XID
-	Email          string
-	StudentIDs     []ids.XID
+	AdultID          ids.XID
+	OrganizationID   ids.XID
+	SchoolYearID     ids.XID
+	SessionID        ids.XID
+	Email            string
+	GuardianName     string
+	OrganizationName string
+	SchoolYearLabel  string
+	StudentIDs       []ids.XID
 }
 
 func (p GuardianPrincipal) HasCapability(capability Capability) bool {

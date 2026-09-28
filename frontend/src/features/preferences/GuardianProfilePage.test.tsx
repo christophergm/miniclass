@@ -29,7 +29,10 @@ vi.mock("./useGuardianRecords", () => ({
   useGuardianProfileDelete: () => ({ mutate: mocks.deleteMutate, isPending: false, error: null }),
 }));
 
-vi.mock("@/lib/auth", () => ({ clearApplicationSession: mocks.clearSession }));
+vi.mock("@/lib/auth", () => ({
+  clearApplicationSession: mocks.clearSession,
+  getAccessToken: vi.fn(async () => null),
+}));
 
 describe("GuardianProfilePage", () => {
   beforeEach(() => {
