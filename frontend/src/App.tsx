@@ -55,6 +55,7 @@ import {
 import {
   AdministratorPreferencePage,
   AdministratorRankedChoiceKioskPage,
+  GuardianPreferenceFormPage,
   GuardianPreferencePage,
   StudentCodeInterestProfilePage,
   StudentCodeRankedChoicePage,
@@ -104,6 +105,10 @@ function AppRoutes() {
       <Route path="/guardian/onboarding" element={<GuardianOnboardingPage />} />
       <Route path="/guardian/onboarding/:registrationLinkId" element={<GuardianOnboardingPage />} />
       <Route path="/guardian/preferences" element={<GuardianPreferencePage />} />
+      <Route
+        path="/guardian/preferences/:studentId/:formId"
+        element={<GuardianPreferenceFormPage />}
+      />
       <Route path="/guardian/students" element={<GuardianStudentsPage />} />
       <Route path="/guardian/profile" element={<GuardianProfilePage />} />
       <Route

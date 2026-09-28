@@ -257,11 +257,11 @@ export const resourceApi = {
         body: value,
       }),
     ),
-  detachGuardianStudent: (studentID: string) =>
+  detachGuardianStudent: (studentID: string, confirmLastGuardianDeletion: boolean) =>
     unwrapNoContent(
       api.DELETE("/api/guardian/students/{studentID}", {
         params: { path: { studentID } },
-        body: { confirm: true },
+        body: { confirm: confirmLastGuardianDeletion },
       }),
     ),
   getGuardianProfile: () => unwrap(api.GET("/api/guardian/profile")),

@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -88,12 +88,6 @@ export function GuardianProfilePage() {
       description="Keep your contact details current so we can reach you about your student’s classes."
     >
       <div className="mx-auto w-full max-w-3xl">
-        <Link
-          className="inline-flex text-sm font-bold text-stone-800 underline decoration-2 underline-offset-4 hover:text-stone-950"
-          to="/guardian/preferences"
-        >
-          ← Back to preference forms
-        </Link>
         {profile.isLoading ? (
           <p className="mt-6 text-sm font-medium text-stone-700" role="status">
             Loading your profile…
@@ -104,7 +98,7 @@ export function GuardianProfilePage() {
           </div>
         ) : (
           <form
-            className="mt-6 space-y-5 rounded-2xl border-4 border-stone-950 bg-[#fffaf0] p-5 shadow-[5px_5px_0_#1c1917] sm:p-7"
+            className="mt-6 space-y-5 rounded-2xl border-4 border-[#8f7d62] bg-[#fffaf0] p-5 shadow-[5px_5px_0_#b8a88f] sm:p-7"
             onSubmit={submit}
           >
             <div>
@@ -204,9 +198,8 @@ export function GuardianProfilePage() {
             dependent history; otherwise their identifying details are removed to preserve history.
           </p>
           <Button
-            className="mt-4"
+            className="mt-4 border-2 border-stone-950 bg-[#f2633b] font-black text-white shadow-[3px_3px_0_#1c1917] hover:bg-[#d94a24]"
             type="button"
-            variant="destructive"
             onClick={() => {
               setDeleteConfirmed(false);
               setDeleteOpen(true);
@@ -257,13 +250,17 @@ export function GuardianProfilePage() {
           )}
           <div className="flex gap-2">
             <Button
+              className="border-2 border-stone-950 bg-[#f2633b] font-black text-white shadow-[3px_3px_0_#1c1917] hover:bg-[#d94a24]"
               disabled={!deleteConfirmed || remove.isPending}
               type="submit"
-              variant="destructive"
             >
               {remove.isPending ? "Deleting…" : "Delete profile"}
             </Button>
-            <Button type="button" variant="outline" onClick={() => setDeleteOpen(false)}>
+            <Button
+              className="border-2 border-stone-950 bg-[#fffaf0] font-black text-stone-950 shadow-[3px_3px_0_#1c1917] hover:bg-white"
+              type="button"
+              onClick={() => setDeleteOpen(false)}
+            >
               Cancel
             </Button>
           </div>

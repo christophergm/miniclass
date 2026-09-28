@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ import {
 } from "@/features/programs/usePrograms";
 import { useSchoolYears } from "@/features/school-years/useSchoolYears";
 import type {
+  PreferenceForm,
   PreferenceInterestAnswerInput,
   PreferenceRankedAnswerInput,
 } from "@/lib/apiResources";
@@ -37,6 +38,14 @@ function PageFrame({ children, wide = false }: { children: ReactNode; wide?: boo
       className={`mx-auto w-full px-4 py-6 sm:px-6 sm:py-10 ${wide ? "max-w-[100rem]" : "max-w-3xl"}`}
     >
       {children}
+    </main>
+  );
+}
+
+function FocusedPreferenceFrame({ children }: { children: ReactNode }) {
+  return (
+    <main className="min-h-screen bg-[#fff3df] px-4 py-6 sm:px-6 sm:py-10">
+      <div className="mx-auto w-full max-w-[100rem]">{children}</div>
     </main>
   );
 }
@@ -279,20 +288,101 @@ export function StudentCodeRankedChoicePage() {
   );
 }
 
+const guardianPrimaryButtonClass =
+  "border-2 border-stone-950 bg-[#ffcc2e] font-black text-stone-950 shadow-[3px_3px_0_#1c1917] hover:bg-[#eab91e]";
+const guardianSecondaryButtonClass =
+  "border-2 border-stone-950 bg-[#fffaf0] font-black text-stone-950 shadow-[3px_3px_0_#1c1917] hover:bg-white";
+
+const guardianPreferencesWorkspace = {
+  title: "Preference forms",
+  description:
+    "Choose a form to complete together. Forms that still need a response are shown first.",
+};
+
+function guardianFormPath(studentID: string, form: PreferenceForm) {
+  return `/guardian/preferences/${studentID}/${form.id}`;
+}
+
+type GuardianFormStatus = "needs_attention" | "completed" | "closed";
+
+function guardianFormStatus(form: PreferenceForm): GuardianFormStatus {
+  const closesAt = form.closes_at ? new Date(form.closes_at) : null;
+  if (!closesAt || Number.isNaN(closesAt.getTime()) || closesAt.getTime() <= Date.now()) {
+    return "closed";
+  }
+  return form.submitted_at ? "completed" : "needs_attention";
+}
+
+function guardianFormStatusPriority(form: PreferenceForm) {
+  return { needs_attention: 0, completed: 1, closed: 2 }[guardianFormStatus(form)];
+}
+
+function GuardianPreferenceFormCard({
+  form,
+  studentID,
+}: {
+  form: PreferenceForm;
+  studentID: string;
+}) {
+  const status = guardianFormStatus(form);
+  const title = form.session_name || form.name;
+  const action =
+    status === "needs_attention"
+      ? "Complete"
+      : status === "completed"
+        ? "Review completed"
+        : "View closed";
+
+  return (
+    <Link
+      aria-label={`${action} ${title} for ${form.student_name ?? "this student"}`}
+      className={`block rounded-2xl border-3 p-5 shadow-[4px_4px_0_#b8a88f] transition-transform hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#287d96] ${
+        status === "needs_attention"
+          ? "border-[#8f7d62] bg-[#ffcc2e] ring-4 ring-[#f2633b]/30"
+          : status === "completed"
+            ? "border-[#8f7d62] bg-[#fffaf0]"
+            : "border-[#a89a7a] bg-stone-100 text-stone-600"
+      }`}
+      to={guardianFormPath(studentID, form)}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-bold text-stone-700">{form.program_name}</p>
+          <h3 className="mt-1 text-xl font-black text-stone-950">{title}</h3>
+        </div>
+        <span
+          className={`rounded-full border-2 px-3 py-1 text-xs font-black uppercase tracking-wide ${
+            status === "needs_attention"
+              ? "border-stone-950 bg-[#f2633b] text-white"
+              : status === "completed"
+                ? "border-[#78c5d9] bg-[#d8f2f8] text-[#287d96]"
+                : "border-[#a89a7a] bg-stone-200 text-stone-700"
+          }`}
+        >
+          {status === "needs_attention"
+            ? "Complete this form"
+            : status === "completed"
+              ? "Completed"
+              : "Closed"}
+        </span>
+      </div>
+      <p className="mt-4 text-sm font-semibold text-stone-800">
+        {status === "needs_attention"
+          ? "Open form →"
+          : status === "completed"
+            ? "Completed — select to review or update this response."
+            : "This form is closed and no longer accepts responses."}
+      </p>
+    </Link>
+  );
+}
+
 export function GuardianPreferencePage() {
   const query = useGuardianPreferenceForms();
-  const interestSubmit = useSubmitGuardianInterestProfile();
-  const rankedSubmit = useSubmitGuardianRankedChoice();
-  const [saved, setSaved] = useState<string | null>(null);
-  const workspace = {
-    title: "Preference forms",
-    description:
-      "When a preference form opens for a student linked to you, you can complete it together here. Your responses are saved separately for each student.",
-  };
 
   if (query.isLoading)
     return (
-      <GuardianWorkspaceLayout {...workspace}>
+      <GuardianWorkspaceLayout {...guardianPreferencesWorkspace}>
         <p className="font-medium text-stone-700" role="status">
           Loading your students’ forms…
         </p>
@@ -300,7 +390,7 @@ export function GuardianPreferencePage() {
     );
   if (query.error)
     return (
-      <GuardianWorkspaceLayout {...workspace}>
+      <GuardianWorkspaceLayout {...guardianPreferencesWorkspace}>
         <GuardianFeedback kind="error">
           {query.error instanceof Error
             ? query.error.message
@@ -311,11 +401,11 @@ export function GuardianPreferencePage() {
 
   const students = query.data?.students ?? [];
   return (
-    <GuardianWorkspaceLayout {...workspace}>
+    <GuardianWorkspaceLayout {...guardianPreferencesWorkspace}>
       {students.length === 0 ? (
         <section
           aria-labelledby="no-preference-forms-heading"
-          className="rounded-3xl border-4 border-dashed border-stone-950 bg-[#fffaf0] p-6 text-center shadow-[5px_5px_0_#1c1917] sm:p-8"
+          className="rounded-3xl border-4 border-dashed border-[#8f7d62] bg-[#fffaf0] p-6 text-center shadow-[5px_5px_0_#b8a88f] sm:p-8"
         >
           <span
             aria-hidden="true"
@@ -338,78 +428,237 @@ export function GuardianPreferencePage() {
         </section>
       ) : (
         <div className="space-y-8">
-          {students.map((student) => (
-            <section key={student.student_id}>
-              <h2 className="mb-3 text-xl font-black text-stone-950">{student.display_name}</h2>
-              {(student.forms ?? []).length === 0 ? (
-                <div className="rounded-2xl border-2 border-dashed border-stone-950 bg-[#fffaf0] p-5 text-center">
-                  <span
-                    aria-hidden="true"
-                    className="inline-flex size-10 items-center justify-center rounded-full border-2 border-stone-950 bg-[#ffcc2e] text-xl"
-                  >
-                    ✨
-                  </span>
-                  <p className="mt-3 font-black text-stone-950">
-                    No forms for {student.display_name} just yet
-                  </p>
-                  <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-stone-700">
-                    You’re all caught up. We’ll show a preference form here when one opens up.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-5">
-                  {(student.forms ?? []).map((form) => {
-                    const key = `${student.student_id}:${form.type}:${form.id}`;
-                    return (
-                      <PreferenceFormEditor
-                        error={
-                          interestSubmit.error instanceof Error
-                            ? interestSubmit.error.message
-                            : rankedSubmit.error instanceof Error
-                              ? rankedSubmit.error.message
-                              : null
-                        }
+          {students.map((student) => {
+            const forms = [...(student.forms ?? [])].sort(
+              (left, right) => guardianFormStatusPriority(left) - guardianFormStatusPriority(right),
+            );
+            return (
+              <section key={student.student_id}>
+                <h2 className="mb-3 text-xl font-black text-stone-950">{student.display_name}</h2>
+                {forms.length === 0 ? (
+                  <div className="rounded-2xl border-2 border-dashed border-[#8f7d62] bg-[#fffaf0] p-5 text-center">
+                    <p className="font-black text-stone-950">
+                      No forms for {student.display_name} just yet
+                    </p>
+                    <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-stone-700">
+                      You’re all caught up. We’ll show a preference form here when one opens up.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {forms.map((form) => (
+                      <GuardianPreferenceFormCard
                         form={form}
-                        isSubmitting={interestSubmit.isPending || rankedSubmit.isPending}
-                        key={key}
-                        onSubmit={(value) => {
-                          setSaved(null);
-                          if (form.type === "interest_profile") {
-                            interestSubmit.mutate(
-                              {
-                                schoolYearID: form.school_year_id,
-                                programID: form.program_id,
-                                surveyID: form.id,
-                                studentID: student.student_id,
-                                answers: value as PreferenceInterestAnswerInput[],
-                              },
-                              { onSuccess: () => setSaved(key) },
-                            );
-                          } else {
-                            rankedSubmit.mutate(
-                              {
-                                schoolYearID: form.school_year_id,
-                                programID: form.program_id,
-                                sessionID: form.session_id ?? form.id,
-                                studentID: student.student_id,
-                                responses: value as PreferenceRankedAnswerInput[],
-                              },
-                              { onSuccess: () => setSaved(key) },
-                            );
-                          }
-                        }}
-                        saved={saved === key}
-                        submitLabel="Save for this student"
+                        key={`${form.type}:${form.id}`}
+                        studentID={student.student_id}
                       />
-                    );
-                  })}
-                </div>
-              )}
-            </section>
-          ))}
+                    ))}
+                  </div>
+                )}
+              </section>
+            );
+          })}
         </div>
       )}
     </GuardianWorkspaceLayout>
+  );
+}
+
+export function GuardianPreferenceFormPage() {
+  const { studentId, formId } = useParams<{ studentId: string; formId: string }>();
+  const query = useGuardianPreferenceForms();
+  const interestSubmit = useSubmitGuardianInterestProfile();
+  const rankedSubmit = useSubmitGuardianRankedChoice();
+  const navigate = useNavigate();
+  const formRef = useRef<HTMLFormElement>(null);
+  const [saved, setSaved] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [canSubmit, setCanSubmit] = useState(false);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const returnAfterSaveRef = useRef(false);
+  const student = query.data?.students?.find((entry) => entry.student_id === studentId);
+  const form = student?.forms?.find((entry) => entry.id === formId);
+
+  if (query.isLoading) {
+    return (
+      <FocusedPreferenceFrame>
+        <p role="status">Loading this form…</p>
+      </FocusedPreferenceFrame>
+    );
+  }
+  if (query.error || !student || !form) {
+    return (
+      <FocusedPreferenceFrame>
+        <GuardianFeedback kind="error">
+          {query.error instanceof Error
+            ? query.error.message
+            : "This preference form is no longer available."}
+        </GuardianFeedback>
+        <Link className="mt-4 inline-block font-bold underline" to="/guardian/preferences">
+          Back to preference forms
+        </Link>
+      </FocusedPreferenceFrame>
+    );
+  }
+
+  function goBack() {
+    if (hasUnsavedChanges) {
+      setShowExitConfirm(true);
+      return;
+    }
+    navigate("/guardian/preferences");
+  }
+
+  function saveAndGoBack() {
+    setShowExitConfirm(false);
+    returnAfterSaveRef.current = true;
+    formRef.current?.requestSubmit();
+  }
+
+  function onSaveSuccess() {
+    setSaved(true);
+    setHasUnsavedChanges(false);
+    if (returnAfterSaveRef.current) {
+      returnAfterSaveRef.current = false;
+      navigate("/guardian/preferences");
+    }
+  }
+
+  function onSaveError() {
+    returnAfterSaveRef.current = false;
+  }
+
+  const error =
+    interestSubmit.error instanceof Error
+      ? interestSubmit.error.message
+      : rankedSubmit.error instanceof Error
+        ? rankedSubmit.error.message
+        : null;
+  return (
+    <FocusedPreferenceFrame>
+      <button
+        className="mb-5 inline-block text-sm font-bold text-stone-800 underline decoration-2 underline-offset-4"
+        onClick={goBack}
+        type="button"
+      >
+        ← Go back
+      </button>
+      <PreferenceFormEditor
+        error={error}
+        form={form}
+        isSubmitting={interestSubmit.isPending || rankedSubmit.isPending}
+        formRef={formRef}
+        onCanSubmitChange={setCanSubmit}
+        onDirtyChange={setHasUnsavedChanges}
+        onSubmit={(value) => {
+          setSaved(false);
+          returnAfterSaveRef.current = true;
+          if (form.type === "interest_profile") {
+            interestSubmit.mutate(
+              {
+                schoolYearID: form.school_year_id,
+                programID: form.program_id,
+                surveyID: form.id,
+                studentID: student.student_id,
+                answers: value as PreferenceInterestAnswerInput[],
+              },
+              { onError: onSaveError, onSuccess: onSaveSuccess },
+            );
+          } else {
+            rankedSubmit.mutate(
+              {
+                schoolYearID: form.school_year_id,
+                programID: form.program_id,
+                sessionID: form.session_id ?? form.id,
+                studentID: student.student_id,
+                responses: value as PreferenceRankedAnswerInput[],
+              },
+              { onError: onSaveError, onSuccess: onSaveSuccess },
+            );
+          }
+        }}
+        saved={saved}
+        submitClassName={guardianPrimaryButtonClass}
+        submitLabel="Save and go back"
+      />
+      {showExitConfirm && (
+        <UnsavedChangesModal
+          canSave={canSubmit}
+          onExit={() => navigate("/guardian/preferences")}
+          onKeepEditing={() => setShowExitConfirm(false)}
+          onSaveAndExit={saveAndGoBack}
+        />
+      )}
+    </FocusedPreferenceFrame>
+  );
+}
+
+function UnsavedChangesModal({
+  canSave,
+  onKeepEditing,
+  onExit,
+  onSaveAndExit,
+}: {
+  canSave: boolean;
+  onKeepEditing: () => void;
+  onExit: () => void;
+  onSaveAndExit: () => void;
+}) {
+  useEffect(() => {
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") onKeepEditing();
+    }
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [onKeepEditing]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/60 p-4 backdrop-blur-sm"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onKeepEditing();
+      }}
+    >
+      <div
+        aria-describedby="unsaved-changes-description"
+        aria-labelledby="unsaved-changes-title"
+        aria-modal="true"
+        className="w-full max-w-lg rounded-2xl border-4 border-stone-950 bg-[#fffaf0] p-6 text-stone-950 shadow-[8px_8px_0_#f2633b] sm:p-8"
+        role="dialog"
+      >
+        <h2 className="text-2xl font-black" id="unsaved-changes-title">
+          Your changes aren’t saved yet
+        </h2>
+        <p className="mt-4 font-medium text-stone-700" id="unsaved-changes-description">
+          What do you want to do?
+        </p>
+        {!canSave && (
+          <p className="mt-3 font-medium text-stone-700">Finish the form before you can save.</p>
+        )}
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
+          <Button className={guardianSecondaryButtonClass} onClick={onKeepEditing} type="button">
+            Keep working
+          </Button>
+          <Button
+            className="border-2 border-stone-950 bg-[#f2633b] font-black text-white shadow-[3px_3px_0_#1c1917] hover:bg-[#d94a24]"
+            onClick={onExit}
+            type="button"
+          >
+            Leave without saving
+          </Button>
+          {canSave && (
+            <Button
+              autoFocus
+              className="border-2 border-stone-950 bg-[#ffcc2e] font-black text-stone-950 shadow-[3px_3px_0_#1c1917] hover:bg-[#eab91e]"
+              onClick={onSaveAndExit}
+              type="button"
+            >
+              Save and go back
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 

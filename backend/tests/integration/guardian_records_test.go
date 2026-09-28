@@ -34,8 +34,30 @@ func TestGuardianRecordsUsePrivacySafeLiveScopeAndWarnings(t *testing.T) {
 
 	_, err = peopleService.CreateGuardianRelationship(ctx, string(tenant.organizationID), tenant.year.ID, actor, people.GuardianRelationshipCreateInput{AdultID: tenant.adult.ID, StudentID: tenant.student.ID, RelationshipType: data.GuardianRelationshipParent})
 	require.NoError(t, err)
+	otherGuardian, err := peopleService.Create(ctx, string(tenant.organizationID), tenant.year.ID, actor, people.AdultCreateInput{
+		LegalGivenName: "Other", LegalFamilyName: "Guardian", ParticipationIntent: adultIntentPtr(data.AdultParticipationHelp),
+	})
+	require.NoError(t, err)
+	_, err = peopleService.CreateGuardianRelationship(ctx, string(tenant.organizationID), tenant.year.ID, actor, people.GuardianRelationshipCreateInput{AdultID: otherGuardian.ID, StudentID: tenant.student.ID, RelationshipType: data.GuardianRelationshipGrandparent})
+	require.NoError(t, err)
+	deletedGuardian, err := peopleService.Create(ctx, string(tenant.organizationID), tenant.year.ID, actor, people.AdultCreateInput{
+		LegalGivenName: "Deleted", LegalFamilyName: "Guardian", ParticipationIntent: adultIntentPtr(data.AdultParticipationHelp),
+	})
+	require.NoError(t, err)
+	_, err = peopleService.CreateGuardianRelationship(ctx, string(tenant.organizationID), tenant.year.ID, actor, people.GuardianRelationshipCreateInput{AdultID: deletedGuardian.ID, StudentID: tenant.student.ID, RelationshipType: data.GuardianRelationshipOther})
+	require.NoError(t, err)
+	require.NoError(t, peopleService.Delete(ctx, string(tenant.organizationID), tenant.year.ID, deletedGuardian.ID, actor))
+	_, err = peopleService.CreateGuardianRelationship(ctx, string(foreign.organizationID), foreign.year.ID, actor, people.GuardianRelationshipCreateInput{AdultID: foreign.adult.ID, StudentID: foreign.student.ID, RelationshipType: data.GuardianRelationshipGuardian})
+	require.NoError(t, err)
 	principal := auth.GuardianPrincipal{AdultID: tenant.adult.ID, OrganizationID: tenant.organizationID, SchoolYearID: tenant.year.ID, Email: "guardian@example.test"}
 	service := guardianrecords.New(harness.Database)
+	students, err := service.List(ctx, principal)
+	require.NoError(t, err)
+	require.Len(t, students, 1, "guardian list remains scoped to the authenticated guardian")
+	require.Equal(t, tenant.student.ID, students[0].ID)
+	require.Equal(t, []guardianrecords.OtherGuardian{{
+		LegalGivenName: "Other", LegalFamilyName: "Guardian", RelationshipType: data.GuardianRelationshipGrandparent,
+	}}, students[0].OtherGuardians, "only other active guardians in the same tenant and year are disclosed")
 	guardianVocabulary, err := service.Vocabulary(ctx, principal)
 	require.NoError(t, err)
 	require.Equal(t, []guardianrecords.VocabularyOption{{ID: tenant.gradeID, Label: "Relationship Grade GuardianRecords"}}, guardianVocabulary.GradeLevels)

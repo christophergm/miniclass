@@ -20,6 +20,11 @@ const student = {
   grade_label: "Fourth grade",
   homeroom_id: "homeroom-1",
   homeroom_label: "Room 12",
+  other_guardians: [] as Array<{
+    legal_given_name: string;
+    legal_family_name: string;
+    relationship_type: "parent" | "guardian" | "grandparent" | "other";
+  }>,
   warnings: [],
 };
 
@@ -78,6 +83,8 @@ describe("GuardianStudentsPage", () => {
 
     const dialog = screen.getByRole("dialog", { name: "Tell us about your student" });
     const preferredName = within(dialog).getByLabelText("Preferred name (optional)");
+    expect(within(dialog).getByRole("combobox", { name: "Grade" })).toBeDisabled();
+    expect(within(dialog).getByRole("combobox", { name: "Homeroom/classroom" })).toBeDisabled();
     const findMatches = within(dialog).getByRole("button", { name: "Find possible matches" });
     expect(
       preferredName.compareDocumentPosition(findMatches) & Node.DOCUMENT_POSITION_FOLLOWING,
@@ -116,24 +123,47 @@ describe("GuardianStudentsPage", () => {
     const dialog = screen.getByRole("dialog", { name: "Tell us about your student" });
     fireEvent.change(within(dialog).getByLabelText("Given name"), { target: { value: "Sam" } });
     fireEvent.change(within(dialog).getByLabelText("Family name"), { target: { value: "Lee" } });
-    expect(within(dialog).getByLabelText("Relationship")).toBeDisabled();
+    expect(within(dialog).getByRole("radio", { name: "Parent" })).toBeDisabled();
     fireEvent.click(within(dialog).getByRole("button", { name: "Find possible matches" }));
 
     expect(screen.getByText(/We couldn’t find a match/i)).toBeInTheDocument();
     expect(
       within(dialog).queryByRole("button", { name: "Find possible matches" }),
     ).not.toBeInTheDocument();
-    expect(within(dialog).getByLabelText("Relationship")).toBeEnabled();
+    expect(within(dialog).getByRole("radio", { name: "Parent" })).toBeEnabled();
     fireEvent.change(within(dialog).getByLabelText("Given name"), { target: { value: "Samuel" } });
     expect(screen.queryByText(/We couldn’t find a match/i)).not.toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "Find possible matches" })).toBeVisible();
-    expect(within(dialog).getByLabelText("Relationship")).toBeDisabled();
+    expect(within(dialog).getByRole("radio", { name: "Parent" })).toBeDisabled();
 
     fireEvent.click(within(dialog).getByRole("button", { name: "Find possible matches" }));
     expect(screen.getByText(/We couldn’t find a match/i)).toBeInTheDocument();
     fireEvent.change(within(dialog).getByLabelText("Family name"), { target: { value: "Leigh" } });
     expect(screen.queryByText(/We couldn’t find a match/i)).not.toBeInTheDocument();
-    expect(within(dialog).getByLabelText("Relationship")).toBeDisabled();
+    expect(within(dialog).getByRole("radio", { name: "Parent" })).toBeDisabled();
+  });
+
+  it("lists other guardians linked to a student", () => {
+    linkedStudents = [
+      {
+        ...student,
+        other_guardians: [
+          {
+            legal_given_name: "Avery",
+            legal_family_name: "Lee",
+            relationship_type: "parent",
+          },
+        ],
+      },
+    ];
+    renderWithQueryClient(
+      <MemoryRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
+        <GuardianStudentsPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Other linked guardians")).toBeInTheDocument();
+    expect(screen.getByText("Avery Lee · parent")).toBeInTheDocument();
   });
 
   it("edits a guardian-scoped student with accessible vocabulary choices", () => {
@@ -163,7 +193,7 @@ describe("GuardianStudentsPage", () => {
     );
   });
 
-  it("explains the detach, deletion, and de-identification outcomes before confirming removal", () => {
+  it("explains the irreversible outcome and requires acknowledgement for the last guardian", () => {
     renderWithQueryClient(
       <MemoryRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
         <GuardianStudentsPage />
@@ -172,17 +202,51 @@ describe("GuardianStudentsPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Remove" }));
     const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText(/You are the last linked guardian/i)).toBeInTheDocument();
     expect(
-      within(dialog).getByText(/does not reveal or notify other guardians/i),
-    ).toBeInTheDocument();
-    expect(
-      within(dialog).getByText(/de-identified to preserve historical records/i),
+      within(dialog).getByText(/permanently clear their name from the records/i),
     ).toBeInTheDocument();
     fireEvent.click(
       within(dialog).getByLabelText("I understand this cannot be undone from guardian access."),
     );
     fireEvent.click(within(dialog).getByRole("button", { name: "Remove relationship" }));
 
-    expect(mocks.detachMutate).toHaveBeenCalledWith("student-1", expect.any(Object));
+    expect(mocks.detachMutate).toHaveBeenCalledWith(
+      { studentID: "student-1", confirmLastGuardianDeletion: true },
+      expect.any(Object),
+    );
+  });
+
+  it("explains reversible removal without requiring acknowledgement when another guardian remains", () => {
+    linkedStudents = [
+      {
+        ...student,
+        other_guardians: [
+          {
+            legal_given_name: "Avery",
+            legal_family_name: "Lee",
+            relationship_type: "parent",
+          },
+        ],
+      },
+    ];
+    renderWithQueryClient(
+      <MemoryRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
+        <GuardianStudentsPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText(/Other linked guardians will continue/i)).toBeInTheDocument();
+    expect(
+      within(dialog).queryByLabelText("I understand this cannot be undone from guardian access."),
+    ).not.toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Remove relationship" }));
+
+    expect(mocks.detachMutate).toHaveBeenCalledWith(
+      { studentID: "student-1", confirmLastGuardianDeletion: false },
+      expect.any(Object),
+    );
   });
 });

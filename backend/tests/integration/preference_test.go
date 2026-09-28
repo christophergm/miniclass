@@ -420,6 +420,19 @@ func TestPreferenceFormsRespectGuardianScopeAndSupportEverySubmissionMode(t *tes
 	_, err = factory.CreateGuardianRelationship(ctx, fixture.year.ID, people.GuardianRelationshipCreateInput{AdultID: secondAdult.ID, StudentID: otherStudent.ID, RelationshipType: data.GuardianRelationshipParent})
 	require.NoError(t, err)
 
+	unrelatedProgram, err := factory.CreateProgram(ctx, fixture.year.ID, "Synthetic Unrelated Program")
+	require.NoError(t, err)
+	unrelatedSession, err := factory.CreateSession(ctx, fixture.year.ID, unrelatedProgram.ID, "Synthetic Unrelated Voting Session", []time.Time{time.Date(2026, 11, 5, 0, 0, 0, 0, time.UTC)})
+	require.NoError(t, err)
+	_, err = factory.CreateOffering(ctx, fixture.year.ID, unrelatedProgram.ID, unrelatedSession.ID, "Synthetic Unrelated Course", "Synthetic unrelated course", nil, 10, fixture.grade.ID, fixture.grade.ID, "", "", "", nil)
+	require.NoError(t, err)
+	_, err = factory.ConfigureRankedChoice(ctx, fixture.year.ID, unrelatedProgram.ID, unrelatedSession.ID, 1, time.Now().UTC().Add(time.Hour))
+	require.NoError(t, err)
+	_, err = factory.TransitionSession(ctx, fixture.year.ID, unrelatedProgram.ID, unrelatedSession.ID, data.SessionCatalogPublished, false, "", nil)
+	require.NoError(t, err)
+	_, err = factory.TransitionSession(ctx, fixture.year.ID, unrelatedProgram.ID, unrelatedSession.ID, data.SessionVotingOpen, false, "", nil)
+	require.NoError(t, err)
+
 	service := preference.New(harness.Database)
 	survey, err := service.CreateInterestProfileSurvey(ctx, string(organizationID), organizer, fixture.year.ID, fixture.program.ID, preference.InterestProfileSurveyInput{
 		Name:      "Synthetic Respondent Interest Form",

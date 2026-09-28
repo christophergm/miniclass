@@ -47,6 +47,15 @@ type Student struct {
 	HomeroomID         ids.XID
 	HomeroomLabel      string
 	Warnings           []ReviewWarning
+	OtherGuardians     []OtherGuardian
+}
+
+// OtherGuardian is the limited identity and relationship information a guardian
+// may receive for another active guardian of the same student.
+type OtherGuardian struct {
+	LegalGivenName   string
+	LegalFamilyName  string
+	RelationshipType data.GuardianRelationshipType
 }
 
 // VocabularyOption is the minimum data needed for a guardian-managed student
@@ -119,9 +128,6 @@ func New(database *data.DB, sessions ...GuardianSessionRevoker) *Service {
 // active guardian, the student is hard-deleted when no dependent history
 // exists, otherwise it is de-identified and retained for history.
 func (s *Service) Detach(ctx context.Context, principal auth.GuardianPrincipal, studentID ids.XID, confirmed bool, actor audit.Actor) error {
-	if !confirmed {
-		return ErrConfirmationRequired
-	}
 	if s == nil || s.database == nil {
 		return errors.New("detach guardian student: data service is nil")
 	}
@@ -129,16 +135,19 @@ func (s *Service) Detach(ctx context.Context, principal auth.GuardianPrincipal, 
 		if err := ensureYearScope(ctx, tx, principal, studentID); err != nil {
 			return err
 		}
+		other, err := tx.CountOtherActiveGuardians(ctx, principal.SchoolYearID, studentID, principal.AdultID)
+		if err != nil {
+			return err
+		}
+		if other == 0 && !confirmed {
+			return ErrConfirmationRequired
+		}
 		removed, err := tx.DeleteGuardianRelationshipForStudent(ctx, principal.SchoolYearID, principal.AdultID, studentID)
 		if err != nil {
 			return err
 		}
 		if !removed {
 			return ErrOutOfScope
-		}
-		other, err := tx.CountOtherActiveGuardians(ctx, principal.SchoolYearID, studentID, principal.AdultID)
-		if err != nil {
-			return err
 		}
 		outcome := "detached"
 		if other == 0 {
@@ -231,12 +240,39 @@ func (s *Service) List(ctx context.Context, principal auth.GuardianPrincipal) ([
 			if err != nil {
 				return err
 			}
+			view.OtherGuardians, err = otherGuardians(ctx, tx, principal.SchoolYearID, studentID, principal.AdultID)
+			if err != nil {
+				return err
+			}
 			result = append(result, view)
 		}
 		return nil
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list guardian students: %w", err)
+	}
+	return result, nil
+}
+
+func otherGuardians(ctx context.Context, tx *data.Tx, schoolYearID, studentID, currentAdultID ids.XID) ([]OtherGuardian, error) {
+	relationships, err := tx.ListGuardianRelationships(ctx, schoolYearID, data.GuardianRelationshipFilter{StudentID: studentID})
+	if err != nil {
+		return nil, err
+	}
+	result := make([]OtherGuardian, 0, len(relationships))
+	for _, relationship := range relationships {
+		if relationship.AdultID == currentAdultID {
+			continue
+		}
+		adult, err := tx.GetAdultByID(ctx, schoolYearID, relationship.AdultID)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, OtherGuardian{
+			LegalGivenName:   adult.LegalGivenName,
+			LegalFamilyName:  adult.LegalFamilyName,
+			RelationshipType: relationship.RelationshipType,
+		})
 	}
 	return result, nil
 }

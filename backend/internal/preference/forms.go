@@ -268,6 +268,18 @@ func (s *Service) ListGuardianPreferenceForms(ctx context.Context, organizationI
 		if err != nil {
 			return err
 		}
+		programStudentIDs := make(map[ids.XID]map[ids.XID]struct{}, len(programs))
+		for _, program := range programs {
+			memberships, err := tx.ListProgramMemberships(ctx, schoolYearID, program.ID)
+			if err != nil {
+				return err
+			}
+			studentIDs := make(map[ids.XID]struct{}, len(memberships))
+			for _, membership := range memberships {
+				studentIDs[membership.StudentID] = struct{}{}
+			}
+			programStudentIDs[program.ID] = studentIDs
+		}
 		result = GuardianPreferenceForms{SchoolYearID: schoolYearID, Students: make([]GuardianPreferenceStudent, 0, len(scope.StudentIDs))}
 		for _, studentID := range scope.StudentIDs {
 			student, ok := studentByID[studentID]
@@ -276,6 +288,9 @@ func (s *Service) ListGuardianPreferenceForms(ctx context.Context, organizationI
 			}
 			entry := GuardianPreferenceStudent{StudentID: student.ID, DisplayName: studentDisplayName(student), Forms: []PreferenceForm{}}
 			for _, program := range programs {
+				if _, member := programStudentIDs[program.ID][student.ID]; !member {
+					continue
+				}
 				surveys, err := tx.ListInterestProfileSurveys(ctx, schoolYearID, program.ID)
 				if err != nil {
 					return err

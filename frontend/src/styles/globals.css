@@ -44,8 +44,10 @@
   --destructive-foreground: oklch(0.98 0.01 25);
 }
 
-* {
-  border-color: var(--border);
+@layer base {
+  * {
+    border-color: var(--border);
+  }
 }
 
 body {

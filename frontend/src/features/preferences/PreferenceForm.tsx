@@ -8,6 +8,7 @@ import {
   type CSSProperties,
   type FormEvent,
   type ReactNode,
+  type RefObject,
 } from "react";
 import {
   closestCenter,
@@ -241,36 +242,36 @@ const rankedBucketIcons: Record<RankedBucket, ReactNode> = {
 const rankedBucketStyles: Record<RankedBucket, string> = {
   no_response: "bg-[#86d2e6]/35",
   ranked: "bg-[#ffcc2e]/35",
-  interested: "bg-[#f26a3d]/20",
-  not_interested: "bg-[#fff3df]",
+  interested: "bg-[#fff3df]",
+  not_interested: "bg-[#f26a3d]/20",
 };
 
 const rankedBucketTargetColors: Record<RankedBucket, string> = {
   no_response: "#d5eef4",
   ranked: "#fff3bf",
-  interested: "#fce2d9",
-  not_interested: "#fff3df",
+  interested: "#fff3df",
+  not_interested: "#fce2d9",
 };
 
 const rankedBucketBorderColors: Record<RankedBucket, string> = {
   no_response: "#78c5d9",
   ranked: "#edc34d",
-  interested: "#ed9a82",
-  not_interested: "#ead0ba",
+  interested: "#ead0ba",
+  not_interested: "#ed9a82",
 };
 
 const rankedBucketTextColors: Record<RankedBucket, string> = {
   no_response: "#287d96",
   ranked: "#8a6800",
-  interested: "#ad4429",
-  not_interested: "#8f5d40",
+  interested: "#8f5d40",
+  not_interested: "#ad4429",
 };
 
 const rankedBucketCountColors: Record<RankedBucket, string> = {
   no_response: "#b9e5f0",
   ranked: "#f7df8a",
-  interested: "#f5c5b6",
-  not_interested: "#f4dfcf",
+  interested: "#f4dfcf",
+  not_interested: "#f5c5b6",
 };
 
 const rankedBucketNotes: Record<Exclude<RankedBucket, "ranked">, string> = {
@@ -289,6 +290,10 @@ export function PreferenceFormEditor({
   saved = false,
   error,
   submitLabel = "Save preferences",
+  submitClassName,
+  onDirtyChange,
+  onCanSubmitChange,
+  formRef,
 }: {
   form: PreferenceForm;
   onSubmit: (value: PreferenceAnswer) => void;
@@ -296,16 +301,20 @@ export function PreferenceFormEditor({
   saved?: boolean;
   error?: string | null;
   submitLabel?: string;
+  submitClassName?: string;
+  onDirtyChange?: (dirty: boolean) => void;
+  onCanSubmitChange?: (canSubmit: boolean) => void;
+  formRef?: RefObject<HTMLFormElement>;
 }) {
   const studentFirstName = form.student_name?.trim().split(/\s+/)[0];
 
   return (
     <section
-      className={`rounded-2xl shadow-sm ${form.type === "ranked_choice" ? "bg-[#fffaf0]" : "border bg-card p-5"}`}
+      className="overflow-hidden rounded-2xl bg-[#fffaf0] shadow-sm"
       aria-label={`${form.name} form`}
     >
       {form.type === "ranked_choice" ? (
-        <header className="relative overflow-hidden rounded-t-2xl border-b-8 border-[#f2633b] bg-[#86d2e6] px-5 py-7 sm:px-8 sm:py-9">
+        <header className="relative overflow-hidden border-b-8 border-[#f2633b] bg-[#86d2e6] px-5 py-7 sm:px-8 sm:py-9">
           <span
             className="absolute -top-5 right-8 rotate-12 text-8xl text-white/25"
             aria-hidden="true"
@@ -332,24 +341,30 @@ export function PreferenceFormEditor({
           </div>
         </header>
       ) : (
-        <div>
-          <p className="text-sm font-medium text-primary">Interest profile</p>
-          <h2 className="mt-1 text-xl font-semibold">{form.name}</h2>
-          {form.program_name && (
-            <p className="mt-1 text-sm text-muted-foreground">{form.program_name}</p>
-          )}
-          {form.student_name && (
-            <p className="mt-3 text-sm font-medium">Responding for {form.student_name}</p>
-          )}
-          {form.introduction && (
-            <p className="mt-3 text-sm text-muted-foreground">{form.introduction}</p>
-          )}
-          {form.closes_at && (
-            <p className="mt-3 text-xs text-muted-foreground">
-              Closes {new Date(form.closes_at).toLocaleString()}
+        <header className="relative overflow-hidden border-b-8 border-[#f2633b] bg-[#86d2e6] px-5 py-7 sm:px-8 sm:py-9">
+          <span
+            className="absolute -right-2 -top-6 rotate-12 text-8xl text-white/30"
+            aria-hidden="true"
+          >
+            ★
+          </span>
+          <div className="relative max-w-4xl">
+            <p className="text-sm font-black uppercase tracking-[0.16em] text-stone-800">
+              Interest profile
             </p>
-          )}
-        </div>
+            <h2 className="mt-2 text-3xl font-black leading-tight tracking-tight text-stone-950 [text-shadow:3px_3px_0_rgba(255,255,255,0.75)] sm:text-5xl">
+              {form.name}
+            </h2>
+            {form.introduction && (
+              <p className="mt-4 max-w-3xl font-medium text-stone-800">{form.introduction}</p>
+            )}
+            {form.closes_at && (
+              <p className="mt-4 text-sm font-semibold text-stone-700">
+                Closes {new Date(form.closes_at).toLocaleString()}
+              </p>
+            )}
+          </div>
+        </header>
       )}
 
       {form.type === "interest_profile" ? (
@@ -360,6 +375,10 @@ export function PreferenceFormEditor({
           saved={saved}
           error={error}
           submitLabel={submitLabel}
+          submitClassName={submitClassName}
+          onDirtyChange={onDirtyChange}
+          onCanSubmitChange={onCanSubmitChange}
+          formRef={formRef}
         />
       ) : (
         <div className="p-5 sm:p-8">
@@ -370,6 +389,10 @@ export function PreferenceFormEditor({
             saved={saved}
             error={error}
             submitLabel={submitLabel}
+            submitClassName={submitClassName}
+            onDirtyChange={onDirtyChange}
+            onCanSubmitChange={onCanSubmitChange}
+            formRef={formRef}
           />
         </div>
       )}
@@ -384,6 +407,10 @@ function InterestProfileEditor({
   saved,
   error,
   submitLabel,
+  submitClassName,
+  onDirtyChange,
+  onCanSubmitChange,
+  formRef,
 }: {
   form: PreferenceForm;
   onSubmit: (value: PreferenceAnswer) => void;
@@ -391,9 +418,59 @@ function InterestProfileEditor({
   saved: boolean;
   error?: string | null;
   submitLabel: string;
+  submitClassName?: string;
+  onDirtyChange?: (dirty: boolean) => void;
+  onCanSubmitChange?: (canSubmit: boolean) => void;
+  formRef?: RefObject<HTMLFormElement>;
 }) {
-  const questions = useMemo(() => form.questions ?? [], [form.questions]);
+  const questions = useMemo(
+    () => [...(form.questions ?? [])].sort((left, right) => left.ordinal - right.ordinal),
+    [form.questions],
+  );
   const options = form.scale_options ?? [];
+  const optionLabels = new Map(options.map((option) => [option.value, option.label]));
+  const choices = [
+    {
+      value: "very_interested",
+      label: optionLabels.get("very_interested") ?? "Very Interested",
+      icon: "★",
+      style: "border-[#edc34d] bg-[#fff3bf] text-[#8a6800] shadow-[2px_2px_0_#edc34d]",
+      activeStyle:
+        "-translate-y-0.5 border-[#edc34d] bg-[#f7df8a] text-[#8a6800] shadow-[4px_4px_0_#8a6800]",
+      hoverStyle:
+        "hover:-translate-y-0.5 hover:border-[#edc34d] hover:bg-[#f7df8a] hover:text-[#8a6800] hover:shadow-[4px_4px_0_#8a6800]",
+    },
+    {
+      value: "interested",
+      label: optionLabels.get("interested") ?? "Interested",
+      icon: <ThumbsUp className="size-4" strokeWidth={3} />,
+      style: "border-[#ead0ba] bg-[#fff3df] text-[#8f5d40] shadow-[2px_2px_0_#ead0ba]",
+      activeStyle:
+        "-translate-y-0.5 border-[#ead0ba] bg-[#f4dfcf] text-[#8f5d40] shadow-[4px_4px_0_#8f5d40]",
+      hoverStyle:
+        "hover:-translate-y-0.5 hover:border-[#ead0ba] hover:bg-[#f4dfcf] hover:text-[#8f5d40] hover:shadow-[4px_4px_0_#8f5d40]",
+    },
+    {
+      value: "not_interested",
+      label: optionLabels.get("not_interested") ?? "Not Interested",
+      icon: "↘",
+      style: "border-[#ed9a82] bg-[#fce2d9] text-[#ad4429] shadow-[2px_2px_0_#ed9a82]",
+      activeStyle:
+        "-translate-y-0.5 border-[#ed9a82] bg-[#f5c5b6] text-[#ad4429] shadow-[4px_4px_0_#ad4429]",
+      hoverStyle:
+        "hover:-translate-y-0.5 hover:border-[#ed9a82] hover:bg-[#f5c5b6] hover:text-[#ad4429] hover:shadow-[4px_4px_0_#ad4429]",
+    },
+    {
+      value: "unrated",
+      label: "Leave unrated",
+      icon: "?",
+      style: "border-[#78c5d9] bg-[#d5eef4] text-[#287d96] shadow-[2px_2px_0_#78c5d9]",
+      activeStyle:
+        "-translate-y-0.5 border-[#78c5d9] bg-[#b9e5f0] text-[#287d96] shadow-[4px_4px_0_#287d96]",
+      hoverStyle:
+        "hover:-translate-y-0.5 hover:border-[#78c5d9] hover:bg-[#b9e5f0] hover:text-[#287d96] hover:shadow-[4px_4px_0_#287d96]",
+    },
+  ] as const;
   const [ratings, setRatings] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -405,6 +482,8 @@ function InterestProfileEditor({
   }, [form]);
 
   const missing = questions.some((question) => !ratings[question.interest_area_id]);
+  const canSubmit = !missing && !isSubmitting && questions.length > 0;
+  useEffect(() => onCanSubmitChange?.(canSubmit), [canSubmit, onCanSubmitChange]);
   const values = useMemo<PreferenceInterestAnswerInput[]>(
     () =>
       questions.map((question) => ({
@@ -420,50 +499,53 @@ function InterestProfileEditor({
   }
 
   return (
-    <form className="mt-6 space-y-6" onSubmit={submit}>
-      <div className="space-y-5">
-        {questions.map((question) => (
-          <fieldset className="rounded-md border p-4" key={question.interest_area_id}>
-            <legend className="px-1 text-sm font-medium">{question.label}</legend>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              {options.map((option) => (
-                <label
-                  className="flex min-h-11 items-center gap-3 rounded-md border px-3 py-2 text-sm hover:bg-accent"
-                  key={`${question.interest_area_id}-${option.value}`}
-                >
-                  <input
-                    checked={ratings[question.interest_area_id] === option.value}
-                    name={`interest-${question.interest_area_id}`}
-                    onChange={() =>
-                      setRatings((current) => ({
-                        ...current,
-                        [question.interest_area_id]: option.value,
-                      }))
-                    }
-                    type="radio"
-                    value={option.value}
-                  />
-                  {option.label}
-                </label>
-              ))}
-              <label className="flex min-h-11 items-center gap-3 rounded-md border px-3 py-2 text-sm hover:bg-accent">
-                <input
-                  checked={ratings[question.interest_area_id] === "unrated"}
-                  name={`interest-${question.interest_area_id}`}
-                  onChange={() =>
-                    setRatings((current) => ({
-                      ...current,
-                      [question.interest_area_id]: "unrated",
-                    }))
-                  }
-                  type="radio"
-                  value="unrated"
-                />
-                Leave unrated
-              </label>
-            </div>
-          </fieldset>
-        ))}
+    <form className="space-y-6 px-5 py-6 sm:px-8 sm:py-8" onSubmit={submit} ref={formRef}>
+      <div className="overflow-hidden rounded-2xl border-4 border-[#ddd6bf] bg-[#fffaf0] shadow-[5px_5px_0_#d8c7b5]">
+        <div className="border-b-2 border-[#ddd6bf] bg-[#fffaf0] px-4 py-3 text-sm font-black text-stone-950 sm:px-5">
+          Pick one answer for each topic
+        </div>
+        <div className="divide-y-2 divide-[#ddd6bf]">
+          {questions.map((question) => (
+            <fieldset className="p-4 sm:p-5" key={question.interest_area_id}>
+              <legend className="sr-only">{question.label}</legend>
+              <div className="grid gap-3 lg:grid-cols-[minmax(13rem,1fr)_repeat(4,minmax(0,1fr))] lg:items-center">
+                <p className="text-lg font-black text-stone-950">{question.label}</p>
+                {choices.map((choice) => {
+                  const selected = ratings[question.interest_area_id] === choice.value;
+                  const hasSelection = Boolean(ratings[question.interest_area_id]);
+                  return (
+                    <button
+                      aria-pressed={selected}
+                      className={`min-h-12 rounded-lg border-2 px-3 py-2 text-sm font-black transition-all focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#287d96] ${
+                        selected
+                          ? choice.activeStyle
+                          : hasSelection
+                            ? `border-stone-300 bg-white text-stone-600 shadow-[2px_2px_0_#a8a29e] ${choice.hoverStyle}`
+                            : `${choice.style} ${choice.hoverStyle}`
+                      }`}
+                      key={choice.value}
+                      onClick={() => {
+                        onDirtyChange?.(true);
+                        setRatings((current) => ({
+                          ...current,
+                          [question.interest_area_id]: choice.value,
+                        }));
+                      }}
+                      type="button"
+                    >
+                      <span className="flex items-center justify-center gap-2">
+                        <span aria-hidden="true" className="text-base leading-none">
+                          {choice.icon}
+                        </span>
+                        {choice.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </fieldset>
+          ))}
+        </div>
       </div>
       {missing && (
         <p className="text-sm text-muted-foreground">Choose one response for each area.</p>
@@ -478,7 +560,7 @@ function InterestProfileEditor({
           Preferences saved. You can revise them while this form is open.
         </p>
       )}
-      <Button disabled={missing || isSubmitting || questions.length === 0} type="submit">
+      <Button className={submitClassName} disabled={!canSubmit} type="submit">
         {isSubmitting ? "Saving…" : submitLabel}
       </Button>
     </form>
@@ -492,6 +574,10 @@ function RankedChoiceEditor({
   saved,
   error,
   submitLabel,
+  submitClassName,
+  onDirtyChange,
+  onCanSubmitChange,
+  formRef,
 }: {
   form: PreferenceForm;
   onSubmit: (value: PreferenceAnswer) => void;
@@ -499,6 +585,10 @@ function RankedChoiceEditor({
   saved: boolean;
   error?: string | null;
   submitLabel: string;
+  submitClassName?: string;
+  onDirtyChange?: (dirty: boolean) => void;
+  onCanSubmitChange?: (canSubmit: boolean) => void;
+  formRef?: RefObject<HTMLFormElement>;
 }) {
   const offerings = useMemo(() => form.offerings ?? [], [form.offerings]);
   const offeringByID = useMemo(
@@ -506,6 +596,8 @@ function RankedChoiceEditor({
     [offerings],
   );
   const rankDepth = form.rank_depth ?? 0;
+  const canSubmit = !isSubmitting && offerings.length > 0;
+  useEffect(() => onCanSubmitChange?.(canSubmit), [canSubmit, onCanSubmitChange]);
   const emptyBuckets = (): RankedBuckets => ({
     no_response: [],
     ranked: [],
@@ -596,6 +688,7 @@ function RankedChoiceEditor({
         ? { kind: "ranked-slot", index: index ?? buckets.ranked.length }
         : { kind: "bucket", bucket: destination };
     const projection = projectDrop(buckets, id, dropDestination, rankDepth, alphabetize);
+    onDirtyChange?.(true);
     setUndoBuckets(buckets);
     setBuckets(projection.buckets);
     setConfirmWarnings(null);
@@ -660,6 +753,7 @@ function RankedChoiceEditor({
   function handleDragEnd() {
     const session = dragSessionRef.current;
     if (session?.destination) {
+      onDirtyChange?.(true);
       setUndoBuckets(session.origin);
       setBuckets(session.buckets);
       setConfirmWarnings(null);
@@ -894,7 +988,7 @@ function RankedChoiceEditor({
     dragSession?.destination?.kind === "ranked-slot" ? dragSession.rank : null;
 
   return (
-    <form className="space-y-5" onSubmit={submit}>
+    <form className="space-y-5" onSubmit={submit} ref={formRef}>
       <p aria-atomic="true" aria-live="polite" className="sr-only">
         {announcement}
       </p>
@@ -980,7 +1074,7 @@ function RankedChoiceEditor({
               </Button>
               <Button
                 autoFocus
-                className={rankedPrimaryButtonClass}
+                className={submitClassName ?? rankedPrimaryButtonClass}
                 disabled={isSubmitting}
                 onClick={() => onSubmit(values)}
                 type="button"
@@ -1020,6 +1114,7 @@ function RankedChoiceEditor({
             onClick={() => {
               if (!undoBuckets) return;
               const current = buckets;
+              onDirtyChange?.(true);
               setBuckets(undoBuckets);
               setUndoBuckets(current);
               setConfirmWarnings(null);
@@ -1031,8 +1126,8 @@ function RankedChoiceEditor({
             Undo last move
           </Button>
           <Button
-            className={rankedPrimaryButtonClass}
-            disabled={isSubmitting || offerings.length === 0}
+            className={submitClassName ?? rankedPrimaryButtonClass}
+            disabled={!canSubmit}
             type="submit"
           >
             {isSubmitting ? "Saving…" : submitLabel}
