@@ -59,7 +59,39 @@ export type GuardianStudentReviewWarning = Schemas["GuardianStudentReviewWarning
 export type GuardianVocabulary = Schemas["GuardianVocabularyResponse"];
 export type GuardianProfile = Schemas["GuardianProfileResponse"];
 export type GuardianRegistrationEntry = Schemas["GuardianRegistrationEntryResponse"];
+
+// Registration-link types are deliberately local until the backend change that
+// publishes them is generated into api.generated.ts. Unlike bearer tokens, the
+// public route ID is a stored identifier and is safe for administrators to see.
+export type GuardianRegistrationLink = {
+  id: string;
+  status: "active" | "expired" | "revoked";
+  expires_at: string;
+  created_at: string;
+  revoked_at?: string;
+  revocation_kind?: "manual" | "replaced" | "legacy_cutover";
+  revoked_by_user_id?: string;
+  generation: number;
+};
+
+export type GuardianRegistrationLinkPage = {
+  entries: GuardianRegistrationLink[];
+  next_cursor?: string;
+};
+
+type PendingGuardianRegistrationLinkApi = {
+  GET: (path: string, options?: unknown) => Promise<unknown>;
+  POST: (path: string, options?: unknown) => Promise<unknown>;
+  PATCH: (path: string, options?: unknown) => Promise<unknown>;
+};
+
+// The generated frontend contract is not committed. Keep the temporary cast at
+// this boundary so pages remain typed while this branch is paired with the
+// backend contract that introduces these routes.
+const registrationLinkApi = api as unknown as PendingGuardianRegistrationLinkApi;
+
 export type GuardianInvitationImport = Schemas["InvitationImportResult"];
+export type GuardianInvitationContactPage = Schemas["GuardianInvitationContactsOutputBody"];
 export type MFAStatus = Schemas["MFAStatusOutputBody"];
 export type MFAEnrollment = Schemas["MFAEnrollmentOutputBody"];
 export type AdministrativeSession = Schemas["AdministrativeSessionOutputBody"];
@@ -84,8 +116,10 @@ export const resourceApi = {
         body: { challenge_id: challengeID, code },
       }),
     ),
-  beginGuardianOnboarding: (entryToken: string) =>
-    unwrap(api.POST("/api/guardian/onboarding/begin", { body: { entry_token: entryToken } })),
+  beginGuardianOnboarding: (registrationLinkID: string) =>
+    unwrap(
+      registrationLinkApi.POST(`/api/guardian/onboarding/${registrationLinkID}/begin`) as never,
+    ) as Promise<GuardianOnboardingSession>,
   redeemGuardianInvitation: (invitationToken: string) =>
     unwrap(
       api.POST("/api/guardian/onboarding/invitation/redeem", {
@@ -104,24 +138,37 @@ export const resourceApi = {
         body: { session_token: sessionToken, challenge_id: challengeID, code },
       }),
     ),
-  createGuardianRegistrationEntry: (schoolYearID: string) =>
+  listGuardianRegistrationLinks: (schoolYearID: string, cursor?: string) =>
     unwrap(
-      api.POST("/api/school-years/{schoolYearID}/guardian-registration-entry", {
-        params: { path: { schoolYearID } },
-      }),
-    ),
-  getGuardianRegistrationEntry: (schoolYearID: string) =>
+      registrationLinkApi.GET(`/api/school-years/${schoolYearID}/guardian-registration-links`, {
+        params: { query: { limit: 10, cursor } },
+      }) as never,
+    ) as Promise<GuardianRegistrationLinkPage>,
+  createGuardianRegistrationLink: (schoolYearID: string, expiresAt: string) =>
     unwrap(
-      api.GET("/api/school-years/{schoolYearID}/guardian-registration-entry", {
-        params: { path: { schoolYearID } },
-      }),
-    ),
-  revokeGuardianRegistrationEntry: (schoolYearID: string) =>
+      registrationLinkApi.POST(`/api/school-years/${schoolYearID}/guardian-registration-links`, {
+        body: { expires_at: expiresAt },
+      }) as never,
+    ) as Promise<GuardianRegistrationLink>,
+  updateGuardianRegistrationLink: (schoolYearID: string, linkID: string, expiresAt: string) =>
+    unwrap(
+      registrationLinkApi.PATCH(
+        `/api/school-years/${schoolYearID}/guardian-registration-links/${linkID}`,
+        { body: { expires_at: expiresAt } },
+      ) as never,
+    ) as Promise<GuardianRegistrationLink>,
+  revokeGuardianRegistrationLink: (schoolYearID: string, linkID: string) =>
     unwrapNoContent(
-      api.POST("/api/school-years/{schoolYearID}/guardian-registration-entry/revoke", {
-        params: { path: { schoolYearID } },
-      }),
+      registrationLinkApi.POST(
+        `/api/school-years/${schoolYearID}/guardian-registration-links/${linkID}/revoke`,
+      ) as never,
     ),
+  listGuardianInvitationContacts: (schoolYearID: string, cursor?: string) =>
+    unwrap(
+      api.GET("/api/school-years/{schoolYearID}/guardian-invitation-contacts", {
+        params: { path: { schoolYearID }, query: { limit: 50, cursor } },
+      }),
+    ) as Promise<GuardianInvitationContactPage>,
   importGuardianInvitationContacts: async (schoolYearID: string, document: File) =>
     unwrap(
       api.POST("/api/school-years/{schoolYearID}/guardian-invitation-contacts/import", {
@@ -173,11 +220,6 @@ export const resourceApi = {
     session_token: string;
     adult_given_name: string;
     adult_family_name: string;
-    student_given_name: string;
-    student_family_name: string;
-    grade_level_id: string;
-    homeroom_id: string;
-    relationship_type: string;
   }) => unwrap(api.POST("/api/guardian/onboarding/complete", { body: value })),
   getGuardianAuthContext: () => unwrap(api.GET("/api/auth/guardian")),
   listGuardianStudents: () => unwrapList(api.GET("/api/guardian/students")),

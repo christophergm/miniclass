@@ -1,3 +1,4 @@
+import { Pencil } from "lucide-react";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Link, Outlet, useNavigate, useOutletContext, useParams } from "react-router-dom";
 
@@ -320,19 +321,22 @@ export function SchoolYearSettingsPage() {
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
-      <div className="mt-2 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Settings</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Manage {year.label} and its year-scoped tools.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <StateBadge className="px-3 py-1 text-sm" state={year.state} />
-          <Button onClick={openEditor} type="button" variant="outline">
-            Edit
+      <div className="mt-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-3xl font-semibold tracking-tight">{year.label}</h1>
+          <StateBadge state={year.state} />
+          <Button
+            aria-label="Edit school year"
+            onClick={openEditor}
+            size="icon"
+            title="Edit school year"
+            type="button"
+            variant="outline"
+          >
+            <Pencil aria-hidden="true" className="size-4" />
           </Button>
         </div>
+        <p className="mt-2 text-sm text-muted-foreground">Manage this school year and its tools.</p>
       </div>
 
       {readOnly && (

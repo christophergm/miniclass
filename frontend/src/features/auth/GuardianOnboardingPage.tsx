@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { resourceApi, type GuardianOnboardingSession } from "@/lib/apiResources";
+import { setApplicationSession } from "@/lib/auth";
 
 import { AuthErrorMessage, AuthLayout } from "./AuthLayout";
 import { errorMessage } from "./auth-utils";
@@ -11,25 +12,16 @@ import { errorMessage } from "./auth-utils";
 type Completion = {
   adult_given_name: string;
   adult_family_name: string;
-  student_given_name: string;
-  student_family_name: string;
-  grade_level_id: string;
-  homeroom_id: string;
-  relationship_type: "parent" | "guardian" | "grandparent" | "other";
 };
 
 const emptyCompletion: Completion = {
   adult_given_name: "",
   adult_family_name: "",
-  student_given_name: "",
-  student_family_name: "",
-  grade_level_id: "",
-  homeroom_id: "",
-  relationship_type: "parent",
 };
 
 export function GuardianOnboardingPage() {
   const [searchParams] = useSearchParams();
+  const { registrationLinkId } = useParams<{ registrationLinkId: string }>();
   const navigate = useNavigate();
   const [session, setSession] = useState<GuardianOnboardingSession | null>(null);
   const [challengeID, setChallengeID] = useState<string | null>(null);
@@ -42,29 +34,48 @@ export function GuardianOnboardingPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const startedLink = useRef<string | null>(null);
+  const invitationToken = searchParams.get("invitation");
+  const isSharedLink = Boolean(registrationLinkId);
 
+  // Personal invitation URLs retain their existing query-token behavior.
   useEffect(() => {
-    const entryToken = searchParams.get("entry");
-    const invitationToken = searchParams.get("invitation");
-    if (!entryToken && !invitationToken) {
-      setError("This onboarding link is incomplete. Ask an administrator for a new link.");
+    if (!invitationToken && !isSharedLink) {
+      setError(
+        "This registration link is unavailable. Please contact your organization for a new link.",
+      );
       return;
     }
-    const linkKey = entryToken ? `entry:${entryToken}` : `invitation:${invitationToken}`;
+    if (!invitationToken || isSharedLink) return;
+    const linkKey = `invitation:${invitationToken}`;
     if (startedLink.current === linkKey) return;
     startedLink.current = linkKey;
-    (async () => {
-      try {
-        const next = entryToken
-          ? await resourceApi.beginGuardianOnboarding(entryToken)
-          : await resourceApi.redeemGuardianInvitation(invitationToken ?? "");
+    void resourceApi
+      .redeemGuardianInvitation(invitationToken)
+      .then((next) => {
         setSession(next);
         if (next.email) setEmail(next.email);
-      } catch (reason) {
-        setError(errorMessage(reason));
-      }
-    })();
-  }, [searchParams]);
+      })
+      .catch((reason) => setError(errorMessage(reason)));
+  }, [invitationToken, isSharedLink]);
+
+  async function beginSharedRegistration() {
+    if (!registrationLinkId) return;
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      const next = await resourceApi.beginGuardianOnboarding(registrationLinkId);
+      setSession(next);
+      if (next.email) setEmail(next.email);
+    } catch {
+      // The public endpoint deliberately returns a generic error for every
+      // invalid state, so do not disclose whether a link existed or why.
+      setError(
+        "This registration link is unavailable. Please contact your organization for a new link.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
   async function requestCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -141,16 +152,8 @@ export function GuardianOnboardingPage() {
         session_token: session.session_token,
         ...completion,
       });
-      navigate("/guardian", {
-        replace: true,
-        state: {
-          guardianOnboarding: {
-            organizationID: result.organization_id,
-            schoolYearID: result.school_year_id,
-            email: session.email || email.trim(),
-          },
-        },
-      });
+      setApplicationSession(result.session_token);
+      navigate("/guardian/students", { replace: true });
     } catch (reason) {
       setError(errorMessage(reason));
     } finally {
@@ -164,14 +167,43 @@ export function GuardianOnboardingPage() {
 
   return (
     <AuthLayout>
-      <h1 className="text-2xl font-semibold tracking-tight">Guardian registration</h1>
+      <p className="text-sm font-medium text-primary">Welcome to MiniClass</p>
+      <h1 className="mt-1 text-2xl font-semibold tracking-tight">Let’s start with you</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Verify your mailbox and accept the current privacy terms before any guardian or student
-        record is created.
+        We’ll verify your email, record your consent, and create your guardian profile. Adding or
+        linking a student comes next, once you are in.
       </p>
+      <ol
+        className="mt-5 grid grid-cols-3 gap-2 text-center text-xs text-muted-foreground"
+        aria-label="Registration steps"
+      >
+        <li className="rounded-md border bg-muted/30 px-2 py-2">
+          <span className="block font-medium text-foreground">1. You</span>Profile
+        </li>
+        <li className="rounded-md border bg-muted/30 px-2 py-2">
+          <span className="block font-medium text-foreground">2. Students</span>Add or link
+        </li>
+        <li className="rounded-md border bg-muted/30 px-2 py-2">
+          <span className="block font-medium text-foreground">3. Explore</span>MiniClass
+        </li>
+      </ol>
       {error && <AuthErrorMessage message={error} />}
 
-      {!session ? (
+      {isSharedLink && !session ? (
+        <div className="mt-6 space-y-4">
+          <p className="text-sm text-muted-foreground">
+            This takes just a few minutes. We’ll only ask for your email and name today.
+          </p>
+          <Button
+            className="w-full"
+            disabled={isSubmitting}
+            onClick={beginSharedRegistration}
+            type="button"
+          >
+            {isSubmitting ? "Starting registration…" : "Begin registration"}
+          </Button>
+        </div>
+      ) : !session ? (
         <p className="mt-6 text-sm text-muted-foreground" role="status">
           Opening your secure onboarding link…
         </p>
@@ -179,7 +211,8 @@ export function GuardianOnboardingPage() {
         challengeID ? (
           <form className="mt-6 space-y-4" onSubmit={verifyCode}>
             <p className="rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-              If the email can continue onboarding, a one-time code has been sent.
+              If this email can continue, we’ve sent a one-time code. It helps keep your family’s
+              information private.
             </p>
             <label
               className="block space-y-2 text-sm font-medium"
@@ -202,11 +235,14 @@ export function GuardianOnboardingPage() {
           </form>
         ) : (
           <form className="mt-6 space-y-4" onSubmit={requestCode}>
+            <p className="rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+              We use your email to confirm it’s you. We don’t create a password account.
+            </p>
             <label
               className="block space-y-2 text-sm font-medium"
               htmlFor="guardian-onboarding-email"
             >
-              Email
+              Email address
               <Input
                 id="guardian-onboarding-email"
                 type="email"
@@ -277,15 +313,13 @@ export function GuardianOnboardingPage() {
       ) : (
         <form className="mt-6 space-y-4" onSubmit={finish}>
           <p className="rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-            Your mailbox is verified and consent is recorded. Add the first student relationship to
-            finish registration.
+            Your email is verified and your consent is recorded. Tell us your name to create your
+            guardian profile. You can add or link a student after this step.
           </p>
           {(
             [
               ["adult_given_name", "Your given name"],
               ["adult_family_name", "Your family name"],
-              ["student_given_name", "Student given name"],
-              ["student_family_name", "Student family name"],
             ] as const
           ).map(([field, label]) => (
             <label
@@ -302,61 +336,12 @@ export function GuardianOnboardingPage() {
               />
             </label>
           ))}
-          <label className="block space-y-2 text-sm font-medium" htmlFor="guardian-relationship">
-            Relationship
-            <select
-              className="flex h-9 w-full rounded-md border bg-transparent px-3 text-sm"
-              id="guardian-relationship"
-              value={completion.relationship_type}
-              onChange={(event) =>
-                updateCompletion(
-                  "relationship_type",
-                  event.target.value as Completion["relationship_type"],
-                )
-              }
-            >
-              <option value="parent">Parent</option>
-              <option value="guardian">Guardian</option>
-              <option value="grandparent">Grandparent</option>
-              <option value="other">Other</option>
-            </select>
-          </label>
-          <label className="block space-y-2 text-sm font-medium" htmlFor="guardian-grade-level">
-            Grade
-            <select
-              className="flex h-9 w-full rounded-md border bg-transparent px-3 text-sm"
-              id="guardian-grade-level"
-              required
-              value={completion.grade_level_id}
-              onChange={(event) => updateCompletion("grade_level_id", event.target.value)}
-            >
-              <option value="">Choose grade</option>
-              {(session.grade_levels ?? []).map((grade) => (
-                <option key={grade.id} value={grade.id}>
-                  {grade.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block space-y-2 text-sm font-medium" htmlFor="guardian-homeroom">
-            Homeroom/classroom
-            <select
-              className="flex h-9 w-full rounded-md border bg-transparent px-3 text-sm"
-              id="guardian-homeroom"
-              required
-              value={completion.homeroom_id}
-              onChange={(event) => updateCompletion("homeroom_id", event.target.value)}
-            >
-              <option value="">Choose homeroom/classroom</option>
-              {(session.homerooms ?? []).map((homeroom) => (
-                <option key={homeroom.id} value={homeroom.id}>
-                  {homeroom.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <p className="rounded-md border border-dashed bg-muted/20 px-3 py-3 text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">What’s next?</span> We’ll take you
+            straight to add a student or connect with one already in MiniClass.
+          </p>
           <Button className="w-full" type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Creating records…" : "Finish registration"}
+            {isSubmitting ? "Creating your profile…" : "Create my guardian profile"}
           </Button>
         </form>
       )}

@@ -589,27 +589,29 @@ func (ns NullSessionState) Value() (driver.Value, error) {
 }
 
 type AccessToken struct {
-	ID                 ids.XID            `json:"id"`
-	TokenHash          []byte             `json:"token_hash"`
-	Purpose            AccessTokenPurpose `json:"purpose"`
-	ExpiresAt          pgtype.Timestamptz `json:"expires_at"`
-	RevokedAt          pgtype.Timestamptz `json:"revoked_at"`
-	ConsumedAt         pgtype.Timestamptz `json:"consumed_at"`
-	Generation         int32              `json:"generation"`
-	CreatedAt          pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
-	OrganizationID     *ids.XID           `json:"organization_id"`
-	SchoolYearID       *ids.XID           `json:"school_year_id"`
-	AdultID            *ids.XID           `json:"adult_id"`
-	UserID             *ids.XID           `json:"user_id"`
-	VerifierHash       []byte             `json:"verifier_hash"`
-	RequestedEmailHash []byte             `json:"requested_email_hash"`
-	Attempts           int32              `json:"attempts"`
-	IdleExpiresAt      pgtype.Timestamptz `json:"idle_expires_at"`
-	LastSeenAt         pgtype.Timestamptz `json:"last_seen_at"`
-	MfaGeneration      pgtype.Int4        `json:"mfa_generation"`
-	ParentTokenID      *ids.XID           `json:"parent_token_id"`
-	MailboxVerifiedAt  pgtype.Timestamptz `json:"mailbox_verified_at"`
+	ID                                  ids.XID            `json:"id"`
+	TokenHash                           []byte             `json:"token_hash"`
+	Purpose                             AccessTokenPurpose `json:"purpose"`
+	ExpiresAt                           pgtype.Timestamptz `json:"expires_at"`
+	RevokedAt                           pgtype.Timestamptz `json:"revoked_at"`
+	ConsumedAt                          pgtype.Timestamptz `json:"consumed_at"`
+	Generation                          int32              `json:"generation"`
+	CreatedAt                           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                           pgtype.Timestamptz `json:"updated_at"`
+	OrganizationID                      *ids.XID           `json:"organization_id"`
+	SchoolYearID                        *ids.XID           `json:"school_year_id"`
+	AdultID                             *ids.XID           `json:"adult_id"`
+	UserID                              *ids.XID           `json:"user_id"`
+	VerifierHash                        []byte             `json:"verifier_hash"`
+	RequestedEmailHash                  []byte             `json:"requested_email_hash"`
+	Attempts                            int32              `json:"attempts"`
+	IdleExpiresAt                       pgtype.Timestamptz `json:"idle_expires_at"`
+	LastSeenAt                          pgtype.Timestamptz `json:"last_seen_at"`
+	MfaGeneration                       pgtype.Int4        `json:"mfa_generation"`
+	ParentTokenID                       *ids.XID           `json:"parent_token_id"`
+	MailboxVerifiedAt                   pgtype.Timestamptz `json:"mailbox_verified_at"`
+	GuardianRegistrationRevocationKind  pgtype.Text        `json:"guardian_registration_revocation_kind"`
+	GuardianRegistrationRevokedByUserID *ids.XID           `json:"guardian_registration_revoked_by_user_id"`
 }
 
 type Adult struct {

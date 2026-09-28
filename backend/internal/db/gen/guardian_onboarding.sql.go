@@ -45,7 +45,7 @@ where id = $1
 returning id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation, parent_token_id, mailbox_verified_at
+    mfa_generation, parent_token_id, mailbox_verified_at, guardian_registration_revocation_kind, guardian_registration_revoked_by_user_id
 `
 
 type ConsumeGuardianInvitationTokenParams struct {
@@ -78,6 +78,8 @@ func (q *Queries) ConsumeGuardianInvitationToken(ctx context.Context, arg Consum
 		&i.MfaGeneration,
 		&i.ParentTokenID,
 		&i.MailboxVerifiedAt,
+		&i.GuardianRegistrationRevocationKind,
+		&i.GuardianRegistrationRevokedByUserID,
 	)
 	return i, err
 }
@@ -95,7 +97,7 @@ where id = $1
 returning id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation, parent_token_id, mailbox_verified_at
+    mfa_generation, parent_token_id, mailbox_verified_at, guardian_registration_revocation_kind, guardian_registration_revoked_by_user_id
 `
 
 type ConsumeGuardianOnboardingOTPParams struct {
@@ -135,8 +137,35 @@ func (q *Queries) ConsumeGuardianOnboardingOTP(ctx context.Context, arg ConsumeG
 		&i.MfaGeneration,
 		&i.ParentTokenID,
 		&i.MailboxVerifiedAt,
+		&i.GuardianRegistrationRevocationKind,
+		&i.GuardianRegistrationRevokedByUserID,
 	)
 	return i, err
+}
+
+const countOpenGuardianInvitationContacts = `-- name: CountOpenGuardianInvitationContacts :one
+select count(*)
+from guardian_invitation_contacts c
+join access_tokens t on t.id = c.invitation_token_id
+where c.organization_id = $1
+  and c.school_year_id = $2
+  and t.purpose = 'guardian_invitation'
+  and t.revoked_at is null
+  and t.consumed_at is null
+  and t.expires_at > $3
+`
+
+type CountOpenGuardianInvitationContactsParams struct {
+	OrganizationID ids.XID            `json:"organization_id"`
+	SchoolYearID   ids.XID            `json:"school_year_id"`
+	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
+}
+
+func (q *Queries) CountOpenGuardianInvitationContacts(ctx context.Context, arg CountOpenGuardianInvitationContactsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countOpenGuardianInvitationContacts, arg.OrganizationID, arg.SchoolYearID, arg.ExpiresAt)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
 }
 
 const countRecentGuardianOnboardingOTPRequests = `-- name: CountRecentGuardianOnboardingOTPRequests :one
@@ -231,7 +260,7 @@ values ($1, 'guardian_invitation', $2,
 returning id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation, parent_token_id, mailbox_verified_at
+    mfa_generation, parent_token_id, mailbox_verified_at, guardian_registration_revocation_kind, guardian_registration_revoked_by_user_id
 `
 
 type CreateGuardianInvitationTokenParams struct {
@@ -271,6 +300,8 @@ func (q *Queries) CreateGuardianInvitationToken(ctx context.Context, arg CreateG
 		&i.MfaGeneration,
 		&i.ParentTokenID,
 		&i.MailboxVerifiedAt,
+		&i.GuardianRegistrationRevocationKind,
+		&i.GuardianRegistrationRevokedByUserID,
 	)
 	return i, err
 }
@@ -336,7 +367,7 @@ values ($1, 'guardian_onboarding_otp', $2, 1, $3, $4, $5, $6, $7)
 returning id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation, parent_token_id, mailbox_verified_at
+    mfa_generation, parent_token_id, mailbox_verified_at, guardian_registration_revocation_kind, guardian_registration_revoked_by_user_id
 `
 
 type CreateGuardianOnboardingOTPParams struct {
@@ -382,6 +413,8 @@ func (q *Queries) CreateGuardianOnboardingOTP(ctx context.Context, arg CreateGua
 		&i.MfaGeneration,
 		&i.ParentTokenID,
 		&i.MailboxVerifiedAt,
+		&i.GuardianRegistrationRevocationKind,
+		&i.GuardianRegistrationRevokedByUserID,
 	)
 	return i, err
 }
@@ -392,7 +425,7 @@ values ($1, 'guardian_onboarding_session', $2, 1, $3, $4, $5, $6, $7)
 returning id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation, parent_token_id, mailbox_verified_at
+    mfa_generation, parent_token_id, mailbox_verified_at, guardian_registration_revocation_kind, guardian_registration_revoked_by_user_id
 `
 
 type CreateGuardianOnboardingSessionParams struct {
@@ -438,40 +471,32 @@ func (q *Queries) CreateGuardianOnboardingSession(ctx context.Context, arg Creat
 		&i.MfaGeneration,
 		&i.ParentTokenID,
 		&i.MailboxVerifiedAt,
+		&i.GuardianRegistrationRevocationKind,
+		&i.GuardianRegistrationRevokedByUserID,
 	)
 	return i, err
 }
 
 const createGuardianRegistrationEntry = `-- name: CreateGuardianRegistrationEntry :one
-
 insert into access_tokens (token_hash, purpose, expires_at, generation, organization_id, school_year_id)
-values ($1, 'guardian_registration_entry', $2,
+values (null, 'guardian_registration_entry', $1,
     (select coalesce(max(generation), 0) + 1 from access_tokens
-     where purpose = 'guardian_registration_entry' and organization_id = $3 and school_year_id = $4),
-    $3, $4)
+     where purpose = 'guardian_registration_entry' and organization_id = $2 and school_year_id = $3),
+    $2, $3)
 returning id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation, parent_token_id, mailbox_verified_at
+    mfa_generation, parent_token_id, mailbox_verified_at, guardian_registration_revocation_kind, guardian_registration_revoked_by_user_id
 `
 
 type CreateGuardianRegistrationEntryParams struct {
-	TokenHash      []byte             `json:"token_hash"`
 	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
 	OrganizationID *ids.XID           `json:"organization_id"`
 	SchoolYearID   *ids.XID           `json:"school_year_id"`
 }
 
-// Guardian onboarding tokens are resolved through the identity accessor before
-// a tenant transaction is opened. Every write that changes tenant data still
-// runs through internal/data and records an audit entry.
 func (q *Queries) CreateGuardianRegistrationEntry(ctx context.Context, arg CreateGuardianRegistrationEntryParams) (AccessToken, error) {
-	row := q.db.QueryRow(ctx, createGuardianRegistrationEntry,
-		arg.TokenHash,
-		arg.ExpiresAt,
-		arg.OrganizationID,
-		arg.SchoolYearID,
-	)
+	row := q.db.QueryRow(ctx, createGuardianRegistrationEntry, arg.ExpiresAt, arg.OrganizationID, arg.SchoolYearID)
 	var i AccessToken
 	err := row.Scan(
 		&i.ID,
@@ -495,6 +520,8 @@ func (q *Queries) CreateGuardianRegistrationEntry(ctx context.Context, arg Creat
 		&i.MfaGeneration,
 		&i.ParentTokenID,
 		&i.MailboxVerifiedAt,
+		&i.GuardianRegistrationRevocationKind,
+		&i.GuardianRegistrationRevokedByUserID,
 	)
 	return i, err
 }
@@ -599,7 +626,7 @@ const getCurrentGuardianRegistrationEntry = `-- name: GetCurrentGuardianRegistra
 select id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation, parent_token_id, mailbox_verified_at
+    mfa_generation, parent_token_id, mailbox_verified_at, guardian_registration_revocation_kind, guardian_registration_revoked_by_user_id
 from access_tokens
 where purpose = 'guardian_registration_entry'
   and organization_id = $1
@@ -640,6 +667,8 @@ func (q *Queries) GetCurrentGuardianRegistrationEntry(ctx context.Context, arg G
 		&i.MfaGeneration,
 		&i.ParentTokenID,
 		&i.MailboxVerifiedAt,
+		&i.GuardianRegistrationRevocationKind,
+		&i.GuardianRegistrationRevokedByUserID,
 	)
 	return i, err
 }
@@ -738,7 +767,7 @@ const getGuardianInvitationTokenByHash = `-- name: GetGuardianInvitationTokenByH
 select id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation, parent_token_id, mailbox_verified_at
+    mfa_generation, parent_token_id, mailbox_verified_at, guardian_registration_revocation_kind, guardian_registration_revoked_by_user_id
 from access_tokens
 where token_hash = $1
   and purpose = 'guardian_invitation'
@@ -777,6 +806,8 @@ func (q *Queries) GetGuardianInvitationTokenByHash(ctx context.Context, arg GetG
 		&i.MfaGeneration,
 		&i.ParentTokenID,
 		&i.MailboxVerifiedAt,
+		&i.GuardianRegistrationRevocationKind,
+		&i.GuardianRegistrationRevokedByUserID,
 	)
 	return i, err
 }
@@ -818,7 +849,7 @@ const getGuardianOnboardingOTPByHash = `-- name: GetGuardianOnboardingOTPByHash 
 select id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation, parent_token_id, mailbox_verified_at
+    mfa_generation, parent_token_id, mailbox_verified_at, guardian_registration_revocation_kind, guardian_registration_revoked_by_user_id
 from access_tokens
 where token_hash = $1
   and purpose = 'guardian_onboarding_otp'
@@ -849,6 +880,8 @@ func (q *Queries) GetGuardianOnboardingOTPByHash(ctx context.Context, tokenHash 
 		&i.MfaGeneration,
 		&i.ParentTokenID,
 		&i.MailboxVerifiedAt,
+		&i.GuardianRegistrationRevocationKind,
+		&i.GuardianRegistrationRevokedByUserID,
 	)
 	return i, err
 }
@@ -857,7 +890,7 @@ const getGuardianOnboardingSessionByHash = `-- name: GetGuardianOnboardingSessio
 select id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation, parent_token_id, mailbox_verified_at
+    mfa_generation, parent_token_id, mailbox_verified_at, guardian_registration_revocation_kind, guardian_registration_revoked_by_user_id
 from access_tokens
 where token_hash = $1
   and purpose = 'guardian_onboarding_session'
@@ -897,30 +930,32 @@ func (q *Queries) GetGuardianOnboardingSessionByHash(ctx context.Context, arg Ge
 		&i.MfaGeneration,
 		&i.ParentTokenID,
 		&i.MailboxVerifiedAt,
+		&i.GuardianRegistrationRevocationKind,
+		&i.GuardianRegistrationRevokedByUserID,
 	)
 	return i, err
 }
 
-const getGuardianRegistrationEntryByHash = `-- name: GetGuardianRegistrationEntryByHash :one
-select id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
-    created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
-    verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation, parent_token_id, mailbox_verified_at
-from access_tokens
-where token_hash = $1
-  and purpose = 'guardian_registration_entry'
-  and revoked_at is null
-  and consumed_at is null
-  and expires_at > $2
+const getGuardianRegistrationEntryByID = `-- name: GetGuardianRegistrationEntryByID :one
+select t.id, t.token_hash, t.purpose, t.expires_at, t.revoked_at, t.consumed_at, t.generation, t.created_at, t.updated_at, t.organization_id, t.school_year_id, t.adult_id, t.user_id, t.verifier_hash, t.requested_email_hash, t.attempts, t.idle_expires_at, t.last_seen_at, t.mfa_generation, t.parent_token_id, t.mailbox_verified_at, t.guardian_registration_revocation_kind, t.guardian_registration_revoked_by_user_id
+from access_tokens t
+where t.id = $1
+  and t.purpose = 'guardian_registration_entry'
+  and t.revoked_at is null
+  and t.consumed_at is null
+  and t.expires_at > $2
 `
 
-type GetGuardianRegistrationEntryByHashParams struct {
-	TokenHash []byte             `json:"token_hash"`
+type GetGuardianRegistrationEntryByIDParams struct {
+	ID        ids.XID            `json:"id"`
 	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
 }
 
-func (q *Queries) GetGuardianRegistrationEntryByHash(ctx context.Context, arg GetGuardianRegistrationEntryByHashParams) (AccessToken, error) {
-	row := q.db.QueryRow(ctx, getGuardianRegistrationEntryByHash, arg.TokenHash, arg.ExpiresAt)
+// This identity lookup deliberately reads only access_tokens. The school-year
+// state is checked after the token supplies an organization ID and a tenant
+// transaction can enforce row-level security.
+func (q *Queries) GetGuardianRegistrationEntryByID(ctx context.Context, arg GetGuardianRegistrationEntryByIDParams) (AccessToken, error) {
+	row := q.db.QueryRow(ctx, getGuardianRegistrationEntryByID, arg.ID, arg.ExpiresAt)
 	var i AccessToken
 	err := row.Scan(
 		&i.ID,
@@ -944,6 +979,8 @@ func (q *Queries) GetGuardianRegistrationEntryByHash(ctx context.Context, arg Ge
 		&i.MfaGeneration,
 		&i.ParentTokenID,
 		&i.MailboxVerifiedAt,
+		&i.GuardianRegistrationRevocationKind,
+		&i.GuardianRegistrationRevokedByUserID,
 	)
 	return i, err
 }
@@ -1108,6 +1145,79 @@ func (q *Queries) ListAllGuardianOnboardingConsentsForRegistry(ctx context.Conte
 	return items, nil
 }
 
+const listGuardianInvitationContactPage = `-- name: ListGuardianInvitationContactPage :many
+select c.id, c.organization_id, c.school_year_id, c.invitation_token_id, c.email, c.created_at, c.updated_at,
+    t.expires_at, t.revoked_at, t.consumed_at, t.generation
+from guardian_invitation_contacts c
+join access_tokens t on t.id = c.invitation_token_id
+where c.organization_id = $1
+  and c.school_year_id = $2
+  and t.purpose = 'guardian_invitation'
+  and ($3::timestamptz is null or (c.created_at, c.id) < ($3, $4::public.xid20))
+order by c.created_at desc, c.id desc
+limit $5
+`
+
+type ListGuardianInvitationContactPageParams struct {
+	OrganizationID  ids.XID            `json:"organization_id"`
+	SchoolYearID    ids.XID            `json:"school_year_id"`
+	CursorCreatedAt pgtype.Timestamptz `json:"cursor_created_at"`
+	CursorID        *ids.XID           `json:"cursor_id"`
+	PageSize        int32              `json:"page_size"`
+}
+
+type ListGuardianInvitationContactPageRow struct {
+	ID                ids.XID            `json:"id"`
+	OrganizationID    ids.XID            `json:"organization_id"`
+	SchoolYearID      ids.XID            `json:"school_year_id"`
+	InvitationTokenID ids.XID            `json:"invitation_token_id"`
+	Email             string             `json:"email"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	ExpiresAt         pgtype.Timestamptz `json:"expires_at"`
+	RevokedAt         pgtype.Timestamptz `json:"revoked_at"`
+	ConsumedAt        pgtype.Timestamptz `json:"consumed_at"`
+	Generation        int32              `json:"generation"`
+}
+
+func (q *Queries) ListGuardianInvitationContactPage(ctx context.Context, arg ListGuardianInvitationContactPageParams) ([]ListGuardianInvitationContactPageRow, error) {
+	rows, err := q.db.Query(ctx, listGuardianInvitationContactPage,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+		arg.CursorCreatedAt,
+		arg.CursorID,
+		arg.PageSize,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListGuardianInvitationContactPageRow{}
+	for rows.Next() {
+		var i ListGuardianInvitationContactPageRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrganizationID,
+			&i.SchoolYearID,
+			&i.InvitationTokenID,
+			&i.Email,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ExpiresAt,
+			&i.RevokedAt,
+			&i.ConsumedAt,
+			&i.Generation,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listGuardianInvitationContacts = `-- name: ListGuardianInvitationContacts :many
 select c.id, c.organization_id, c.school_year_id, c.invitation_token_id, c.email, c.created_at, c.updated_at,
     t.expires_at, t.revoked_at, t.consumed_at, t.generation
@@ -1169,6 +1279,70 @@ func (q *Queries) ListGuardianInvitationContacts(ctx context.Context, arg ListGu
 	return items, nil
 }
 
+const listGuardianRegistrationEntries = `-- name: ListGuardianRegistrationEntries :many
+select id, expires_at, revoked_at, guardian_registration_revocation_kind,
+    guardian_registration_revoked_by_user_id, generation, created_at
+from access_tokens
+where purpose = 'guardian_registration_entry'
+  and organization_id = $1
+  and school_year_id = $2
+  and ($3::timestamptz is null or (created_at, id) < ($3, $4::public.xid20))
+order by created_at desc, id desc
+limit $5
+`
+
+type ListGuardianRegistrationEntriesParams struct {
+	OrganizationID  *ids.XID           `json:"organization_id"`
+	SchoolYearID    *ids.XID           `json:"school_year_id"`
+	CursorCreatedAt pgtype.Timestamptz `json:"cursor_created_at"`
+	CursorID        *ids.XID           `json:"cursor_id"`
+	PageSize        int32              `json:"page_size"`
+}
+
+type ListGuardianRegistrationEntriesRow struct {
+	ID                                  ids.XID            `json:"id"`
+	ExpiresAt                           pgtype.Timestamptz `json:"expires_at"`
+	RevokedAt                           pgtype.Timestamptz `json:"revoked_at"`
+	GuardianRegistrationRevocationKind  pgtype.Text        `json:"guardian_registration_revocation_kind"`
+	GuardianRegistrationRevokedByUserID *ids.XID           `json:"guardian_registration_revoked_by_user_id"`
+	Generation                          int32              `json:"generation"`
+	CreatedAt                           pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) ListGuardianRegistrationEntries(ctx context.Context, arg ListGuardianRegistrationEntriesParams) ([]ListGuardianRegistrationEntriesRow, error) {
+	rows, err := q.db.Query(ctx, listGuardianRegistrationEntries,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+		arg.CursorCreatedAt,
+		arg.CursorID,
+		arg.PageSize,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListGuardianRegistrationEntriesRow{}
+	for rows.Next() {
+		var i ListGuardianRegistrationEntriesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ExpiresAt,
+			&i.RevokedAt,
+			&i.GuardianRegistrationRevocationKind,
+			&i.GuardianRegistrationRevokedByUserID,
+			&i.Generation,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const lockGuardianOnboardingEmail = `-- name: LockGuardianOnboardingEmail :exec
 select pg_advisory_xact_lock(hashtextextended($1::text || ':' || $2::text || ':' || lower($3), 0))
 `
@@ -1181,6 +1355,24 @@ type LockGuardianOnboardingEmailParams struct {
 
 func (q *Queries) LockGuardianOnboardingEmail(ctx context.Context, arg LockGuardianOnboardingEmailParams) error {
 	_, err := q.db.Exec(ctx, lockGuardianOnboardingEmail, arg.OrganizationID, arg.SchoolYearID, arg.Email)
+	return err
+}
+
+const lockGuardianRegistrationEntries = `-- name: LockGuardianRegistrationEntries :exec
+
+select pg_advisory_xact_lock(hashtextextended($1::text || ':' || $2::text || ':guardian_registration_entry', 0))
+`
+
+type LockGuardianRegistrationEntriesParams struct {
+	OrganizationID string `json:"organization_id"`
+	SchoolYearID   string `json:"school_year_id"`
+}
+
+// Guardian onboarding tokens are resolved through the identity accessor before
+// a tenant transaction is opened. Every write that changes tenant data still
+// runs through internal/data and records an audit entry.
+func (q *Queries) LockGuardianRegistrationEntries(ctx context.Context, arg LockGuardianRegistrationEntriesParams) error {
+	_, err := q.db.Exec(ctx, lockGuardianRegistrationEntries, arg.OrganizationID, arg.SchoolYearID)
 	return err
 }
 
@@ -1197,6 +1389,39 @@ func (q *Queries) LockGuardianRegistrationEntry(ctx context.Context, id ids.XID)
 	var id_2 ids.XID
 	err := row.Scan(&id_2)
 	return id_2, err
+}
+
+const revokeActiveGuardianRegistrationEntry = `-- name: RevokeActiveGuardianRegistrationEntry :execrows
+update access_tokens
+set revoked_at = $3,
+    guardian_registration_revocation_kind = 'replaced',
+    guardian_registration_revoked_by_user_id = $4
+where purpose = 'guardian_registration_entry'
+  and organization_id = $1
+  and school_year_id = $2
+  and revoked_at is null
+  and consumed_at is null
+  and expires_at > $3
+`
+
+type RevokeActiveGuardianRegistrationEntryParams struct {
+	OrganizationID                      *ids.XID           `json:"organization_id"`
+	SchoolYearID                        *ids.XID           `json:"school_year_id"`
+	RevokedAt                           pgtype.Timestamptz `json:"revoked_at"`
+	GuardianRegistrationRevokedByUserID *ids.XID           `json:"guardian_registration_revoked_by_user_id"`
+}
+
+func (q *Queries) RevokeActiveGuardianRegistrationEntry(ctx context.Context, arg RevokeActiveGuardianRegistrationEntryParams) (int64, error) {
+	result, err := q.db.Exec(ctx, revokeActiveGuardianRegistrationEntry,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+		arg.RevokedAt,
+		arg.GuardianRegistrationRevokedByUserID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const revokeGuardianInvitationToken = `-- name: RevokeGuardianInvitationToken :execrows
@@ -1250,23 +1475,36 @@ func (q *Queries) RevokeGuardianOnboardingSession(ctx context.Context, arg Revok
 	return result.RowsAffected(), nil
 }
 
-const revokeGuardianRegistrationEntries = `-- name: RevokeGuardianRegistrationEntries :execrows
+const revokeGuardianRegistrationEntryByID = `-- name: RevokeGuardianRegistrationEntryByID :execrows
 update access_tokens
-set revoked_at = coalesce(revoked_at, $3)
-where purpose = 'guardian_registration_entry'
-  and organization_id = $1
-  and school_year_id = $2
+set revoked_at = $4,
+    guardian_registration_revocation_kind = 'manual',
+    guardian_registration_revoked_by_user_id = $5
+where id = $1
+  and purpose = 'guardian_registration_entry'
+  and organization_id = $2
+  and school_year_id = $3
   and revoked_at is null
+  and consumed_at is null
+  and expires_at > $4
 `
 
-type RevokeGuardianRegistrationEntriesParams struct {
-	OrganizationID *ids.XID           `json:"organization_id"`
-	SchoolYearID   *ids.XID           `json:"school_year_id"`
-	RevokedAt      pgtype.Timestamptz `json:"revoked_at"`
+type RevokeGuardianRegistrationEntryByIDParams struct {
+	ID                                  ids.XID            `json:"id"`
+	OrganizationID                      *ids.XID           `json:"organization_id"`
+	SchoolYearID                        *ids.XID           `json:"school_year_id"`
+	RevokedAt                           pgtype.Timestamptz `json:"revoked_at"`
+	GuardianRegistrationRevokedByUserID *ids.XID           `json:"guardian_registration_revoked_by_user_id"`
 }
 
-func (q *Queries) RevokeGuardianRegistrationEntries(ctx context.Context, arg RevokeGuardianRegistrationEntriesParams) (int64, error) {
-	result, err := q.db.Exec(ctx, revokeGuardianRegistrationEntries, arg.OrganizationID, arg.SchoolYearID, arg.RevokedAt)
+func (q *Queries) RevokeGuardianRegistrationEntryByID(ctx context.Context, arg RevokeGuardianRegistrationEntryByIDParams) (int64, error) {
+	result, err := q.db.Exec(ctx, revokeGuardianRegistrationEntryByID,
+		arg.ID,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+		arg.RevokedAt,
+		arg.GuardianRegistrationRevokedByUserID,
+	)
 	if err != nil {
 		return 0, err
 	}
@@ -1373,6 +1611,65 @@ func (q *Queries) UpdateGuardianInvitationContactToken(ctx context.Context, arg 
 	return i, err
 }
 
+const updateGuardianRegistrationEntryExpiry = `-- name: UpdateGuardianRegistrationEntryExpiry :one
+update access_tokens
+set expires_at = $4
+where id = $1
+  and organization_id = $2
+  and school_year_id = $3
+  and purpose = 'guardian_registration_entry'
+  and revoked_at is null
+  and consumed_at is null
+  and expires_at > now()
+returning id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
+    created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
+    verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
+    mfa_generation, parent_token_id, mailbox_verified_at, guardian_registration_revocation_kind, guardian_registration_revoked_by_user_id
+`
+
+type UpdateGuardianRegistrationEntryExpiryParams struct {
+	ID             ids.XID            `json:"id"`
+	OrganizationID *ids.XID           `json:"organization_id"`
+	SchoolYearID   *ids.XID           `json:"school_year_id"`
+	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
+}
+
+func (q *Queries) UpdateGuardianRegistrationEntryExpiry(ctx context.Context, arg UpdateGuardianRegistrationEntryExpiryParams) (AccessToken, error) {
+	row := q.db.QueryRow(ctx, updateGuardianRegistrationEntryExpiry,
+		arg.ID,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+		arg.ExpiresAt,
+	)
+	var i AccessToken
+	err := row.Scan(
+		&i.ID,
+		&i.TokenHash,
+		&i.Purpose,
+		&i.ExpiresAt,
+		&i.RevokedAt,
+		&i.ConsumedAt,
+		&i.Generation,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.OrganizationID,
+		&i.SchoolYearID,
+		&i.AdultID,
+		&i.UserID,
+		&i.VerifierHash,
+		&i.RequestedEmailHash,
+		&i.Attempts,
+		&i.IdleExpiresAt,
+		&i.LastSeenAt,
+		&i.MfaGeneration,
+		&i.ParentTokenID,
+		&i.MailboxVerifiedAt,
+		&i.GuardianRegistrationRevocationKind,
+		&i.GuardianRegistrationRevokedByUserID,
+	)
+	return i, err
+}
+
 const updateGuardianSignupNotice = `-- name: UpdateGuardianSignupNotice :one
 update organizations
 set guardian_signup_notice = $2,
@@ -1424,7 +1721,7 @@ where id = $1
 returning id, token_hash, purpose, expires_at, revoked_at, consumed_at, generation,
     created_at, updated_at, organization_id, school_year_id, adult_id, user_id,
     verifier_hash, requested_email_hash, attempts, idle_expires_at, last_seen_at,
-    mfa_generation, parent_token_id, mailbox_verified_at
+    mfa_generation, parent_token_id, mailbox_verified_at, guardian_registration_revocation_kind, guardian_registration_revoked_by_user_id
 `
 
 type VerifyGuardianOnboardingSessionParams struct {
@@ -1458,6 +1755,8 @@ func (q *Queries) VerifyGuardianOnboardingSession(ctx context.Context, arg Verif
 		&i.MfaGeneration,
 		&i.ParentTokenID,
 		&i.MailboxVerifiedAt,
+		&i.GuardianRegistrationRevocationKind,
+		&i.GuardianRegistrationRevokedByUserID,
 	)
 	return i, err
 }

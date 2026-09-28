@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/chrismott/miniclass/internal/audit"
-	"github.com/chrismott/miniclass/internal/data"
 	"github.com/chrismott/miniclass/internal/ids"
 )
 
@@ -21,17 +20,16 @@ const (
 )
 
 var (
-	ErrRegistrationInvalid       = errors.New("guardian registration entry is invalid or expired")
-	ErrInvitationInvalid         = errors.New("guardian invitation is invalid or expired")
-	ErrOnboardingInvalid         = errors.New("guardian onboarding session is invalid or expired")
-	ErrMailboxUnverified         = errors.New("guardian mailbox has not been verified")
-	ErrConsentRequired           = errors.New("current terms and privacy acceptance is required")
-	ErrConsentInvalid            = errors.New("guardian terms and privacy acceptance is invalid")
-	ErrOnboardingRateLimit       = errors.New("guardian onboarding rate limit exceeded")
-	ErrOnboardingEmailConflict   = errors.New("guardian email requires administrator review")
-	ErrStudentAttributesRequired = errors.New("grade and homeroom are required")
-	ErrOTPInvalid                = errors.New("guardian onboarding OTP is invalid or expired")
-	ErrSignupNoticeInvalid       = errors.New("guardian signup notice acceptance is invalid")
+	ErrRegistrationInvalid     = errors.New("guardian registration entry is invalid or expired")
+	ErrInvitationInvalid       = errors.New("guardian invitation is invalid or expired")
+	ErrOnboardingInvalid       = errors.New("guardian onboarding session is invalid or expired")
+	ErrMailboxUnverified       = errors.New("guardian mailbox has not been verified")
+	ErrConsentRequired         = errors.New("current terms and privacy acceptance is required")
+	ErrConsentInvalid          = errors.New("guardian terms and privacy acceptance is invalid")
+	ErrOnboardingRateLimit     = errors.New("guardian onboarding rate limit exceeded")
+	ErrOnboardingEmailConflict = errors.New("guardian email requires administrator review")
+	ErrOTPInvalid              = errors.New("guardian onboarding OTP is invalid or expired")
+	ErrSignupNoticeInvalid     = errors.New("guardian signup notice acceptance is invalid")
 )
 
 type SignupNotice struct {
@@ -77,13 +75,34 @@ type OnboardingVocabulary struct {
 }
 
 type RegistrationEntry struct {
-	ID             ids.XID
-	OrganizationID ids.XID
-	SchoolYearID   ids.XID
-	Token          string
-	ExpiresAt      time.Time
-	Generation     int
+	ID              ids.XID
+	OrganizationID  ids.XID
+	SchoolYearID    ids.XID
+	ExpiresAt       time.Time
+	Generation      int
+	CreatedAt       time.Time
+	RevokedAt       *time.Time
+	RevocationKind  string
+	RevokedByUserID *ids.XID
+	Status          string
 }
+
+type RegistrationEntryIssueInput struct{ ExpiresAt time.Time }
+
+type RegistrationEntryPage struct {
+	Entries    []RegistrationEntry
+	NextCursor *RegistrationEntryCursor
+}
+
+type RegistrationEntryCursor struct {
+	CreatedAt time.Time
+	ID        ids.XID
+}
+
+type RegistrationEntryUpdateInput struct{ ExpiresAt time.Time }
+
+// Registration entries are public XID links. Their identifiers are displayed
+// verbatim; personal invitations and sessions remain bearer-token flows.
 
 type InvitationContact struct {
 	ID              ids.XID
@@ -115,6 +134,25 @@ type InvitationExportRow struct {
 	ExpiresAt  time.Time  `json:"expires_at"`
 	CreatedAt  time.Time  `json:"created_at"`
 	ConsumedAt *time.Time `json:"consumed_at,omitempty"`
+}
+
+type InvitationContactPageRow struct {
+	ID        ids.XID
+	Email     string
+	Status    string
+	ExpiresAt time.Time
+	CreatedAt time.Time
+}
+
+type InvitationContactPage struct {
+	Contacts   []InvitationContactPageRow
+	OpenCount  int64
+	NextCursor *InvitationContactCursor
+}
+
+type InvitationContactCursor struct {
+	CreatedAt time.Time
+	ID        ids.XID
 }
 
 type BeginInput struct {
@@ -157,31 +195,34 @@ type ConsentInput struct {
 }
 
 type CompleteInput struct {
-	SessionToken      string
-	AdultGivenName    string
-	AdultFamilyName   string
-	StudentGivenName  string
-	StudentFamilyName string
-	GradeLevelID      ids.XID
-	HomeroomID        ids.XID
-	RelationshipType  data.GuardianRelationshipType
-	Now               time.Time
+	SessionToken    string
+	AdultGivenName  string
+	AdultFamilyName string
+	Now             time.Time
 }
 
 type Completion struct {
 	AdultID        ids.XID
-	StudentID      ids.XID
-	RelationshipID ids.XID
 	OrganizationID ids.XID
 	SchoolYearID   ids.XID
+	SessionToken   string
+	SessionID      ids.XID
+	ExpiresAt      time.Time
+	IdleExpiresAt  time.Time
+	StudentIDs     []ids.XID
 }
 
 type Service interface {
 	CreateRegistrationEntry(context.Context, ids.XID, ids.XID, audit.Actor, time.Time) (RegistrationEntry, error)
+	IssueRegistrationEntry(context.Context, ids.XID, ids.XID, time.Time, audit.Actor, time.Time) (RegistrationEntry, error)
+	ListRegistrationEntries(context.Context, ids.XID, ids.XID, *RegistrationEntryCursor, int32, time.Time) (RegistrationEntryPage, error)
+	UpdateRegistrationEntry(context.Context, ids.XID, ids.XID, ids.XID, RegistrationEntryUpdateInput, audit.Actor, time.Time) (RegistrationEntry, error)
 	GetRegistrationEntry(context.Context, ids.XID, ids.XID) (RegistrationEntry, error)
 	RevokeRegistrationEntry(context.Context, ids.XID, ids.XID, audit.Actor, time.Time) error
+	RevokeRegistrationEntryByID(context.Context, ids.XID, ids.XID, ids.XID, audit.Actor, time.Time) error
 	ImportInvitationContacts(context.Context, ids.XID, ids.XID, []byte, audit.Actor, time.Time) (InvitationImportResult, error)
 	ListInvitationContacts(context.Context, ids.XID, ids.XID, audit.Actor) ([]InvitationExportRow, error)
+	ListInvitationContactPage(context.Context, ids.XID, ids.XID, *InvitationContactCursor, int32, time.Time) (InvitationContactPage, error)
 	RevokeInvitationContact(context.Context, ids.XID, ids.XID, ids.XID, audit.Actor, time.Time) error
 	RevokeOnboardingSession(context.Context, ids.XID, ids.XID, ids.XID, audit.Actor, time.Time) error
 	GetSignupNotice(context.Context, ids.XID) (Policy, error)

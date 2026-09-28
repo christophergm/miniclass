@@ -435,9 +435,9 @@ function renderProgramList(currentYear = year("active")) {
   );
 }
 
-function renderProgramYearEntry() {
+function renderProgramYearEntry(currentYear = year("active")) {
   function ContextRoute() {
-    return <Outlet context={year("active")} />;
+    return <Outlet context={currentYear} />;
   }
   return renderWithQueryClient(
     <MemoryRouter
@@ -524,6 +524,34 @@ describe("program year entry", () => {
     renderProgramYearEntry();
 
     expect(screen.getByRole("heading", { name: "Programs" })).toBeInTheDocument();
+  });
+
+  it("shows the school year and status before peer Programs and People sections", () => {
+    renderProgramYearEntry();
+
+    expect(screen.getByRole("heading", { name: "2026–27" })).toBeInTheDocument();
+    expect(screen.getByText("active")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Programs", level: 2 })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "People", level: 2 })).toBeInTheDocument();
+  });
+
+  it("places the read-only notice above Programs for a closed school year", () => {
+    renderProgramYearEntry(year("closed"));
+
+    const notice = screen.getByRole("heading", { name: "Read-only history" });
+    const programs = screen.getByRole("heading", { name: "Programs", level: 2 });
+    expect(notice.compareDocumentPosition(programs) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+  });
+
+  it("places a setup notice above Programs until the year is active", () => {
+    renderProgramYearEntry(year("setup"));
+
+    const notice = screen.getByRole("heading", { name: "Setup in progress" });
+    const programs = screen.getByRole("heading", { name: "Programs", level: 2 });
+    expect(notice.parentElement).toHaveTextContent(
+      "Complete its configuration, then activate the year",
+    );
+    expect(notice.compareDocumentPosition(programs) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
   });
 
   it("renders the programs list at the year URL when there is one program", () => {

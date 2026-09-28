@@ -102,6 +102,7 @@ function AppRoutes() {
       <Route path="/claim" element={<ClaimInvitationPage />} />
       <Route path="/guardian" element={<GuardianAccessPage />} />
       <Route path="/guardian/onboarding" element={<GuardianOnboardingPage />} />
+      <Route path="/guardian/onboarding/:registrationLinkId" element={<GuardianOnboardingPage />} />
       <Route path="/guardian/preferences" element={<GuardianPreferencePage />} />
       <Route path="/guardian/students" element={<GuardianStudentsPage />} />
       <Route path="/guardian/profile" element={<GuardianProfilePage />} />

@@ -65,9 +65,10 @@ func TestGuardianOnboardingRateLimitRejectsBurstBeforeHandler(t *testing.T) {
 func TestGuardianOnboardingRateLimitUsesClientAndRouteKeys(t *testing.T) {
 	limiter := newGuardianOnboardingLimiter(time.Now, nil, GuardianOnboardingRateLimitSettings{})
 	for route := range map[string]bool{
-		apiBasePath + "/guardian/onboarding/begin":             true,
-		apiBasePath + "/guardian/onboarding/invitation/redeem": true,
-		apiBasePath + "/guardian/onboarding/otp/request":       true,
+		apiBasePath + "/guardian/onboarding/begin":                   true,
+		apiBasePath + "/guardian/onboarding/registration-link/begin": true,
+		apiBasePath + "/guardian/onboarding/invitation/redeem":       true,
+		apiBasePath + "/guardian/onboarding/otp/request":             true,
 	} {
 		request := httptest.NewRequest(http.MethodPost, route, nil)
 		request.RemoteAddr = "203.0.113.12:4321"

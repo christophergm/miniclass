@@ -122,6 +122,21 @@ function ReadOnlyNotice() {
     </section>
   );
 }
+
+function SetupNotice() {
+  return (
+    <section
+      className="mt-6 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"
+      role="status"
+    >
+      <h2 className="font-semibold">Setup in progress</h2>
+      <p className="mt-1">
+        This school year is not active yet. Complete its configuration, then activate the year when
+        it is ready for registration.
+      </p>
+    </section>
+  );
+}
 function stateLabel(value: string) {
   return value.replace(/_/g, " ").replace(/\b\w/g, (letter: string) => letter.toUpperCase());
 }
@@ -368,20 +383,27 @@ export function ProgramListPage() {
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
-      <div className="mt-2 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Programs</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Author membership, interest areas, sessions, and the catalog for this school year.
-          </p>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-3xl font-semibold tracking-tight">{year.label}</h1>
+          <Badge className="capitalize" variant={year.state === "active" ? "success" : "secondary"}>
+            {year.state}
+          </Badge>
         </div>
-        <div className="flex gap-2">
-          <Button asChild variant="outline">
-            <Link to={`/y/${schoolYearId}/settings`}>Settings</Link>
-          </Button>
-        </div>
+        <Button asChild variant="outline">
+          <Link to={`/y/${schoolYearId}/settings`}>Settings</Link>
+        </Button>
       </div>
       {readOnly && <ReadOnlyNotice />}
+      {year.state === "setup" && <SetupNotice />}
+
+      <section className="mt-8">
+        <h2 className="text-2xl font-semibold tracking-tight">Programs</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Author membership, interest areas, sessions, and the catalog for this school year.
+        </p>
+      </section>
+
       {(missingGrades.data?.missing_grade_count ?? 0) > 0 && (
         <p className="mt-6 rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-900">
           {missingGrades.data?.missing_grade_count} student
