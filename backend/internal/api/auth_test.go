@@ -194,6 +194,7 @@ func TestEveryRegisteredOperationDeclaresCapabilityMetadata(t *testing.T) {
 		"POST /api/auth/adult/otp/request":                                                           true,
 		"POST /api/auth/adult/otp/verify":                                                            true,
 		"POST /api/guardian/onboarding/session":                                                      true,
+		"GET /api/guardian/onboarding/{registrationLinkID}":                                          true,
 		"POST /api/guardian/onboarding/begin":                                                        true,
 		"POST /api/guardian/onboarding/{registrationLinkID}/begin":                                   true,
 		"POST /api/guardian/onboarding/complete":                                                     true,

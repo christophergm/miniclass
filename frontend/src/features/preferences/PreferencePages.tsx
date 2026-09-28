@@ -1,23 +1,18 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Link, useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type {
-  PreferenceInterestAnswerInput,
-  PreferenceRankedAnswerInput,
-} from "@/lib/apiResources";
-import { resourceApi } from "@/lib/apiResources";
-import { useSchoolYears } from "@/features/school-years/useSchoolYears";
+import { GuardianFeedback, GuardianWorkspaceLayout } from "@/features/auth/GuardianWorkspaceLayout";
 import {
   useAdministratorPreferenceForm,
   useGuardianPreferenceForms,
-  usePrograms,
+  useInterestProfileSurveys,
   useProgramMemberships,
+  usePrograms,
   useRankedChoiceResponseTracking,
   useSessions,
-  useInterestProfileSurveys,
   useStudentCodeInterestProfileForm,
   useStudentCodeRankedChoiceForm,
   useSubmitAdministratorInterestProfile,
@@ -27,6 +22,12 @@ import {
   useSubmitStudentCodeInterestProfile,
   useSubmitStudentCodeRankedChoice,
 } from "@/features/programs/usePrograms";
+import { useSchoolYears } from "@/features/school-years/useSchoolYears";
+import type {
+  PreferenceInterestAnswerInput,
+  PreferenceRankedAnswerInput,
+} from "@/lib/apiResources";
+import { resourceApi } from "@/lib/apiResources";
 
 import { PreferenceFormEditor } from "./PreferenceForm";
 
@@ -283,70 +284,76 @@ export function GuardianPreferencePage() {
   const interestSubmit = useSubmitGuardianInterestProfile();
   const rankedSubmit = useSubmitGuardianRankedChoice();
   const [saved, setSaved] = useState<string | null>(null);
+  const workspace = {
+    title: "Preference forms",
+    description:
+      "When a preference form opens for a student linked to you, you can complete it together here. Your responses are saved separately for each student.",
+  };
 
   if (query.isLoading)
     return (
-      <PageFrame>
-        <p role="status">Loading your students’ forms…</p>
-      </PageFrame>
+      <GuardianWorkspaceLayout {...workspace}>
+        <p className="font-medium text-stone-700" role="status">
+          Loading your students’ forms…
+        </p>
+      </GuardianWorkspaceLayout>
     );
   if (query.error)
     return (
-      <PageFrame>
-        <ErrorMessage error={query.error} fallback="Unable to load guardian preference forms." />
-      </PageFrame>
+      <GuardianWorkspaceLayout {...workspace}>
+        <GuardianFeedback kind="error">
+          {query.error instanceof Error
+            ? query.error.message
+            : "Unable to load your preference forms."}
+        </GuardianFeedback>
+      </GuardianWorkspaceLayout>
     );
+
   const students = query.data?.students ?? [];
   return (
-    <PageFrame>
-      <div>
-        <p className="text-sm font-medium text-primary">Guardian space</p>
-        <h1 className="mt-1 text-3xl font-semibold tracking-tight">Preference forms</h1>
-        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-          When a preference form opens for a student linked to you, you can complete it together
-          here. Your responses are saved separately for each student.
-        </p>
-      </div>
+    <GuardianWorkspaceLayout {...workspace}>
       {students.length === 0 ? (
         <section
           aria-labelledby="no-preference-forms-heading"
-          className="mt-8 rounded-xl border border-dashed bg-card p-6 text-center shadow-sm"
+          className="rounded-3xl border-4 border-dashed border-stone-950 bg-[#fffaf0] p-6 text-center shadow-[5px_5px_0_#1c1917] sm:p-8"
         >
           <span
             aria-hidden="true"
-            className="inline-flex size-12 items-center justify-center rounded-full bg-primary/10 text-2xl"
+            className="inline-flex size-12 items-center justify-center rounded-full border-2 border-stone-950 bg-[#ffcc2e] text-2xl"
           >
             ✨
           </span>
-          <h2 className="mt-4 text-lg font-semibold" id="no-preference-forms-heading">
+          <h2 className="mt-4 text-xl font-black text-stone-950" id="no-preference-forms-heading">
             No students linked yet
           </h2>
-          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-            Add or link a student to help with their preference forms when they open.
+          <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-stone-700">
+            Add or link a student, and their preference forms will show up here when they open.
           </p>
           <Link
-            className="mt-4 inline-flex text-sm font-medium text-primary hover:underline"
+            className="mt-5 inline-flex rounded-full border-2 border-stone-950 bg-[#ffcc2e] px-4 py-2 text-sm font-black text-stone-950 shadow-[2px_2px_0_#1c1917] transition-transform hover:-translate-y-0.5"
             to="/guardian/students"
           >
             Add or link a student
           </Link>
         </section>
       ) : (
-        <div className="mt-8 space-y-8">
+        <div className="space-y-8">
           {students.map((student) => (
             <section key={student.student_id}>
-              <h2 className="mb-3 text-xl font-semibold">{student.display_name}</h2>
+              <h2 className="mb-3 text-xl font-black text-stone-950">{student.display_name}</h2>
               {(student.forms ?? []).length === 0 ? (
-                <div className="rounded-xl border border-dashed bg-card p-5 text-center">
+                <div className="rounded-2xl border-2 border-dashed border-stone-950 bg-[#fffaf0] p-5 text-center">
                   <span
                     aria-hidden="true"
-                    className="inline-flex size-10 items-center justify-center rounded-full bg-primary/10 text-xl"
+                    className="inline-flex size-10 items-center justify-center rounded-full border-2 border-stone-950 bg-[#ffcc2e] text-xl"
                   >
                     ✨
                   </span>
-                  <p className="mt-3 font-medium">No forms for {student.display_name} just yet</p>
-                  <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-                    A preference form will appear here when your school opens one for this student.
+                  <p className="mt-3 font-black text-stone-950">
+                    No forms for {student.display_name} just yet
+                  </p>
+                  <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-stone-700">
+                    You’re all caught up. We’ll show a preference form here when one opens up.
                   </p>
                 </div>
               ) : (
@@ -402,38 +409,7 @@ export function GuardianPreferencePage() {
           ))}
         </div>
       )}
-      <nav aria-label="Guardian account tools" className="mt-8 rounded-xl border bg-card p-5">
-        <h2 className="font-semibold">Guardian tools</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Keep your student links and contact details up to date.
-        </p>
-        <div className="mt-4 grid gap-2 sm:grid-cols-2">
-          <Link
-            className="rounded-lg border px-4 py-3 text-sm font-medium text-primary transition-colors hover:bg-accent hover:underline"
-            to="/guardian/students"
-          >
-            Your students
-          </Link>
-          <Link
-            className="rounded-lg border px-4 py-3 text-sm font-medium text-primary transition-colors hover:bg-accent hover:underline"
-            to="/guardian/profile"
-          >
-            Your profile
-          </Link>
-        </div>
-        <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2">
-          <Link
-            className="text-sm font-medium text-primary hover:underline"
-            to="/mfa?mode=guardian"
-          >
-            Request administrator access
-          </Link>
-          <Link className="text-sm font-medium text-primary hover:underline" to="/sign-in">
-            Administrator sign in
-          </Link>
-        </div>
-      </nav>
-    </PageFrame>
+    </GuardianWorkspaceLayout>
   );
 }
 

@@ -89,6 +89,14 @@ type RegistrationEntry struct {
 
 type RegistrationEntryIssueInput struct{ ExpiresAt time.Time }
 
+// RegistrationLanding identifies the public onboarding surface selected by a
+// valid registration entry without granting authority or creating a session,
+// as required by SPEC §11.3.
+type RegistrationLanding struct {
+	OrganizationName string
+	SchoolYearLabel  string
+}
+
 type RegistrationEntryPage struct {
 	Entries    []RegistrationEntry
 	NextCursor *RegistrationEntryCursor
@@ -227,6 +235,7 @@ type Service interface {
 	RevokeOnboardingSession(context.Context, ids.XID, ids.XID, ids.XID, audit.Actor, time.Time) error
 	GetSignupNotice(context.Context, ids.XID) (Policy, error)
 	UpdateSignupNotice(context.Context, ids.XID, *string, audit.Actor, time.Time) (Policy, error)
+	RegistrationLanding(context.Context, string, time.Time) (RegistrationLanding, error)
 	Begin(context.Context, BeginInput) (Session, error)
 	Redeem(context.Context, RedeemInput) (Session, error)
 	RequestOTP(context.Context, OTPRequestInput) (OTPRequestResult, error)

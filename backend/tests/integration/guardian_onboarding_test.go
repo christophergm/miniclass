@@ -46,6 +46,44 @@ func activateGuardianOnboardingYear(t *testing.T, database *data.DB, ctx context
 	require.NoError(t, err)
 }
 
+func TestGuardianRegistrationLandingOnlyDisclosesActiveLinkMetadata(t *testing.T) {
+	harness := testharness.Open(t)
+	ctx := harness.Context
+	organizationID := harness.MintOrganization(t)
+	actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "guardian registration landing integration"}
+	factory := factories.New(harness.Database, string(organizationID), actor)
+	year, err := factory.CreateSchoolYear(ctx, "Synthetic landing year")
+	require.NoError(t, err)
+	activateGuardianOnboardingYear(t, harness.Database, ctx, organizationID, actor, year.ID)
+
+	store := identity.NewStoreWithAuth(harness.Database, nil, nil)
+	now := time.Now().UTC()
+	entry, err := store.CreateRegistrationEntry(ctx, organizationID, year.ID, actor, now)
+	require.NoError(t, err)
+
+	landing, err := store.RegistrationLanding(ctx, string(entry.ID), now)
+	require.NoError(t, err)
+	require.Equal(t, "Synthetic landing year", landing.SchoolYearLabel)
+	require.NotEmpty(t, landing.OrganizationName)
+
+	_, err = store.RegistrationLanding(ctx, string(entry.ID), entry.ExpiresAt)
+	require.ErrorIs(t, err, guardian.ErrRegistrationInvalid)
+	err = store.RevokeRegistrationEntryByID(ctx, organizationID, year.ID, entry.ID, actor, now)
+	require.NoError(t, err)
+	_, err = store.RegistrationLanding(ctx, string(entry.ID), now)
+	require.ErrorIs(t, err, guardian.ErrRegistrationInvalid)
+
+	active, err := store.CreateRegistrationEntry(ctx, organizationID, year.ID, actor, now)
+	require.NoError(t, err)
+	closed := data.SchoolYearClosed
+	_, err = schoolyear.New(harness.Database).Update(ctx, string(organizationID), year.ID, auth.RoleAdministrator, actor, schoolyear.UpdateInput{State: &closed})
+	require.NoError(t, err)
+	_, err = store.RegistrationLanding(ctx, string(active.ID), now)
+	require.ErrorIs(t, err, guardian.ErrRegistrationInvalid)
+	_, err = store.RegistrationLanding(ctx, "unknown-registration-link", now)
+	require.ErrorIs(t, err, guardian.ErrRegistrationInvalid)
+}
+
 func TestGuardianOnboardingRequiresProofAndConsentBeforeAdultCreation(t *testing.T) {
 	harness := testharness.Open(t)
 	ctx := harness.Context

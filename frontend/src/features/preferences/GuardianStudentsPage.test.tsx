@@ -57,11 +57,11 @@ describe("GuardianStudentsPage", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("heading", { name: "No students linked yet" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Add your first student" })).toBeInTheDocument();
     expect(
-      screen.getByText(/search for a student another guardian has already added/i),
+      screen.getByText(/safely check whether another guardian has already added them/i),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Add student" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add a student" })).toBeInTheDocument();
   });
 
   it("opens the add-student form in a modal with preferred name before matching", () => {
@@ -71,10 +71,12 @@ describe("GuardianStudentsPage", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.queryByRole("dialog", { name: "Add a student" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Add student" }));
+    expect(
+      screen.queryByRole("dialog", { name: "Tell us about your student" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Add a student" }));
 
-    const dialog = screen.getByRole("dialog", { name: "Add a student" });
+    const dialog = screen.getByRole("dialog", { name: "Tell us about your student" });
     const preferredName = within(dialog).getByLabelText("Preferred name (optional)");
     const findMatches = within(dialog).getByRole("button", { name: "Find possible matches" });
     expect(
@@ -90,17 +92,17 @@ describe("GuardianStudentsPage", () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Add student" }));
-    const dialog = screen.getByRole("dialog", { name: "Add a student" });
+    fireEvent.click(screen.getByRole("button", { name: "Add a student" }));
+    const dialog = screen.getByRole("dialog", { name: "Tell us about your student" });
     fireEvent.change(within(dialog).getByLabelText("Given name"), { target: { value: "Sam" } });
     fireEvent.change(within(dialog).getByLabelText("Family name"), { target: { value: "Lee" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Find possible matches" }));
 
-    const result = screen.getByText(/1 matching student found/i);
-    expect(result).toHaveClass("border-green-700", "text-green-700");
-    expect(dialog).not.toHaveClass("border-green-700");
+    const [result] = screen.getAllByText(/Do any of these look like your student/i);
+    expect(result).toHaveClass("border-[#287d96]", "bg-[#d8f2f8]");
+    expect(dialog).not.toHaveClass("border-[#287d96]");
     fireEvent.change(within(dialog).getByLabelText("Given name"), { target: { value: "Samuel" } });
-    expect(screen.queryByText(/1 matching student found/i)).not.toBeInTheDocument();
+    expect(screen.queryAllByText(/Do any of these look like your student/i)).toHaveLength(0);
   });
 
   it("explains when no matching student is found and clears the message when names change", () => {
@@ -110,27 +112,27 @@ describe("GuardianStudentsPage", () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Add student" }));
-    const dialog = screen.getByRole("dialog", { name: "Add a student" });
+    fireEvent.click(screen.getByRole("button", { name: "Add a student" }));
+    const dialog = screen.getByRole("dialog", { name: "Tell us about your student" });
     fireEvent.change(within(dialog).getByLabelText("Given name"), { target: { value: "Sam" } });
     fireEvent.change(within(dialog).getByLabelText("Family name"), { target: { value: "Lee" } });
     expect(within(dialog).getByLabelText("Relationship")).toBeDisabled();
     fireEvent.click(within(dialog).getByRole("button", { name: "Find possible matches" }));
 
-    expect(screen.getByText(/No matching students were found/i)).toBeInTheDocument();
+    expect(screen.getByText(/We couldn’t find a match/i)).toBeInTheDocument();
     expect(
       within(dialog).queryByRole("button", { name: "Find possible matches" }),
     ).not.toBeInTheDocument();
     expect(within(dialog).getByLabelText("Relationship")).toBeEnabled();
     fireEvent.change(within(dialog).getByLabelText("Given name"), { target: { value: "Samuel" } });
-    expect(screen.queryByText(/No matching students were found/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/We couldn’t find a match/i)).not.toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "Find possible matches" })).toBeVisible();
     expect(within(dialog).getByLabelText("Relationship")).toBeDisabled();
 
     fireEvent.click(within(dialog).getByRole("button", { name: "Find possible matches" }));
-    expect(screen.getByText(/No matching students were found/i)).toBeInTheDocument();
+    expect(screen.getByText(/We couldn’t find a match/i)).toBeInTheDocument();
     fireEvent.change(within(dialog).getByLabelText("Family name"), { target: { value: "Leigh" } });
-    expect(screen.queryByText(/No matching students were found/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/We couldn’t find a match/i)).not.toBeInTheDocument();
     expect(within(dialog).getByLabelText("Relationship")).toBeDisabled();
   });
 

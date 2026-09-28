@@ -482,6 +482,29 @@ type GuardianBeginPathInput struct {
 	RegistrationLinkID string `path:"registrationLinkID" minLength:"1"`
 }
 
+type GuardianRegistrationLandingResponse struct {
+	OrganizationName string `json:"organization_name"`
+	SchoolYearLabel  string `json:"school_year_label"`
+}
+
+type GuardianRegistrationLandingOutput struct {
+	Body GuardianRegistrationLandingResponse
+}
+
+func (h *GuardianOnboardingHandler) GetRegistrationLanding(ctx context.Context, input *GuardianBeginPathInput) (*GuardianRegistrationLandingOutput, error) {
+	if h == nil || h.service == nil {
+		return nil, guardianServiceUnavailable()
+	}
+	if input == nil || strings.TrimSpace(input.RegistrationLinkID) == "" {
+		return nil, problems.New(http.StatusNotFound, problems.RegistrationInvalid, "registration entry is invalid or expired")
+	}
+	landing, err := h.service.RegistrationLanding(ctx, input.RegistrationLinkID, time.Now().UTC())
+	if err != nil {
+		return nil, guardianOnboardingProblem(err)
+	}
+	return &GuardianRegistrationLandingOutput{Body: GuardianRegistrationLandingResponse{OrganizationName: landing.OrganizationName, SchoolYearLabel: landing.SchoolYearLabel}}, nil
+}
+
 type GuardianInvitationRedeemInput struct {
 	Body struct {
 		InvitationToken string `json:"invitation_token" minLength:"1"`

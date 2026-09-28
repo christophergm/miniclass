@@ -230,6 +230,11 @@ func registerOperations(api huma.API, options RouterOptions) {
 		Errors: []int{http.StatusBadRequest, http.StatusConflict},
 	}, auth.CapabilityManageRoster, false, guardianOnboarding.UpdateSignupNotice)
 	registerOperation(api, huma.Operation{
+		OperationID: "get-guardian-registration-landing", Method: http.MethodGet,
+		Path: apiBasePath + "/guardian/onboarding/{registrationLinkID}", Summary: "Read a guardian registration landing",
+		Errors: []int{http.StatusNotFound},
+	}, auth.CapabilityPublic, false, guardianOnboarding.GetRegistrationLanding)
+	registerOperation(api, huma.Operation{
 		OperationID: "begin-guardian-onboarding", Method: http.MethodPost,
 		Path: apiBasePath + "/guardian/onboarding/begin", Summary: "Start guardian onboarding with a registration entry",
 		Errors: []int{http.StatusNotFound, http.StatusTooManyRequests},
