@@ -445,6 +445,34 @@ func (s *Store) UpdateSignupNotice(ctx context.Context, organizationID ids.XID, 
 	return policy, nil
 }
 
+func (s *Store) RegistrationLanding(ctx context.Context, entryID string, now time.Time) (guardian.RegistrationLanding, error) {
+	entry, err := s.lookupRegistrationEntry(ctx, entryID, now)
+	if err != nil || entry.OrganizationID == nil || entry.SchoolYearID == nil {
+		return guardian.RegistrationLanding{}, guardian.ErrRegistrationInvalid
+	}
+
+	var landing guardian.RegistrationLanding
+	err = s.tenantDatabase.InTenantRead(ctx, string(*entry.OrganizationID), func(ctx context.Context, tx *data.Tx) error {
+		year, err := tx.GetSchoolYearByID(ctx, *entry.SchoolYearID)
+		if err != nil || year.State != data.SchoolYearActive {
+			return guardian.ErrRegistrationInvalid
+		}
+		settings, err := tx.GetVocabularySettings(ctx)
+		if err != nil {
+			return guardian.ErrRegistrationInvalid
+		}
+		landing = guardian.RegistrationLanding{OrganizationName: settings.Organization, SchoolYearLabel: year.Label}
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, guardian.ErrRegistrationInvalid) {
+			return guardian.RegistrationLanding{}, guardian.ErrRegistrationInvalid
+		}
+		return guardian.RegistrationLanding{}, fmt.Errorf("get guardian registration landing: %w", err)
+	}
+	return landing, nil
+}
+
 func (s *Store) Begin(ctx context.Context, input guardian.BeginInput) (guardian.Session, error) {
 	entry, err := s.lookupRegistrationEntry(ctx, input.EntryToken, input.Now)
 	if err != nil || entry.OrganizationID == nil || entry.SchoolYearID == nil {

@@ -1,5 +1,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 
+import { cn } from "@/lib/utils";
+
 type ModalFormProps = {
   open: boolean;
   title: string;
@@ -7,6 +9,7 @@ type ModalFormProps = {
   dirty?: boolean;
   onClose: () => void;
   children: ReactNode;
+  tone?: "default" | "guardian";
 };
 
 function focusableElements(container: HTMLElement) {
@@ -25,6 +28,7 @@ export function ModalForm({
   dirty = false,
   onClose,
   children,
+  tone = "default",
 }: ModalFormProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
@@ -96,7 +100,12 @@ export function ModalForm({
         aria-describedby={description ? "modal-form-description" : undefined}
         aria-labelledby="modal-form-title"
         aria-modal="true"
-        className="w-full max-w-lg rounded-lg border bg-card p-6 shadow-xl"
+        className={cn(
+          "w-full max-w-lg p-6",
+          tone === "guardian"
+            ? "rounded-2xl border-4 border-stone-950 bg-[#fffaf0] text-stone-950 shadow-[7px_7px_0_#1c1917]"
+            : "rounded-lg border bg-card shadow-xl",
+        )}
         ref={dialogRef}
         role="dialog"
       >

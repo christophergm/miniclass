@@ -127,8 +127,10 @@ describe("preference pages", () => {
 
     expect(screen.getByRole("heading", { name: "No students linked yet" })).toBeInTheDocument();
     expect(
-      screen.getByText(/Add or link a student to help with their preference forms/i),
+      screen.getByText(/their preference forms will show up here when they open/i),
     ).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Guardian navigation" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Guardian tools" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Add or link a student" })).toHaveAttribute(
       "href",
       "/guardian/students",
@@ -148,9 +150,7 @@ describe("preference pages", () => {
 
     expect(screen.getByText("No forms for Synthetic Student just yet")).toBeInTheDocument();
     expect(
-      screen.getByText(
-        /A preference form will appear here when your school opens one for this student/i,
-      ),
+      screen.getByText(/We’ll show a preference form here when one opens up/i),
     ).toBeInTheDocument();
   });
 

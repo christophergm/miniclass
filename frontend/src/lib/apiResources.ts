@@ -52,6 +52,10 @@ export type PreferenceRankedAnswerInput = Schemas["RankedChoiceAnswerInput"];
 export type AdultOTPRequest = Schemas["RequestAdultOTPOutputBody"];
 export type GuardianSession = Schemas["GuardianSessionResponse"];
 export type GuardianOnboardingSession = Schemas["GuardianOnboardingSessionResponse"];
+export type GuardianOnboardingLanding = {
+  organization_name: string;
+  school_year_label: string;
+};
 export type GuardianOnboardingPolicy = Schemas["GuardianPolicyResponse"];
 export type GuardianOnboardingOTPRequest = Schemas["GuardianOTPRequestOutputBody"];
 export type GuardianStudent = Schemas["GuardianStudentResponse"];
@@ -116,6 +120,10 @@ export const resourceApi = {
         body: { challenge_id: challengeID, code },
       }),
     ),
+  getGuardianOnboardingLanding: (registrationLinkID: string) =>
+    unwrap(
+      registrationLinkApi.GET(`/api/guardian/onboarding/${registrationLinkID}`) as never,
+    ) as Promise<GuardianOnboardingLanding>,
   beginGuardianOnboarding: (registrationLinkID: string) =>
     unwrap(
       registrationLinkApi.POST(`/api/guardian/onboarding/${registrationLinkID}/begin`) as never,
