@@ -1,8 +1,12 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { GuardianPreferencePage, StudentCodeInterestProfilePage } from "./PreferencePages";
+import {
+  GuardianPreferenceFormPage,
+  GuardianPreferencePage,
+  StudentCodeInterestProfilePage,
+} from "./PreferencePages";
 
 const mocks = vi.hoisted(() => ({
   studentForm: null as unknown,
@@ -68,10 +72,11 @@ const form = {
   program_name: "Clubs",
   name: "Interest profile",
   student_id: "student-1",
+  closes_at: "2099-09-01T12:00:00Z",
   questions: [{ interest_area_id: "area-1", label: "Making things", ordinal: 1 }],
   scale_options: [{ value: "interested", label: "Interested", ordinal: 1 }],
   interest_answers: [],
-} as never;
+};
 
 describe("preference pages", () => {
   beforeEach(() => {
@@ -109,7 +114,7 @@ describe("preference pages", () => {
     );
 
     expect(screen.queryByText("Submit preferences")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText("Interested", { selector: "input" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Interested$/ }));
     fireEvent.click(screen.getByRole("button", { name: "Save interest profile" }));
 
     expect(mocks.studentMutation.mutate).toHaveBeenCalledWith([
@@ -154,8 +159,17 @@ describe("preference pages", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders every currently scoped guardian student as an independent form", () => {
-    Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
+  it("lists incomplete open forms as prominent links rather than rendering editors inline", () => {
+    mocks.guardianForms = {
+      school_year_id: "year-1",
+      students: [
+        {
+          student_id: "student-1",
+          display_name: "Synthetic Student",
+          forms: [{ ...form, id: "closed-survey", closes_at: "2020-09-01T12:00:00Z" }, form],
+        },
+      ],
+    };
     render(
       <MemoryRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
         <GuardianPreferencePage />
@@ -163,8 +177,36 @@ describe("preference pages", () => {
     );
 
     expect(screen.getByText("Synthetic Student")).toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText("Interested", { selector: "input" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save for this student" }));
+    expect(screen.getByText("Complete this form")).toBeInTheDocument();
+    expect(screen.getByText("Closed")).toBeInTheDocument();
+    expect(screen.getAllByText("Complete this form")).toHaveLength(1);
+    expect(screen.getByRole("link", { name: /complete interest profile/i })).toHaveAttribute(
+      "href",
+      "/guardian/preferences/student-1/survey-1",
+    );
+    expect(screen.queryByRole("button", { name: /^Interested$/ })).not.toBeInTheDocument();
+  });
+
+  it("renders the selected guardian form on its own page and submits it", () => {
+    render(
+      <MemoryRouter
+        future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+        initialEntries={["/guardian/preferences/student-1/survey-1"]}
+      >
+        <Routes>
+          <Route
+            path="/guardian/preferences/:studentId/:formId"
+            element={<GuardianPreferenceFormPage />}
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByText("Mini Class")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Complete this form together with/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "← Go back" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^Interested$/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Save and go back" }));
 
     expect(mocks.guardianMutation.mutate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -175,5 +217,88 @@ describe("preference pages", () => {
       }),
       expect.anything(),
     );
+  });
+
+  it("saves and returns when leaving a guardian form with unsaved changes", () => {
+    mocks.guardianMutation.mutate.mockImplementation(
+      (_input, options?: { onSuccess?: () => void }) => {
+        options?.onSuccess?.();
+      },
+    );
+    render(
+      <MemoryRouter
+        future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+        initialEntries={["/guardian/preferences/student-1/survey-1"]}
+      >
+        <Routes>
+          <Route
+            path="/guardian/preferences/:studentId/:formId"
+            element={<GuardianPreferenceFormPage />}
+          />
+          <Route path="/guardian/preferences" element={<p>Back at preference forms</p>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /^Interested$/ }));
+    fireEvent.click(screen.getByRole("button", { name: "← Go back" }));
+
+    expect(
+      screen.getByRole("dialog", { name: "Your changes aren’t saved yet" }),
+    ).toBeInTheDocument();
+    const dialog = screen.getByRole("dialog", { name: "Your changes aren’t saved yet" });
+    expect(within(dialog).getByRole("button", { name: "Keep working" })).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: "Leave without saving" }),
+    ).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save and go back" }));
+
+    expect(mocks.guardianMutation.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        answers: [{ interest_area_id: "area-1", rating: "interested" }],
+      }),
+      expect.anything(),
+    );
+    expect(screen.getByText("Back at preference forms")).toBeInTheDocument();
+  });
+
+  it("disables saving until a partially completed form is ready to save", () => {
+    mocks.guardianForms = {
+      school_year_id: "year-1",
+      students: [
+        {
+          student_id: "student-1",
+          display_name: "Synthetic Student",
+          forms: [
+            {
+              ...form,
+              questions: [
+                ...form.questions,
+                { interest_area_id: "area-2", label: "Playing games", ordinal: 2 },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    render(
+      <MemoryRouter
+        future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+        initialEntries={["/guardian/preferences/student-1/survey-1"]}
+      >
+        <Routes>
+          <Route
+            path="/guardian/preferences/:studentId/:formId"
+            element={<GuardianPreferenceFormPage />}
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getAllByRole("button", { name: /^Interested$/ })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "← Go back" }));
+
+    expect(screen.getByText("Finish the form before you can save.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save and go back" })).toBeDisabled();
   });
 });

@@ -38,7 +38,7 @@ export function GuardianWorkspaceLayout({
         ✦
       </span>
       <div className="relative mx-auto w-full max-w-5xl">
-        <header className="overflow-hidden rounded-3xl border-4 border-stone-950 bg-[#fffaf0] shadow-[7px_7px_0_#1c1917]">
+        <header className="overflow-hidden rounded-3xl border-4 border-[#8f7d62] bg-[#fffaf0] shadow-[7px_7px_0_#b8a88f]">
           <div className="relative border-b-8 border-[#f2633b] bg-[#86d2e6] px-5 py-6 sm:px-8">
             <span
               className="absolute -right-2 -top-6 rotate-12 text-7xl text-white/35"

@@ -9,6 +9,7 @@ const interestForm = (studentID: string, studentName?: string) => ({
   name: `Interest profile for ${studentName ?? "student"}`,
   student_id: studentID,
   ...(studentName ? { student_name: studentName } : {}),
+  closes_at: "2099-09-01T12:00:00Z",
   questions: [{ interest_area_id: "area-1", label: "Making things", ordinal: 1 }],
   scale_options: [{ value: "interested", label: "Interested", ordinal: 1 }],
   interest_answers: [],
@@ -31,7 +32,7 @@ test("a student can submit a private interest profile on a phone", async ({ page
   );
   await expect(page.getByRole("heading", { name: form.name })).toBeVisible();
   await expect(page.getByText("Submit preferences")).not.toBeVisible();
-  await page.getByLabel("Interested", { exact: true }).check();
+  await page.getByRole("button", { name: "Interested", exact: true }).click();
   await page.getByRole("button", { name: "Save interest profile" }).click();
 
   await expect
@@ -67,14 +68,12 @@ test("a guardian can submit for each scoped student on a phone", async ({ page }
   await expect(page.getByRole("heading", { name: "Preference forms" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Synthetic One", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Synthetic Two", exact: true })).toBeVisible();
-  await page
-    .getByRole("region", { name: firstForm.name + " form" })
-    .getByLabel("Interested", { exact: true })
-    .check();
-  await page
-    .getByRole("region", { name: firstForm.name + " form" })
-    .getByRole("button", { name: "Save for this student" })
-    .click();
+  await expect(page.getByText("Complete this form")).toHaveCount(2);
+  await expect(page.getByRole("button", { name: "Interested", exact: true })).not.toBeVisible();
+  await page.getByRole("link", { name: /complete interest profile for synthetic one/i }).click();
+  await expect(page).toHaveURL("/guardian/preferences/student-1/survey-student-1");
+  await page.getByRole("button", { name: "Interested", exact: true }).click();
+  await page.getByRole("button", { name: "Save and go back" }).click();
 
   await expect
     .poll(() => submittedPath)

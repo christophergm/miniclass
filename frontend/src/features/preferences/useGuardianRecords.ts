@@ -75,7 +75,13 @@ export function useGuardianStudentUpdate() {
 export function useGuardianStudentDetach() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: resourceApi.detachGuardianStudent,
+    mutationFn: ({
+      studentID,
+      confirmLastGuardianDeletion,
+    }: {
+      studentID: string;
+      confirmLastGuardianDeletion: boolean;
+    }) => resourceApi.detachGuardianStudent(studentID, confirmLastGuardianDeletion),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: key }),
   });
 }

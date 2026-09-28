@@ -93,7 +93,7 @@ describe("GuardianOnboardingPage", () => {
     expect(mocks.begin).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Start registration" }));
 
-    expect(await screen.findByLabelText("Your given name")).toBeInTheDocument();
+    expect(await screen.findByLabelText("Your first name")).toBeInTheDocument();
     expect(
       screen.getByText(/add a learner to your family’s mini class space/i),
     ).toBeInTheDocument();
@@ -101,8 +101,8 @@ describe("GuardianOnboardingPage", () => {
     expect(screen.queryByLabelText("Grade")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Homeroom/classroom")).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Your given name"), { target: { value: "Morgan" } });
-    fireEvent.change(screen.getByLabelText("Your family name"), { target: { value: "Lee" } });
+    fireEvent.change(screen.getByLabelText("Your first name"), { target: { value: "Morgan" } });
+    fireEvent.change(screen.getByLabelText("Your last name"), { target: { value: "Lee" } });
     fireEvent.click(screen.getByRole("button", { name: "Create my guardian profile" }));
 
     await waitFor(() =>

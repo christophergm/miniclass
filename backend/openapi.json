@@ -1987,6 +1987,32 @@
         ],
         "type": "object"
       },
+      "GuardianOtherGuardianResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "legal_family_name": {
+            "type": "string"
+          },
+          "legal_given_name": {
+            "type": "string"
+          },
+          "relationship_type": {
+            "enum": [
+              "parent",
+              "guardian",
+              "grandparent",
+              "other"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "legal_given_name",
+          "legal_family_name",
+          "relationship_type"
+        ],
+        "type": "object"
+      },
       "GuardianPolicyResponse": {
         "additionalProperties": false,
         "properties": {
@@ -2655,6 +2681,15 @@
           "legal_given_name": {
             "type": "string"
           },
+          "other_guardians": {
+            "items": {
+              "$ref": "#/components/schemas/GuardianOtherGuardianResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "preferred_given_name": {
             "type": "string"
           },
@@ -2675,7 +2710,8 @@
           "grade_label",
           "homeroom_id",
           "homeroom_label",
-          "warnings"
+          "warnings",
+          "other_guardians"
         ],
         "type": "object"
       },

@@ -4,6 +4,13 @@ import { GuardianFeedback, GuardianWorkspaceLayout } from "@/features/auth/Guard
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ModalForm } from "@/components/ui/modal-form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { GuardianStudent } from "@/lib/apiResources";
 
 import {
@@ -18,9 +25,11 @@ import {
 type RelationshipType = "parent" | "guardian" | "grandparent" | "other";
 
 const guardianPrimaryButtonClass =
+  "border-2 border-stone-950 bg-[#ffcc2e] font-black text-stone-950 shadow-[3px_3px_0_#1c1917] hover:bg-[#eab91e]";
+const guardianWarningButtonClass =
   "border-2 border-stone-950 bg-[#f2633b] font-black text-white shadow-[3px_3px_0_#1c1917] hover:bg-[#d94a24]";
 const guardianSecondaryButtonClass =
-  "border-2 border-stone-950 bg-[#ffcc2e] font-black text-stone-950 shadow-[3px_3px_0_#1c1917] hover:bg-[#eab91e]";
+  "border-2 border-stone-950 bg-[#fffaf0] font-black text-stone-950 shadow-[3px_3px_0_#1c1917] hover:bg-white";
 const guardianFieldClass =
   "border-2 border-stone-950 bg-white text-stone-950 shadow-[2px_2px_0_#1c1917] focus-visible:ring-[#f2633b]";
 
@@ -91,15 +100,6 @@ export function GuardianStudentsPage() {
 
   return (
     <GuardianWorkspaceLayout
-      action={
-        <Button
-          className="h-11 border-2 border-stone-950 bg-[#f2633b] font-black text-white shadow-[3px_3px_0_#1c1917] hover:bg-[#d94a24]"
-          type="button"
-          onClick={openAddStudent}
-        >
-          Add a student
-        </Button>
-      }
       description={
         hasStudents
           ? "Keep student details up to date, or add another student to your family’s Mini Class space."
@@ -107,81 +107,105 @@ export function GuardianStudentsPage() {
       }
       title={hasStudents ? "Your students" : "Let’s add your student"}
     >
-      <div className="space-y-4">
-        {status && <GuardianFeedback>{status}</GuardianFeedback>}
-        {error && (
-          <GuardianFeedback kind="error">
-            {error instanceof Error ? error.message : "Unable to update your guardian records."}
-          </GuardianFeedback>
-        )}
-      </div>
-      {linkedStudents.length === 0 ? (
-        <section
-          aria-labelledby="no-linked-students-heading"
-          className="mt-6 rounded-2xl border-2 border-dashed border-stone-950 bg-[#fffaf0] p-7 text-center shadow-[4px_4px_0_#1c1917]"
-        >
-          <span
-            aria-hidden="true"
-            className="inline-flex size-12 items-center justify-center rounded-full bg-primary/10 text-2xl"
+      <div className="mx-auto w-full max-w-3xl">
+        <div className="space-y-4">
+          {status && <GuardianFeedback>{status}</GuardianFeedback>}
+          {error && (
+            <GuardianFeedback kind="error">
+              {error instanceof Error ? error.message : "Unable to update your guardian records."}
+            </GuardianFeedback>
+          )}
+        </div>
+        {linkedStudents.length === 0 ? (
+          <section
+            aria-labelledby="no-linked-students-heading"
+            className="mt-6 rounded-2xl border-2 border-dashed border-[#8f7d62] bg-[#fffaf0] p-7 text-center shadow-[4px_4px_0_#b8a88f]"
           >
-            ✨
-          </span>
-          <h2 className="mt-4 text-2xl font-black text-stone-950" id="no-linked-students-heading">
-            Add your first student
-          </h2>
-          <p className="mx-auto mt-2 max-w-md text-sm leading-5 text-stone-700">
-            You can add a student to Mini Class or safely check whether another guardian has already
-            added them.
-          </p>
-        </section>
-      ) : (
-        <ul className="mt-6 space-y-3">
-          {linkedStudents.map((student) => (
-            <li
-              className="rounded-2xl border-2 border-stone-950 bg-[#fffaf0] p-5 shadow-[3px_3px_0_#1c1917]"
-              key={student.id}
+            <span
+              aria-hidden="true"
+              className="inline-flex size-12 items-center justify-center rounded-full bg-primary/10 text-2xl"
             >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <div className="text-lg font-black text-stone-950">
-                    {student.preferred_given_name || student.legal_given_name}{" "}
-                    {student.legal_family_name}
+              ✨
+            </span>
+            <h2 className="mt-4 text-2xl font-black text-stone-950" id="no-linked-students-heading">
+              Add your first student
+            </h2>
+            <p className="mx-auto mt-2 max-w-md text-sm leading-5 text-stone-700">
+              You can add a student to Mini Class or safely check whether another guardian has
+              already added them.
+            </p>
+          </section>
+        ) : (
+          <ul className="mt-6 space-y-3">
+            {linkedStudents.map((student) => (
+              <li
+                className="rounded-2xl border-2 border-[#8f7d62] bg-[#fffaf0] p-5 shadow-[3px_3px_0_#b8a88f]"
+                key={student.id}
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="text-lg font-black text-stone-950">
+                      {student.preferred_given_name || student.legal_given_name}{" "}
+                      {student.legal_family_name}
+                    </div>
+                    <div className="mt-1 text-sm text-muted-foreground">
+                      {student.grade_label} · {student.homeroom_label}
+                    </div>
+                    {(student.other_guardians ?? []).length > 0 && (
+                      <div className="mt-3 text-sm text-stone-700">
+                        <p className="font-bold text-stone-800">Other linked guardians</p>
+                        <ul className="mt-1 list-disc pl-5">
+                          {(student.other_guardians ?? []).map((guardian) => (
+                            <li key={`${guardian.legal_given_name}-${guardian.legal_family_name}`}>
+                              {guardian.legal_given_name} {guardian.legal_family_name} ·{" "}
+                              {guardian.relationship_type}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
-                  <div className="mt-1 text-sm text-muted-foreground">
-                    {student.grade_label} · {student.homeroom_label}
+                  <div className="flex gap-2">
+                    <Button
+                      className={guardianSecondaryButtonClass}
+                      size="sm"
+                      type="button"
+                      onClick={() => setEditing(student)}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      className={guardianWarningButtonClass}
+                      size="sm"
+                      type="button"
+                      onClick={() => {
+                        setRemovalConfirmed(false);
+                        setRemoving(student);
+                      }}
+                    >
+                      Remove
+                    </Button>
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    type="button"
-                    variant="outline"
-                    onClick={() => setEditing(student)}
-                  >
-                    Edit
-                  </Button>
-                  <Button
-                    size="sm"
-                    type="button"
-                    variant="destructive"
-                    onClick={() => {
-                      setRemovalConfirmed(false);
-                      setRemoving(student);
-                    }}
-                  >
-                    Remove
-                  </Button>
-                </div>
-              </div>
-              {(student.warnings ?? []).map((warning) => (
-                <p className="mt-2 text-sm text-amber-800" key={warning.code}>
-                  {warning.message}
-                </p>
-              ))}
-            </li>
-          ))}
-        </ul>
-      )}
+                {(student.warnings ?? []).map((warning) => (
+                  <p className="mt-2 text-sm text-amber-800" key={warning.code}>
+                    {warning.message}
+                  </p>
+                ))}
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="mt-10">
+          <Button
+            className={`h-11 ${guardianPrimaryButtonClass}`}
+            type="button"
+            onClick={openAddStudent}
+          >
+            Add a student
+          </Button>
+        </div>
+      </div>
       <ModalForm
         onClose={() => setAddOpen(false)}
         open={addOpen}
@@ -245,7 +269,7 @@ export function GuardianStudentsPage() {
           </p>
         ) : (
           <Button
-            className={`mt-4 ${guardianSecondaryButtonClass}`}
+            className={`mt-4 ${guardianPrimaryButtonClass}`}
             type="button"
             disabled={!givenName.trim() || !familyName.trim()}
             onClick={() => {
@@ -389,47 +413,66 @@ export function GuardianStudentsPage() {
         open={Boolean(removing)}
         tone="guardian"
         title={removing ? `Remove ${studentName(removing)}?` : "Remove student"}
-        description="This is a confirmed guardian-management action; no additional one-time code is required."
+        description=""
       >
         {removing && (
           <form
             className="space-y-4"
             onSubmit={(event) => {
               event.preventDefault();
-              detach.mutate(removing.id, {
-                onSuccess: () => {
-                  setRemoving(null);
-                  setStatus(
-                    `${studentName(removing)} was removed from your guardian scope. If no other guardian remains, the record was deleted when it had no history or de-identified to preserve historical records.`,
-                  );
+              detach.mutate(
+                {
+                  studentID: removing.id,
+                  confirmLastGuardianDeletion: (removing.other_guardians ?? []).length === 0,
                 },
-              });
+                {
+                  onSuccess: () => {
+                    setRemoving(null);
+                    setStatus(
+                      `${studentName(removing)} was removed from your guardian scope. If no other guardian remains, the record was deleted when it had no history or de-identified to preserve historical records.`,
+                    );
+                  },
+                },
+              );
             }}
           >
-            <p className="text-sm text-muted-foreground">
-              This removes your guardian relationship. It does not reveal or notify other guardians.
-              If you are the last guardian, the student is permanently deleted only when no
-              dependent history exists; otherwise they are de-identified to preserve historical
-              records: identifying names are removed and grade and homeroom are retained.
-            </p>
-            <label className="flex gap-2 text-sm" htmlFor="guardian-remove-confirmation">
-              <input
-                checked={removalConfirmed}
-                id="guardian-remove-confirmation"
-                type="checkbox"
-                onChange={(event) => setRemovalConfirmed(event.target.checked)}
-              />
-              I understand this cannot be undone from guardian access.
-            </label>
+            {(removing.other_guardians ?? []).length > 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Other linked guardians will continue to manage this student.
+              </p>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  You are the last linked guardian. Removing your relationship will permanently
+                  clear their name from the records. This cannot be undone from guardian access.
+                </p>
+                <label className="flex gap-2 text-sm" htmlFor="guardian-remove-confirmation">
+                  <input
+                    checked={removalConfirmed}
+                    id="guardian-remove-confirmation"
+                    type="checkbox"
+                    onChange={(event) => setRemovalConfirmed(event.target.checked)}
+                  />
+                  I understand this cannot be undone from guardian access.
+                </label>
+              </>
+            )}
             <div className="flex gap-2">
               <Button
-                disabled={!removalConfirmed || detach.isPending}
+                className={guardianWarningButtonClass}
+                disabled={
+                  detach.isPending ||
+                  ((removing.other_guardians ?? []).length === 0 && !removalConfirmed)
+                }
                 type="submit"
-                variant="destructive"
               >
                 {detach.isPending ? "Removing…" : "Remove relationship"}
               </Button>
-              <Button type="button" variant="outline" onClick={() => setRemoving(null)}>
+              <Button
+                className={guardianSecondaryButtonClass}
+                type="button"
+                onClick={() => setRemoving(null)}
+              >
                 Cancel
               </Button>
             </div>
@@ -490,7 +533,7 @@ function StudentEditor({
       <label className="block text-sm font-medium" htmlFor="guardian-student-edit-given-name">
         Given name
         <Input
-          className="mt-2"
+          className={`mt-2 ${guardianFieldClass}`}
           id="guardian-student-edit-given-name"
           required
           value={givenName}
@@ -500,7 +543,7 @@ function StudentEditor({
       <label className="block text-sm font-medium" htmlFor="guardian-student-edit-family-name">
         Family name
         <Input
-          className="mt-2"
+          className={`mt-2 ${guardianFieldClass}`}
           id="guardian-student-edit-family-name"
           required
           value={familyName}
@@ -510,7 +553,7 @@ function StudentEditor({
       <label className="block text-sm font-medium" htmlFor="guardian-student-edit-preferred-name">
         Preferred name (optional)
         <Input
-          className="mt-2"
+          className={`mt-2 ${guardianFieldClass}`}
           id="guardian-student-edit-preferred-name"
           value={preferredName}
           onChange={(event) => setPreferredName(event.target.value)}
@@ -534,6 +577,7 @@ function StudentEditor({
       />
       <div className="flex gap-2">
         <Button
+          className={guardianPrimaryButtonClass}
           disabled={
             isSaving ||
             unchanged ||
@@ -565,26 +609,47 @@ function RelationshipSelect({
   guardian?: boolean;
   onChange: (value: RelationshipType) => void;
 }) {
+  const options: Array<{ value: RelationshipType; label: string }> = [
+    { value: "parent", label: "Parent" },
+    { value: "guardian", label: "Guardian" },
+    { value: "grandparent", label: "Grandparent" },
+    { value: "other", label: "Other" },
+  ];
+
   return (
-    <label className="text-sm font-medium" htmlFor="guardian-student-relationship">
-      Relationship
-      <select
-        className={
-          guardian
-            ? `mt-2 flex h-10 w-full rounded-md px-3 text-sm ${guardianFieldClass}`
-            : "mt-2 flex h-9 w-full rounded-md border bg-transparent px-3 text-sm"
-        }
-        disabled={disabled}
-        id="guardian-student-relationship"
-        value={value}
-        onChange={(event) => onChange(event.target.value as RelationshipType)}
-      >
-        <option value="parent">Parent</option>
-        <option value="guardian">Guardian</option>
-        <option value="grandparent">Grandparent</option>
-        <option value="other">Other</option>
-      </select>
-    </label>
+    <fieldset>
+      <legend className="text-sm font-medium">Relationship</legend>
+      <div className="mt-2 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Relationship">
+        {options.map((option) => {
+          const selected = value === option.value;
+          return (
+            <label
+              className={
+                guardian
+                  ? `flex min-h-11 cursor-pointer items-center justify-center rounded-lg border-2 px-3 text-sm font-black transition-colors ${
+                      selected
+                        ? "border-stone-950 bg-[#ffcc2e] text-stone-950 shadow-[2px_2px_0_#1c1917]"
+                        : "border-stone-300 bg-white text-stone-700 hover:border-stone-950"
+                    } ${disabled ? "cursor-not-allowed opacity-50" : ""}`
+                  : "flex cursor-pointer items-center gap-2 text-sm"
+              }
+              key={option.value}
+            >
+              <input
+                checked={selected}
+                className={guardian ? "sr-only" : undefined}
+                disabled={disabled}
+                name="guardian-student-relationship"
+                type="radio"
+                value={option.value}
+                onChange={() => onChange(option.value)}
+              />
+              {option.label}
+            </label>
+          );
+        })}
+      </div>
+    </fieldset>
   );
 }
 
@@ -608,31 +673,25 @@ function VocabularySelect({
   placeholder: string;
 }) {
   return (
-    <label
-      className="text-sm font-medium"
-      htmlFor={`${idPrefix}-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
-    >
-      {label}
-      <select
-        className={
-          guardian
-            ? `mt-2 flex h-10 w-full rounded-md px-3 text-sm ${guardianFieldClass}`
-            : "mt-2 flex h-9 w-full rounded-md border bg-transparent px-3 text-sm"
-        }
-        disabled={disabled}
-        id={`${idPrefix}-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
-        required
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      >
-        <option value="">{placeholder}</option>
-        {options.map((option) => (
-          <option key={option.id} value={option.id}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </label>
+    <div className="text-sm font-medium">
+      <span>{label}</span>
+      <Select disabled={disabled} value={value} onValueChange={onChange}>
+        <SelectTrigger
+          aria-label={label}
+          className={guardian ? `mt-2 h-11 ${guardianFieldClass}` : "mt-2"}
+          id={`${idPrefix}-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+        >
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option.id} value={option.id}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 }
 

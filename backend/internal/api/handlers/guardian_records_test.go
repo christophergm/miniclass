@@ -4,10 +4,29 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/chrismott/miniclass/internal/data"
 	"github.com/chrismott/miniclass/internal/guardianrecords"
 	"github.com/chrismott/miniclass/internal/ids"
 	"github.com/stretchr/testify/require"
 )
+
+func TestGuardianStudentResponseIncludesOtherGuardianDetails(t *testing.T) {
+	row := guardianrecords.Student{
+		ID:              ids.XID("student-1"),
+		LegalGivenName:  "Casey",
+		LegalFamilyName: "Synthetic",
+		OtherGuardians: []guardianrecords.OtherGuardian{{
+			LegalGivenName:   "Avery",
+			LegalFamilyName:  "Synthetic",
+			RelationshipType: data.GuardianRelationshipGrandparent,
+		}},
+	}
+
+	response := guardianStudentResponse(row)
+	require.Equal(t, []GuardianOtherGuardianResponse{{
+		LegalGivenName: "Avery", LegalFamilyName: "Synthetic", RelationshipType: "grandparent",
+	}}, response.OtherGuardians)
+}
 
 func TestGuardianCandidateResponseUsesMinimalDisclosureFields(t *testing.T) {
 	preferred := "CJ"

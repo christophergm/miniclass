@@ -556,8 +556,11 @@ guardian of, those students' preferences and placements.
 It MUST NOT show class rosters, another adult's students, or any program-wide view.
 
 Scope is derived from the guardian relationships in force at the moment of the request, not from any
-stored grouping (§8.2). Two guardians of the same student therefore each see that student,
-independently, and neither is shown the other. A guardian view does not include administrative or volunteer data.
+stored grouping (§8.2). Two guardians of the same student each see that student independently. For a
+student within the authenticated guardian's scope, the guardian view MAY show each other active
+guardian's given name, family name and relationship type solely to make the shared responsibility
+visible. It MUST NOT reveal their contact details, other students, administrative or volunteer data, or
+any other adult information.
 
 ### 6.3 Student
 
@@ -1461,9 +1464,13 @@ field matters. Future solves use the updated grade. Existing submissions and com
 remain historical. Published artifacts require republishing or regeneration before the stable URL
 reflects the change.
 
-A guardian MAY detach themselves from a student, with a confirmation prompt. Detach removes that
-adult's guardian relationship and access; it does not delete a shared student while another active
-guardian remains. No automated notification is sent to other guardians.
+A guardian MAY detach themselves from a student. Detach removes that adult's guardian relationship
+and access; it does not delete a shared student while another active guardian remains. When another
+active guardian remains, the confirmation MUST explain that this is a reversible relationship removal
+and does not require a destructive-action acknowledgement. When no other active guardian remains,
+the confirmation MUST explain that removing the relationship may permanently delete or de-identify
+the student and require an explicit acknowledgement before it proceeds. No automated notification is
+sent to other guardians.
 
 A guardian MAY delete a student only within the following boundary:
 

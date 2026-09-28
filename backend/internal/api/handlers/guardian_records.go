@@ -36,15 +36,22 @@ func NewGuardianRecordsHandler(service GuardianRecordsService) *GuardianRecordsH
 }
 
 type GuardianStudentResponse struct {
-	ID                 string                         `json:"id" doc:"Opaque student identifier."`
-	LegalGivenName     string                         `json:"legal_given_name"`
-	LegalFamilyName    string                         `json:"legal_family_name"`
-	PreferredGivenName *string                        `json:"preferred_given_name,omitempty"`
-	GradeLevelID       *string                        `json:"grade_level_id,omitempty" doc:"Opaque grade identifier."`
-	GradeLabel         string                         `json:"grade_label"`
-	HomeroomID         string                         `json:"homeroom_id" doc:"Opaque homeroom identifier."`
-	HomeroomLabel      string                         `json:"homeroom_label"`
-	Warnings           []GuardianStudentReviewWarning `json:"warnings"`
+	ID                 string                          `json:"id" doc:"Opaque student identifier."`
+	LegalGivenName     string                          `json:"legal_given_name"`
+	LegalFamilyName    string                          `json:"legal_family_name"`
+	PreferredGivenName *string                         `json:"preferred_given_name,omitempty"`
+	GradeLevelID       *string                         `json:"grade_level_id,omitempty" doc:"Opaque grade identifier."`
+	GradeLabel         string                          `json:"grade_label"`
+	HomeroomID         string                          `json:"homeroom_id" doc:"Opaque homeroom identifier."`
+	HomeroomLabel      string                          `json:"homeroom_label"`
+	Warnings           []GuardianStudentReviewWarning  `json:"warnings"`
+	OtherGuardians     []GuardianOtherGuardianResponse `json:"other_guardians"`
+}
+
+type GuardianOtherGuardianResponse struct {
+	LegalGivenName   string `json:"legal_given_name"`
+	LegalFamilyName  string `json:"legal_family_name"`
+	RelationshipType string `json:"relationship_type" enum:"parent,guardian,grandparent,other"`
 }
 
 type GuardianStudentReviewWarning struct {
@@ -365,7 +372,15 @@ func guardianStudentResponse(row guardianrecords.Student) GuardianStudentRespons
 	for _, warning := range row.Warnings {
 		warnings = append(warnings, GuardianStudentReviewWarning{Code: warning.Code, Message: warning.Message})
 	}
-	return GuardianStudentResponse{ID: string(row.ID), LegalGivenName: row.LegalGivenName, LegalFamilyName: row.LegalFamilyName, PreferredGivenName: row.PreferredGivenName, GradeLevelID: gradeID, GradeLabel: row.GradeLabel, HomeroomID: string(row.HomeroomID), HomeroomLabel: row.HomeroomLabel, Warnings: warnings}
+	otherGuardians := make([]GuardianOtherGuardianResponse, 0, len(row.OtherGuardians))
+	for _, guardian := range row.OtherGuardians {
+		otherGuardians = append(otherGuardians, GuardianOtherGuardianResponse{
+			LegalGivenName:   guardian.LegalGivenName,
+			LegalFamilyName:  guardian.LegalFamilyName,
+			RelationshipType: string(guardian.RelationshipType),
+		})
+	}
+	return GuardianStudentResponse{ID: string(row.ID), LegalGivenName: row.LegalGivenName, LegalFamilyName: row.LegalFamilyName, PreferredGivenName: row.PreferredGivenName, GradeLevelID: gradeID, GradeLabel: row.GradeLabel, HomeroomID: string(row.HomeroomID), HomeroomLabel: row.HomeroomLabel, Warnings: warnings, OtherGuardians: otherGuardians}
 }
 
 func guardianRecordsProblem(err error) error {
