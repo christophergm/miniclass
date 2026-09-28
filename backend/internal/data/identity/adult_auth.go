@@ -46,7 +46,7 @@ func (tx *Tx) GetAdultOTPByHash(ctx context.Context, tokenHash []byte) (AccessTo
 
 func (tx *Tx) ConsumeAdultOTP(ctx context.Context, id ids.XID, verifierHash []byte, now time.Time, maxAttempts int) (AccessToken, error) {
 	row, err := tx.queries.ConsumeAdultOTP(ctx, db.ConsumeAdultOTPParams{
-		ID: id, VerifierHash: verifierHash, ExpiresAt: pgtype.Timestamptz{Time: now, Valid: true}, Attempts: int32(maxAttempts),
+		ID: id, VerifierHash: verifierHash, ExpiresAt: pgtype.Timestamptz{Time: now, Valid: true}, Attempts: int32(maxAttempts), MailboxVerifiedAt: pgtype.Timestamptz{Time: now, Valid: true},
 	})
 	if err != nil {
 		return AccessToken{}, err

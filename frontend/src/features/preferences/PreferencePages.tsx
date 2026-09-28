@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { GuardianLogoutButton } from "@/features/auth/GuardianLogoutButton";
 import { GuardianFeedback, GuardianWorkspaceLayout } from "@/features/auth/GuardianWorkspaceLayout";
 import {
   useAdministratorPreferenceForm,
@@ -536,13 +537,17 @@ export function GuardianPreferenceFormPage() {
         : null;
   return (
     <FocusedPreferenceFrame>
-      <button
-        className="mb-5 inline-block text-sm font-bold text-stone-800 underline decoration-2 underline-offset-4"
-        onClick={goBack}
-        type="button"
-      >
-        ← Go back
-      </button>
+      <div className="mb-5 flex items-center justify-between gap-4">
+        <button
+          className="inline-block text-sm font-bold text-stone-800 underline decoration-2 underline-offset-4"
+          onClick={goBack}
+          type="button"
+        >
+          ← Go back
+        </button>
+        <GuardianLogoutButton />
+      </div>
+
       <PreferenceFormEditor
         error={error}
         form={form}

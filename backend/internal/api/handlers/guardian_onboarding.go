@@ -551,18 +551,20 @@ type GuardianSessionOutput struct {
 }
 
 type GuardianOnboardingSessionResponse struct {
-	SessionToken   string                     `json:"session_token"`
-	SessionID      string                     `json:"session_id"`
-	OrganizationID string                     `json:"organization_id"`
-	SchoolYearID   string                     `json:"school_year_id"`
-	Email          string                     `json:"email,omitempty"`
-	Verified       bool                       `json:"mailbox_verified"`
-	Consented      bool                       `json:"consented"`
-	ExpiresAt      time.Time                  `json:"expires_at"`
-	IdleExpiresAt  time.Time                  `json:"idle_expires_at"`
-	Policy         GuardianPolicyResponse     `json:"policy"`
-	GradeLevels    []GuardianVocabularyOption `json:"grade_levels"`
-	Homerooms      []GuardianVocabularyOption `json:"homerooms"`
+	SessionToken         string                     `json:"session_token"`
+	SessionID            string                     `json:"session_id"`
+	OrganizationID       string                     `json:"organization_id"`
+	SchoolYearID         string                     `json:"school_year_id"`
+	Email                string                     `json:"email,omitempty"`
+	Verified             bool                       `json:"mailbox_verified"`
+	Consented            bool                       `json:"consented"`
+	ExpiresAt            time.Time                  `json:"expires_at"`
+	IdleExpiresAt        time.Time                  `json:"idle_expires_at"`
+	Policy               GuardianPolicyResponse     `json:"policy"`
+	GradeLevels          []GuardianVocabularyOption `json:"grade_levels"`
+	Homerooms            []GuardianVocabularyOption `json:"homerooms"`
+	ExistingGuardian     bool                       `json:"existing_guardian,omitempty"`
+	GuardianSessionToken string                     `json:"guardian_session_token,omitempty"`
 }
 
 // GuardianVocabularyOption is a display label paired with the opaque value
@@ -761,6 +763,9 @@ func guardianPolicyResponse(policy guardian.Policy) GuardianPolicyResponse {
 }
 
 func (h *GuardianOnboardingHandler) sessionOutput(ctx context.Context, session guardian.Session) (*GuardianSessionOutput, error) {
+	if session.GuardianSessionToken != "" {
+		return &GuardianSessionOutput{Body: guardianOnboardingSessionResponse(session, guardian.OnboardingVocabulary{})}, nil
+	}
 	vocabulary, err := h.service.OnboardingVocabulary(ctx, session.Token, time.Now().UTC())
 	if err != nil {
 		return nil, guardianOnboardingProblem(err)
@@ -777,7 +782,7 @@ func guardianOnboardingSessionResponse(session guardian.Session, vocabulary guar
 	for _, homeroom := range vocabulary.Homerooms {
 		homerooms = append(homerooms, GuardianVocabularyOption{ID: string(homeroom.ID), Label: homeroom.Label})
 	}
-	return GuardianOnboardingSessionResponse{SessionToken: session.Token, SessionID: string(session.ID), OrganizationID: string(session.OrganizationID), SchoolYearID: string(session.SchoolYearID), Email: session.Email, Verified: session.Verified, Consented: session.Consented, ExpiresAt: session.ExpiresAt, IdleExpiresAt: session.IdleExpiresAt, Policy: guardianPolicyResponse(session.Policy), GradeLevels: gradeLevels, Homerooms: homerooms}
+	return GuardianOnboardingSessionResponse{SessionToken: session.Token, SessionID: string(session.ID), OrganizationID: string(session.OrganizationID), SchoolYearID: string(session.SchoolYearID), Email: session.Email, Verified: session.Verified, Consented: session.Consented, ExpiresAt: session.ExpiresAt, IdleExpiresAt: session.IdleExpiresAt, Policy: guardianPolicyResponse(session.Policy), GradeLevels: gradeLevels, Homerooms: homerooms, ExistingGuardian: session.ExistingGuardian, GuardianSessionToken: session.GuardianSessionToken}
 }
 
 func decodeOptionalHash(value string) ([]byte, error) {

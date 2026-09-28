@@ -61,7 +61,7 @@ func Open(t gotesting.TB) *Harness {
 	setupCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	bootstrapPool, err := pgxpool.New(setupCtx, migratorURL)
+	bootstrapPool, err := newTestPool(setupCtx, migratorURL, 1)
 	require.NoError(t, err)
 	if err != nil {
 		return nil
@@ -76,7 +76,10 @@ func Open(t gotesting.TB) *Harness {
 	require.NoError(t, err)
 	appSchemaURL, err := withSearchPath(appURL, schemaName)
 	require.NoError(t, err)
-	migrator, err := pgxpool.New(setupCtx, migratorSchemaURL)
+	// Tests occasionally hold a migrator transaction while making a separate
+	// metadata query, so this pool needs a second connection to avoid
+	// self-deadlock.
+	migrator, err := newTestPool(setupCtx, migratorSchemaURL, 2)
 	require.NoError(t, err)
 	if err != nil {
 		return nil
@@ -111,14 +114,25 @@ func Open(t gotesting.TB) *Harness {
 	migrationLocked = false
 	require.NoError(t, gooseDB.Close())
 
-	app, err := pgxpool.New(setupCtx, appSchemaURL)
+	// App is reserved for raw role/RLS assertions. Keep it separate from the
+	// service pool: completed SET LOCAL calls leave an empty custom setting in a
+	// reused PostgreSQL session, whereas these assertions intentionally require
+	// app.organization_id to be absent.
+	app, err := newTestPool(setupCtx, appSchemaURL, 2)
 	require.NoError(t, err)
 	if err != nil {
 		return nil
 	}
 	require.NoError(t, app.Ping(setupCtx))
 
-	database, err := data.NewApplicationFromURL(setupCtx, appSchemaURL)
+	databasePool, err := newTestPool(setupCtx, appSchemaURL, 2)
+	require.NoError(t, err)
+	if err != nil {
+		return nil
+	}
+	require.NoError(t, databasePool.Ping(setupCtx))
+
+	database, err := data.NewApplicationFromPool(setupCtx, databasePool)
 	require.NoError(t, err)
 	if err != nil {
 		return nil
@@ -178,6 +192,16 @@ func withSearchPath(databaseURL, schemaName string) (string, error) {
 	query.Set("options", "-csearch_path="+schemaName)
 	parsed.RawQuery = query.Encode()
 	return parsed.String(), nil
+}
+
+func newTestPool(ctx context.Context, databaseURL string, maxConns int32) (*pgxpool.Pool, error) {
+	poolConfig, err := pgxpool.ParseConfig(databaseURL)
+	if err != nil {
+		return nil, err
+	}
+	poolConfig.MaxConns = maxConns
+	poolConfig.MinConns = 0
+	return pgxpool.NewWithConfig(ctx, poolConfig)
 }
 
 func migrationsPath(t gotesting.TB) string {

@@ -51,7 +51,26 @@ export type PreferenceInterestAnswerInput = Schemas["InterestProfileAnswerInput"
 export type PreferenceRankedAnswerInput = Schemas["RankedChoiceAnswerInput"];
 export type AdultOTPRequest = Schemas["RequestAdultOTPOutputBody"];
 export type GuardianSession = Schemas["GuardianSessionResponse"];
-export type GuardianOnboardingSession = Schemas["GuardianOnboardingSessionResponse"];
+export type GuardianAccessContext = {
+  organization_id: string;
+  school_year_id: string;
+  organization_name: string;
+  school_year_label: string;
+};
+export type GuardianAccessVerification = {
+  session?: GuardianSession;
+  selection_token?: string;
+  contexts?: GuardianAccessContext[];
+};
+export type GuardianAuthContext = {
+  guardian_name: string;
+  organization_name: string;
+  school_year_label: string;
+};
+export type GuardianOnboardingSession = Schemas["GuardianOnboardingSessionResponse"] & {
+  existing_guardian?: boolean;
+  guardian_session_token?: string;
+};
 export type GuardianOnboardingLanding = {
   organization_name: string;
   school_year_label: string;
@@ -89,10 +108,16 @@ type PendingGuardianRegistrationLinkApi = {
   PATCH: (path: string, options?: unknown) => Promise<unknown>;
 };
 
+type PendingGuardianAccessApi = {
+  GET: (path: string, options?: unknown) => Promise<unknown>;
+  POST: (path: string, options?: unknown) => Promise<unknown>;
+};
+
 // The generated frontend contract is not committed. Keep the temporary cast at
 // this boundary so pages remain typed while this branch is paired with the
 // backend contract that introduces these routes.
 const registrationLinkApi = api as unknown as PendingGuardianRegistrationLinkApi;
+const guardianAccessApi = api as unknown as PendingGuardianAccessApi;
 
 export type GuardianInvitationImport = Schemas["InvitationImportResult"];
 export type GuardianInvitationContactPage = Schemas["GuardianInvitationContactsOutputBody"];
@@ -108,18 +133,28 @@ export const resourceApi = {
 
   getMe: () => unwrap(api.GET("/api/me")),
   claimInvitation: (token: string) => unwrap(api.POST("/api/auth/claim", { body: { token } })),
-  requestAdultOTP: (organizationID: string, schoolYearID: string, email: string) =>
+  // The revised guardian OTP contract is intentionally isolated here until the
+  // generated OpenAPI client is refreshed by the paired backend change.
+  requestAdultOTP: (email: string) =>
     unwrap(
-      api.POST("/api/auth/adult/otp/request", {
-        body: { organization_id: organizationID, school_year_id: schoolYearID, email },
-      }),
-    ),
+      guardianAccessApi.POST("/api/auth/adult/otp/request", { body: { email } }) as never,
+    ) as Promise<AdultOTPRequest>,
   verifyAdultOTP: (challengeID: string, code: string) =>
     unwrap(
-      api.POST("/api/auth/adult/otp/verify", {
+      guardianAccessApi.POST("/api/auth/adult/otp/verify", {
         body: { challenge_id: challengeID, code },
-      }),
-    ),
+      }) as never,
+    ) as Promise<GuardianAccessVerification>,
+  selectGuardianAccessContext: (selectionToken: string, context: GuardianAccessContext) =>
+    unwrap(
+      guardianAccessApi.POST("/api/auth/adult/otp/context", {
+        body: {
+          selection_token: selectionToken,
+          organization_id: context.organization_id,
+          school_year_id: context.school_year_id,
+        },
+      }) as never,
+    ) as Promise<GuardianSession>,
   getGuardianOnboardingLanding: (registrationLinkID: string) =>
     unwrap(
       registrationLinkApi.GET(`/api/guardian/onboarding/${registrationLinkID}`) as never,
@@ -229,7 +264,8 @@ export const resourceApi = {
     adult_given_name: string;
     adult_family_name: string;
   }) => unwrap(api.POST("/api/guardian/onboarding/complete", { body: value })),
-  getGuardianAuthContext: () => unwrap(api.GET("/api/auth/guardian")),
+  getGuardianAuthContext: () =>
+    unwrap(guardianAccessApi.GET("/api/auth/guardian") as never) as Promise<GuardianAuthContext>,
   listGuardianStudents: () => unwrapList(api.GET("/api/guardian/students")),
   getGuardianVocabulary: () => unwrap(api.GET("/api/guardian/vocabulary")),
   findGuardianStudentCandidates: (

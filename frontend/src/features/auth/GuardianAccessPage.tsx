@@ -1,42 +1,63 @@
-import { useState, type FormEvent } from "react";
-import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useEffect, useState, type FormEvent } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { setApplicationSession } from "@/lib/auth";
-import { resourceApi, type GuardianSession } from "@/lib/apiResources";
+import { ApiError } from "@/lib/api";
+import { clearApplicationSession, hasApplicationSession, setApplicationSession } from "@/lib/auth";
+import {
+  resourceApi,
+  type GuardianAccessContext,
+  type GuardianAccessVerification,
+} from "@/lib/apiResources";
 
 import { AuthErrorMessage, AuthLayout } from "./AuthLayout";
 import { errorMessage } from "./auth-utils";
 
 export function GuardianAccessPage() {
-  const [searchParams] = useSearchParams();
-  const location = useLocation();
   const navigate = useNavigate();
-  const onboarding = guardianOnboardingHandoff(location.state);
-  const [organizationID, setOrganizationID] = useState(
-    () => onboarding?.organizationID ?? searchParams.get("organization_id") ?? "",
-  );
-  const [schoolYearID, setSchoolYearID] = useState(
-    () => onboarding?.schoolYearID ?? searchParams.get("school_year_id") ?? "",
-  );
-  const [email, setEmail] = useState(() => onboarding?.email ?? searchParams.get("email") ?? "");
+  const [email, setEmail] = useState("");
   const [challengeID, setChallengeID] = useState<string | null>(null);
   const [code, setCode] = useState("");
-  const [session, setSession] = useState<GuardianSession | null>(null);
+  const [contextSelection, setContextSelection] = useState<{
+    selectionToken: string;
+    contexts: GuardianAccessContext[];
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(() => hasApplicationSession());
+
+  useEffect(() => {
+    if (!hasApplicationSession()) return;
+    let active = true;
+    void resourceApi
+      .getGuardianAuthContext()
+      .then(() => {
+        if (active) navigate("/guardian/preferences", { replace: true });
+      })
+      .catch((reason: unknown) => {
+        if (!active) return;
+        // An administrator bearer is not guardian access and should still see
+        // the ordinary email sign-in page. A rejected guardian bearer is stale.
+        if (reason instanceof ApiError && reason.status === 401) {
+          clearApplicationSession();
+          setError("Your guardian session expired or is no longer valid. Please sign in again.");
+        }
+      })
+      .finally(() => {
+        if (active) setCheckingSession(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [navigate]);
 
   async function requestOTP(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
     setIsSubmitting(true);
     try {
-      const response = await resourceApi.requestAdultOTP(
-        organizationID.trim(),
-        schoolYearID.trim(),
-        email.trim(),
-      );
+      const response = await resourceApi.requestAdultOTP(email.trim());
       setChallengeID(response.challenge_id);
     } catch (reason) {
       setError(errorMessage(reason));
@@ -52,14 +73,51 @@ export function GuardianAccessPage() {
     setIsSubmitting(true);
     try {
       const response = await resourceApi.verifyAdultOTP(challengeID, code.trim());
-      setApplicationSession(response.session_token);
-      setSession(response);
+      openVerification(response);
+    } catch (reason) {
+      setError(errorMessage(reason));
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  function openVerification(response: GuardianAccessVerification) {
+    if (response.session) {
+      setApplicationSession(response.session.session_token);
+      navigate("/guardian/preferences", { replace: true });
+      return;
+    }
+    if (!response.selection_token || !response.contexts?.length) {
+      setError("Unable to open guardian access for this email.");
+      return;
+    }
+    if (response.contexts.length === 1) {
+      void selectContext(response.selection_token, response.contexts[0]);
+      return;
+    }
+    setContextSelection({ selectionToken: response.selection_token, contexts: response.contexts });
+  }
+
+  async function selectContext(selectionToken: string, context: GuardianAccessContext) {
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      const session = await resourceApi.selectGuardianAccessContext(selectionToken, context);
+      setApplicationSession(session.session_token);
       navigate("/guardian/preferences", { replace: true });
     } catch (reason) {
       setError(errorMessage(reason));
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  if (checkingSession) {
+    return (
+      <AuthLayout>
+        <p role="status">Checking your guardian session…</p>
+      </AuthLayout>
+    );
   }
 
   return (
@@ -74,51 +132,36 @@ export function GuardianAccessPage() {
 
       {error && <AuthErrorMessage message={error} />}
 
-      {session ? (
-        <section className="mt-6 space-y-4" aria-live="polite">
-          <div className="rounded-md border bg-muted/30 p-4">
-            <h2 className="font-medium">Guardian mode is active</h2>
+      {contextSelection ? (
+        <section className="mt-6 space-y-4" aria-labelledby="guardian-context-heading">
+          <div>
+            <h2 className="text-lg font-semibold" id="guardian-context-heading">
+              Choose a program
+            </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Access expires {new Date(session.expires_at).toLocaleString()}.
+              This email is linked to more than one program. Choose the one you want to open.
             </p>
           </div>
-          <div>
-            <h2 className="text-sm font-medium">Your linked students</h2>
-            {session.student_ids?.length ? (
-              <ul className="mt-2 space-y-2 text-sm" aria-label="Linked students">
-                {session.student_ids.map((studentID) => (
-                  <li className="rounded-md border px-3 py-2" key={studentID}>
-                    {studentID}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="mt-2 text-sm text-muted-foreground">
-                No linked students are available.
-              </p>
-            )}
-          </div>
-          <Link
-            className="block text-sm font-medium text-primary hover:underline"
-            to="/mfa?mode=guardian"
-          >
-            Request administrator access
-          </Link>
-          <Link
-            className="block text-sm font-medium text-primary hover:underline"
-            to="/guardian/students"
-          >
-            Manage your students
-          </Link>
-          <Link
-            className="block text-sm font-medium text-primary hover:underline"
-            to="/guardian/profile"
-          >
-            Manage your profile
-          </Link>
-          <Link className="block text-sm font-medium text-primary hover:underline" to="/sign-in">
-            Administrator sign in
-          </Link>
+          <ul className="space-y-3">
+            {contextSelection.contexts.map((context) => (
+              <li key={`${context.organization_id}:${context.school_year_id}`}>
+                <Button
+                  className="h-auto w-full justify-start whitespace-normal px-4 py-3 text-left"
+                  disabled={isSubmitting}
+                  onClick={() => void selectContext(contextSelection.selectionToken, context)}
+                  type="button"
+                  variant="outline"
+                >
+                  <span>
+                    <span className="block font-semibold">{context.organization_name}</span>
+                    <span className="block text-sm font-normal text-muted-foreground">
+                      {context.school_year_label}
+                    </span>
+                  </span>
+                </Button>
+              </li>
+            ))}
+          </ul>
         </section>
       ) : challengeID ? (
         <form className="mt-6 space-y-4" onSubmit={verifyOTP}>
@@ -157,46 +200,12 @@ export function GuardianAccessPage() {
         </form>
       ) : (
         <form className="mt-6 space-y-4" onSubmit={requestOTP}>
-          {onboarding ? (
-            <p className="rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-              Registration is complete. Send a one-time code to enter guardian mode; you do not need
-              organization or school-year identifiers.
-            </p>
-          ) : (
-            <>
-              <label
-                className="block space-y-2 text-sm font-medium"
-                htmlFor="guardian-organization-id"
-              >
-                Organization ID
-                <Input
-                  id="guardian-organization-id"
-                  required
-                  value={organizationID}
-                  onChange={(event) => setOrganizationID(event.target.value)}
-                />
-              </label>
-              <label
-                className="block space-y-2 text-sm font-medium"
-                htmlFor="guardian-school-year-id"
-              >
-                School year ID
-                <Input
-                  id="guardian-school-year-id"
-                  required
-                  value={schoolYearID}
-                  onChange={(event) => setSchoolYearID(event.target.value)}
-                />
-              </label>
-            </>
-          )}
           <label className="block space-y-2 text-sm font-medium" htmlFor="guardian-email">
             Email
             <Input
               id="guardian-email"
               type="email"
               autoComplete="email"
-              readOnly={Boolean(onboarding)}
               required
               value={email}
               onChange={(event) => setEmail(event.target.value)}
@@ -215,30 +224,4 @@ export function GuardianAccessPage() {
       )}
     </AuthLayout>
   );
-}
-
-type GuardianOnboardingHandoff = {
-  guardianOnboarding?: {
-    organizationID?: unknown;
-    schoolYearID?: unknown;
-    email?: unknown;
-  };
-};
-
-function guardianOnboardingHandoff(state: unknown) {
-  if (!state || typeof state !== "object") return null;
-  const handoff = (state as GuardianOnboardingHandoff).guardianOnboarding;
-  if (
-    !handoff ||
-    typeof handoff.organizationID !== "string" ||
-    typeof handoff.schoolYearID !== "string" ||
-    typeof handoff.email !== "string"
-  ) {
-    return null;
-  }
-  return {
-    organizationID: handoff.organizationID,
-    schoolYearID: handoff.schoolYearID,
-    email: handoff.email,
-  };
 }

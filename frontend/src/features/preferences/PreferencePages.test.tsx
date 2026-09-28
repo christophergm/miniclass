@@ -1,4 +1,6 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
+
+import { renderWithQueryClient } from "@/test/queryClient";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -99,7 +101,7 @@ describe("preference pages", () => {
 
   it("supports a student-code submission on a narrow viewport without admin navigation", () => {
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
-    render(
+    renderWithQueryClient(
       <MemoryRouter
         future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
         initialEntries={["/respond/year-1/program-1/survey-1?organization_id=org-1&code=secret"]}
@@ -124,7 +126,7 @@ describe("preference pages", () => {
 
   it("guides guardians to add a student when none are linked", () => {
     mocks.guardianForms = { school_year_id: "year-1", students: [] };
-    render(
+    renderWithQueryClient(
       <MemoryRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
         <GuardianPreferencePage />
       </MemoryRouter>,
@@ -147,7 +149,7 @@ describe("preference pages", () => {
       school_year_id: "year-1",
       students: [{ student_id: "student-1", display_name: "Synthetic Student", forms: [] }],
     };
-    render(
+    renderWithQueryClient(
       <MemoryRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
         <GuardianPreferencePage />
       </MemoryRouter>,
@@ -170,7 +172,7 @@ describe("preference pages", () => {
         },
       ],
     };
-    render(
+    renderWithQueryClient(
       <MemoryRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
         <GuardianPreferencePage />
       </MemoryRouter>,
@@ -188,7 +190,7 @@ describe("preference pages", () => {
   });
 
   it("renders the selected guardian form on its own page and submits it", () => {
-    render(
+    renderWithQueryClient(
       <MemoryRouter
         future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
         initialEntries={["/guardian/preferences/student-1/survey-1"]}
@@ -225,7 +227,7 @@ describe("preference pages", () => {
         options?.onSuccess?.();
       },
     );
-    render(
+    renderWithQueryClient(
       <MemoryRouter
         future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
         initialEntries={["/guardian/preferences/student-1/survey-1"]}
@@ -281,7 +283,7 @@ describe("preference pages", () => {
         },
       ],
     };
-    render(
+    renderWithQueryClient(
       <MemoryRouter
         future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
         initialEntries={["/guardian/preferences/student-1/survey-1"]}

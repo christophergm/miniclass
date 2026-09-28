@@ -609,6 +609,7 @@ func (s *Store) VerifyOTP(ctx context.Context, input guardian.OTPVerifyInput) (g
 		return guardian.Session{}, guardian.ErrOTPInvalid
 	}
 	var invalid bool
+	var exchanged guardian.Session
 	err = s.tenantDatabase.InTenant(ctx, string(*challenge.OrganizationID), audit.Actor{Type: audit.ActorTypeLink, Label: "guardian onboarding"}, func(ctx context.Context, tx *data.Tx) error {
 		_, consumeErr := tx.ConsumeGuardianOnboardingOTP(ctx, challenge.ID, s.otpVerifier(strings.TrimSpace(input.Code)), now, guardianOnboardingOTPAttempts)
 		if consumeErr != nil {
@@ -638,10 +639,72 @@ func (s *Store) VerifyOTP(ctx context.Context, input guardian.OTPVerifyInput) (g
 			_, _ = tx.ConsumeGuardianInvitationToken(ctx, contact.InvitationTokenID, now)
 			break
 		}
-		return tx.Record(ctx, audit.Entry{Action: audit.ActionGuardianOnboardingOTPVerified, ObjectType: "guardian_onboarding_session", ObjectID: &session.ID, SchoolYearID: challenge.SchoolYearID, ChangeSummary: jsonObject(map[string]any{"mode": "guardian_onboarding"})})
+		if err := tx.Record(ctx, audit.Entry{Action: audit.ActionGuardianOnboardingOTPVerified, ObjectType: "guardian_onboarding_session", ObjectID: &session.ID, SchoolYearID: challenge.SchoolYearID, ChangeSummary: jsonObject(map[string]any{"mode": "guardian_onboarding"})}); err != nil {
+			return err
+		}
+		adults, err := tx.ListAdults(ctx, *challenge.SchoolYearID, false)
+		if err != nil {
+			return err
+		}
+		var adult *data.Adult
+		matches := 0
+		for index := range adults {
+			if adults[index].Email == nil {
+				continue
+			}
+			hash := hashEmail(*adults[index].Email)
+			if bytes.Equal(hash[:], challenge.RequestedEmailHash) {
+				matches++
+				candidate := adults[index]
+				adult = &candidate
+			}
+		}
+		if matches != 1 || adult == nil {
+			return nil
+		}
+		scope, err := tx.ResolveGuardianScope(ctx, *challenge.SchoolYearID, adult.ID)
+		if err != nil || len(scope.StudentIDs) == 0 {
+			return err
+		}
+		consent, err := tx.GetCurrentGuardianOnboardingConsentByEmail(ctx, *challenge.SchoolYearID, *adult.Email)
+		if errors.Is(err, pgx.ErrNoRows) {
+			exchanged.ExistingGuardian = true
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		notice, err := tx.GetGuardianSignupNotice(ctx)
+		if err != nil {
+			return err
+		}
+		exchanged.ExistingGuardian = true
+		if consent.TermsVersion != guardian.TermsVersion || consent.PrivacyVersion != guardian.PrivacyVersion || (notice.Content != nil && (consent.SignupNoticeVersion == nil || *consent.SignupNoticeVersion != notice.Version || !bytes.Equal(consent.SignupNoticeHash, notice.ContentHash))) || (notice.Content == nil && (consent.SignupNoticeVersion != nil || len(consent.SignupNoticeHash) > 0)) {
+			return nil
+		}
+		bearer, err := GenerateAccessToken()
+		if err != nil {
+			return err
+		}
+		completed, err := tx.CompleteGuardianOnboardingSession(ctx, session.ID, now)
+		if err != nil {
+			return err
+		}
+		if !completed {
+			return guardian.ErrOnboardingInvalid
+		}
+		credential, err := tx.CreateGuardianSession(ctx, bearer.Hash, now.Add(guardianSessionAbsolute), *challenge.SchoolYearID, adult.ID, now.Add(guardianSessionIdle), now)
+		if err != nil {
+			return err
+		}
+		exchanged = guardian.Session{ExistingGuardian: true, GuardianSessionToken: bearer.Value, Verified: true, Consented: true}
+		return tx.Record(ctx, audit.Entry{Action: audit.ActionGuardianOnboardingCompleted, ObjectType: "guardian_onboarding_session", ObjectID: &session.ID, SchoolYearID: challenge.SchoolYearID, ChangeSummary: jsonObject(map[string]any{"existing_guardian": true, "guardian_session_id": credential.ID})})
 	})
 	if err != nil || invalid {
 		return guardian.Session{}, guardian.ErrOTPInvalid
+	}
+	if exchanged.ExistingGuardian {
+		return exchanged, nil
 	}
 	return s.GetSession(ctx, input.SessionToken, now)
 }
@@ -731,6 +794,50 @@ func (s *Store) AcceptConsent(ctx context.Context, input guardian.ConsentInput) 
 	result.Email = email
 	result.Consented = true
 	result.Policy = policy
+	return s.exchangeExistingGuardian(ctx, session, email, now, result)
+}
+
+func (s *Store) exchangeExistingGuardian(ctx context.Context, token identitydata.AccessToken, email string, now time.Time, fallback guardian.Session) (guardian.Session, error) {
+	result := fallback
+	err := s.tenantDatabase.InTenant(ctx, string(*token.OrganizationID), audit.Actor{Type: audit.ActorTypeLink, Label: "guardian onboarding"}, func(ctx context.Context, tx *data.Tx) error {
+		adults, err := tx.FindActiveAdultsByEmail(ctx, *token.SchoolYearID, email)
+		if err != nil {
+			return err
+		}
+		if len(adults) != 1 {
+			tx.NoAuditRequired("onboarding mailbox has no unique existing guardian")
+			return nil
+		}
+		scope, err := tx.ResolveGuardianScope(ctx, *token.SchoolYearID, adults[0].ID)
+		if err != nil {
+			return err
+		}
+		if len(scope.StudentIDs) == 0 {
+			tx.NoAuditRequired("existing adult has no guardian relationship")
+			return nil
+		}
+		result.ExistingGuardian = true
+		bearer, err := GenerateAccessToken()
+		if err != nil {
+			return err
+		}
+		completed, err := tx.CompleteGuardianOnboardingSession(ctx, token.ID, now)
+		if err != nil {
+			return err
+		}
+		if !completed {
+			return guardian.ErrOnboardingInvalid
+		}
+		credential, err := tx.CreateGuardianSession(ctx, bearer.Hash, now.Add(guardianSessionAbsolute), *token.SchoolYearID, adults[0].ID, now.Add(guardianSessionIdle), now)
+		if err != nil {
+			return err
+		}
+		result.GuardianSessionToken = bearer.Value
+		return tx.Record(ctx, audit.Entry{Action: audit.ActionGuardianOnboardingCompleted, ObjectType: "guardian_onboarding_session", ObjectID: &token.ID, SchoolYearID: token.SchoolYearID, ChangeSummary: jsonObject(map[string]any{"existing_guardian": true, "guardian_session_id": credential.ID})})
+	})
+	if err != nil {
+		return guardian.Session{}, err
+	}
 	return result, nil
 }
 

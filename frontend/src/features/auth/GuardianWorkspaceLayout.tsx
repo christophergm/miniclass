@@ -1,7 +1,11 @@
+import { useQuery } from "@tanstack/react-query";
 import type { PropsWithChildren, ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 
+import { resourceApi } from "@/lib/apiResources";
 import { cn } from "@/lib/utils";
+
+import { GuardianLogoutButton } from "./GuardianLogoutButton";
 
 type GuardianWorkspaceLayoutProps = PropsWithChildren<{
   title: string;
@@ -22,6 +26,11 @@ export function GuardianWorkspaceLayout({
   children,
 }: GuardianWorkspaceLayoutProps) {
   const location = useLocation();
+  const guardian = useQuery({
+    queryKey: ["guardian-auth-context"],
+    queryFn: () => resourceApi.getGuardianAuthContext(),
+    retry: false,
+  });
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#fff3df] px-4 py-6 sm:px-6 sm:py-10">
@@ -49,25 +58,35 @@ export function GuardianWorkspaceLayout({
             <p className="relative text-sm font-black uppercase tracking-[0.24em] text-stone-800">
               Mini Class
             </p>
-            <nav className="relative mt-4 flex flex-wrap gap-2" aria-label="Guardian navigation">
-              {navigation.map((item) => {
-                const active = location.pathname === item.to;
-                return (
-                  <Link
-                    className={cn(
-                      "rounded-full border-2 border-stone-950 px-4 py-2 text-sm font-black shadow-[2px_2px_0_#1c1917] transition-colors",
-                      active
-                        ? "bg-[#ffcc2e] text-stone-950"
-                        : "bg-[#fffaf0] text-stone-800 hover:bg-white",
-                    )}
-                    key={item.to}
-                    to={item.to}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </nav>
+            <div className="relative mt-4 flex flex-wrap items-center justify-between gap-3">
+              <nav className="flex flex-wrap gap-2" aria-label="Guardian navigation">
+                {navigation.map((item) => {
+                  const active = location.pathname === item.to;
+                  return (
+                    <Link
+                      className={cn(
+                        "rounded-full border-2 border-stone-950 px-4 py-2 text-sm font-black shadow-[2px_2px_0_#1c1917] transition-colors",
+                        active
+                          ? "bg-[#ffcc2e] text-stone-950"
+                          : "bg-[#fffaf0] text-stone-800 hover:bg-white",
+                      )}
+                      key={item.to}
+                      to={item.to}
+                    >
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </nav>
+              <div className="flex items-center gap-3">
+                {guardian.data?.guardian_name && (
+                  <span className="text-sm font-black text-stone-950">
+                    {guardian.data.guardian_name}
+                  </span>
+                )}
+                <GuardianLogoutButton className="border-2 border-stone-950 bg-[#fffaf0] font-black text-stone-950 shadow-[2px_2px_0_#1c1917] hover:bg-white" />
+              </div>
+            </div>
           </div>
           <div className="flex flex-wrap items-end justify-between gap-4 px-5 py-6 sm:px-8 sm:py-8">
             <div className="max-w-2xl">

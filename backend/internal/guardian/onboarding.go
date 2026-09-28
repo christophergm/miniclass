@@ -47,16 +47,18 @@ type Policy struct {
 }
 
 type Session struct {
-	Token          string
-	ID             ids.XID
-	OrganizationID ids.XID
-	SchoolYearID   ids.XID
-	Email          string
-	Verified       bool
-	Consented      bool
-	ExpiresAt      time.Time
-	IdleExpiresAt  time.Time
-	Policy         Policy
+	Token                string
+	ID                   ids.XID
+	OrganizationID       ids.XID
+	SchoolYearID         ids.XID
+	Email                string
+	Verified             bool
+	Consented            bool
+	ExpiresAt            time.Time
+	IdleExpiresAt        time.Time
+	Policy               Policy
+	ExistingGuardian     bool
+	GuardianSessionToken string
 }
 
 // VocabularyOption is the minimum information a guardian needs to choose a

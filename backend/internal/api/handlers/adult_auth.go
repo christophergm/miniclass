@@ -22,9 +22,7 @@ func NewAdultAuthHandler(service auth.AdultAuthentication) *AdultAuthHandler {
 
 type RequestAdultOTPInput struct {
 	Body struct {
-		OrganizationID string `json:"organization_id" minLength:"1"`
-		SchoolYearID   string `json:"school_year_id" minLength:"1"`
-		Email          string `json:"email" minLength:"1" format:"email"`
+		Email string `json:"email" minLength:"1" format:"email"`
 	}
 }
 
@@ -40,10 +38,8 @@ func (h *AdultAuthHandler) RequestOTP(ctx context.Context, input *RequestAdultOT
 		return nil, problems.New(http.StatusInternalServerError, problems.AuthenticationUnavailable, "adult authentication is not configured")
 	}
 	result, err := h.service.RequestAdultOTP(ctx, auth.OTPRequest{
-		OrganizationID: ids.XID(strings.TrimSpace(input.Body.OrganizationID)),
-		SchoolYearID:   ids.XID(strings.TrimSpace(input.Body.SchoolYearID)),
-		Email:          input.Body.Email,
-		Now:            time.Now().UTC(),
+		Email: input.Body.Email,
+		Now:   time.Now().UTC(),
 	})
 	if err != nil {
 		return nil, adultAuthProblem(err)
@@ -72,27 +68,68 @@ type GuardianSessionResponse struct {
 	StudentIDs   []string  `json:"student_ids"`
 }
 
-type VerifyAdultOTPOutput struct{ Body GuardianSessionResponse }
+type GuardianLoginContextResponse struct {
+	OrganizationID   string `json:"organization_id"`
+	SchoolYearID     string `json:"school_year_id"`
+	OrganizationName string `json:"organization_name"`
+	SchoolYearLabel  string `json:"school_year_label"`
+}
+
+type VerifyAdultOTPResponse struct {
+	Session        *GuardianSessionResponse       `json:"session,omitempty"`
+	SelectionToken string                         `json:"selection_token,omitempty" doc:"Short-lived verified mailbox proof for context selection."`
+	Contexts       []GuardianLoginContextResponse `json:"contexts,omitempty"`
+}
+
+type VerifyAdultOTPOutput struct{ Body VerifyAdultOTPResponse }
 
 func (h *AdultAuthHandler) VerifyOTP(ctx context.Context, input *VerifyAdultOTPInput) (*VerifyAdultOTPOutput, error) {
 	if h == nil || h.service == nil || input == nil {
 		return nil, problems.New(http.StatusInternalServerError, problems.AuthenticationUnavailable, "adult authentication is not configured")
 	}
-	session, err := h.service.VerifyAdultOTP(ctx, auth.OTPVerification{ChallengeID: input.Body.ChallengeID, Code: input.Body.Code, Now: time.Now().UTC()})
+	result, err := h.service.VerifyAdultOTP(ctx, auth.OTPVerification{ChallengeID: input.Body.ChallengeID, Code: input.Body.Code, Now: time.Now().UTC()})
 	if err != nil {
 		return nil, adultAuthProblem(err)
 	}
-	return &VerifyAdultOTPOutput{Body: guardianSessionResponse(session)}, nil
+	response := VerifyAdultOTPResponse{SelectionToken: result.SelectionToken, Contexts: guardianLoginContextResponses(result.Contexts)}
+	if result.Session != nil {
+		session := guardianSessionResponse(*result.Session)
+		response.Session = &session
+	}
+	return &VerifyAdultOTPOutput{Body: response}, nil
+}
+
+type SelectGuardianContextInput struct {
+	Body struct {
+		SelectionToken string `json:"selection_token" minLength:"1"`
+		OrganizationID string `json:"organization_id" minLength:"1"`
+		SchoolYearID   string `json:"school_year_id" minLength:"1"`
+	}
+}
+type SelectGuardianContextOutput struct{ Body GuardianSessionResponse }
+
+func (h *AdultAuthHandler) SelectContext(ctx context.Context, input *SelectGuardianContextInput) (*SelectGuardianContextOutput, error) {
+	if h == nil || h.service == nil || input == nil {
+		return nil, problems.New(http.StatusInternalServerError, problems.AuthenticationUnavailable, "adult authentication is not configured")
+	}
+	session, err := h.service.SelectGuardianContext(ctx, auth.GuardianContextSelection{SelectionToken: input.Body.SelectionToken, OrganizationID: ids.XID(strings.TrimSpace(input.Body.OrganizationID)), SchoolYearID: ids.XID(strings.TrimSpace(input.Body.SchoolYearID)), Now: time.Now().UTC()})
+	if err != nil {
+		return nil, adultAuthProblem(err)
+	}
+	return &SelectGuardianContextOutput{Body: guardianSessionResponse(session)}, nil
 }
 
 type GuardianMeOutput struct {
 	Body struct {
-		AdultID      string   `json:"adult_id"`
-		Email        string   `json:"email"`
-		Organization string   `json:"organization_id"`
-		SchoolYear   string   `json:"school_year_id"`
-		StudentIDs   []string `json:"student_ids"`
-		Mode         string   `json:"mode"`
+		AdultID          string   `json:"adult_id"`
+		Email            string   `json:"email"`
+		Organization     string   `json:"organization_id"`
+		SchoolYear       string   `json:"school_year_id"`
+		GuardianName     string   `json:"guardian_name"`
+		OrganizationName string   `json:"organization_name"`
+		SchoolYearLabel  string   `json:"school_year_label"`
+		StudentIDs       []string `json:"student_ids"`
+		Mode             string   `json:"mode"`
 	}
 }
 
@@ -102,13 +139,16 @@ func (h *AdultAuthHandler) GuardianMe(ctx context.Context, _ *struct{}) (*Guardi
 		return nil, err
 	}
 	return &GuardianMeOutput{Body: struct {
-		AdultID      string   `json:"adult_id"`
-		Email        string   `json:"email"`
-		Organization string   `json:"organization_id"`
-		SchoolYear   string   `json:"school_year_id"`
-		StudentIDs   []string `json:"student_ids"`
-		Mode         string   `json:"mode"`
-	}{AdultID: string(principal.AdultID), Email: principal.Email, Organization: string(principal.OrganizationID), SchoolYear: string(principal.SchoolYearID), StudentIDs: stringifyIDs(principal.StudentIDs), Mode: auth.ModeGuardian}}, nil
+		AdultID          string   `json:"adult_id"`
+		Email            string   `json:"email"`
+		Organization     string   `json:"organization_id"`
+		SchoolYear       string   `json:"school_year_id"`
+		GuardianName     string   `json:"guardian_name"`
+		OrganizationName string   `json:"organization_name"`
+		SchoolYearLabel  string   `json:"school_year_label"`
+		StudentIDs       []string `json:"student_ids"`
+		Mode             string   `json:"mode"`
+	}{AdultID: string(principal.AdultID), Email: principal.Email, Organization: string(principal.OrganizationID), SchoolYear: string(principal.SchoolYearID), GuardianName: principal.GuardianName, OrganizationName: principal.OrganizationName, SchoolYearLabel: principal.SchoolYearLabel, StudentIDs: stringifyIDs(principal.StudentIDs), Mode: auth.ModeGuardian}}, nil
 }
 
 type RevokeSessionOutput struct{ Body struct{} }
@@ -362,7 +402,8 @@ func (h *AdultAuthHandler) GuardianMode(ctx context.Context, input *GuardianMode
 	if err != nil {
 		return nil, adultAuthProblem(err)
 	}
-	return &VerifyAdultOTPOutput{Body: guardianSessionResponse(session)}, nil
+	response := guardianSessionResponse(session)
+	return &VerifyAdultOTPOutput{Body: VerifyAdultOTPResponse{Session: &response}}, nil
 }
 
 func accountPrincipal(ctx context.Context) (auth.AccountPrincipal, error) {
@@ -387,6 +428,14 @@ func guardianPrincipal(ctx context.Context) (auth.GuardianPrincipal, error) {
 		return auth.GuardianPrincipal{}, problems.New(http.StatusForbidden, problems.CapabilityRequired, "a guardian principal is required")
 	}
 	return guardian, nil
+}
+
+func guardianLoginContextResponses(contexts []auth.GuardianLoginContext) []GuardianLoginContextResponse {
+	result := make([]GuardianLoginContextResponse, 0, len(contexts))
+	for _, context := range contexts {
+		result = append(result, GuardianLoginContextResponse{OrganizationID: string(context.OrganizationID), SchoolYearID: string(context.SchoolYearID), OrganizationName: context.OrganizationName, SchoolYearLabel: context.SchoolYearLabel})
+	}
+	return result
 }
 
 func guardianSessionResponse(session auth.GuardianSession) GuardianSessionResponse {

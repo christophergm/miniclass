@@ -1,3 +1,4 @@
+
 -- name: CreateAdultOTP :one
 insert into access_tokens (
     token_hash, purpose, expires_at, generation, organization_id, school_year_id,
@@ -38,7 +39,8 @@ where token_hash = $1
 
 -- name: ConsumeAdultOTP :one
 update access_tokens
-set consumed_at = now()
+set consumed_at = now(),
+    mailbox_verified_at = $5
 where id = $1
   and purpose = 'adult_otp'
   and verifier_hash = $2

@@ -69,6 +69,22 @@ func NewApplicationFromURL(ctx context.Context, databaseURL string) (*DB, error)
 	return database, nil
 }
 
+// NewApplicationFromPool verifies and wraps an existing application pool. The
+// DB takes ownership of the pool and closes it with DB.Close; the caller must
+// not use or close the pool after a successful call. It lets test harnesses
+// provide a deliberately bounded pool rather than creating a default-sized one
+// from the same URL.
+func NewApplicationFromPool(ctx context.Context, pool *pgxpool.Pool) (*DB, error) {
+	if pool == nil {
+		return nil, errors.New("create application database: pool is nil")
+	}
+	database := &DB{pool: pool}
+	if err := verifyApplicationRole(ctx, database); err != nil {
+		return nil, fmt.Errorf("create application database: %w", err)
+	}
+	return database, nil
+}
+
 func newFromURL(ctx context.Context, databaseURL string) (*DB, error) {
 	if strings.TrimSpace(databaseURL) == "" {
 		return nil, errors.New("create database: DATABASE_URL is empty")

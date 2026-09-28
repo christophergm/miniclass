@@ -11,6 +11,10 @@ const mocks = vi.hoisted(() => ({
   begin: vi.fn(),
   acceptConsent: vi.fn(),
   complete: vi.fn(),
+  getGuardianAuthContext: vi.fn(),
+  revokeAuthSession: vi.fn(),
+  requestOTP: vi.fn(),
+  verifyOTP: vi.fn(),
 }));
 
 vi.mock("@/lib/apiResources", () => ({
@@ -19,6 +23,10 @@ vi.mock("@/lib/apiResources", () => ({
     beginGuardianOnboarding: mocks.begin,
     acceptGuardianOnboardingConsent: mocks.acceptConsent,
     completeGuardianOnboarding: mocks.complete,
+    getGuardianAuthContext: mocks.getGuardianAuthContext,
+    revokeAuthSession: mocks.revokeAuthSession,
+    requestGuardianOnboardingOTP: mocks.requestOTP,
+    verifyGuardianOnboardingOTP: mocks.verifyOTP,
   },
 }));
 
@@ -51,6 +59,12 @@ describe("GuardianOnboardingPage", () => {
     mocks.begin.mockReset();
     mocks.acceptConsent.mockReset();
     mocks.complete.mockReset();
+    mocks.getGuardianAuthContext.mockReset();
+    mocks.revokeAuthSession.mockReset();
+    mocks.requestOTP.mockReset();
+    mocks.verifyOTP.mockReset();
+    sessionStorage.clear();
+    mocks.getGuardianAuthContext.mockRejectedValue(new Error("not a guardian"));
     mocks.landing.mockResolvedValue({
       organization_name: "Synthetic Academy",
       school_year_label: "2026–27",
@@ -154,6 +168,135 @@ describe("GuardianOnboardingPage", () => {
         source_surface: "guardian_onboarding_web",
       }),
     );
+  });
+
+  it("offers a valid guardian the option to continue or start this shared link instead", async () => {
+    sessionStorage.setItem("miniclass.application-session", "guardian-token");
+    mocks.getGuardianAuthContext.mockResolvedValue({
+      guardian_name: "Morgan Lee",
+      organization_name: "Synthetic Academy",
+      school_year_label: "2026–27",
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={["/guardian/onboarding/link-1"]}>
+        <Routes>
+          <Route
+            path="/guardian/onboarding/:registrationLinkId"
+            element={<GuardianOnboardingPage />}
+          />
+          <Route path="/guardian/preferences" element={<LocationProbe />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText(/you’re already registered as morgan lee/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Continue as Morgan Lee" }));
+    expect(await screen.findByTestId("location")).toHaveTextContent(
+      '"pathname":"/guardian/preferences"',
+    );
+  });
+
+  it("clears and revokes the current guardian before beginning a different shared link", async () => {
+    sessionStorage.setItem("miniclass.application-session", "guardian-token");
+    mocks.getGuardianAuthContext.mockResolvedValue({
+      guardian_name: "Morgan Lee",
+      organization_name: "Synthetic Academy",
+      school_year_label: "2026–27",
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={["/guardian/onboarding/link-1"]}>
+        <Routes>
+          <Route
+            path="/guardian/onboarding/:registrationLinkId"
+            element={<GuardianOnboardingPage />}
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "No, that’s not me or I want to register for a different program",
+      }),
+    );
+    await waitFor(() => expect(mocks.revokeAuthSession).toHaveBeenCalled());
+    expect(sessionStorage.getItem("miniclass.application-session")).toBeNull();
+    await waitFor(() => expect(mocks.begin).toHaveBeenCalledWith("link-1"));
+    expect(await screen.findByLabelText("Your first name")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: "No, that’s not me or I want to register for a different program",
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("bypasses consent and profile creation for an existing guardian with current consent", async () => {
+    mocks.begin.mockResolvedValue({ ...session, mailbox_verified: false });
+    mocks.requestOTP.mockResolvedValue({ accepted: true, challenge_id: "challenge-1" });
+    mocks.verifyOTP.mockResolvedValue({
+      ...session,
+      existing_guardian: true,
+      guardian_session_token: "guardian-session-token",
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={["/guardian/onboarding/link-1"]}>
+        <Routes>
+          <Route
+            path="/guardian/onboarding/:registrationLinkId"
+            element={<GuardianOnboardingPage />}
+          />
+          <Route path="/guardian/preferences" element={<LocationProbe />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Start registration" }));
+    fireEvent.change(await screen.findByLabelText("Email address"), {
+      target: { value: "guardian@example.test" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send me a code" }));
+    fireEvent.change(await screen.findByLabelText("Six-digit code"), {
+      target: { value: "123456" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm email" }));
+
+    expect(await screen.findByTestId("location")).toHaveTextContent(
+      '"pathname":"/guardian/preferences"',
+    );
+    expect(mocks.complete).not.toHaveBeenCalled();
+  });
+
+  it("collects stale consent before returning an existing guardian to preferences", async () => {
+    mocks.begin.mockResolvedValue({ ...session, consented: false, existing_guardian: true });
+    mocks.acceptConsent.mockResolvedValue({
+      ...session,
+      existing_guardian: true,
+      guardian_session_token: "guardian-session-token",
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={["/guardian/onboarding/link-1"]}>
+        <Routes>
+          <Route
+            path="/guardian/onboarding/:registrationLinkId"
+            element={<GuardianOnboardingPage />}
+          />
+          <Route path="/guardian/preferences" element={<LocationProbe />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Start registration" }));
+    fireEvent.click(await screen.findByLabelText(/i’ve read and agree/i));
+    fireEvent.click(screen.getByRole("button", { name: "Agree and continue" }));
+
+    expect(await screen.findByTestId("location")).toHaveTextContent(
+      '"pathname":"/guardian/preferences"',
+    );
+    expect(mocks.complete).not.toHaveBeenCalled();
   });
 
   it("shows a neutral unavailable message when beginning an invalid shared link", async () => {
