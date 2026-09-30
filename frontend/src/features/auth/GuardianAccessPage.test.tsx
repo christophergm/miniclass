@@ -40,9 +40,9 @@ function LocationProbe() {
 
 function renderPage() {
   return renderWithQueryClient(
-    <MemoryRouter initialEntries={["/guardian"]}>
+    <MemoryRouter initialEntries={["/family"]}>
       <Routes>
-        <Route path="/guardian" element={<GuardianAccessPage />} />
+        <Route path="/family" element={<GuardianAccessPage />} />
         <Route path="/guardian/preferences" element={<LocationProbe />} />
       </Routes>
     </MemoryRouter>,
@@ -79,7 +79,7 @@ describe("GuardianAccessPage", () => {
 
     expect(screen.queryByLabelText(/organization id/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/school year id/i)).not.toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Email"), {
+    fireEvent.change(screen.getByLabelText("Email address"), {
       target: { value: "guardian@example.test" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Send one-time code" }));
@@ -88,7 +88,7 @@ describe("GuardianAccessPage", () => {
     fireEvent.change(await screen.findByLabelText("One-time code"), {
       target: { value: "123456" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Open guardian mode" }));
+    fireEvent.click(screen.getByRole("button", { name: "Enter" }));
     await waitFor(() =>
       expect(mocks.selectContext).toHaveBeenCalledWith("selection-1", {
         organization_id: "org-1",
@@ -122,14 +122,14 @@ describe("GuardianAccessPage", () => {
     mocks.selectContext.mockResolvedValue({ session_token: "guardian-token" });
     renderPage();
 
-    fireEvent.change(screen.getByLabelText("Email"), {
+    fireEvent.change(screen.getByLabelText("Email address"), {
       target: { value: "guardian@example.test" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Send one-time code" }));
     fireEvent.change(await screen.findByLabelText("One-time code"), {
       target: { value: "123456" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Open guardian mode" }));
+    fireEvent.click(screen.getByRole("button", { name: "Enter" }));
 
     expect(await screen.findByText("North School")).toBeInTheDocument();
     expect(screen.getByText("2026–27")).toBeInTheDocument();

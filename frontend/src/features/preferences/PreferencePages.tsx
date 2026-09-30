@@ -185,8 +185,8 @@ export function StudentCodeInterestProfilePage() {
   return (
     <PageFrame>
       <div className="mb-6">
-        <Link className="text-sm font-medium text-primary hover:underline" to="/guardian">
-          Need guardian access instead?
+        <Link className="text-sm font-medium text-primary hover:underline" to="/family">
+          Need family access instead?
         </Link>
       </div>
       <PreferenceFormEditor

@@ -33,12 +33,15 @@ make tools-install # air, sqlc, goose and golangci-lint
 Then run the two long-lived processes, one per terminal:
 
 ```sh
-make dev-backend    # API on http://localhost:8080
-make dev-frontend   # app on http://localhost:5173
+make dev-backend              # API on http://localhost:8080
+make dev-frontend             # app as the local admin on http://localhost:5173
+make dev-frontend-anonymous   # app without a session on http://localhost:5173
 ```
 
 `make dev-frontend` mints the development bearer token first, so there is no separate login step;
-`make token-mint` is that step on its own when you want it.
+`make token-mint` is that step on its own when you want it. To test public pages, use
+`make dev-frontend-anonymous`; it starts Vite with `VITE_DEV_TOKEN` explicitly empty and does not
+mint or remove the saved local token.
 
 Open <http://localhost:5173>. You are signed in as `owner@example.test` in **Synthetic Academy**,
 with the Owner role and a roster of 139 synthetic students.

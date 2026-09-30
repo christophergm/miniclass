@@ -144,6 +144,7 @@ export function MfaPage() {
           <label className="block space-y-2 text-sm font-medium" htmlFor="mfa-proof">
             {recoveryMode ? "Recovery code" : "Authenticator code"}
             <Input
+              className="h-11 border-2 border-stone-950 bg-white text-center font-mono text-lg tracking-[0.2em] text-stone-950 shadow-[2px_2px_0_#1c1917] focus-visible:ring-[#f2633b]"
               id="mfa-proof"
               type={recoveryMode ? "text" : "text"}
               inputMode={recoveryMode ? "text" : "numeric"}

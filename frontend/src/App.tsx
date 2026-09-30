@@ -10,6 +10,9 @@ import { HealthCheck } from "@/features/health/HealthCheck";
 import { ClaimInvitationPage } from "@/features/auth/ClaimInvitationPage";
 import { GuardianAccessPage } from "@/features/auth/GuardianAccessPage";
 import { HomePage } from "@/features/auth/HomePage";
+import { FaqPage } from "@/features/auth/FaqPage";
+import { PrivacyPage } from "@/features/auth/PrivacyPage";
+import { TermsPage } from "@/features/auth/TermsPage";
 import { GuardianOnboardingPage } from "@/features/auth/GuardianOnboardingPage";
 import { GuardianOnboardingAdminPage } from "@/features/onboarding/GuardianOnboardingAdminPage";
 import { MfaPage } from "@/features/auth/MfaPage";
@@ -101,7 +104,10 @@ function AppRoutes() {
       {/* The token is a query parameter, matching identity.addTokenToURL. See
           the contract note in ClaimInvitationPage. */}
       <Route path="/claim" element={<ClaimInvitationPage />} />
-      <Route path="/guardian" element={<GuardianAccessPage />} />
+      <Route path="/family" element={<GuardianAccessPage />} />
+      <Route path="/terms" element={<TermsPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/faq" element={<FaqPage />} />
       <Route path="/guardian/onboarding" element={<GuardianOnboardingPage />} />
       <Route path="/guardian/onboarding/:registrationLinkId" element={<GuardianOnboardingPage />} />
       <Route path="/guardian/preferences" element={<GuardianPreferencePage />} />

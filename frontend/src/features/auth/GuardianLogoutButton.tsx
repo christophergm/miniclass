@@ -17,7 +17,7 @@ export function GuardianLogoutButton({ className }: { className?: string }) {
       // The local bearer must not survive a failed revoke request.
     } finally {
       clearApplicationSession();
-      navigate("/guardian", { replace: true });
+      navigate("/family", { replace: true });
     }
   }
 

@@ -78,14 +78,20 @@ export function SignInPage({ localDevAuth = isLocalDevAuth, devToken }: SignInPa
       ? { kind: "expired" as const, expiresAt: sessionEndedReason.expiresAt }
       : configuredDevToken;
   const devTokenBlocks = localDevAuth && authConfigured && displayedDevToken.kind !== "valid";
+  const adminHeader = (
+    <div>
+      <h2 className="text-lg font-black tracking-tight">Admin access</h2>
+      <p className="mt-1 text-sm font-medium text-stone-700">
+        Plan programs, set up surveys, and manage classes.
+      </p>
+    </div>
+  );
 
   return (
-    <AuthLayout>
+    <AuthLayout header={adminHeader}>
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Use your administrator email and password.
-        </p>
+        <h1 className="text-2xl font-black tracking-tight">Sign in</h1>
+        <p className="mt-1 text-sm text-stone-700">Use your administrator email and password.</p>
       </div>
 
       <div className="mt-6 space-y-3">
@@ -104,20 +110,14 @@ export function SignInPage({ localDevAuth = isLocalDevAuth, devToken }: SignInPa
           <div className="mt-6">
             <LocalDevAuthBanner status={displayedDevToken} />
           </div>
-
-          {/* /health is the one route that works without a session. */}
-          <div className="mt-6 flex justify-end text-sm">
-            <Link className="text-muted-foreground hover:text-foreground" to="/health">
-              System health
-            </Link>
-          </div>
         </>
       ) : (
         <>
           <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
-            <label className="block space-y-2 text-sm font-medium" htmlFor="sign-in-email">
+            <label className="block space-y-2 text-sm font-semibold" htmlFor="sign-in-email">
               Email
               <Input
+                className="h-11 border-2 border-stone-950 bg-white text-base text-stone-950 shadow-[2px_2px_0_#1c1917] focus-visible:ring-[#f2633b]"
                 id="sign-in-email"
                 name="email"
                 type="email"
@@ -127,9 +127,10 @@ export function SignInPage({ localDevAuth = isLocalDevAuth, devToken }: SignInPa
                 onChange={(event) => setEmail(event.target.value)}
               />
             </label>
-            <label className="block space-y-2 text-sm font-medium" htmlFor="sign-in-password">
+            <label className="block space-y-2 text-sm font-semibold" htmlFor="sign-in-password">
               Password
               <Input
+                className="h-11 border-2 border-stone-950 bg-white text-base text-stone-950 shadow-[2px_2px_0_#1c1917] focus-visible:ring-[#f2633b]"
                 id="sign-in-password"
                 name="password"
                 type="password"
@@ -140,7 +141,7 @@ export function SignInPage({ localDevAuth = isLocalDevAuth, devToken }: SignInPa
               />
             </label>
             <Button
-              className="w-full"
+              className="w-full border-2 border-stone-950 bg-[#ffcc2e] font-black text-stone-950 shadow-[3px_3px_0_#1c1917] hover:bg-[#eab91e]"
               type="submit"
               disabled={isLoading || isSubmitting || !authConfigured}
             >
@@ -148,12 +149,9 @@ export function SignInPage({ localDevAuth = isLocalDevAuth, devToken }: SignInPa
             </Button>
           </form>
 
-          <div className="mt-6 flex justify-between text-sm">
-            <Link className="font-medium text-primary hover:underline" to="/reset-password">
+          <div className="mt-6 text-sm">
+            <Link className="font-medium text-stone-950 hover:underline" to="/reset-password">
               Forgot password?
-            </Link>
-            <Link className="text-muted-foreground hover:text-foreground" to="/health">
-              System health
             </Link>
           </div>
         </>
