@@ -98,3 +98,18 @@
 - PR #260 is open and ready for review. All 12 current-head CI checks passed;
   frontend tests was slowest at about 7m31 while installing Chromium. No PR or
   inline review comments are present.
+
+# Issue #242 — CI solver deterministic performance budgets
+
+- `backend/internal/solverclient/performance_integration_test.go` reads the
+  synthetic expected-scale CSV fixture and exercises the production Go HTTP
+  client against `SOLVER_BASE_URL`. It checks canonical byte determinism, a
+  full solve below 10 s, and a pinned re-solve below 2 s (SPEC §§17.8, 22.2).
+- `make test-solver` delegates to the opt-in backend sidecar test; the existing
+  `Solver image` CI job starts and health-checks the image before setting
+  `SOLVER_BASE_URL=http://localhost:8090` and running it.
+- Local validation: the CSV-to-contract test passes. The live sidecar test is
+  blocked locally because localhost:8090 resets connections and Compose cannot
+  start a healthy solver in this sandbox; CI must provide live-boundary timing.
+- Filed Backlog #261 after CI-contract review: `Backend lint` runs only
+  golangci-lint and omits the mapped depguard proof.

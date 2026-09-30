@@ -683,8 +683,8 @@ it is not a hardening pass.
   lexicographic trade-offs, pins and infeasibility, plus an expected-scale synthetic session.
 - A determinism assertion: repeated contract execution with the same scenario and seed is
   byte-identical.
-- CI performance assertions at expected scale: full solve under 10 s and a seeded re-solve under
-  2 s (§22.2).
+- CI performance assertions through the real Go-to-Python sidecar boundary at expected scale:
+  full solve under 10 s and a pinned seeded re-solve under 2 s (§22.2).
 
 **Exit criteria**
 
