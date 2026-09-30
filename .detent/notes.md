@@ -8,6 +8,13 @@
 - `solver/app/contract.py`, `backend/internal/solvercontract`, and
   `backend/openapi.json` carry ordinal grade eligibility and empty
   `conflict_diagnostics` for later diagnostics work.
-- Rebase onto `origin/main` is in progress. Resolve this worktree-local note
-  conflict by retaining the #237 handoff, then run all project validation
-  gates, push, and verify fresh current-head CI before handoff.
+- Rebased cleanly onto `origin/main` at `f5f371d`; the only conflict was this
+  worktree-local handoff file. The new solver commit is `b52c9f6`.
+- Passed after the rebase: solver container tests (5),
+  `go test ./internal/solvercontract ./internal/solverclient`, backend lint,
+  backend format, generation/drift, and `git diff --check`.
+- `make check` cannot start because existing host containers own
+  `miniclass-mailpit` and `miniclass-postgres`; do not remove them. Frontend
+  test/build lack `openapi-typescript`; frontend lint has the pre-existing
+  `PeoplePages.test.tsx` formatting failure tracked in #254. Fresh PR CI must
+  provide the complete ten-gate result after the force-push.
