@@ -1,0 +1,5 @@
+participant_id,offering_id,response,rank
+student-ranked-001,offering-ranked-art,ranked,1
+student-ranked-001,offering-ranked-music,ranked,2
+student-ranked-002,offering-ranked-art,interested,
+student-ranked-002,offering-ranked-music,ranked,1

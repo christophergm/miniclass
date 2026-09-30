@@ -1,0 +1,4 @@
+status,participant_id,offering_id,realized_quality
+optimal,student-lex-001,offering-lex-popular,top
+optimal,student-lex-002,offering-lex-fallback,acceptable
+optimal,student-lex-003,offering-lex-fallback,acceptable
