@@ -26,12 +26,13 @@ const (
 )
 
 type Request struct {
-	Version              string        `json:"version"`
-	Seed                 int64         `json:"seed"`
-	MaxDeterministicTime float64       `json:"max_deterministic_time"`
-	QualityConfig        QualityConfig `json:"quality_config"`
-	Participants         []Participant `json:"participants"`
-	Offerings            []Offering    `json:"offerings"`
+	Version              string            `json:"version"`
+	Seed                 int64             `json:"seed"`
+	MaxDeterministicTime float64           `json:"max_deterministic_time"`
+	QualityConfig        QualityConfig     `json:"quality_config"`
+	Participants         []Participant     `json:"participants"`
+	Offerings            []Offering        `json:"offerings"`
+	Pins                 []PinnedPlacement `json:"pins"`
 }
 
 // QualityConfig holds the program's v0 ranked-choice boundary from SPEC
@@ -70,6 +71,14 @@ type Offering struct {
 	MinGradeOrdinal int     `json:"min_grade_ordinal"`
 	MaxGradeOrdinal int     `json:"max_grade_ordinal"`
 	InterestAreaID  *string `json:"interest_area_id,omitempty"`
+}
+
+// PinnedPlacement fixes one participant's offering before a re-solve (SPEC
+// §17.9). References intentionally remain in the snapshot even if catalog or
+// participation edits make them invalid; the solver then reports the pin.
+type PinnedPlacement struct {
+	ParticipantID string `json:"participant_id"`
+	OfferingID    string `json:"offering_id"`
 }
 
 type Response struct {
@@ -160,8 +169,23 @@ func (r *Request) Canonicalize() error {
 			return fmt.Errorf("participant %q: %w", participant.ID, err)
 		}
 	}
+	if r.Pins == nil {
+		r.Pins = []PinnedPlacement{}
+	}
+	for index := range r.Pins {
+		pin := &r.Pins[index]
+		if pin.ParticipantID == "" || pin.OfferingID == "" {
+			return errors.New("solver pins require a participant_id and offering_id")
+		}
+	}
 	sort.Slice(r.Offerings, func(i, j int) bool { return r.Offerings[i].ID < r.Offerings[j].ID })
 	sort.Slice(r.Participants, func(i, j int) bool { return r.Participants[i].ID < r.Participants[j].ID })
+	sort.Slice(r.Pins, func(i, j int) bool {
+		if r.Pins[i].ParticipantID == r.Pins[j].ParticipantID {
+			return r.Pins[i].OfferingID < r.Pins[j].OfferingID
+		}
+		return r.Pins[i].ParticipantID < r.Pins[j].ParticipantID
+	})
 	return nil
 }
 
