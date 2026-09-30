@@ -73,6 +73,7 @@ export function StudentReviewPage() {
                   <th className="px-4 py-3 font-medium">Student</th>
                   <th className="px-4 py-3 font-medium">Detail</th>
                   <th className="px-4 py-3 font-medium">Count</th>
+                  <th className="px-4 py-3 font-medium">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -101,9 +102,36 @@ export function StudentReviewPage() {
                         >
                           {student?.display_name ?? signal.student_id}
                         </Link>
+                        {signal.code === "placeholder-student" && (
+                          <span className="ml-2 rounded-full border border-amber-600/40 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-900">
+                            Placeholder
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3 align-top">{signal.detail}</td>
                       <td className="px-4 py-3 align-top">{signal.count ?? "—"}</td>
+                      <td className="px-4 py-3 align-top">
+                        {signal.code === "placeholder-student" ? (
+                          <Link
+                            className="font-medium text-primary underline"
+                            to={
+                              "/y/" +
+                              schoolYearId +
+                              "/students/reconcile?placeholder=" +
+                              encodeURIComponent(signal.student_id)
+                            }
+                          >
+                            Reconcile placeholder
+                          </Link>
+                        ) : (
+                          <Link
+                            className="font-medium text-primary underline"
+                            to={"/y/" + schoolYearId + "/students/" + signal.student_id}
+                          >
+                            Review correction
+                          </Link>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}

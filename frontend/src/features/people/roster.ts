@@ -19,6 +19,9 @@ export type StudentInput = Schemas["CreateStudentInputBody"];
 export type AdultInput = Schemas["CreateAdultInputBody"];
 export type StudentCorrectionInput = Schemas["CreateStudentCorrectionInputBody"];
 export type StudentCorrectionUpdateInput = Schemas["UpdateStudentCorrectionInputBody"];
+export type PlaceholderStudentInput = Schemas["CreatePlaceholderStudentInputBody"];
+export type StudentReconciliationInput = Schemas["ReconcilePlaceholderStudentInputBody"];
+export type StudentReconciliation = Schemas["ReconcilePlaceholderStudentResponse"];
 
 // The contract has no shared person supertype: a student carries grade and
 // homeroom identifiers, an adult carries contact details. The fields the roster
