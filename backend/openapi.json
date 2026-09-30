@@ -4847,6 +4847,7 @@
           "session-transition-gate-failed",
           "session-transition-invalid",
           "session-transition-reason-required",
+          "solve-run-input-mismatch",
           "solver-unavailable",
           "student-external-identifier-conflict"
         ],
@@ -5639,6 +5640,27 @@
         ],
         "type": "object"
       },
+      "RerunSolveRunInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/RerunSolveRunInputBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "request": {
+            "$ref": "#/components/schemas/Request"
+          }
+        },
+        "required": [
+          "request"
+        ],
+        "type": "object"
+      },
       "ResetMFAInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -6420,12 +6442,14 @@
             "format": "double",
             "type": "number"
           },
+          "effective_weights_document": {},
           "id": {
             "type": "string"
           },
           "input_fingerprint": {
             "type": "string"
           },
+          "metrics_document": {},
           "program_id": {
             "type": "string"
           },
@@ -6458,6 +6482,8 @@
           "input_fingerprint",
           "request_document",
           "response_document",
+          "effective_weights_document",
+          "metrics_document",
           "solver_status",
           "deterministic_duration",
           "created_at"
@@ -20196,6 +20222,16 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RerunSolveRunInputBody"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -20216,6 +20252,16 @@
               }
             },
             "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {
@@ -20253,7 +20299,7 @@
             "bearerAuth": []
           }
         ],
-        "summary": "Re-run an immutable solver run",
+        "summary": "Re-run an immutable solver run when its inputs still match",
         "x-required-capability": "manage_assignments"
       }
     },
@@ -21747,6 +21793,7 @@
     "session-transition-gate-failed",
     "session-transition-invalid",
     "session-transition-reason-required",
+    "solve-run-input-mismatch",
     "solver-unavailable",
     "student-external-identifier-conflict"
   ]

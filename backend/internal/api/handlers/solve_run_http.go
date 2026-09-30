@@ -17,19 +17,21 @@ import (
 )
 
 type SolveRunResponse struct {
-	ID                    string          `json:"id"`
-	SchoolYearID          string          `json:"school_year_id"`
-	ProgramID             string          `json:"program_id"`
-	SessionID             string          `json:"session_id"`
-	RerunOfSolveRunID     *string         `json:"rerun_of_solve_run_id,omitempty"`
-	ContractVersion       string          `json:"contract_version"`
-	Seed                  int64           `json:"seed"`
-	InputFingerprint      string          `json:"input_fingerprint"`
-	RequestDocument       json.RawMessage `json:"request_document"`
-	ResponseDocument      json.RawMessage `json:"response_document"`
-	SolverStatus          string          `json:"solver_status"`
-	DeterministicDuration float64         `json:"deterministic_duration"`
-	CreatedAt             time.Time       `json:"created_at"`
+	ID                       string          `json:"id"`
+	SchoolYearID             string          `json:"school_year_id"`
+	ProgramID                string          `json:"program_id"`
+	SessionID                string          `json:"session_id"`
+	RerunOfSolveRunID        *string         `json:"rerun_of_solve_run_id,omitempty"`
+	ContractVersion          string          `json:"contract_version"`
+	Seed                     int64           `json:"seed"`
+	InputFingerprint         string          `json:"input_fingerprint"`
+	RequestDocument          json.RawMessage `json:"request_document"`
+	ResponseDocument         json.RawMessage `json:"response_document"`
+	EffectiveWeightsDocument json.RawMessage `json:"effective_weights_document"`
+	MetricsDocument          json.RawMessage `json:"metrics_document"`
+	SolverStatus             string          `json:"solver_status"`
+	DeterministicDuration    float64         `json:"deterministic_duration"`
+	CreatedAt                time.Time       `json:"created_at"`
 }
 type SolveRunOutput struct{ Body SolveRunResponse }
 type SolveRunPathInput struct {
@@ -41,6 +43,13 @@ type StartSolveRunInput struct {
 	Body struct {
 		Request solvercontract.Request `json:"request"`
 		Seed    *int64                 `json:"seed,omitempty"`
+	}
+}
+type RerunSolveRunInput struct {
+	SessionPathInput
+	RunID string `path:"runID" minLength:"1"`
+	Body  struct {
+		Request solvercontract.Request `json:"request"`
 	}
 }
 
@@ -78,7 +87,7 @@ func (h *SolveRunHandler) Get(ctx context.Context, input *SolveRunPathInput) (*S
 	}
 	return &SolveRunOutput{Body: solveRunResponse(row)}, nil
 }
-func (h *SolveRunHandler) Rerun(ctx context.Context, input *SolveRunPathInput) (*SolveRunOutput, error) {
+func (h *SolveRunHandler) Rerun(ctx context.Context, input *RerunSolveRunInput) (*SolveRunOutput, error) {
 	account, err := programAccount(ctx)
 	if err != nil {
 		return nil, err
@@ -86,7 +95,7 @@ func (h *SolveRunHandler) Rerun(ctx context.Context, input *SolveRunPathInput) (
 	if h == nil || h.service == nil || input == nil {
 		return nil, problems.New(http.StatusServiceUnavailable, problems.SolverUnavailable, "solver is not configured")
 	}
-	row, err := h.service.Rerun(ctx, string(account.OrganizationID), programActor(account), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), ids.XID(input.SessionID), ids.XID(input.RunID))
+	row, err := h.service.Rerun(ctx, string(account.OrganizationID), programActor(account), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), ids.XID(input.SessionID), ids.XID(input.RunID), input.Body.Request)
 	if err != nil {
 		return nil, solveRunProblem(err)
 	}
@@ -98,7 +107,7 @@ func solveRunResponse(row data.SolveRun) SolveRunResponse {
 		value := string(*row.RerunOfSolveRunID)
 		source = &value
 	}
-	return SolveRunResponse{ID: string(row.ID), SchoolYearID: string(row.SchoolYearID), ProgramID: string(row.ProgramID), SessionID: string(row.SessionID), RerunOfSolveRunID: source, ContractVersion: row.ContractVersion, Seed: row.Seed, InputFingerprint: row.InputFingerprint, RequestDocument: row.RequestDocument, ResponseDocument: row.ResponseDocument, SolverStatus: row.SolverStatus, DeterministicDuration: row.DeterministicDuration, CreatedAt: row.CreatedAt}
+	return SolveRunResponse{ID: string(row.ID), SchoolYearID: string(row.SchoolYearID), ProgramID: string(row.ProgramID), SessionID: string(row.SessionID), RerunOfSolveRunID: source, ContractVersion: row.ContractVersion, Seed: row.Seed, InputFingerprint: row.InputFingerprint, RequestDocument: row.RequestDocument, ResponseDocument: row.ResponseDocument, EffectiveWeightsDocument: row.EffectiveWeightsDocument, MetricsDocument: row.MetricsDocument, SolverStatus: row.SolverStatus, DeterministicDuration: row.DeterministicDuration, CreatedAt: row.CreatedAt}
 }
 func solveRunProblem(err error) error {
 	if errors.Is(err, solverclient.ErrUnavailable) {
@@ -106,6 +115,9 @@ func solveRunProblem(err error) error {
 	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return problems.New(http.StatusNotFound, problems.ResourceNotFound, "solve run not found")
+	}
+	if errors.Is(err, solverservice.ErrInputFingerprintMismatch) {
+		return problems.New(http.StatusConflict, problems.SolveRunInputMismatch, "the current solver inputs differ from the recorded run")
 	}
 	return problems.New(http.StatusInternalServerError, problems.InternalError, "unable to process solve run")
 }

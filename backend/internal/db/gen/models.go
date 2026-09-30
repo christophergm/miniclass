@@ -640,6 +640,22 @@ type AdultAccountLink struct {
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
+type Assignment struct {
+	ID              ids.XID            `json:"id"`
+	OrganizationID  ids.XID            `json:"organization_id"`
+	SchoolYearID    ids.XID            `json:"school_year_id"`
+	ProgramID       ids.XID            `json:"program_id"`
+	SessionID       ids.XID            `json:"session_id"`
+	StudentID       ids.XID            `json:"student_id"`
+	OfferingID      ids.XID            `json:"offering_id"`
+	SolveRunID      ids.XID            `json:"solve_run_id"`
+	Origin          string             `json:"origin"`
+	Pinned          bool               `json:"pinned"`
+	RealizedQuality string             `json:"realized_quality"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
 type AuditLog struct {
 	ID             ids.XID            `json:"id"`
 	OrganizationID ids.XID            `json:"organization_id"`
@@ -1036,20 +1052,22 @@ type SessionObjectiveWeightOverride struct {
 }
 
 type SolveRun struct {
-	ID                    ids.XID            `json:"id"`
-	OrganizationID        ids.XID            `json:"organization_id"`
-	SchoolYearID          ids.XID            `json:"school_year_id"`
-	ProgramID             ids.XID            `json:"program_id"`
-	SessionID             ids.XID            `json:"session_id"`
-	RerunOfSolveRunID     *ids.XID           `json:"rerun_of_solve_run_id"`
-	ContractVersion       string             `json:"contract_version"`
-	Seed                  int64              `json:"seed"`
-	InputFingerprint      string             `json:"input_fingerprint"`
-	RequestDocument       []byte             `json:"request_document"`
-	ResponseDocument      []byte             `json:"response_document"`
-	SolverStatus          string             `json:"solver_status"`
-	DeterministicDuration float64            `json:"deterministic_duration"`
-	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	ID                       ids.XID            `json:"id"`
+	OrganizationID           ids.XID            `json:"organization_id"`
+	SchoolYearID             ids.XID            `json:"school_year_id"`
+	ProgramID                ids.XID            `json:"program_id"`
+	SessionID                ids.XID            `json:"session_id"`
+	RerunOfSolveRunID        *ids.XID           `json:"rerun_of_solve_run_id"`
+	ContractVersion          string             `json:"contract_version"`
+	Seed                     int64              `json:"seed"`
+	InputFingerprint         string             `json:"input_fingerprint"`
+	RequestDocument          []byte             `json:"request_document"`
+	ResponseDocument         []byte             `json:"response_document"`
+	SolverStatus             string             `json:"solver_status"`
+	DeterministicDuration    float64            `json:"deterministic_duration"`
+	CreatedAt                pgtype.Timestamptz `json:"created_at"`
+	EffectiveWeightsDocument []byte             `json:"effective_weights_document"`
+	MetricsDocument          []byte             `json:"metrics_document"`
 }
 
 type Student struct {

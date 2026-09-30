@@ -58,3 +58,19 @@
   is absent and Docker Buildx lacks permission to update its activity file.
 - `make check` stops at the known `miniclass-mailpit` named-container conflict;
   the local empty compose volume/network it created were removed afterward.
+
+# Issue #240 — immutable solve runs and drafts
+
+- Added `assignments` as the tenant- and school-year-scoped current draft;
+  `solve_runs` retains canonical request/response plus effective v0 quality
+  settings and the realized-quality distribution. See SPEC §§8.6, 20.1–20.2.
+- `internal/solver.Service.Start` records every completed sidecar response,
+  replacing the draft only for feasible/optimal results in the same audited
+  tenant transaction. Infeasible and unavailable attempts cannot replace it.
+- Reproduction now accepts the current canonical snapshot, forces the recorded
+  seed, and returns an explicit mismatch error before running if its fingerprint
+  differs. The API maps this to `solve-run-input-mismatch` (409).
+- Focused Go package tests pass, including pure response validation. The new
+  PostgreSQL integration test is present but skipped locally because
+  `TEST_DATABASE_URL` and `TEST_APP_DATABASE_URL` are unset; run `make
+  test-backend` in CI or a configured environment for the isolation harness.
