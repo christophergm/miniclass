@@ -123,6 +123,80 @@ def test_infeasible_model_returns_no_partial_assignment() -> None:
     }
 
 
+def test_pins_are_fixed_before_optimization_and_consume_capacity() -> None:
+    result = solve(
+        request(
+            offerings=[
+                {"id": "contested", "capacity": 1, "min_grade_ordinal": 1, "max_grade_ordinal": 1},
+                {"id": "fallback", "capacity": 1, "min_grade_ordinal": 1, "max_grade_ordinal": 1},
+            ],
+            participants=[
+                ranked_participant("pinned", [("contested", "not_interested", None), ("fallback", "ranked", 1)]),
+                ranked_participant("unlocked", [("contested", "ranked", 1), ("fallback", "interested", None)]),
+            ],
+            pins=[{"participant_id": "pinned", "offering_id": "contested"}],
+        )
+    )
+
+    assert result["status"] == "optimal"
+    assert assignment_offerings(result) == {"pinned": "contested", "unlocked": "fallback"}
+    assert assignment_qualities(result) == {"pinned": "unwanted", "unlocked": "acceptable"}
+
+
+def test_pin_survives_unrelated_preference_change() -> None:
+    base = request(
+        offerings=[
+            {"id": "art", "capacity": 1, "min_grade_ordinal": 1, "max_grade_ordinal": 1},
+            {"id": "music", "capacity": 1, "min_grade_ordinal": 1, "max_grade_ordinal": 1},
+        ],
+        participants=[
+            ranked_participant("pinned", [("art", "ranked", 1)]),
+            ranked_participant("unlocked", [("art", "ranked", 1), ("music", "ranked", 2)]),
+        ],
+        pins=[{"participant_id": "pinned", "offering_id": "art"}],
+    )
+    changed_preferences = {
+        **base,
+        "participants": [
+            base["participants"][0],
+            ranked_participant("unlocked", [("art", "not_interested", None), ("music", "ranked", 1)]),
+        ],
+    }
+
+    assert assignment_offerings(solve(base))["pinned"] == "art"
+    assert assignment_offerings(solve(changed_preferences))["pinned"] == "art"
+
+
+@pytest.mark.parametrize(
+    ("pins", "expected_diagnostic"),
+    [
+        ([{"participant_id": "departed", "offering_id": "art"}], {"code": "pin-participant-not-participating", "participant_ids": ["departed"], "offering_ids": ["art"]}),
+        ([{"participant_id": "student", "offering_id": "deleted"}], {"code": "pin-offering-not-found", "participant_ids": ["student"], "offering_ids": ["deleted"]}),
+        ([{"participant_id": "student", "offering_id": "senior"}], {"code": "pin-grade-out-of-range", "participant_ids": ["student"], "offering_ids": ["senior"]}),
+        (
+            [
+                {"participant_id": "student", "offering_id": "art"},
+                {"participant_id": "other", "offering_id": "art"},
+            ],
+            {"code": "pin-capacity-exceeded", "participant_ids": ["other", "student"], "offering_ids": ["art"]},
+        ),
+    ],
+)
+def test_impossible_pins_are_reported_without_partial_assignments(pins: list[dict[str, str]], expected_diagnostic: dict[str, object]) -> None:
+    participants = [{"id": "student", "grade_ordinal": 1}, {"id": "other", "grade_ordinal": 1}]
+    offerings = [
+        {"id": "art", "capacity": 1, "min_grade_ordinal": 1, "max_grade_ordinal": 1},
+        {"id": "senior", "capacity": 1, "min_grade_ordinal": 2, "max_grade_ordinal": 2},
+        {"id": "fallback", "capacity": 2, "min_grade_ordinal": 1, "max_grade_ordinal": 1},
+    ]
+
+    result = solve(request(offerings=offerings, participants=participants, pins=pins))
+
+    assert result["status"] == "infeasible"
+    assert result["assignments"] == []
+    assert expected_diagnostic in result["conflict_diagnostics"]
+
+
 def test_lexicographic_objective_protects_unwanted_before_aggregate_satisfaction() -> None:
     result = solve(
         request(
@@ -194,7 +268,9 @@ def test_input_order_does_not_change_seeded_result() -> None:
     assert first["assignments"] != solve({**original, "seed": 1})["assignments"]
 
 
-def request(*, offerings: list[dict[str, object]], participants: list[dict[str, object]], seed: int = 7) -> dict[str, object]:
+def request(
+    *, offerings: list[dict[str, object]], participants: list[dict[str, object]], seed: int = 7, pins: list[dict[str, str]] | None = None
+) -> dict[str, object]:
     return {
         "version": CONTRACT_VERSION,
         "seed": seed,
@@ -202,6 +278,7 @@ def request(*, offerings: list[dict[str, object]], participants: list[dict[str, 
         "quality_config": {"high_rank_max": 3},
         "offerings": offerings,
         "participants": participants,
+        "pins": pins or [],
     }
 
 

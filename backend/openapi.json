@@ -4406,6 +4406,22 @@
         ],
         "type": "object"
       },
+      "PinnedPlacement": {
+        "additionalProperties": false,
+        "properties": {
+          "offering_id": {
+            "type": "string"
+          },
+          "participant_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "participant_id",
+          "offering_id"
+        ],
+        "type": "object"
+      },
       "PreferenceFormInterestAnswerResponse": {
         "additionalProperties": false,
         "properties": {
@@ -5543,6 +5559,15 @@
               "null"
             ]
           },
+          "pins": {
+            "items": {
+              "$ref": "#/components/schemas/PinnedPlacement"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "quality_config": {
             "$ref": "#/components/schemas/QualityConfig"
           },
@@ -5560,7 +5585,8 @@
           "max_deterministic_time",
           "quality_config",
           "participants",
-          "offerings"
+          "offerings",
+          "pins"
         ],
         "type": "object"
       },
