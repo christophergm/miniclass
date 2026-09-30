@@ -57,5 +57,5 @@ func response(status int, body string) *http.Response {
 }
 
 func testRequest() solvercontract.Request {
-	return solvercontract.Request{Version: solvercontract.Version, Seed: 41, MaxDeterministicTime: 1, Offerings: []solvercontract.Offering{{ID: "offering-a", Capacity: 1}, {ID: "offering-b", Capacity: 1}}, Participants: []solvercontract.Participant{{ID: "student-a", AcceptableOfferingIDs: []string{"offering-a"}}, {ID: "student-b", AcceptableOfferingIDs: []string{"offering-b"}}}}
+	return solvercontract.Request{Version: solvercontract.Version, Seed: 41, MaxDeterministicTime: 1, Offerings: []solvercontract.Offering{{ID: "offering-a", Capacity: 1, MinGradeOrdinal: 1, MaxGradeOrdinal: 1}, {ID: "offering-b", Capacity: 1, MinGradeOrdinal: 2, MaxGradeOrdinal: 2}}, Participants: []solvercontract.Participant{{ID: "student-a", GradeOrdinal: 1}, {ID: "student-b", GradeOrdinal: 2}}}
 }

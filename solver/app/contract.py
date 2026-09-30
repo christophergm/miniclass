@@ -16,12 +16,14 @@ class ContractError(ValueError):
 class Offering:
     id: str
     capacity: int
+    min_grade_ordinal: int
+    max_grade_ordinal: int
 
 
 @dataclass(frozen=True)
 class Participant:
     id: str
-    acceptable_offering_ids: tuple[str, ...]
+    grade_ordinal: int
 
 
 def _required_string(document: dict[str, Any], key: str) -> str:
@@ -46,33 +48,60 @@ def parse_request(document: Any) -> tuple[int, float, tuple[Participant, ...], t
     raw_offerings = document.get("offerings")
     if not isinstance(raw_offerings, list) or not raw_offerings:
         raise ContractError("offerings must be a non-empty array")
-    offerings = tuple(sorted((Offering(_required_string(item, "id"), item.get("capacity")) for item in raw_offerings), key=lambda value: value.id))
-    if len({offering.id for offering in offerings}) != len(offerings) or any(not isinstance(offering.capacity, int) or offering.capacity < 0 for offering in offerings):
-        raise ContractError("offering ids must be unique and capacities must be non-negative integers")
+    if any(not isinstance(item, dict) for item in raw_offerings):
+        raise ContractError("offerings must contain objects")
+    offerings = tuple(
+        sorted(
+            (
+                Offering(
+                    _required_string(item, "id"),
+                    item.get("capacity"),
+                    item.get("min_grade_ordinal"),
+                    item.get("max_grade_ordinal"),
+                )
+                for item in raw_offerings
+            ),
+            key=lambda value: value.id,
+        )
+    )
+    if len({offering.id for offering in offerings}) != len(offerings):
+        raise ContractError("offering ids must be unique")
+    if any(
+        not isinstance(offering.capacity, int)
+        or offering.capacity < 0
+        or not isinstance(offering.min_grade_ordinal, int)
+        or offering.min_grade_ordinal <= 0
+        or not isinstance(offering.max_grade_ordinal, int)
+        or offering.max_grade_ordinal < offering.min_grade_ordinal
+        for offering in offerings
+    ):
+        raise ContractError("offerings require non-negative capacity and an ordered positive grade window")
 
     raw_participants = document.get("participants")
     if not isinstance(raw_participants, list):
         raise ContractError("participants must be an array")
     participants = []
-    offering_ids = {offering.id for offering in offerings}
     for item in raw_participants:
+        if not isinstance(item, dict):
+            raise ContractError("participants must contain objects")
         participant_id = _required_string(item, "id")
-        choices = item.get("acceptable_offering_ids")
-        if not isinstance(choices, list) or any(not isinstance(choice, str) or not choice for choice in choices):
-            raise ContractError("acceptable_offering_ids must be an array of non-empty strings")
-        if len(set(choices)) != len(choices) or not set(choices).issubset(offering_ids):
-            raise ContractError("acceptable_offering_ids must be unique offering identifiers")
-        participants.append(Participant(participant_id, tuple(sorted(choices))))
+        grade_ordinal = item.get("grade_ordinal")
+        if not isinstance(grade_ordinal, int) or grade_ordinal <= 0:
+            raise ContractError("participants require a positive grade_ordinal")
+        participants.append(Participant(participant_id, grade_ordinal))
     participants = tuple(sorted(participants, key=lambda value: value.id))
     if len({participant.id for participant in participants}) != len(participants):
         raise ContractError("participant ids must be unique")
     return seed, float(limit), participants, offerings
 
 
-def canonical_response(*, seed: int, status: str, assignments: list[dict[str, str]]) -> dict[str, Any]:
+def canonical_response(*, seed: int, status: str, assignments: list[dict[str, str]], conflict_diagnostics: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     return {
         "version": CONTRACT_VERSION,
         "seed": seed,
         "status": status,
         "assignments": sorted(assignments, key=lambda assignment: assignment["participant_id"]),
+        # The v0 model intentionally emits none. Retaining the field now keeps
+        # later conflict-set extraction backward compatible at this boundary.
+        "conflict_diagnostics": conflict_diagnostics or [],
     }
