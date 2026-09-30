@@ -45,7 +45,7 @@ endef
 
 .PHONY: help setup tools-install generate smoke \
 	db-up db-down db-migrate db-rollback db-status db-migration-new db-seed db-reset \
-	dev dev-backend dev-frontend token-mint \
+	dev dev-backend dev-frontend dev-frontend-anonymous token-mint \
 	test test-backend test-frontend test-migrations \
 	lint lint-backend lint-frontend format build-frontend check
 
@@ -115,7 +115,8 @@ dev: ## Print how to run the two development processes
 	@echo "MiniClass runs as two long-lived processes, one per terminal:"
 	@echo ""
 	@echo "  make dev-backend     API on http://localhost:$(PORT)"
-	@echo "  make dev-frontend    app on http://localhost:$(VITE_PORT)"
+	@echo "  make dev-frontend    app on http://localhost:$(VITE_PORT) (authenticated)"
+	@echo "  make dev-frontend-anonymous  app on http://localhost:$(VITE_PORT) (anonymous)"
 	@echo ""
 	@echo "Nothing supervises them, so each hot-reloads and logs to its own terminal."
 	@echo "A checkout with no data yet needs 'make setup' and 'make db-seed' first."
@@ -123,8 +124,11 @@ dev: ## Print how to run the two development processes
 dev-backend: db-up ## Run the API with hot reload; starts PostgreSQL and Mailpit
 	@$(MAKE) -C backend dev
 
-dev-frontend: token-mint ## Run the Vite dev server with hot reload; needs a fresh dev token
+dev-frontend: token-mint ## Run the Vite dev server with hot reload as the local admin
 	@cd frontend && bun run dev
+
+dev-frontend-anonymous: ## Run the Vite dev server with hot reload without a session
+	@cd frontend && VITE_DEV_TOKEN= bun run dev
 
 token-mint: ## Refresh VITE_DEV_TOKEN in .env when it is stale (FORCE=1 always mints)
 	@DEV_TOKEN_FORCE=$(if $(filter 1,$(FORCE)),1,0) ./scripts/login.sh

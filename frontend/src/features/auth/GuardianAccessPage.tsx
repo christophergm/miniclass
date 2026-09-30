@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -112,24 +112,25 @@ export function GuardianAccessPage() {
     }
   }
 
+  const familyHeader = (
+    <div>
+      <h1 className="text-lg font-black tracking-tight">Family access</h1>
+      <p className="mt-1 text-sm font-medium text-stone-700">
+        Share your student&apos;s interests and class preferences.
+      </p>
+    </div>
+  );
+
   if (checkingSession) {
     return (
-      <AuthLayout>
+      <AuthLayout header={familyHeader}>
         <p role="status">Checking your guardian session…</p>
       </AuthLayout>
     );
   }
 
   return (
-    <AuthLayout>
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Guardian access</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Use your email to receive a one-time code. You will only see students currently linked to
-          your adult record.
-        </p>
-      </div>
-
+    <AuthLayout header={familyHeader}>
       {error && <AuthErrorMessage message={error} />}
 
       {contextSelection ? (
@@ -172,6 +173,7 @@ export function GuardianAccessPage() {
           <label className="block space-y-2 text-sm font-medium" htmlFor="guardian-otp-code">
             One-time code
             <Input
+              className="h-11 border-2 border-stone-950 bg-white text-center font-mono text-lg tracking-[0.4em] text-stone-950 shadow-[2px_2px_0_#1c1917] focus-visible:ring-[#f2633b]"
               id="guardian-otp-code"
               name="code"
               inputMode="numeric"
@@ -183,8 +185,12 @@ export function GuardianAccessPage() {
               onChange={(event) => setCode(event.target.value)}
             />
           </label>
-          <Button className="w-full" type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Checking code…" : "Open guardian mode"}
+          <Button
+            className="w-full border-2 border-stone-950 bg-[#ffcc2e] font-black text-stone-950 shadow-[3px_3px_0_#1c1917] hover:bg-[#eab91e]"
+            type="submit"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "Checking code…" : "Enter"}
           </Button>
           <button
             className="w-full text-sm text-muted-foreground hover:text-foreground"
@@ -200,9 +206,17 @@ export function GuardianAccessPage() {
         </form>
       ) : (
         <form className="mt-6 space-y-4" onSubmit={requestOTP}>
-          <label className="block space-y-2 text-sm font-medium" htmlFor="guardian-email">
-            Email
+          <div>
+            <h2 className="text-2xl font-black tracking-tight">Returning to MiniClass?</h2>
+            <p className="mt-1 text-sm text-stone-700">
+              If you&apos;ve already registered using a link from your program, enter your email
+              address to receive a one-time sign-in code.
+            </p>
+          </div>
+          <label className="block space-y-2 text-sm font-semibold" htmlFor="guardian-email">
+            Email address
             <Input
+              className="h-11 border-2 border-stone-950 bg-white text-base text-stone-950 shadow-[2px_2px_0_#1c1917] focus-visible:ring-[#f2633b]"
               id="guardian-email"
               type="email"
               autoComplete="email"
@@ -211,15 +225,19 @@ export function GuardianAccessPage() {
               onChange={(event) => setEmail(event.target.value)}
             />
           </label>
-          <Button className="w-full" type="submit" disabled={isSubmitting}>
+          <Button
+            className="w-full border-2 border-stone-950 bg-[#ffcc2e] font-black text-stone-950 shadow-[3px_3px_0_#1c1917] hover:bg-[#eab91e]"
+            type="submit"
+            disabled={isSubmitting}
+          >
             {isSubmitting ? "Sending code…" : "Send one-time code"}
           </Button>
-          <Link
-            className="block text-center text-sm text-muted-foreground hover:text-foreground"
-            to="/sign-in"
-          >
-            Administrator sign in
-          </Link>
+          <div className="border-t-2 border-stone-950/20 pt-5">
+            <h2 className="text-2xl font-black tracking-tight">New to MiniClass?</h2>
+            <p className="mt-1 text-sm text-stone-700">
+              Ask your program administrator for your access link.
+            </p>
+          </div>
         </form>
       )}
     </AuthLayout>

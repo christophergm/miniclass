@@ -122,8 +122,9 @@ MiniClass runs as **two long-lived processes, one per terminal**. Nothing superv
 hot-reloads independently and logs to its own terminal.
 
 ```sh
-make dev-backend     # terminal 1: API on http://localhost:8080
-make dev-frontend    # terminal 2: app on http://localhost:5173
+make dev-backend              # terminal 1: API on http://localhost:8080
+make dev-frontend             # terminal 2: app as the local admin on http://localhost:5173
+make dev-frontend-anonymous   # terminal 2: app without a session on http://localhost:5173
 ```
 
 `make dev` prints exactly those two lines and exits; there is no combined runner.
@@ -131,7 +132,8 @@ make dev-frontend    # terminal 2: app on http://localhost:5173
 Their prerequisites differ because their needs differ. `dev-backend` starts PostgreSQL and Mailpit
 first and needs no token, since it verifies whatever arrives. `dev-frontend` refreshes the development
 token first, because Vite inlines `VITE_DEV_TOKEN` when it starts — which is also why a token minted after
-Vite started does not take effect until Vite is restarted.
+Vite started does not take effect until Vite is restarted. `dev-frontend-anonymous` instead starts Vite
+with an empty `VITE_DEV_TOKEN`, so public pages can be tested without changing the saved local token.
 
 **Access:**
 
@@ -201,7 +203,8 @@ or test database.
 |---|---|
 | `make dev` | Print how to run the two development processes |
 | `make dev-backend` | Run the API with hot reload; starts PostgreSQL and Mailpit first |
-| `make dev-frontend` | Run the Vite dev server with hot reload; refreshes the token first |
+| `make dev-frontend` | Run the Vite dev server with hot reload as the local admin; refreshes the token first |
+| `make dev-frontend-anonymous` | Run the Vite dev server with hot reload without a session |
 | `make token-mint` | Refresh `VITE_DEV_TOKEN` in `.env` when it is stale (`FORCE=1` always mints) |
 
 `make token-mint` re-mints only when the token is absent, unreadable, or expiring within 24 hours,

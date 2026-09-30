@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -75,9 +75,42 @@ describe("App routing", () => {
 
     expect(await screen.findByRole("heading", { name: "Mini Class" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Admin Sign In" })).toHaveAttribute("href", "/sign-in");
-    expect(screen.getByRole("link", { name: "Guardian Access" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Access MiniClass" })).toHaveAttribute(
       "href",
-      "/guardian",
+      "/family",
+    );
+    expect(screen.getByRole("link", { name: "Terms" })).toHaveAttribute("href", "/terms");
+    expect(screen.getByRole("link", { name: "Privacy" })).toHaveAttribute("href", "/privacy");
+    expect(screen.getByRole("link", { name: "FAQ" })).toHaveAttribute("href", "/faq");
+  });
+
+  it("opens the general contact details from the public footer", async () => {
+    renderApp("/", null);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Contact Us" }));
+
+    expect(await screen.findByRole("dialog", { name: "Contact Us" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "hello@miniclass.org" })).toHaveAttribute(
+      "href",
+      "mailto:hello@miniclass.org",
+    );
+    expect(screen.getByText(/contact your program administrator directly/i)).toBeInTheDocument();
+  });
+
+  it("does not retain the undeployed guardian access route", async () => {
+    renderApp("/guardian", null);
+
+    expect(await screen.findByRole("heading", { name: "Page not found" })).toBeInTheDocument();
+  });
+
+  it("renders the public terms of service", async () => {
+    renderApp("/terms", null);
+
+    expect(await screen.findByRole("heading", { name: "Terms of Service" })).toBeInTheDocument();
+    expect(screen.getByText("Last updated: September 29, 2026")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "hello@miniclass.org" })).toHaveAttribute(
+      "href",
+      "mailto:hello@miniclass.org",
     );
   });
 

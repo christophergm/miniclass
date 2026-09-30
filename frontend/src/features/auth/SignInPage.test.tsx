@@ -74,7 +74,7 @@ describe("sign-in page under local development auth", () => {
     expect(screen.queryByLabelText("Email")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Sign in" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Forgot password?" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "System health" })).toHaveAttribute("href", "/health");
+    expect(screen.queryByRole("link", { name: "System health" })).not.toBeInTheDocument();
   });
 
   it("says the token is unreadable when it cannot be decoded", async () => {
