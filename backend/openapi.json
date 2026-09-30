@@ -3599,6 +3599,22 @@
         ],
         "type": "object"
       },
+      "InterestRating": {
+        "additionalProperties": false,
+        "properties": {
+          "interest_area_id": {
+            "type": "string"
+          },
+          "rating": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "interest_area_id",
+          "rating"
+        ],
+        "type": "object"
+      },
       "InvitationImportResult": {
         "additionalProperties": false,
         "properties": {
@@ -4206,6 +4222,9 @@
           "id": {
             "type": "string"
           },
+          "interest_area_id": {
+            "type": "string"
+          },
           "max_grade_ordinal": {
             "format": "int64",
             "type": "integer"
@@ -4366,11 +4385,24 @@
           },
           "id": {
             "type": "string"
+          },
+          "interest_profile": {
+            "items": {
+              "$ref": "#/components/schemas/InterestRating"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "ranked_choices": {
+            "$ref": "#/components/schemas/RankedChoices"
           }
         },
         "required": [
           "id",
-          "grade_ordinal"
+          "grade_ordinal",
+          "interest_profile"
         ],
         "type": "object"
       },
@@ -4993,6 +5025,39 @@
         ],
         "type": "object"
       },
+      "QualityConfig": {
+        "additionalProperties": false,
+        "properties": {
+          "high_rank_max": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "high_rank_max"
+        ],
+        "type": "object"
+      },
+      "RankedChoice": {
+        "additionalProperties": false,
+        "properties": {
+          "offering_id": {
+            "type": "string"
+          },
+          "rank": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "response": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "offering_id",
+          "response"
+        ],
+        "type": "object"
+      },
       "RankedChoiceAccessCodeChangeInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -5237,6 +5302,24 @@
         ],
         "type": "object"
       },
+      "RankedChoices": {
+        "additionalProperties": false,
+        "properties": {
+          "choices": {
+            "items": {
+              "$ref": "#/components/schemas/RankedChoice"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "choices"
+        ],
+        "type": "object"
+      },
       "ReconcilePlaceholderStudentInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -5460,6 +5543,9 @@
               "null"
             ]
           },
+          "quality_config": {
+            "$ref": "#/components/schemas/QualityConfig"
+          },
           "seed": {
             "format": "int64",
             "type": "integer"
@@ -5472,6 +5558,7 @@
           "version",
           "seed",
           "max_deterministic_time",
+          "quality_config",
           "participants",
           "offerings"
         ],

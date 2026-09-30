@@ -12,24 +12,64 @@ import (
 
 const Version = "v1"
 
+const (
+	QualityTop        = "top"
+	QualityHigh       = "high"
+	QualityAcceptable = "acceptable"
+	QualityNeutral    = "neutral"
+	QualityUnwanted   = "unwanted"
+
+	RankedResponse        = "ranked"
+	InterestedResponse    = "interested"
+	NotInterestedResponse = "not_interested"
+	VeryInterestedRating  = "very_interested"
+)
+
 type Request struct {
 	Version              string        `json:"version"`
 	Seed                 int64         `json:"seed"`
 	MaxDeterministicTime float64       `json:"max_deterministic_time"`
+	QualityConfig        QualityConfig `json:"quality_config"`
 	Participants         []Participant `json:"participants"`
 	Offerings            []Offering    `json:"offerings"`
 }
 
+// QualityConfig holds the program's v0 ranked-choice boundary from SPEC
+// §17.4.1. The remaining quality mappings are the specified v0 defaults.
+type QualityConfig struct {
+	HighRankMax int `json:"high_rank_max"`
+}
+
 type Participant struct {
-	ID           string `json:"id"`
-	GradeOrdinal int    `json:"grade_ordinal"`
+	ID              string           `json:"id"`
+	GradeOrdinal    int              `json:"grade_ordinal"`
+	RankedChoices   *RankedChoices   `json:"ranked_choices,omitempty"`
+	InterestProfile []InterestRating `json:"interest_profile"`
+}
+
+// RankedChoices is present only when a student submitted session choices. Its
+// presence takes precedence over the standing interest profile (SPEC §13.4).
+type RankedChoices struct {
+	Choices []RankedChoice `json:"choices"`
+}
+
+type RankedChoice struct {
+	OfferingID string `json:"offering_id"`
+	Response   string `json:"response"`
+	Rank       int    `json:"rank,omitempty"`
+}
+
+type InterestRating struct {
+	InterestAreaID string `json:"interest_area_id"`
+	Rating         string `json:"rating"`
 }
 
 type Offering struct {
-	ID              string `json:"id"`
-	Capacity        int    `json:"capacity"`
-	MinGradeOrdinal int    `json:"min_grade_ordinal"`
-	MaxGradeOrdinal int    `json:"max_grade_ordinal"`
+	ID              string  `json:"id"`
+	Capacity        int     `json:"capacity"`
+	MinGradeOrdinal int     `json:"min_grade_ordinal"`
+	MaxGradeOrdinal int     `json:"max_grade_ordinal"`
+	InterestAreaID  *string `json:"interest_area_id,omitempty"`
 }
 
 type Response struct {
@@ -41,8 +81,9 @@ type Response struct {
 }
 
 type Assignment struct {
-	ParticipantID string `json:"participant_id"`
-	OfferingID    string `json:"offering_id"`
+	ParticipantID   string `json:"participant_id"`
+	OfferingID      string `json:"offering_id"`
+	RealizedQuality string `json:"realized_quality"`
 }
 
 // ConflictDiagnostic reserves the v1 boundary for a future minimal or
@@ -82,6 +123,9 @@ func (r *Request) Canonicalize() error {
 	if r.MaxDeterministicTime <= 0 {
 		return errors.New("solver request max_deterministic_time must be positive")
 	}
+	if r.QualityConfig.HighRankMax < 2 {
+		return errors.New("solver request quality_config.high_rank_max must be at least two")
+	}
 	if len(r.Offerings) == 0 {
 		return errors.New("solver request requires at least one offering")
 	}
@@ -93,6 +137,9 @@ func (r *Request) Canonicalize() error {
 		}
 		if _, exists := offeringIDs[offering.ID]; exists {
 			return errors.New("solver offering ids must be unique")
+		}
+		if offering.InterestAreaID != nil && *offering.InterestAreaID == "" {
+			return errors.New("solver offering interest_area_id must be non-empty when present")
 		}
 		offeringIDs[offering.ID] = struct{}{}
 	}
@@ -109,9 +156,74 @@ func (r *Request) Canonicalize() error {
 		if participant.GradeOrdinal <= 0 {
 			return fmt.Errorf("participant %q requires a positive grade ordinal", participant.ID)
 		}
+		if err := participant.canonicalizePreferences(offeringIDs); err != nil {
+			return fmt.Errorf("participant %q: %w", participant.ID, err)
+		}
 	}
 	sort.Slice(r.Offerings, func(i, j int) bool { return r.Offerings[i].ID < r.Offerings[j].ID })
 	sort.Slice(r.Participants, func(i, j int) bool { return r.Participants[i].ID < r.Participants[j].ID })
+	return nil
+}
+
+func (p *Participant) canonicalizePreferences(offeringIDs map[string]struct{}) error {
+	if p.InterestProfile == nil {
+		p.InterestProfile = []InterestRating{}
+	}
+	interestAreaIDs := make(map[string]struct{}, len(p.InterestProfile))
+	for index := range p.InterestProfile {
+		rating := &p.InterestProfile[index]
+		if rating.InterestAreaID == "" {
+			return errors.New("interest profile ratings require an interest_area_id")
+		}
+		if _, exists := interestAreaIDs[rating.InterestAreaID]; exists {
+			return errors.New("interest profile ratings must be unique per interest area")
+		}
+		interestAreaIDs[rating.InterestAreaID] = struct{}{}
+		if rating.Rating != VeryInterestedRating && rating.Rating != InterestedResponse && rating.Rating != NotInterestedResponse {
+			return errors.New("interest profile ratings must be very_interested, interested, or not_interested")
+		}
+	}
+	sort.Slice(p.InterestProfile, func(i, j int) bool { return p.InterestProfile[i].InterestAreaID < p.InterestProfile[j].InterestAreaID })
+	if p.RankedChoices == nil {
+		return nil
+	}
+	if p.RankedChoices.Choices == nil {
+		p.RankedChoices.Choices = []RankedChoice{}
+	}
+	offeringChoiceIDs := make(map[string]struct{}, len(p.RankedChoices.Choices))
+	ranks := make(map[int]struct{}, len(p.RankedChoices.Choices))
+	for index := range p.RankedChoices.Choices {
+		choice := &p.RankedChoices.Choices[index]
+		if choice.OfferingID == "" {
+			return errors.New("ranked choices require an offering_id")
+		}
+		if _, exists := offeringIDs[choice.OfferingID]; !exists {
+			return errors.New("ranked choices must reference request offerings")
+		}
+		if _, exists := offeringChoiceIDs[choice.OfferingID]; exists {
+			return errors.New("ranked choices must contain at most one response per offering")
+		}
+		offeringChoiceIDs[choice.OfferingID] = struct{}{}
+		switch choice.Response {
+		case RankedResponse:
+			if choice.Rank <= 0 {
+				return errors.New("ranked choices require a positive rank for ranked responses")
+			}
+			if _, exists := ranks[choice.Rank]; exists {
+				return errors.New("ranked choice ranks must be unique per participant")
+			}
+			ranks[choice.Rank] = struct{}{}
+		case InterestedResponse, NotInterestedResponse:
+			if choice.Rank != 0 {
+				return errors.New("only ranked responses may include rank")
+			}
+		default:
+			return errors.New("ranked choice response must be ranked, interested, or not_interested")
+		}
+	}
+	sort.Slice(p.RankedChoices.Choices, func(i, j int) bool {
+		return p.RankedChoices.Choices[i].OfferingID < p.RankedChoices.Choices[j].OfferingID
+	})
 	return nil
 }
 
@@ -130,8 +242,8 @@ func (r *Response) Canonicalize() error {
 	}
 	seen := make(map[string]struct{}, len(r.Assignments))
 	for _, assignment := range r.Assignments {
-		if assignment.ParticipantID == "" || assignment.OfferingID == "" {
-			return errors.New("solver assignments require participant and offering ids")
+		if assignment.ParticipantID == "" || assignment.OfferingID == "" || !validQuality(assignment.RealizedQuality) {
+			return errors.New("solver assignments require participant, offering, and realized quality")
 		}
 		if _, exists := seen[assignment.ParticipantID]; exists {
 			return errors.New("solver response assigns a participant more than once")
@@ -152,4 +264,13 @@ func (r *Response) Canonicalize() error {
 		r.ConflictDiagnostics = []ConflictDiagnostic{}
 	}
 	return nil
+}
+
+func validQuality(quality string) bool {
+	switch quality {
+	case QualityTop, QualityHigh, QualityAcceptable, QualityNeutral, QualityUnwanted:
+		return true
+	default:
+		return false
+	}
 }

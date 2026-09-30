@@ -22,7 +22,7 @@ func TestSolveUsesCanonicalContractAndValidatesResponse(t *testing.T) {
 		require.Equal(t, http.MethodPost, request.Method)
 		require.Equal(t, "/v1/solve", request.URL.Path)
 		require.Equal(t, "application/json", request.Header.Get("Content-Type"))
-		return response(http.StatusOK, `{"version":"v1","seed":41,"status":"optimal","assignments":[{"participant_id":"student-b","offering_id":"offering-b"},{"participant_id":"student-a","offering_id":"offering-a"}]}`), nil
+		return response(http.StatusOK, `{"version":"v1","seed":41,"status":"optimal","assignments":[{"participant_id":"student-b","offering_id":"offering-b","realized_quality":"acceptable"},{"participant_id":"student-a","offering_id":"offering-a","realized_quality":"top"}]}`), nil
 	})
 
 	result, err := client.Solve(context.Background(), testRequest())
@@ -57,5 +57,5 @@ func response(status int, body string) *http.Response {
 }
 
 func testRequest() solvercontract.Request {
-	return solvercontract.Request{Version: solvercontract.Version, Seed: 41, MaxDeterministicTime: 1, Offerings: []solvercontract.Offering{{ID: "offering-a", Capacity: 1, MinGradeOrdinal: 1, MaxGradeOrdinal: 1}, {ID: "offering-b", Capacity: 1, MinGradeOrdinal: 2, MaxGradeOrdinal: 2}}, Participants: []solvercontract.Participant{{ID: "student-a", GradeOrdinal: 1}, {ID: "student-b", GradeOrdinal: 2}}}
+	return solvercontract.Request{Version: solvercontract.Version, Seed: 41, MaxDeterministicTime: 1, QualityConfig: solvercontract.QualityConfig{HighRankMax: 3}, Offerings: []solvercontract.Offering{{ID: "offering-a", Capacity: 1, MinGradeOrdinal: 1, MaxGradeOrdinal: 1}, {ID: "offering-b", Capacity: 1, MinGradeOrdinal: 2, MaxGradeOrdinal: 2}}, Participants: []solvercontract.Participant{{ID: "student-a", GradeOrdinal: 1}, {ID: "student-b", GradeOrdinal: 2}}}
 }
