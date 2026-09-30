@@ -22,6 +22,8 @@ import (
 	"github.com/chrismott/miniclass/internal/people"
 	"github.com/chrismott/miniclass/internal/program"
 	"github.com/chrismott/miniclass/internal/schoolyear"
+	"github.com/chrismott/miniclass/internal/solver"
+	"github.com/chrismott/miniclass/internal/solverclient"
 	"github.com/chrismott/miniclass/internal/vocabulary"
 )
 
@@ -70,6 +72,11 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	identityStore := identity.NewStoreWithAuth(database, []byte(cfg.AuthMFAEncryptionKey), otpDelivery)
 
 	importService := ingest.NewPreviewService(database)
+	solverClient, err := solverclient.New(cfg.SolverBaseURL, cfg.SolverRequestTimeout)
+	if err != nil {
+		return fmt.Errorf("configure solver client: %w", err)
+	}
+	solverService := solver.New(database, solverClient)
 	server := api.NewServerWithConfig(
 		*cfg,
 		api.WithDatabase(database),
@@ -87,6 +94,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		api.WithImportPreview(importService),
 		api.WithImportCommit(importService),
 		api.WithPrograms(program.New(database)),
+		api.WithSolveRuns(solverService),
 		api.WithVerifier(verifier),
 		api.WithLogger(logger),
 	)

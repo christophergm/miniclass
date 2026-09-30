@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools==75.8.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "miniclass-solver"
+version = "0.1.0"
+requires-python = "==3.12.*"
+dependencies = [
+  "ortools==9.14.6206",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest==8.3.5",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

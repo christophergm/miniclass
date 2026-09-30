@@ -1,0 +1,1 @@
+"""MiniClass solver sidecar."""

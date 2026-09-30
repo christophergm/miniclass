@@ -66,6 +66,7 @@ const (
 	ImportInvalid                       Slug = "import-invalid"
 	RestoreReasonRequired               Slug = "restore-reason-required"
 	RosterRecordNotDeleted              Slug = "roster-record-not-deleted"
+	SolverUnavailable                   Slug = "solver-unavailable"
 )
 
 // Definition describes one registered problem type.
@@ -124,6 +125,7 @@ var registry = map[Slug]Definition{
 	SessionTransitionReasonRequired:     {Slug: SessionTransitionReasonRequired, Title: "Session transition reason required"},
 	SessionReadOnly:                     {Slug: SessionReadOnly, Title: "Session is read-only"},
 	ImportInvalid:                       {Slug: ImportInvalid, Title: "Invalid import"},
+	SolverUnavailable:                   {Slug: SolverUnavailable, Title: "Solver unavailable"},
 }
 
 // Definitions returns the registry in stable slug order for contract

@@ -14,7 +14,7 @@ const (
 )
 
 func TestLoadFromDotEnv(t *testing.T) {
-	for _, key := range []string{"APP_ENV", "APP_VERSION", "PORT", "API_BASE_URL", "INVITATION_CLAIM_BASE_URL", "TRUSTED_PROXY_CIDRS", "DATABASE_URL", "APP_DATABASE_URL", "TEST_DATABASE_URL", "AUTH_PROVIDER", "AUTH_ISSUER", "AUTH_AUDIENCE", "AUTH_LOCAL_PUBLIC_KEY", "AUTH_LOCAL_PRIVATE_KEY", "AUTH_LOCAL_PUBLIC_KEY_FILE", "AUTH_LOCAL_PRIVATE_KEY_FILE", "AUTH_LOCAL_KEY_ID", "GUARDIAN_ONBOARDING_RATE_LIMIT_BURST", "GUARDIAN_ONBOARDING_RATE_LIMIT_REFILL", "GUARDIAN_ONBOARDING_RATE_LIMIT_REFILL_WINDOW", "GUARDIAN_ONBOARDING_RATE_LIMIT_BUCKET_LIMIT", "GUARDIAN_ONBOARDING_RATE_LIMIT_BUCKET_TTL"} {
+	for _, key := range []string{"APP_ENV", "APP_VERSION", "PORT", "API_BASE_URL", "INVITATION_CLAIM_BASE_URL", "TRUSTED_PROXY_CIDRS", "DATABASE_URL", "APP_DATABASE_URL", "TEST_DATABASE_URL", "AUTH_PROVIDER", "AUTH_ISSUER", "AUTH_AUDIENCE", "AUTH_LOCAL_PUBLIC_KEY", "AUTH_LOCAL_PRIVATE_KEY", "AUTH_LOCAL_PUBLIC_KEY_FILE", "AUTH_LOCAL_PRIVATE_KEY_FILE", "AUTH_LOCAL_KEY_ID", "GUARDIAN_ONBOARDING_RATE_LIMIT_BURST", "GUARDIAN_ONBOARDING_RATE_LIMIT_REFILL", "GUARDIAN_ONBOARDING_RATE_LIMIT_REFILL_WINDOW", "GUARDIAN_ONBOARDING_RATE_LIMIT_BUCKET_LIMIT", "GUARDIAN_ONBOARDING_RATE_LIMIT_BUCKET_TTL", "SOLVER_BASE_URL", "SOLVER_REQUEST_TIMEOUT"} {
 		unsetEnv(t, key)
 	}
 
@@ -35,6 +35,9 @@ func TestLoadFromDotEnv(t *testing.T) {
 	}
 	if cfg.GuardianOnboardingRateLimitBurst != defaultGuardianOnboardingRateLimitBurst || cfg.GuardianOnboardingRateLimitRefill != defaultGuardianOnboardingRateLimitRefill || cfg.GuardianOnboardingRateLimitRefillWindow != defaultGuardianOnboardingRateLimitWindow || cfg.GuardianOnboardingRateLimitBucketLimit != defaultGuardianOnboardingRateLimitBuckets || cfg.GuardianOnboardingRateLimitBucketTTL != defaultGuardianOnboardingRateLimitTTL {
 		t.Fatalf("guardian onboarding rate-limit defaults not applied: %#v", cfg)
+	}
+	if cfg.SolverBaseURL != defaultSolverBaseURL || cfg.SolverRequestTimeout != defaultSolverRequestTimeout {
+		t.Fatalf("solver defaults not applied: %#v", cfg)
 	}
 }
 
@@ -63,6 +66,16 @@ func TestLoadRejectsInvalidGuardianOnboardingRateLimit(t *testing.T) {
 
 	_, err := LoadFrom(filepath.Join(t.TempDir(), "missing.env"))
 	if err == nil || err.Error() != "configuration error: GUARDIAN_ONBOARDING_RATE_LIMIT_BURST must be a positive integer" {
+		t.Fatalf("LoadFrom() error = %v", err)
+	}
+}
+
+func TestLoadRejectsInvalidSolverURL(t *testing.T) {
+	unsetLocalAuthKeyFileEnv(t)
+	t.Setenv("APP_DATABASE_URL", "postgres://example")
+	t.Setenv("SOLVER_BASE_URL", "not a URL")
+	_, err := LoadFrom(filepath.Join(t.TempDir(), "missing.env"))
+	if err == nil || err.Error() != "configuration error: SOLVER_BASE_URL must be an absolute URL" {
 		t.Fatalf("LoadFrom() error = %v", err)
 	}
 }

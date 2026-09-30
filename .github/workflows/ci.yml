@@ -47,6 +47,38 @@ jobs:
         working-directory: backend
         run: make test
 
+  solver-tests:
+    name: Solver contract tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.12"
+      - name: Install solver dependencies
+        working-directory: solver
+        run: pip install ".[test]"
+      - name: Run solver contract and determinism tests
+        working-directory: solver
+        run: python -m pytest
+
+  solver-image:
+    name: Solver image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Build solver image
+        run: docker compose build solver
+      - name: Start and health-check solver
+        run: docker compose up --detach --wait solver
+      - name: Verify pinned OR-Tools version in the image
+        run: docker compose exec --no-TTY solver python -c "import ortools; assert ortools.__version__ == '9.14.6206'; print(ortools.__version__)"
+      - name: Run solver tests in the image
+        run: docker compose exec --no-TTY solver python -m pytest
+
   backend-lint:
     name: Backend lint
     runs-on: ubuntu-latest
