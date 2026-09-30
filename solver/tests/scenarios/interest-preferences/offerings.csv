@@ -1,0 +1,3 @@
+id,capacity,min_grade_ordinal,max_grade_ordinal,interest_area_id
+offering-interest-art,1,1,1,area-art
+offering-interest-science,1,1,1,area-science

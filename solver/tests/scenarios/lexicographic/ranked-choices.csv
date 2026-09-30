@@ -1,0 +1,7 @@
+participant_id,offering_id,response,rank
+student-lex-001,offering-lex-popular,ranked,1
+student-lex-001,offering-lex-fallback,not_interested,
+student-lex-002,offering-lex-popular,ranked,1
+student-lex-002,offering-lex-fallback,interested,
+student-lex-003,offering-lex-popular,ranked,1
+student-lex-003,offering-lex-fallback,interested,

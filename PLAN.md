@@ -676,18 +676,23 @@ it is not a hardening pass.
 
 **Platform track — the most valuable test asset in the project**
 
-- A **historical replay harness**: run the engine against the eight real sessions in Appendix B.2 and
-  assert it beats the recorded baseline. The number to beat is **43 placements against an explicit
-  non-preference across the year**.
-- A determinism test: same inputs and seed, byte-identical result, run repeatedly.
-- A CI performance budget: full solve under 10 s, re-solve under 2 s at expected scale (§22.2).
+- A synthetic, composable CSV scenario harness that compiles normalized students, offerings,
+  preference ratings, ranked choices and optional pins directly into the versioned solver contract.
+  Fixtures use opaque synthetic IDs only; real roster data is neither loaded nor distributed.
+- Curated behavioral scenarios for capacity, grade eligibility, both preference models,
+  lexicographic trade-offs, pins and infeasibility, plus an expected-scale synthetic session.
+- A determinism assertion: repeated contract execution with the same scenario and seed is
+  byte-identical.
+- CI performance assertions at expected scale: full solve under 10 s and a seeded re-solve under
+  2 s (§22.2).
 
 **Exit criteria**
 
 - A session solves, producing one assignment per participating student.
 - Re-running a recorded run with its seed reproduces it exactly, and the system says so explicitly
   when the input fingerprint no longer matches.
-- The replay harness beats the historical baseline on every session.
+- The synthetic scenario harness covers the v0 rules, deterministic execution and expected-scale
+  performance without real roster data.
 
 ---
 

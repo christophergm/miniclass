@@ -1,0 +1,5 @@
+participant_id,interest_area_id,rating
+student-interest-001,area-art,very_interested
+student-interest-001,area-science,not_interested
+student-interest-002,area-art,not_interested
+student-interest-002,area-science,interested

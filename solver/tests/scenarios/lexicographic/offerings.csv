@@ -1,0 +1,3 @@
+id,capacity,min_grade_ordinal,max_grade_ordinal,interest_area_id
+offering-lex-popular,1,1,1,
+offering-lex-fallback,2,1,1,

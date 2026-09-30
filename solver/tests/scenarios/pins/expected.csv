@@ -1,0 +1,3 @@
+status,participant_id,offering_id,realized_quality
+optimal,student-pin-001,offering-pin-contested,unwanted
+optimal,student-pin-002,offering-pin-fallback,acceptable
