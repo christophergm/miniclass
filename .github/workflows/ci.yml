@@ -78,6 +78,14 @@ jobs:
         run: docker compose exec --no-TTY solver python -c "import ortools; assert ortools.__version__ == '9.14.6206'; print(ortools.__version__)"
       - name: Run solver tests in the image
         run: docker compose exec --no-TTY solver python -m pytest
+      - name: Run deterministic expected-scale performance check through the Go sidecar client
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+      - name: Enforce expected-scale solve budgets
+        env:
+          SOLVER_BASE_URL: http://localhost:8090
+        run: make test-solver
 
   backend-lint:
     name: Backend lint

@@ -47,6 +47,7 @@ endef
 	db-up db-down db-migrate db-rollback db-status db-migration-new db-seed db-reset \
 	dev dev-backend dev-frontend dev-frontend-anonymous token-mint \
 	test test-backend test-frontend test-migrations \
+	test-solver \
 	lint lint-backend lint-frontend format build-frontend check
 
 ##@ Setup
@@ -145,6 +146,9 @@ test-frontend: ## Run the frontend unit and mobile E2E tests once
 
 test-migrations: ## Apply, roll back, and reapply every migration on a scratch database
 	@$(MAKE) -C backend migration-round-trip
+
+test-solver: ## Run expected-scale Go-to-Python solver checks against SOLVER_BASE_URL
+	@$(MAKE) -C backend test-solver-sidecar
 
 lint: lint-backend lint-frontend ## Lint both components
 

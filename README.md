@@ -221,6 +221,7 @@ whether the token resolves to a principal.
 | `make test-backend` | Run the Go unit and integration tests |
 | `make test-frontend` | Run the frontend tests once |
 | `make test-migrations` | Apply, roll back, and reapply every migration on a scratch database |
+| `make test-solver` | Run expected-scale deterministic sidecar checks against `SOLVER_BASE_URL` |
 | `make lint` | Lint both components |
 | `make lint-backend` | Run golangci-lint and the depguard boundary proof |
 | `make lint-frontend` | Run the Biome formatting check and ESLint |
