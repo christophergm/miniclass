@@ -74,3 +74,27 @@
   PostgreSQL integration test is present but skipped locally because
   `TEST_DATABASE_URL` and `TEST_APP_DATABASE_URL` are unset; run `make
   test-backend` in CI or a configured environment for the isolation harness.
+
+# Issue #241 — synthetic CSV scenario harness
+
+- `solver/tests/scenario_harness.py` compiles normalized CSV directories into
+  the v1 sidecar request; multiple directories compose without a database.
+- `solver/tests/scenarios/` uses opaque synthetic IDs only and covers capacity,
+  grade eligibility, ranked and interest preference models, lexicographic
+  trade-offs, pins, infeasibility, determinism, and a 140-student / 8-offering
+  expected-scale case. `expected.csv` records status and focused assignments.
+- `solver/tests/test_scenarios.py` runs fixtures directly through `solve`,
+  asserts complete eligible capacity-respecting results, byte determinism, and
+  the SPEC §22.2 full/re-solve timing budgets. `PLAN.md` Phase 5 now names this
+  synthetic harness instead of historical real-session replay.
+- Passed in the pinned `miniclass-solver:latest` image with the workspace
+  mounted: `python -m pytest` (38). Local host Python has no pytest; Compose
+  image rebuild is blocked by Docker Buildx activity-file permissions.
+- Also passed: `make lint-backend`, `make format`, `make generate` with no
+  generated drift, and `git diff --check`. `make check` cannot start its first
+  gate because an externally owned `miniclass-mailpit` already uses the fixed
+  Compose container name; the failed attempt's worktree-local volume and
+  network were removed without touching that container.
+- PR #260 is open and ready for review. All 12 current-head CI checks passed;
+  frontend tests was slowest at about 7m31 while installing Chromium. No PR or
+  inline review comments are present.

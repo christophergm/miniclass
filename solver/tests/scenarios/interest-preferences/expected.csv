@@ -1,0 +1,3 @@
+status,participant_id,offering_id,realized_quality
+optimal,student-interest-001,offering-interest-art,high
+optimal,student-interest-002,offering-interest-science,acceptable

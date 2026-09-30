@@ -1,0 +1,5 @@
+participant_id,offering_id,response,rank
+student-pin-001,offering-pin-contested,not_interested,
+student-pin-001,offering-pin-fallback,ranked,1
+student-pin-002,offering-pin-contested,ranked,1
+student-pin-002,offering-pin-fallback,interested,
