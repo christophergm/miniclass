@@ -20,3 +20,25 @@
 - Current-head CI on `014ee9c` passed every 10 project gate plus solver
   contract/image checks; backend tests was slowest at about 1m49. No review or
   inline comments are present. Recheck CI after this handoff-note commit.
+
+# Issue #238 — v0 solver placement quality
+
+- `solver/app/contract.py` accepts the canonical quality snapshot: ranked
+  choices take precedence over interest profiles, and an offering may carry an
+  optional interest-area ID. `high_rank_max` is the configurable ranked-choice
+  boundary from SPEC §17.4.1.
+- `solver/app/server.py` maps each feasible assignment to `top`, `high`,
+  `acceptable`, `neutral`, or `unwanted`, then sequentially minimizes
+  `unwanted`, `neutral`, `acceptable`, and `high`, fixing each optimum before
+  the next. Returned assignments record `realized_quality`.
+- The mirrored Go contract in `backend/internal/solvercontract` validates and
+  canonically orders the new inputs and realized output. `backend/openapi.json`
+  is generated from it.
+- Passed: `PYTHONDONTWRITEBYTECODE=1 python3 -m pytest` in `solver/` (20),
+  `go test ./internal/solvercontract ./internal/solverclient`, `make format`,
+  `make lint-backend`, and `git diff --check`.
+- Docker image validation is unavailable in this sandbox because Docker Buildx
+  cannot update its host-local activity file. `make test-backend` stops before
+  tests at the pre-existing named mailpit container conflict; do not remove the
+  existing containers. Frontend test/build lack `openapi-typescript`, and
+  frontend lint reports the existing `PeoplePages.test.tsx` format drift.

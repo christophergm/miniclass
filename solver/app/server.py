@@ -9,19 +9,21 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from ortools.sat.python import cp_model
 
-from .contract import ContractError, canonical_response, parse_request
+from .contract import QUALITY_LEVELS, ContractError, canonical_response, parse_request, realized_quality
 
 
 def solve(document: object) -> dict[str, object]:
     """Solve the v0 feasibility model from its self-contained request snapshot.
 
-    The only v0 hard rules are exactly-one assignment, offering capacity, and
-    grade windows (SPEC §17.1). A seeded, fixed CP-SAT decision strategy is the
-    explicit tie-breaker until preference objectives arrive in the next phase.
+    Hard rules remain exactly-one assignment, offering capacity, and grade
+    windows (SPEC §17.1). Quality objectives are optimized worst-outcome first
+    and fixed at each optimum (SPEC §17.4.2); the seeded decision strategy then
+    breaks only genuine objective ties (SPEC §17.8).
     """
-    seed, deterministic_limit, participants, offerings = parse_request(document)
+    seed, deterministic_limit, high_rank_max, participants, offerings = parse_request(document)
     model = cp_model.CpModel()
     decisions: dict[tuple[str, str], cp_model.IntVar] = {}
+    qualities: dict[tuple[str, str], str] = {}
 
     for participant in participants:
         eligible = []
@@ -29,6 +31,7 @@ def solve(document: object) -> dict[str, object]:
             if offering.min_grade_ordinal <= participant.grade_ordinal <= offering.max_grade_ordinal:
                 decision = model.NewBoolVar(f"assign_{participant.id}_{offering.id}")
                 decisions[(participant.id, offering.id)] = decision
+                qualities[(participant.id, offering.id)] = realized_quality(participant, offering, high_rank_max)
                 eligible.append(decision)
         # Exactly-one deliberately makes a participant with no eligible offering
         # an infeasible model rather than returning a partial draft.
@@ -49,19 +52,21 @@ def solve(document: object) -> dict[str, object]:
             cp_model.SELECT_MAX_VALUE,
         )
 
-    solver = cp_model.CpSolver()
-    solver.parameters.num_search_workers = 1
-    solver.parameters.search_branching = cp_model.FIXED_SEARCH
-    # Presolve can choose a symmetric solution before the fixed strategy runs;
-    # disable it so the seeded decision order is the actual v0 tie-breaker.
-    solver.parameters.cp_model_presolve = False
-    solver.parameters.random_seed = seed & 0x7FFFFFFF
-    solver.parameters.max_deterministic_time = deterministic_limit
-    status = solver.Solve(model)
+    solver = _new_solver(seed, deterministic_limit)
+    status = cp_model.UNKNOWN
+    for quality in QUALITY_LEVELS:
+        objective = sum(decision for key, decision in decisions.items() if qualities[key] == quality)
+        model.Minimize(objective)
+        status = solver.Solve(model)
+        if status != cp_model.OPTIMAL:
+            break
+        # Equality is the lexicographic guard: a later level can never buy a
+        # better result by making any preceding quality level worse.
+        model.Add(objective == int(solver.ObjectiveValue()))
 
     if status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
         assignments = [
-            {"participant_id": participant_id, "offering_id": offering_id}
+            {"participant_id": participant_id, "offering_id": offering_id, "realized_quality": qualities[(participant_id, offering_id)]}
             for (participant_id, offering_id), decision in decisions.items()
             if solver.Value(decision)
         ]
@@ -71,6 +76,18 @@ def solve(document: object) -> dict[str, object]:
     if status == cp_model.MODEL_INVALID:
         return canonical_response(seed=seed, status="model_invalid", assignments=[])
     return canonical_response(seed=seed, status="unknown", assignments=[])
+
+
+def _new_solver(seed: int, deterministic_limit: float) -> cp_model.CpSolver:
+    solver = cp_model.CpSolver()
+    solver.parameters.num_search_workers = 1
+    solver.parameters.search_branching = cp_model.FIXED_SEARCH
+    # Presolve can choose a symmetric solution before the fixed strategy runs;
+    # disable it so the seeded decision order is the actual tie-breaker.
+    solver.parameters.cp_model_presolve = False
+    solver.parameters.random_seed = seed & 0x7FFFFFFF
+    solver.parameters.max_deterministic_time = deterministic_limit
+    return solver
 
 
 class Handler(BaseHTTPRequestHandler):
