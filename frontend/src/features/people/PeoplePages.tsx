@@ -167,9 +167,14 @@ export function PeopleListPage({ kind }: PageProps) {
           <Link to={`/y/${schoolYearId}/${copy.path}/new`}>Add {copy.singular}</Link>
         </Button>
         {kind === "student" && (
-          <Button asChild variant="outline">
-            <Link to={`/y/${schoolYearId}/students/review`}>Review signals</Link>
-          </Button>
+          <>
+            <Button asChild variant="outline">
+              <Link to={"/y/" + schoolYearId + "/students/placeholders/new"}>Add placeholder</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link to={`/y/${schoolYearId}/students/review`}>Review signals</Link>
+            </Button>
+          </>
         )}
       </div>
 
@@ -353,6 +358,11 @@ function PeopleTable({
               >
                 {person.display_name}
               </Link>
+              {kind === "student" && (person as Student).is_placeholder && (
+                <span className="ml-2 rounded-full border border-amber-600/40 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-900">
+                  Placeholder
+                </span>
+              )}
             </TableCell>
             {kind === "student" ? (
               <>
@@ -378,6 +388,7 @@ function PeopleTable({
             <TableCell>
               <RelatedPeopleLinks
                 kind={kind}
+                isPlaceholder={kind === "student" && Boolean((person as Student).is_placeholder)}
                 related={relatedPeople.get(person.id) ?? []}
                 schoolYearId={schoolYearId}
               />
@@ -1016,18 +1027,24 @@ function FieldError({ id, message }: { id?: string; message: string }) {
 // defect, so that cell reports plainly and never in the warning colour.
 function RelatedPeopleLinks({
   kind,
+  isPlaceholder = false,
   related,
   schoolYearId,
 }: {
   kind: PersonKind;
+  isPlaceholder?: boolean;
   related: RelatedPerson[];
   schoolYearId: string;
 }) {
   if (related.length === 0)
     return kind === "student" ? (
-      <span className="text-amber-700" role="status">
-        No guardian
-      </span>
+      isPlaceholder ? (
+        <span className="text-muted-foreground">No guardian expected</span>
+      ) : (
+        <span className="text-amber-700" role="status">
+          No guardian
+        </span>
+      )
     ) : (
       <span className="text-muted-foreground">—</span>
     );

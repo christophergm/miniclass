@@ -34,6 +34,10 @@ import {
   StudentListPage,
 } from "@/features/people/PeoplePages";
 import { StudentReviewPage } from "@/features/people/StudentReviewPage";
+import {
+  PlaceholderReconciliationPage,
+  PlaceholderStudentPage,
+} from "@/features/people/PlaceholderWorkflowPage";
 import { AuditLog } from "@/features/audit/AuditLog";
 import { ImportPage } from "@/features/imports/ImportPage";
 import { OfferingPage } from "@/features/programs/OfferingPages";
@@ -197,6 +201,8 @@ function AppRoutes() {
               {/* Students scoped to a school year */}
               <Route path="students" element={<StudentListPage />} />
               <Route path="students/review" element={<StudentReviewPage />} />
+              <Route path="students/placeholders/new" element={<PlaceholderStudentPage />} />
+              <Route path="students/reconcile" element={<PlaceholderReconciliationPage />} />
               <Route path="students/new" element={<StudentDetailPage />} />
               <Route path="students/:personId" element={<StudentDetailPage />} />
 
