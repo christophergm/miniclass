@@ -42,6 +42,7 @@ func createSolveRun(ctx context.Context, harness *testharness.Harness, organizat
 			SchoolYearID: year.ID, ProgramID: programRow.ID, SessionID: session.ID, ContractVersion: "v1", Seed: 1,
 			InputFingerprint: "0000000000000000000000000000000000000000000000000000000000000000",
 			RequestDocument:  []byte(`{"version":"v1"}`), ResponseDocument: []byte(`{"version":"v1","status":"optimal"}`),
+			EffectiveWeightsDocument: []byte(`{}`), MetricsDocument: []byte(`{}`),
 			SolverStatus: "optimal", DeterministicDuration: 0,
 		})
 		if err != nil {

@@ -67,6 +67,7 @@ const (
 	RestoreReasonRequired               Slug = "restore-reason-required"
 	RosterRecordNotDeleted              Slug = "roster-record-not-deleted"
 	SolverUnavailable                   Slug = "solver-unavailable"
+	SolveRunInputMismatch               Slug = "solve-run-input-mismatch"
 )
 
 // Definition describes one registered problem type.
@@ -126,6 +127,7 @@ var registry = map[Slug]Definition{
 	SessionReadOnly:                     {Slug: SessionReadOnly, Title: "Session is read-only"},
 	ImportInvalid:                       {Slug: ImportInvalid, Title: "Invalid import"},
 	SolverUnavailable:                   {Slug: SolverUnavailable, Title: "Solver unavailable"},
+	SolveRunInputMismatch:               {Slug: SolveRunInputMismatch, Title: "Solve run inputs changed"},
 }
 
 // Definitions returns the registry in stable slug order for contract
