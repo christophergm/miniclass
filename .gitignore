@@ -29,6 +29,16 @@ frontend/test-results/
 frontend/playwright-report/
 frontend/src/lib/api.generated.ts
 
+# Solver (Python)
+solver/.venv/
+solver/.pytest_cache/
+solver/__pycache__/
+solver/**/*.py[cod]
+solver/.coverage
+solver/htmlcov/
+solver/build/
+solver/*.egg-info/
+
 # IDE
 .vscode/
 .idea/

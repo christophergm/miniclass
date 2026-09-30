@@ -317,10 +317,14 @@ recreates the roles and schema.
 
 ## Production Deployment
 
-- Backend: Render
+- Backend: Render public Go API
 - Frontend: Render Static Site
-- Database: Supabase Postgres
-- Auth: Supabase Auth (administrators only)
+- Solver: Render private Python service
+- Database and Auth: separate Supabase production and staging projects
+
+[ADR 0018](./docs/adr/0018-render-deployment-and-live-beta.md) defines the Oregon deployment
+topology, exact public origins, migrator/application-role separation, exact-SHA promotion, rollback
+at a high level, and the live-beta boundary.
 
 `AUTH_PROVIDER=local` is refused outright when `APP_ENV=production`, so the local signing keypair
 cannot become a production credential.
@@ -328,7 +332,9 @@ cannot become a production credential.
 Published class and dismissal lists are served by the main API. SPEC §22.3 suggests they *should* be
 servable independently of the administrative application; for v1 that is knowingly relaxed, with a
 named revisit trigger — see
-[ADR 0005](./docs/adr/0005-published-artifact-availability.md). Deployment is built in Phase 10.
+[ADR 0005](./docs/adr/0005-published-artifact-availability.md). A live beta may precede R3 only under
+ADR 0018's explicit residual-risk acceptance; Phase 10 still supplies R3's tested restore and full
+observability guarantees.
 
 ## Contributing
 
