@@ -19,8 +19,8 @@ func TestSharedRequestFixtureValidates(t *testing.T) {
 }
 
 func TestCanonicalJSONIgnoresInputCollectionOrder(t *testing.T) {
-	first := Request{Version: Version, Seed: 41, MaxDeterministicTime: 1, Offerings: []Offering{{ID: "offering-b", Capacity: 1}, {ID: "offering-a", Capacity: 1}}, Participants: []Participant{{ID: "student-b", AcceptableOfferingIDs: []string{"offering-b", "offering-a"}}, {ID: "student-a", AcceptableOfferingIDs: []string{"offering-a"}}}}
-	second := Request{Version: Version, Seed: 41, MaxDeterministicTime: 1, Offerings: []Offering{{ID: "offering-a", Capacity: 1}, {ID: "offering-b", Capacity: 1}}, Participants: []Participant{{ID: "student-a", AcceptableOfferingIDs: []string{"offering-a"}}, {ID: "student-b", AcceptableOfferingIDs: []string{"offering-a", "offering-b"}}}}
+	first := Request{Version: Version, Seed: 41, MaxDeterministicTime: 1, Offerings: []Offering{{ID: "offering-b", Capacity: 1, MinGradeOrdinal: 1, MaxGradeOrdinal: 2}, {ID: "offering-a", Capacity: 1, MinGradeOrdinal: 1, MaxGradeOrdinal: 1}}, Participants: []Participant{{ID: "student-b", GradeOrdinal: 2}, {ID: "student-a", GradeOrdinal: 1}}}
+	second := Request{Version: Version, Seed: 41, MaxDeterministicTime: 1, Offerings: []Offering{{ID: "offering-a", Capacity: 1, MinGradeOrdinal: 1, MaxGradeOrdinal: 1}, {ID: "offering-b", Capacity: 1, MinGradeOrdinal: 1, MaxGradeOrdinal: 2}}, Participants: []Participant{{ID: "student-a", GradeOrdinal: 1}, {ID: "student-b", GradeOrdinal: 2}}}
 
 	firstBytes, err := CanonicalJSON(first)
 	require.NoError(t, err)
@@ -34,7 +34,13 @@ func TestCanonicalJSONIgnoresInputCollectionOrder(t *testing.T) {
 	require.Equal(t, firstFingerprint, secondFingerprint)
 }
 
-func TestCanonicalJSONRejectsUnknownOffering(t *testing.T) {
-	_, err := CanonicalJSON(Request{Version: Version, Seed: 1, MaxDeterministicTime: 1, Offerings: []Offering{{ID: "offering-1", Capacity: 1}}, Participants: []Participant{{ID: "student-1", AcceptableOfferingIDs: []string{"missing"}}}})
+func TestCanonicalJSONRejectsInvalidGradeWindow(t *testing.T) {
+	_, err := CanonicalJSON(Request{Version: Version, Seed: 1, MaxDeterministicTime: 1, Offerings: []Offering{{ID: "offering-1", Capacity: 1, MinGradeOrdinal: 2, MaxGradeOrdinal: 1}}, Participants: []Participant{{ID: "student-1", GradeOrdinal: 1}}})
 	require.Error(t, err)
+}
+
+func TestCanonicalResponsePreservesFutureConflictDiagnosticField(t *testing.T) {
+	encoded, err := CanonicalResponseJSON(Response{Version: Version, Seed: 1, Status: "infeasible", Assignments: []Assignment{}, ConflictDiagnostics: []ConflictDiagnostic{}})
+	require.NoError(t, err)
+	require.JSONEq(t, `{"version":"v1","seed":1,"status":"infeasible","assignments":[],"conflict_diagnostics":[]}`, string(encoded))
 }

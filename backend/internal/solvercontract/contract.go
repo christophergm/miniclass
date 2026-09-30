@@ -21,25 +21,37 @@ type Request struct {
 }
 
 type Participant struct {
-	ID                    string   `json:"id"`
-	AcceptableOfferingIDs []string `json:"acceptable_offering_ids"`
+	ID           string `json:"id"`
+	GradeOrdinal int    `json:"grade_ordinal"`
 }
 
 type Offering struct {
-	ID       string `json:"id"`
-	Capacity int    `json:"capacity"`
+	ID              string `json:"id"`
+	Capacity        int    `json:"capacity"`
+	MinGradeOrdinal int    `json:"min_grade_ordinal"`
+	MaxGradeOrdinal int    `json:"max_grade_ordinal"`
 }
 
 type Response struct {
-	Version     string       `json:"version"`
-	Seed        int64        `json:"seed"`
-	Status      string       `json:"status"`
-	Assignments []Assignment `json:"assignments"`
+	Version             string               `json:"version"`
+	Seed                int64                `json:"seed"`
+	Status              string               `json:"status"`
+	Assignments         []Assignment         `json:"assignments"`
+	ConflictDiagnostics []ConflictDiagnostic `json:"conflict_diagnostics"`
 }
 
 type Assignment struct {
 	ParticipantID string `json:"participant_id"`
 	OfferingID    string `json:"offering_id"`
+}
+
+// ConflictDiagnostic reserves the v1 boundary for a future minimal or
+// near-minimal infeasibility explanation (SPEC §17.10). The v0 model returns
+// an empty list rather than attempting general conflict-set extraction.
+type ConflictDiagnostic struct {
+	Code           string   `json:"code"`
+	ParticipantIDs []string `json:"participant_ids"`
+	OfferingIDs    []string `json:"offering_ids"`
 }
 
 // CanonicalJSON validates and stably orders every contract collection before encoding.
@@ -76,8 +88,8 @@ func (r *Request) Canonicalize() error {
 	offeringIDs := make(map[string]struct{}, len(r.Offerings))
 	for index := range r.Offerings {
 		offering := &r.Offerings[index]
-		if offering.ID == "" || offering.Capacity < 0 {
-			return errors.New("solver offerings require an id and non-negative capacity")
+		if offering.ID == "" || offering.Capacity < 0 || offering.MinGradeOrdinal <= 0 || offering.MaxGradeOrdinal < offering.MinGradeOrdinal {
+			return errors.New("solver offerings require an id, non-negative capacity, and ordered positive grade window")
 		}
 		if _, exists := offeringIDs[offering.ID]; exists {
 			return errors.New("solver offering ids must be unique")
@@ -94,17 +106,9 @@ func (r *Request) Canonicalize() error {
 			return errors.New("solver participant ids must be unique")
 		}
 		participantIDs[participant.ID] = struct{}{}
-		choices := make(map[string]struct{}, len(participant.AcceptableOfferingIDs))
-		for _, offeringID := range participant.AcceptableOfferingIDs {
-			if _, exists := offeringIDs[offeringID]; !exists {
-				return fmt.Errorf("participant %q references unknown offering %q", participant.ID, offeringID)
-			}
-			if _, exists := choices[offeringID]; exists {
-				return fmt.Errorf("participant %q has duplicate offering %q", participant.ID, offeringID)
-			}
-			choices[offeringID] = struct{}{}
+		if participant.GradeOrdinal <= 0 {
+			return fmt.Errorf("participant %q requires a positive grade ordinal", participant.ID)
 		}
-		sort.Strings(participant.AcceptableOfferingIDs)
 	}
 	sort.Slice(r.Offerings, func(i, j int) bool { return r.Offerings[i].ID < r.Offerings[j].ID })
 	sort.Slice(r.Participants, func(i, j int) bool { return r.Participants[i].ID < r.Participants[j].ID })
@@ -134,6 +138,18 @@ func (r *Response) Canonicalize() error {
 		}
 		seen[assignment.ParticipantID] = struct{}{}
 	}
+	for index := range r.ConflictDiagnostics {
+		diagnostic := &r.ConflictDiagnostics[index]
+		if diagnostic.Code == "" {
+			return errors.New("solver conflict diagnostics require a code")
+		}
+		sort.Strings(diagnostic.ParticipantIDs)
+		sort.Strings(diagnostic.OfferingIDs)
+	}
 	sort.Slice(r.Assignments, func(i, j int) bool { return r.Assignments[i].ParticipantID < r.Assignments[j].ParticipantID })
+	sort.Slice(r.ConflictDiagnostics, func(i, j int) bool { return r.ConflictDiagnostics[i].Code < r.ConflictDiagnostics[j].Code })
+	if r.ConflictDiagnostics == nil {
+		r.ConflictDiagnostics = []ConflictDiagnostic{}
+	}
 	return nil
 }

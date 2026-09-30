@@ -1,27 +1,22 @@
-## Issue #225 — organiser placeholder and reconciliation UI
+# Issue #237 — v0 solver feasibility model
 
-- Verified 2026-09-30: branch is based on `origin/main` at `d16a61f`; native
-  dependency #224 is closed.
-- Issue has no PR yet. Workpad comment:
-  https://github.com/christophergm/miniclass/issues/225#issuecomment-5910700256
-- Scope: organiser placeholder creation, recognisable organiser surfaces,
-  audited reconciliation with confirmation, and actionable review signals.
-- Preserve Phase 4B API authorization and keep guardian matching unable to
-  discover placeholder records. References: SPEC §§11.7, 18.2, 20.1.
-- Implemented: dedicated creation and reconciliation routes, placeholder badges
-  in organiser roster/review, audit-reason inputs, confirmation, and
-  signal-to-remediation links. No backend contract changes were needed.
-- Validation passed: backend lint and format, generated-artifact drift check,
-  frontend lint and build, repository formatting, and the frontend unit phase
-  (205 tests).
-- Local limitations: the aggregate gate cannot start Docker because an external
-  container owns /miniclass-mailpit; frontend E2E Chromium launch is denied
-  Mach-port access by the sandbox. CI must run the database, E2E, migration,
-  backend-test, and smoke stages.
-- PR #253 is open, ready, clean, and targets main; it cites SPEC §11.7 and
-  fixes #225. Head ab8d517 has no review or inline comments.
-- Current-head CI: all 12 checks passed. CI took about two minutes; Generated
-  code drift was slowest at 1m56s. No post-merge main CI exists yet.
-- Handoff is ready for Detent's review-gate lane transition. No skill draft:
-  this was a routine use of established React Query, typed API, and form
-  conventions rather than a reusable new method.
+- Rework reason: PR #255 conflicted solely because `main` advanced its shared
+  worktree handoff notes after the solver branch was opened.
+- `solver/app/server.py` implements exactly-one assignment, capacity,
+  grade-window eligibility, seeded deterministic search, and no partial
+  result for infeasible requests. References: SPEC §§17.1, 17.3, 17.8.
+- `solver/app/contract.py`, `backend/internal/solvercontract`, and
+  `backend/openapi.json` carry ordinal grade eligibility and empty
+  `conflict_diagnostics` for later diagnostics work.
+- Rebased cleanly onto `origin/main` at `f5f371d`; the only conflict was this
+  worktree-local handoff file. The new solver commit is `b52c9f6`.
+- Passed after the rebase: solver container tests (5),
+  `go test ./internal/solvercontract ./internal/solverclient`, backend lint,
+  backend format, generation/drift, and `git diff --check`.
+- `make check` cannot start because existing host containers own
+  `miniclass-mailpit` and `miniclass-postgres`; do not remove them. Frontend
+  test/build lack `openapi-typescript`; frontend lint has the pre-existing
+  `PeoplePages.test.tsx` formatting failure tracked in #254.
+- Current-head CI on `014ee9c` passed every 10 project gate plus solver
+  contract/image checks; backend tests was slowest at about 1m49. No review or
+  inline comments are present. Recheck CI after this handoff-note commit.
