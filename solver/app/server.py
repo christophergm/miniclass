@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import json
 import random
+from collections import defaultdict
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from ortools.sat.python import cp_model
 
-from .contract import QUALITY_LEVELS, ContractError, canonical_response, parse_request, realized_quality
+from .contract import QUALITY_LEVELS, ContractError, Offering, Participant, PinnedPlacement, canonical_response, parse_request, realized_quality
 
 
 def solve(document: object) -> dict[str, object]:
@@ -20,7 +21,7 @@ def solve(document: object) -> dict[str, object]:
     and fixed at each optimum (SPEC §17.4.2); the seeded decision strategy then
     breaks only genuine objective ties (SPEC §17.8).
     """
-    seed, deterministic_limit, high_rank_max, participants, offerings = parse_request(document)
+    seed, deterministic_limit, high_rank_max, participants, offerings, pins = parse_request(document)
     model = cp_model.CpModel()
     decisions: dict[tuple[str, str], cp_model.IntVar] = {}
     qualities: dict[tuple[str, str], str] = {}
@@ -42,6 +43,17 @@ def solve(document: object) -> dict[str, object]:
             sum(decision for (participant_id, offering_id), decision in decisions.items() if offering_id == offering.id)
             <= offering.capacity
         )
+
+    pin_diagnostics = _pin_diagnostics(pins, participants, offerings)
+    if pin_diagnostics:
+        # A failed re-solve deliberately yields no candidate assignments. The
+        # caller can therefore keep its current draft intact while displaying
+        # the pin-specific explanation (SPEC §§17.9–17.10).
+        return canonical_response(seed=seed, status="infeasible", assignments=[], conflict_diagnostics=pin_diagnostics)
+    for pin in pins:
+        # Pins are solver constraints, not output decoration: their seats are
+        # counted by capacity and their quality is fixed before optimization.
+        model.Add(decisions[(pin.participant_id, pin.offering_id)] == 1)
 
     ordered_decisions = sorted(decisions.items())
     random.Random(seed).shuffle(ordered_decisions)
@@ -76,6 +88,60 @@ def solve(document: object) -> dict[str, object]:
     if status == cp_model.MODEL_INVALID:
         return canonical_response(seed=seed, status="model_invalid", assignments=[])
     return canonical_response(seed=seed, status="unknown", assignments=[])
+
+
+def _pin_diagnostics(
+    pins: tuple[PinnedPlacement, ...], participants: tuple[Participant, ...], offerings: tuple[Offering, ...]
+) -> list[dict[str, object]]:
+    """Explain invalid v0 pins before a solve could otherwise hide them."""
+    participants_by_id = {participant.id: participant for participant in participants}
+    offerings_by_id = {offering.id: offering for offering in offerings}
+    diagnostics: list[dict[str, object]] = []
+    valid_pins: list[PinnedPlacement] = []
+    pins_by_participant: dict[str, list[PinnedPlacement]] = defaultdict(list)
+
+    for pin in pins:
+        participant = participants_by_id.get(pin.participant_id)
+        offering = offerings_by_id.get(pin.offering_id)
+        if participant is None:
+            diagnostics.append(_pin_diagnostic("pin-participant-not-participating", pin))
+        if offering is None:
+            diagnostics.append(_pin_diagnostic("pin-offering-not-found", pin))
+        if participant is None or offering is None:
+            continue
+        if not offering.min_grade_ordinal <= participant.grade_ordinal <= offering.max_grade_ordinal:
+            diagnostics.append(_pin_diagnostic("pin-grade-out-of-range", pin))
+            continue
+        valid_pins.append(pin)
+        pins_by_participant[pin.participant_id].append(pin)
+
+    for participant_id, participant_pins in pins_by_participant.items():
+        if len(participant_pins) > 1:
+            diagnostics.append(
+                {
+                    "code": "pin-conflicting-placement",
+                    "participant_ids": [participant_id],
+                    "offering_ids": sorted({pin.offering_id for pin in participant_pins}),
+                }
+            )
+
+    pins_by_offering: dict[str, list[PinnedPlacement]] = defaultdict(list)
+    for pin in valid_pins:
+        pins_by_offering[pin.offering_id].append(pin)
+    for offering_id, offering_pins in pins_by_offering.items():
+        if len(offering_pins) > offerings_by_id[offering_id].capacity:
+            diagnostics.append(
+                {
+                    "code": "pin-capacity-exceeded",
+                    "participant_ids": sorted(pin.participant_id for pin in offering_pins),
+                    "offering_ids": [offering_id],
+                }
+            )
+    return diagnostics
+
+
+def _pin_diagnostic(code: str, pin: PinnedPlacement) -> dict[str, object]:
+    return {"code": code, "participant_ids": [pin.participant_id], "offering_ids": [pin.offering_id]}
 
 
 def _new_solver(seed: int, deterministic_limit: float) -> cp_model.CpSolver:

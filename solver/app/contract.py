@@ -64,6 +64,12 @@ class Participant:
     interest_profile: tuple[InterestRating, ...]
 
 
+@dataclass(frozen=True)
+class PinnedPlacement:
+    participant_id: str
+    offering_id: str
+
+
 def _required_string(document: dict[str, Any], key: str) -> str:
     value = document.get(key)
     if not isinstance(value, str) or not value:
@@ -71,7 +77,7 @@ def _required_string(document: dict[str, Any], key: str) -> str:
     return value
 
 
-def parse_request(document: Any) -> tuple[int, float, int, tuple[Participant, ...], tuple[Offering, ...]]:
+def parse_request(document: Any) -> tuple[int, float, int, tuple[Participant, ...], tuple[Offering, ...], tuple[PinnedPlacement, ...]]:
     if not isinstance(document, dict):
         raise ContractError("request must be an object")
     if document.get("version") != CONTRACT_VERSION:
@@ -142,7 +148,16 @@ def parse_request(document: Any) -> tuple[int, float, int, tuple[Participant, ..
     participants = tuple(sorted(participants, key=lambda value: value.id))
     if len({participant.id for participant in participants}) != len(participants):
         raise ContractError("participant ids must be unique")
-    return seed, float(limit), high_rank_max, participants, offerings
+    raw_pins = document.get("pins", [])
+    if not isinstance(raw_pins, list) or any(not isinstance(pin, dict) for pin in raw_pins):
+        raise ContractError("pins must be an array of objects")
+    pins = tuple(
+        sorted(
+            (PinnedPlacement(_required_string(pin, "participant_id"), _required_string(pin, "offering_id")) for pin in raw_pins),
+            key=lambda pin: (pin.participant_id, pin.offering_id),
+        )
+    )
+    return seed, float(limit), high_rank_max, participants, offerings, pins
 
 
 def _parse_ranked_choices(item: dict[str, Any], offering_ids: set[str]) -> RankedChoices | None:
@@ -237,5 +252,12 @@ def canonical_response(*, seed: int, status: str, assignments: list[dict[str, st
         "assignments": sorted(assignments, key=lambda assignment: assignment["participant_id"]),
         # The v0 model intentionally emits none. Retaining the field now keeps
         # later conflict-set extraction backward compatible at this boundary.
-        "conflict_diagnostics": conflict_diagnostics or [],
+        "conflict_diagnostics": sorted(
+            conflict_diagnostics or [],
+            key=lambda diagnostic: (
+                diagnostic["code"],
+                diagnostic["participant_ids"],
+                diagnostic["offering_ids"],
+            ),
+        ),
     }

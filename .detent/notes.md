@@ -42,3 +42,19 @@
   tests at the pre-existing named mailpit container conflict; do not remove the
   existing containers. Frontend test/build lack `openapi-typescript`, and
   frontend lint reports the existing `PeoplePages.test.tsx` format drift.
+
+# Issue #239 — pinned placement re-solve
+
+- `pins` is now a canonical v1 solve-request field in the Python sidecar and
+  mirrored Go contract. Valid pins bind the assignment decision before capacity
+  and lexicographic optimization (SPEC §§17.3, 17.8, 17.9).
+- Invalid pins return an infeasible, assignment-free response with stable
+  diagnostics naming the participant and offering: not participating, missing
+  offering, grade out of range, conflicting placement, or capacity exceeded.
+- Tests cover fixed-seat capacity consumption, unrelated preference edits,
+  invalid-pin diagnostics, and Go canonical snapshot retention. Passed Go
+  solver/API package tests, `make format`, `make lint-backend`, generation, and
+  `git diff --check`. Python test/image validation cannot run locally: pytest
+  is absent and Docker Buildx lacks permission to update its activity file.
+- `make check` stops at the known `miniclass-mailpit` named-container conflict;
+  the local empty compose volume/network it created were removed afterward.
