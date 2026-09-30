@@ -13,6 +13,7 @@ order*; the spec says *what*. Where the two disagree, the spec wins and this doc
 - [Current state](#current-state)
 - [Foundational decisions](#foundational-decisions)
 - [Release milestones](#release-milestones)
+- [Deployment and live beta](#deployment-and-live-beta)
 - [Phase sequence](#phase-sequence)
 - [Phases in detail](#phases-in-detail)
 - [Platform track summary](#platform-track-summary)
@@ -48,9 +49,9 @@ Scaffolding is complete and a health check runs end to end.
 | Backend | Go 1.26, chi, pgx, sqlc, Goose. Config, DB pool, health handler, graceful shutdown. |
 | Frontend | React 18, TypeScript, Vite, TanStack Query, React Router. Health page, app shell. |
 | Database | PostgreSQL 18 in Docker Compose. One migration: `health_checks`. **No domain model.** |
-| CI | Five checks: backend tests, frontend tests, frontend build, frontend lint, repo formatting. |
+| CI | Twelve checks: backend tests; solver contract and image tests; backend lint, format, generated-code drift and migration round-trip; frontend tests, build and lint; repository formatting; developer tooling. |
 | Orchestration | Detent with isolated worktrees, two concurrent agents, GitHub Projects tracker. |
-| Tooling | proto pins Go / Node / Bun. Air for hot reload. Smoke test script. |
+| Tooling | proto pins Go / Node / Bun. Air for hot reload. Smoke test script. The Python solver sidecar is containerised and covered by contract and image CI checks. |
 
 The backend encodes no domain assumption. The **frontend does**: the scaffolded shell is a generic
 teacher-dashboard mock with fabricated figures and placeholder routes for `/classes`,
@@ -93,6 +94,7 @@ vocabularies the roster draws on were scoped one level too high:
 | D10 | Household as a domain entity | **Household removed from the domain model.** The guardian relationship is the sole family construct; scope is derived, not stored. | [0012](./docs/adr/0012-remove-the-household-entity.md) |
 | D11 | Scope of the grade and homeroom vocabularies | **Scoped to the school year, not the organization.** The organization still configures the homeroom *label*; each year defines its own value sets, entered by hand with no copy-forward. | [0015](./docs/adr/0015-year-scoped-attribute-vocabularies.md) |
 | D12 | Production roster authority | **Guardians self-register through an organization/year link.** Import is retained for synthetic development testing only. Superseded for v1 by the consent-first Phase 4B retrofit below. | [0017](./docs/adr/0017-guardian-self-registration-as-production-roster-authority.md) |
+| D13 | Deployment and live-beta boundary | **Render static frontend, public Go API and private Python solver in Oregon; separate Supabase staging/production projects; exact-SHA promotion; live beta is not R3.** | [0018](./docs/adr/0018-render-deployment-and-live-beta.md) |
 
 The historical wide survey format is one row per adult with their children named inline, so the
 adult→student edge is sourced and the adult→adult grouping into a household never was. There is no
@@ -126,10 +128,31 @@ The adult access decision is resolved in [ADR 0013](./docs/adr/0013-guardian-and
 |---|---|---|
 | **R1 — Usable** | End of Phase 6 | A real session can be run end to end: guardians consent and manage their roster data, organizers reconcile it, the catalog is authored, preferences are collected, placements are solved, and class and dismissal lists are published. Replaces the CLI pipeline and the Docs step. |
 | **R2 — Better than the predecessor** | End of Phase 9 | Tags, pairings, fairness, variety, warnings, overrides, explainability and the quality dashboard. Placement quality provably beats the historical baseline; the ~200 hand-written exclusion rows per year are gone. |
-| **R3 — Production** | End of Phase 10 | Privacy hardening, end-of-year purge, hard deletion, tested restore, observability. Safe to operate with real children's data and delete it deliberately at year end. |
+| **R3 — Production** | End of Phase 10 | Privacy hardening, retention and purge, hard deletion, tested restore, and full observability. Safe to operate with real children's data and delete it deliberately at year end. |
 
 R1 is the important cut line. Everything after it improves placement quality and organiser
 ergonomics; nothing after it is required to run a Friday.
+
+---
+
+## Deployment and live beta
+
+[ADR 0018](./docs/adr/0018-render-deployment-and-live-beta.md) fixes the deployment topology and
+release boundary that implementation must follow: Render static frontend and public Go API, a private
+Python solver, and separate Oregon-region Supabase projects for staging and production. The public
+origins are `www` and `api` in production, with `staging` and `api.staging` counterparts; the apex
+only redirects to `www`. Render configuration is committed without credentials, and the API continues
+to use only the application database role while a separately credentialed migrator applies migrations.
+
+A live beta may precede R3 only with a time-bounded, attributable residual-risk acceptance that names
+the release SHA, known gaps, mitigations, approver, and review expiry. It is an operational validation
+track, not a new milestone and not a waiver of the specification. The beta requires environment
+separation, restricted origins, a private solver, migration/app-role separation, a compatible rollback
+path, and no secrets or real data in the repository, CI, development, or staging.
+
+**R3 is unchanged.** Phase 10 still delivers full production-surface privacy and retention guarantees,
+hard-delete and purge proof, a documented tested restore drill, and observability sufficient for SPEC
+§22.5. A live-beta acceptance expires and cannot reclassify an incomplete Phase 10 as R3.
 
 ---
 
@@ -178,14 +201,15 @@ green. Before the domain model arrives, the gate must be real.
 
 - Resolve **D3** and **D4**; record **D6–D9** as accepted ADRs.
 - Adopt ADRs as the architecture record. Retire the point-in-time narrative docs.
-- **Nine CI checks**, replacing today's five. New: `Backend lint` (`golangci-lint`, carrying the
-  `depguard` import restrictions that make the tenancy guard unbypassable), `Backend format`
-  (`gofmt -l` plus `go vet`), `Generated code drift` (one check folding `sqlc`, `go generate` and
-  `openapi.json` regeneration), and `Migration round-trip` (up→down→up). `Backend tests` gains
+- **Twelve CI checks**, replacing the original five: backend tests; solver contract and image tests;
+  `Backend lint` (`golangci-lint`, carrying the `depguard` import restrictions that make the tenancy
+  guard unbypassable); `Backend format` (`gofmt -l` plus `go vet`); `Generated code drift` (one check
+  folding `sqlc`, `go generate` and `openapi.json` regeneration); `Migration round-trip` (up→down→up);
+  frontend tests, build and lint; repository formatting; and developer tooling. `Backend tests` gains
   `-race`.
 - Two database roles — `miniclass_migrator` and `miniclass_app` — in Compose init and CI, and
   timestamped Goose migrations replacing sequential numbering.
-- Wire `detent.yaml` `gate.required_status_checks` to the nine check names and replace the
+- Wire `detent.yaml` `gate.required_status_checks` to the required check names and replace the
   `run: "true"` no-op.
 - Adopt **Huma v2** over chi: health endpoint ported, RFC 9457 error shape, `cmd/openapi` generator,
   `openapi.json` committed and drift-checked, `openapi-typescript` + `openapi-fetch` on the frontend
@@ -635,7 +659,8 @@ it is not a hardening pass.
 
 **Feature track**
 
-- The Python CP-SAT sidecar and its versioned solve request/response contract (ADR 0003).
+- The deployed Python CP-SAT sidecar and its versioned solve request/response contract (ADR 0003,
+  [ADR 0018](./docs/adr/0018-render-deployment-and-live-beta.md)).
 - The placement quality scale — Top / High / Acceptable / Neutral / Unwanted — mapping both
   preference models onto one ordered scale, with `Neutral` ranking above `Unwanted`.
 - The **lexicographic, worst-outcome-first** objective: minimise `Unwanted`, then `Neutral`, then
@@ -853,7 +878,7 @@ The same plan, viewed as a tooling roadmap.
 | 7 | — | Sensitivity leak sweep | — | — |
 | 8 | Quality regression gate | Warning catalogue coverage | — | — |
 | 9 | — | E2E drafting flows | — | — |
-| 10 | Production pipeline | Restore drill | — | Backups, observability |
+| 10 | Exact-SHA production promotion | Restore drill | — | Backups, full observability |
 
 ---
 

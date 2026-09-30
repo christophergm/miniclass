@@ -83,3 +83,5 @@ and not readable as a set.
 | [0014](./0014-roster-ingest-scope-and-source-authority.md) | Roster ingest scope and source authority | Accepted |
 | [0015](./0015-year-scoped-attribute-vocabularies.md) | Grade and homeroom vocabularies are scoped to the school year | Accepted |
 | [0016](./0016-ranked-choice-response-model.md) | Ranked choices distinguish order, acceptability, objection and absence | Accepted |
+| [0017](./0017-guardian-self-registration-as-production-roster-authority.md) | Guardian self-registration as production roster authority | Accepted |
+| [0018](./0018-render-deployment-and-live-beta.md) | Render deployment and live-beta boundary | Accepted |
