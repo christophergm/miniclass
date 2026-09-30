@@ -10,6 +10,7 @@
 
 # Backend tools
 go = "1.26.4"           # Go language runtime
+python = "3.12.12"      # Solver sidecar runtime
 
 # Frontend tools
 node = "24.16.0"        # Node.js runtime

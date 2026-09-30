@@ -39,6 +39,7 @@ type ServerOptions struct {
 	ImportPreview               handlers.ImportPreviewService
 	ImportCommit                handlers.ImportCommitService
 	Programs                    handlers.ProgramService
+	SolveRuns                   handlers.SolveRunService
 	Verifier                    auth.Verifier
 	AdultAuth                   auth.AdultAuthentication
 	GuardianOnboarding          handlers.GuardianOnboardingService
@@ -102,6 +103,7 @@ func NewServer(options ...ServerOption) *Server {
 		ImportPreview:               settings.ImportPreview,
 		ImportCommit:                settings.ImportCommit,
 		Programs:                    settings.Programs,
+		SolveRuns:                   settings.SolveRuns,
 		Verifier:                    settings.Verifier,
 		AdultAuth:                   settings.AdultAuth,
 		GuardianOnboarding:          settings.GuardianOnboarding,
@@ -164,6 +166,11 @@ func WithDatabase(database handlers.DatabasePinger) ServerOption {
 // WithAuditLog supplies the tenant-scoped audit log reader.
 func WithAuditLog(reader handlers.AuditLogReader) ServerOption {
 	return func(options *ServerOptions) { options.AuditLog = reader }
+}
+
+// WithSolveRuns supplies immutable solve-run lifecycle operations.
+func WithSolveRuns(service handlers.SolveRunService) ServerOption {
+	return func(options *ServerOptions) { options.SolveRuns = service }
 }
 
 // WithIdentity supplies the local identity resolver used by authentication.

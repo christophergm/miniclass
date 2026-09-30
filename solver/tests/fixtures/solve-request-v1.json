@@ -1,0 +1,1 @@
+{"version":"v1","seed":41,"max_deterministic_time":1,"offerings":[{"id":"offering-b","capacity":1},{"id":"offering-a","capacity":1}],"participants":[{"id":"student-b","acceptable_offering_ids":["offering-b","offering-a"]},{"id":"student-a","acceptable_offering_ids":["offering-a"]}]}

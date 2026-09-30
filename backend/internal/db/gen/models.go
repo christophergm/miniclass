@@ -1035,6 +1035,23 @@ type SessionObjectiveWeightOverride struct {
 	UpdatedAt                     pgtype.Timestamptz `json:"updated_at"`
 }
 
+type SolveRun struct {
+	ID                    ids.XID            `json:"id"`
+	OrganizationID        ids.XID            `json:"organization_id"`
+	SchoolYearID          ids.XID            `json:"school_year_id"`
+	ProgramID             ids.XID            `json:"program_id"`
+	SessionID             ids.XID            `json:"session_id"`
+	RerunOfSolveRunID     *ids.XID           `json:"rerun_of_solve_run_id"`
+	ContractVersion       string             `json:"contract_version"`
+	Seed                  int64              `json:"seed"`
+	InputFingerprint      string             `json:"input_fingerprint"`
+	RequestDocument       []byte             `json:"request_document"`
+	ResponseDocument      []byte             `json:"response_document"`
+	SolverStatus          string             `json:"solver_status"`
+	DeterministicDuration float64            `json:"deterministic_duration"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+}
+
 type Student struct {
 	ID                 ids.XID            `json:"id"`
 	OrganizationID     ids.XID            `json:"organization_id"`

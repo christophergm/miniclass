@@ -24,6 +24,18 @@ services:
       timeout: 5s
       retries: 5
 
+  solver:
+    build:
+      context: ./solver
+    container_name: miniclass-solver
+    ports:
+      - "${SOLVER_PORT:-8090}:8090"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8090/health')"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   adminer:
     image: adminer:latest
     container_name: miniclass-adminer

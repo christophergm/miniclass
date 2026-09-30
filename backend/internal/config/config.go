@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -20,6 +21,8 @@ const (
 	defaultPort                               = "8080"
 	defaultAPIBaseURL                         = "http://localhost:8080"
 	defaultInvitationClaimBaseURL             = "http://localhost:5173/claim"
+	defaultSolverBaseURL                      = "http://localhost:8090"
+	defaultSolverRequestTimeout               = 15 * time.Second
 	defaultAuthIssuer                         = "http://localhost:8080"
 	defaultAuthAudience                       = "authenticated"
 	defaultAuthProvider                       = "local"
@@ -39,6 +42,8 @@ type Config struct {
 	Port                                    string
 	APIBaseURL                              string
 	InvitationClaimBaseURL                  string
+	SolverBaseURL                           string
+	SolverRequestTimeout                    time.Duration
 	TrustedProxyCIDRs                       []string
 	GuardianOnboardingRateLimitBurst        int
 	GuardianOnboardingRateLimitRefill       int
@@ -129,6 +134,10 @@ func fromEnvironment() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	solverRequestTimeout, err := positiveDurationEnv("SOLVER_REQUEST_TIMEOUT", defaultSolverRequestTimeout)
+	if err != nil {
+		return nil, err
+	}
 
 	cfg := &Config{
 		AppEnv:                                  getEnv("APP_ENV", defaultAppEnv),
@@ -136,6 +145,8 @@ func fromEnvironment() (*Config, error) {
 		Port:                                    port,
 		APIBaseURL:                              getEnv("API_BASE_URL", defaultAPIBaseURL),
 		InvitationClaimBaseURL:                  getEnv("INVITATION_CLAIM_BASE_URL", defaultInvitationClaimBaseURL),
+		SolverBaseURL:                           getEnv("SOLVER_BASE_URL", defaultSolverBaseURL),
+		SolverRequestTimeout:                    solverRequestTimeout,
 		TrustedProxyCIDRs:                       getListEnv("TRUSTED_PROXY_CIDRS"),
 		GuardianOnboardingRateLimitBurst:        guardianOnboardingBurst,
 		GuardianOnboardingRateLimitRefill:       guardianOnboardingRefill,
@@ -257,6 +268,15 @@ func (c Config) Validate() error {
 	}
 	if strings.TrimSpace(c.AuthIssuer) == "" && strings.TrimSpace(c.AuthAudience) != "" {
 		return fmt.Errorf("configuration error: AUTH_ISSUER must not be empty")
+	}
+	if strings.TrimSpace(c.SolverBaseURL) != "" {
+		parsed, err := url.ParseRequestURI(c.SolverBaseURL)
+		if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+			return fmt.Errorf("configuration error: SOLVER_BASE_URL must be an absolute URL")
+		}
+	}
+	if c.SolverRequestTimeout < 0 {
+		return fmt.Errorf("configuration error: SOLVER_REQUEST_TIMEOUT must be positive")
 	}
 	for _, cidr := range c.TrustedProxyCIDRs {
 		if _, err := netip.ParsePrefix(cidr); err != nil {
