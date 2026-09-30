@@ -18,4 +18,10 @@
   container owns /miniclass-mailpit; frontend E2E Chromium launch is denied
   Mach-port access by the sandbox. CI must run the database, E2E, migration,
   backend-test, and smoke stages.
-- Pending: commit, push, open PR, and verify current-head CI/comments.
+- PR #253 is open, ready, clean, and targets main; it cites SPEC §11.7 and
+  fixes #225. Head ab8d517 has no review or inline comments.
+- Current-head CI: all 12 checks passed. CI took about two minutes; Generated
+  code drift was slowest at 1m56s. No post-merge main CI exists yet.
+- Handoff is ready for Detent's review-gate lane transition. No skill draft:
+  this was a routine use of established React Query, typed API, and form
+  conventions rather than a reusable new method.
