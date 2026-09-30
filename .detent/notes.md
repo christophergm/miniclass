@@ -16,5 +16,7 @@
 - `make check` cannot start because existing host containers own
   `miniclass-mailpit` and `miniclass-postgres`; do not remove them. Frontend
   test/build lack `openapi-typescript`; frontend lint has the pre-existing
-  `PeoplePages.test.tsx` formatting failure tracked in #254. Fresh PR CI must
-  provide the complete ten-gate result after the force-push.
+  `PeoplePages.test.tsx` formatting failure tracked in #254.
+- Current-head CI on `014ee9c` passed every 10 project gate plus solver
+  contract/image checks; backend tests was slowest at about 1m49. No review or
+  inline comments are present. Recheck CI after this handoff-note commit.
