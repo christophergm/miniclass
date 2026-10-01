@@ -3,10 +3,10 @@
 services:
   - type: web
     name: miniclass-api
-    runtime: go
+    runtime: docker
     region: oregon
-    buildCommand: cd backend && go build -o /opt/render/project/bin/miniclass-api ./cmd/api
-    startCommand: /opt/render/project/bin/miniclass-api
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
     healthCheckPath: /api/health
     autoDeploy: false
     envVars:
@@ -42,13 +42,11 @@ services:
     region: oregon
     dockerContext: ./solver
     dockerfilePath: ./solver/Dockerfile
-    healthCheckPath: /health
     autoDeploy: false
 
   - type: web
     name: miniclass-frontend
     runtime: static
-    region: oregon
     buildCommand: cd frontend && bun install --frozen-lockfile && bun run build
     staticPublishPath: ./frontend/dist
     autoDeploy: false

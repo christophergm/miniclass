@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import random
 from collections import defaultdict
 from http import HTTPStatus
@@ -186,8 +187,23 @@ class Handler(BaseHTTPRequestHandler):
         return
 
 
+def port_from_environment() -> int:
+    value = os.environ.get("PORT", "8090")
+    try:
+        port = int(value)
+    except ValueError as error:
+        raise ValueError("PORT must be an integer") from error
+    if not 1 <= port <= 65535:
+        raise ValueError("PORT must be between 1 and 65535")
+    return port
+
+
+def new_server(port: int) -> ThreadingHTTPServer:
+    return ThreadingHTTPServer(("0.0.0.0", port), Handler)
+
+
 def main() -> None:
-    ThreadingHTTPServer(("0.0.0.0", 8090), Handler).serve_forever()
+    new_server(port_from_environment()).serve_forever()
 
 
 if __name__ == "__main__":
