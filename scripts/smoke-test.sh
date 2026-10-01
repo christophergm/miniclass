@@ -17,6 +17,9 @@ env_backup=""
 env_modified=0
 seed_output=""
 claim_url="${SMOKE_CLAIM_URL:-}"
+requested_port="${PORT:-}"
+requested_vite_port="${VITE_PORT:-}"
+requested_api_base_url="${API_BASE_URL:-}"
 
 cleanup() {
   status=$?
@@ -66,11 +69,17 @@ POSTGRES_USER="${POSTGRES_USER:-miniclass}"
 POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-miniclass_dev_password}"
 POSTGRES_DB="${POSTGRES_DB:-miniclass}"
 POSTGRES_PORT="${POSTGRES_PORT:-5432}"
-PORT="${PORT:-8080}"
-VITE_PORT="${VITE_PORT:-5173}"
+PORT="${requested_port:-${PORT:-8080}}"
+VITE_PORT="${requested_vite_port:-${VITE_PORT:-5173}}"
 DATABASE_URL="${DATABASE_URL:-postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable}"
 [[ -n "${APP_DATABASE_URL:-}" ]] || die "APP_DATABASE_URL is required; see .env.example"
-API_BASE_URL="${API_BASE_URL:-http://localhost:${PORT}}"
+if [[ -n "$requested_api_base_url" ]]; then
+  API_BASE_URL="$requested_api_base_url"
+elif [[ -n "$requested_port" ]]; then
+  API_BASE_URL="http://localhost:${PORT}"
+else
+  API_BASE_URL="${API_BASE_URL:-http://localhost:${PORT}}"
+fi
 API_BASE_URL="${API_BASE_URL%/}"
 API_BASE_URL="${API_BASE_URL%/api}"
 FRONTEND_URL="http://localhost:${VITE_PORT}"
@@ -138,6 +147,9 @@ smoke_token="$(cd "$ROOT_DIR/backend" && go run ./cmd/devtoken \
   -lifetime 1h)" || die "could not mint the temporary claim-check token"
 [[ -n "$smoke_token" ]] || die "the temporary claim-check token was empty"
 env_modified=1
+env_set "$ENV_FILE" PORT "$PORT"
+env_set "$ENV_FILE" VITE_PORT "$VITE_PORT"
+env_set "$ENV_FILE" API_BASE_URL "$API_BASE_URL"
 env_set "$ENV_FILE" VITE_DEV_TOKEN "$smoke_token"
 export VITE_DEV_TOKEN="$smoke_token"
 
@@ -167,6 +179,7 @@ if [[ -z "$claim_url" ]]; then
   smoke_organization="Synthetic-Smoke-$(date +%s)-$$"
   echo "Seeding an unclaimed synthetic Owner invitation for the claim check..."
   seed_output="$(cd "$ROOT_DIR" && make db-seed \
+    SEED_CLAIM_BASE_URL="$FRONTEND_URL/claim" \
     SEED_ORGANIZATION_NAME="$smoke_organization" \
     SEED_OWNER_EMAIL="$claim_email" \
     SEED_OWNER_SUBJECT= 2>&1 | tee "$LOG_DIR/seed.log")" \
