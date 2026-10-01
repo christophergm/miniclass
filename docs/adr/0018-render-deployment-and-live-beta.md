@@ -47,7 +47,7 @@ The canonical origins are:
 
 `https://miniclass.app` redirects permanently to `https://www.miniclass.app`; it serves no
 application content. The API config permits only the frontend origin for its environment. The
-frontend's `VITE_API_BASE_URL`, API `API_BASE_URL`, invitation-claim base URL, Supabase site/redirect
+frontend's `VITE_API_URL`, API `API_BASE_URL`, invitation-claim base URL, Supabase site/redirect
 configuration, and CORS configuration use the same environment's pair of origins. Secrets and
 provider-managed values are configured in Render and Supabase, not committed to the Blueprint.
 

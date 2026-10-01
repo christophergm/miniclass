@@ -5,9 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#f7f8fc" />
     <!--
-      connect-src carries no API origin: the client bundle leaves VITE_API_URL
-      empty in local development and requests a relative /api, which the Vite dev
-      server proxies to API_PROXY_TARGET. ws:/wss: are for Vite HMR.
+      Vite replaces VITE_API_URL during production builds, allowing the browser
+      to reach the separately deployed API. It is empty locally, where relative
+      /api requests travel through the Vite proxy to API_PROXY_TARGET. ws:/wss:
+      are for Vite HMR.
 
       style-src keeps 'unsafe-inline' for the dev server only: Vite 5 delivers all
       CSS in dev (including Tailwind's output from @tailwindcss/vite) by creating
@@ -20,7 +21,7 @@
 
       frame-ancestors is deliberately absent: it is ignored in a meta CSP.
     -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; connect-src 'self' ws: wss: https://*.supabase.co https://*.supabase.in; font-src 'self'; form-action 'self'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; connect-src 'self' %VITE_API_URL% ws: wss: https://*.supabase.co https://*.supabase.in; font-src 'self'; form-action 'self'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'" />
     <title>MiniClass</title>
   </head>
   <body>

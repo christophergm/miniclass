@@ -57,7 +57,7 @@ services:
     staticPublishPath: ./frontend/dist
     autoDeploy: false
     envVars:
-      - key: VITE_API_BASE_URL
+      - key: VITE_API_URL
         sync: false
       - key: VITE_SUPABASE_URL
         sync: false
