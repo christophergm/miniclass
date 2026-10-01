@@ -32,14 +32,13 @@ Keep Render automatic deploys disabled. The committed [`render.yaml`](../render.
 
 ## Creating a release
 
-Only annotated tags on a commit already reachable from `main` are accepted:
+Create a release tag from clean, current `main` with:
 
 ```sh
-git switch main
-git pull --ff-only
-git tag -a v1.2.3-rc.1 -m "Release v1.2.3-rc.1"
-git push origin v1.2.3-rc.1
+make release-tag VERSION=v1.2.3-rc.1
 ```
+
+The target requires clean, current `main`, validates the version format, creates an annotated tag, and pushes only that tag ref. The release workflow then verifies that the tagged commit is reachable from `main` and CI-green.
 
 - `vX.Y.Z-rc.N` releases to **staging** only.
 - `vX.Y.Z` releases to **production** only, and GitHub Environment approval is required before its migration starts.

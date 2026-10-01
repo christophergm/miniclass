@@ -45,6 +45,7 @@ endef
 
 .PHONY: help setup tools-install generate smoke \
 	db-up db-down db-migrate db-rollback db-status db-migration-new db-seed db-reset \
+	release-tag \
 	solver-up \
 	dev dev-backend dev-frontend dev-frontend-anonymous token-mint \
 	test test-backend test-frontend test-migrations \
@@ -113,6 +114,15 @@ db-reset: ## Drop, migrate, seed, and refresh the login (make db-reset CONFIRM=1
 	@echo "Stop the API first if it is running: its connection pool outlives the schema this replaces."
 	@$(MAKE) -C backend reset-db RESET_DB_CONFIRM=1
 	@$(MAKE) token-mint
+
+##@ Release
+
+release-tag: ## Create and push an annotated release tag (make release-tag VERSION=vX.Y.Z-rc.N)
+	@if [ -z "$(VERSION)" ]; then \
+		echo "VERSION is required: make release-tag VERSION=vX.Y.Z-rc.N"; \
+		exit 1; \
+	fi
+	@./scripts/release/create-tag.sh "$(VERSION)"
 
 ##@ Development
 
