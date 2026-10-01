@@ -87,6 +87,64 @@ jobs:
           SOLVER_BASE_URL: http://localhost:8090
         run: make test-solver
 
+  deployment-images:
+    name: Deployment image smoke tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: miniclass
+          POSTGRES_PASSWORD: miniclass_dev_password
+          POSTGRES_DB: miniclass_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U miniclass -d miniclass_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      POSTGRES_ADMIN_DATABASE_URL: postgres://miniclass:miniclass_dev_password@localhost:5432/postgres?sslmode=disable
+      API_PORT: 18080
+      SOLVER_PORT: 18090
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Provision API database role
+        run: |
+          psql "$POSTGRES_ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 -f backend/scripts/init-roles.sql
+          psql "$POSTGRES_ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 -c "alter database miniclass_test owner to miniclass_migrator"
+      - name: Build runtime images
+        run: |
+          docker build --file backend/Dockerfile --tag miniclass-api:ci backend
+          docker build --file solver/Dockerfile --tag miniclass-solver:ci solver
+      - name: Verify API runtime image metadata
+        run: |
+          test "$(docker image inspect --format '{{.Config.User}}' miniclass-api:ci)" = miniclass
+          test "$(docker image inspect --format '{{json .Config.Entrypoint}}' miniclass-api:ci)" = '["/usr/local/bin/miniclass-api"]'
+      - name: Start images on injected ports
+        run: |
+          docker run --detach --rm --name miniclass-api-smoke --network host \
+            --env PORT="$API_PORT" \
+            --env APP_DATABASE_URL=postgres://miniclass_app:miniclass_app_dev_password@127.0.0.1:5432/miniclass_test?sslmode=disable \
+            --env AUTH_PROVIDER=supabase \
+            --env AUTH_ISSUER=https://auth.example.test \
+            --env AUTH_AUDIENCE=authenticated \
+            --env SOLVER_BASE_URL=http://solver:8090 \
+            miniclass-api:ci
+          docker run --detach --rm --name miniclass-solver-smoke --network host \
+            --env PORT="$SOLVER_PORT" \
+            miniclass-solver:ci
+      - name: Check health endpoints without migrations
+        run: |
+          curl --retry 10 --retry-connrefused --fail --silent --show-error "http://127.0.0.1:$API_PORT/api/health"
+          curl --retry 10 --retry-connrefused --fail --silent --show-error "http://127.0.0.1:$SOLVER_PORT/health"
+      - name: Stop smoke containers
+        if: always()
+        run: docker rm --force miniclass-api-smoke miniclass-solver-smoke || true
+
   backend-lint:
     name: Backend lint
     runs-on: ubuntu-latest

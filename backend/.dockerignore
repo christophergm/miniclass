@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+.secrets/
+.git/
+.gitignore
+.air.toml
+api
+bin/
+tmp/
+coverage.out
+coverage.html
