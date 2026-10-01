@@ -55,6 +55,11 @@ services:
     runtime: static
     buildCommand: cd frontend && bun install --frozen-lockfile && bun run build
     staticPublishPath: ./frontend/dist
+    # React Router resolves client-side paths after the SPA entry point loads.
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
     autoDeploy: false
     envVars:
       - key: VITE_API_URL
