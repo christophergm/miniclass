@@ -42,10 +42,10 @@ The canonical origins are:
 
 | Environment | Frontend | API |
 |---|---|---|
-| Production | `https://www.miniclass.app` | `https://api.miniclass.app` |
-| Staging | `https://staging.miniclass.app` | `https://api.staging.miniclass.app` |
+| Production | `https://www.miniclass.org` | `https://api.miniclass.org` |
+| Staging | `https://staging.miniclass.org` | `https://api.staging.miniclass.org` |
 
-`https://miniclass.app` redirects permanently to `https://www.miniclass.app`; it serves no
+`https://miniclass.org` redirects permanently to `https://www.miniclass.org`; it serves no
 application content. The API config permits only the frontend origin for its environment. The
 frontend's `VITE_API_URL`, API `API_BASE_URL`, invitation-claim base URL, Supabase site/redirect
 configuration, and CORS configuration use the same environment's pair of origins. Secrets and

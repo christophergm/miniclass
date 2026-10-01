@@ -62,10 +62,14 @@ export function ClaimInvitationPage() {
         );
       }
     } catch (reason) {
-      if (reason instanceof ApiError && reason.status === 403) {
+      if (reason instanceof ApiError && reason.code === "invitation-email-mismatch") {
+        setError("This invitation must be claimed with the verified email address it was sent to.");
+      } else if (reason instanceof ApiError && reason.code === "invitation-email-unverified") {
         setError(
-          "This invitation could not be claimed with the verified email on the signed-in account.",
+          "Verify this account's email address, then sign in again to claim the invitation.",
         );
+      } else if (reason instanceof ApiError && reason.code === "invitation-invalid") {
+        setError("This invitation link is invalid, expired, or has already been used.");
       } else {
         setError(errorMessage(reason));
       }
