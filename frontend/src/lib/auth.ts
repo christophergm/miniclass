@@ -1,9 +1,10 @@
-import type {
-  AuthChangeEvent,
-  AuthError,
-  Session,
-  SupabaseClient,
-  User,
+import {
+  createClient,
+  type AuthChangeEvent,
+  type AuthError,
+  type Session,
+  type SupabaseClient,
+  type User,
 } from "@supabase/supabase-js";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -194,16 +195,13 @@ if (isLocalDevAuth) {
   // an authenticated app when a VITE_DEV_TOKEN is provided.
   supabase = createLocalDevAuthClient(devToken, devTokenStatus) as unknown as SupabaseClient;
 } else if (supabaseUrl && supabaseAnonKey) {
-  void (async () => {
-    const mod = await import("@supabase/supabase-js");
-    supabase = mod.createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-        persistSession: true,
-      },
-    });
-  })();
+  supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      persistSession: true,
+    },
+  });
 }
 
 // The one place the bearer token is read. Both API clients call this, so a new
