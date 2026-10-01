@@ -57,8 +57,10 @@ const account = (role: string): MeResponse => ({
 
 const policy: GuardianOnboardingPolicy = {
   terms_version: "terms-v1",
+  terms_effective_date: "2026-09-29",
   terms_notice: "Terms",
   privacy_version: "privacy-v1",
+  privacy_effective_date: "2026-09-29",
   privacy_notice: "Privacy",
 };
 

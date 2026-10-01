@@ -674,12 +674,8 @@ func (s *Store) VerifyOTP(ctx context.Context, input guardian.OTPVerifyInput) (g
 		if err != nil {
 			return err
 		}
-		notice, err := tx.GetGuardianSignupNotice(ctx)
-		if err != nil {
-			return err
-		}
 		exchanged.ExistingGuardian = true
-		if consent.TermsVersion != guardian.TermsVersion || consent.PrivacyVersion != guardian.PrivacyVersion || (notice.Content != nil && (consent.SignupNoticeVersion == nil || *consent.SignupNoticeVersion != notice.Version || !bytes.Equal(consent.SignupNoticeHash, notice.ContentHash))) || (notice.Content == nil && (consent.SignupNoticeVersion != nil || len(consent.SignupNoticeHash) > 0)) {
+		if consent.TermsVersion != guardian.TermsVersion || consent.PrivacyVersion != guardian.PrivacyVersion {
 			return nil
 		}
 		bearer, err := GenerateAccessToken()
@@ -741,25 +737,15 @@ func (s *Store) AcceptConsent(ctx context.Context, input guardian.ConsentInput) 
 	if input.TermsVersion != guardian.TermsVersion || input.PrivacyVersion != guardian.PrivacyVersion {
 		return guardian.Session{}, guardian.ErrConsentInvalid
 	}
-	var noticeVersion *int
-	if policy.SignupNotice != nil {
-		if input.SignupNoticeVersion == nil || *input.SignupNoticeVersion != policy.SignupNotice.Version || !bytes.Equal(input.SignupNoticeHash, policy.SignupNotice.Hash) {
-			return guardian.Session{}, guardian.ErrSignupNoticeInvalid
-		}
-		noticeVersion = input.SignupNoticeVersion
-	} else if input.SignupNoticeVersion != nil || len(input.SignupNoticeHash) > 0 {
-		return guardian.Session{}, guardian.ErrSignupNoticeInvalid
-	}
+	// An organization signup notice is informational and deliberately excluded
+	// from the legal-consent record.
 	source := strings.TrimSpace(input.SourceSurface)
 	if source == "" {
 		source = "guardian_onboarding_web"
 	}
 	err = s.tenantDatabase.InTenant(ctx, string(*session.OrganizationID), audit.Actor{Type: audit.ActorTypeLink, Label: email}, func(ctx context.Context, tx *data.Tx) error {
 		if existing, err := tx.GetGuardianOnboardingConsent(ctx, *session.SchoolYearID, session.ID); err == nil {
-			if existing.TermsVersion != guardian.TermsVersion || existing.PrivacyVersion != guardian.PrivacyVersion || existing.SignupNoticeVersion == nil && policy.SignupNotice != nil || existing.SignupNoticeVersion != nil && policy.SignupNotice == nil {
-				return guardian.ErrConsentRequired
-			}
-			if policy.SignupNotice != nil && (existing.SignupNoticeVersion == nil || *existing.SignupNoticeVersion != policy.SignupNotice.Version || !bytes.Equal(existing.SignupNoticeHash, policy.SignupNotice.Hash)) {
+			if existing.TermsVersion != guardian.TermsVersion || existing.PrivacyVersion != guardian.PrivacyVersion {
 				return guardian.ErrConsentRequired
 			}
 			invitationAccepted, err := tx.LinkGuardianInvitationContactConsent(ctx, *session.SchoolYearID, email, existing.ID)
@@ -774,7 +760,7 @@ func (s *Store) AcceptConsent(ctx context.Context, input guardian.ConsentInput) 
 		} else if !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}
-		consent, err := tx.CreateGuardianOnboardingConsent(ctx, *session.SchoolYearID, session.ID, email, guardian.TermsVersion, guardian.PrivacyVersion, noticeVersion, input.SignupNoticeHash, now, source)
+		consent, err := tx.CreateGuardianOnboardingConsent(ctx, *session.SchoolYearID, session.ID, email, guardian.TermsVersion, guardian.PrivacyVersion, nil, nil, now, source)
 		if err != nil {
 			return err
 		}
@@ -782,7 +768,7 @@ func (s *Store) AcceptConsent(ctx context.Context, input guardian.ConsentInput) 
 		if err != nil {
 			return err
 		}
-		return tx.Record(ctx, audit.Entry{Action: audit.ActionGuardianTermsAccepted, ObjectType: "guardian_onboarding_consent", ObjectID: &consent.ID, SchoolYearID: session.SchoolYearID, Reason: source, ChangeSummary: jsonObject(map[string]any{"terms_version": guardian.TermsVersion, "privacy_version": guardian.PrivacyVersion, "signup_notice_version": noticeVersion, "invitation_accepted": invitationAccepted})})
+		return tx.Record(ctx, audit.Entry{Action: audit.ActionGuardianTermsAccepted, ObjectType: "guardian_onboarding_consent", ObjectID: &consent.ID, SchoolYearID: session.SchoolYearID, Reason: source, ChangeSummary: jsonObject(map[string]any{"terms_version": guardian.TermsVersion, "privacy_version": guardian.PrivacyVersion, "invitation_accepted": invitationAccepted})})
 	})
 	if err != nil {
 		return guardian.Session{}, fmt.Errorf("accept guardian consent: %w", err)
@@ -863,18 +849,7 @@ func (s *Store) Complete(ctx context.Context, input guardian.CompleteInput) (gua
 		if err != nil {
 			return err
 		}
-		currentNotice, err := tx.GetGuardianSignupNotice(ctx)
-		if err != nil {
-			return err
-		}
 		if consent.TermsVersion != guardian.TermsVersion || consent.PrivacyVersion != guardian.PrivacyVersion {
-			return guardian.ErrConsentRequired
-		}
-		if currentNotice.Content != nil {
-			if consent.SignupNoticeVersion == nil || *consent.SignupNoticeVersion != currentNotice.Version || !bytes.Equal(consent.SignupNoticeHash, currentNotice.ContentHash) {
-				return guardian.ErrConsentRequired
-			}
-		} else if consent.SignupNoticeVersion != nil || len(consent.SignupNoticeHash) > 0 {
 			return guardian.ErrConsentRequired
 		}
 		if err := tx.LockGuardianOnboardingEmail(ctx, *session.SchoolYearID, consent.VerifiedEmail); err != nil {
@@ -1124,7 +1099,7 @@ func guardianTokenFromIdentity(token identitydata.AccessToken) data.GuardianToke
 }
 
 func policyFromNotice(notice data.GuardianSignupNotice) guardian.Policy {
-	policy := guardian.Policy{TermsVersion: guardian.TermsVersion, TermsNotice: guardian.TermsNotice, PrivacyVersion: guardian.PrivacyVersion, PrivacyNotice: guardian.PrivacyNotice}
+	policy := guardian.Policy{TermsVersion: guardian.TermsVersion, TermsEffectiveDate: guardian.TermsEffectiveDate, TermsNotice: guardian.TermsNotice, PrivacyVersion: guardian.PrivacyVersion, PrivacyEffectiveDate: guardian.PrivacyEffectiveDate, PrivacyNotice: guardian.PrivacyNotice}
 	if notice.Content != nil && notice.Version > 0 && len(notice.ContentHash) == sha256.Size {
 		policy.SignupNotice = &guardian.SignupNotice{Content: *notice.Content, Version: notice.Version, Hash: append([]byte(nil), notice.ContentHash...)}
 	}

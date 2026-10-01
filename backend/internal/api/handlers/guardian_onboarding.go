@@ -425,11 +425,13 @@ type GuardianSignupNoticeInput struct {
 }
 
 type GuardianPolicyResponse struct {
-	TermsVersion   string                        `json:"terms_version"`
-	TermsNotice    string                        `json:"terms_notice"`
-	PrivacyVersion string                        `json:"privacy_version"`
-	PrivacyNotice  string                        `json:"privacy_notice"`
-	SignupNotice   *GuardianSignupNoticeResponse `json:"signup_notice,omitempty"`
+	TermsVersion         string                        `json:"terms_version"`
+	TermsEffectiveDate   string                        `json:"terms_effective_date" format:"date"`
+	TermsNotice          string                        `json:"terms_notice"`
+	PrivacyVersion       string                        `json:"privacy_version"`
+	PrivacyEffectiveDate string                        `json:"privacy_effective_date" format:"date"`
+	PrivacyNotice        string                        `json:"privacy_notice"`
+	SignupNotice         *GuardianSignupNoticeResponse `json:"signup_notice,omitempty"`
 }
 
 type GuardianSignupNoticeResponse struct {
@@ -528,13 +530,11 @@ type GuardianOTPVerifyInput struct {
 
 type GuardianConsentInput struct {
 	Body struct {
-		SessionToken        string `json:"session_token" minLength:"1"`
-		Email               string `json:"email" minLength:"1" format:"email"`
-		TermsVersion        string `json:"terms_version" minLength:"1"`
-		PrivacyVersion      string `json:"privacy_version" minLength:"1"`
-		SignupNoticeVersion *int   `json:"signup_notice_version,omitempty"`
-		SignupNoticeHash    string `json:"signup_notice_hash,omitempty"`
-		SourceSurface       string `json:"source_surface,omitempty"`
+		SessionToken   string `json:"session_token" minLength:"1"`
+		Email          string `json:"email" minLength:"1" format:"email"`
+		TermsVersion   string `json:"terms_version" minLength:"1"`
+		PrivacyVersion string `json:"privacy_version" minLength:"1"`
+		SourceSurface  string `json:"source_surface,omitempty"`
 	}
 }
 
@@ -661,11 +661,7 @@ func (h *GuardianOnboardingHandler) AcceptConsent(ctx context.Context, input *Gu
 	if input == nil {
 		return nil, problems.New(http.StatusBadRequest, problems.ConsentRequired, "consent fields are required")
 	}
-	hash, err := decodeOptionalHash(input.Body.SignupNoticeHash)
-	if err != nil {
-		return nil, problems.New(http.StatusBadRequest, problems.ConsentInvalid, "signup notice hash is invalid")
-	}
-	session, err := h.service.AcceptConsent(ctx, guardian.ConsentInput{SessionToken: input.Body.SessionToken, Email: input.Body.Email, TermsVersion: input.Body.TermsVersion, PrivacyVersion: input.Body.PrivacyVersion, SignupNoticeVersion: input.Body.SignupNoticeVersion, SignupNoticeHash: hash, SourceSurface: input.Body.SourceSurface, Now: time.Now().UTC()})
+	session, err := h.service.AcceptConsent(ctx, guardian.ConsentInput{SessionToken: input.Body.SessionToken, Email: input.Body.Email, TermsVersion: input.Body.TermsVersion, PrivacyVersion: input.Body.PrivacyVersion, SourceSurface: input.Body.SourceSurface, Now: time.Now().UTC()})
 	if err != nil {
 		return nil, guardianOnboardingProblem(err)
 	}
@@ -735,7 +731,7 @@ func guardianOnboardingProblem(err error) error {
 		return problems.New(http.StatusConflict, problems.InvitationEmailUnverified, "verify the guardian mailbox before continuing")
 	case errors.Is(err, guardian.ErrConsentRequired):
 		return problems.New(http.StatusConflict, problems.ConsentRequired, "current terms and privacy acceptance is required")
-	case errors.Is(err, guardian.ErrConsentInvalid), errors.Is(err, guardian.ErrSignupNoticeInvalid):
+	case errors.Is(err, guardian.ErrConsentInvalid):
 		return problems.New(http.StatusBadRequest, problems.ConsentInvalid, "the submitted consent does not match the current policy")
 	case errors.Is(err, guardian.ErrOnboardingRateLimit):
 		return problems.New(http.StatusTooManyRequests, problems.RateLimited, "too many onboarding requests")
@@ -755,7 +751,7 @@ func guardianOnboardingProblem(err error) error {
 }
 
 func guardianPolicyResponse(policy guardian.Policy) GuardianPolicyResponse {
-	result := GuardianPolicyResponse{TermsVersion: policy.TermsVersion, TermsNotice: policy.TermsNotice, PrivacyVersion: policy.PrivacyVersion, PrivacyNotice: policy.PrivacyNotice}
+	result := GuardianPolicyResponse{TermsVersion: policy.TermsVersion, TermsEffectiveDate: policy.TermsEffectiveDate, TermsNotice: policy.TermsNotice, PrivacyVersion: policy.PrivacyVersion, PrivacyEffectiveDate: policy.PrivacyEffectiveDate, PrivacyNotice: policy.PrivacyNotice}
 	if policy.SignupNotice != nil {
 		result.SignupNotice = &GuardianSignupNoticeResponse{Content: policy.SignupNotice.Content, Version: policy.SignupNotice.Version, Hash: hex.EncodeToString(policy.SignupNotice.Hash)}
 	}
@@ -783,15 +779,4 @@ func guardianOnboardingSessionResponse(session guardian.Session, vocabulary guar
 		homerooms = append(homerooms, GuardianVocabularyOption{ID: string(homeroom.ID), Label: homeroom.Label})
 	}
 	return GuardianOnboardingSessionResponse{SessionToken: session.Token, SessionID: string(session.ID), OrganizationID: string(session.OrganizationID), SchoolYearID: string(session.SchoolYearID), Email: session.Email, Verified: session.Verified, Consented: session.Consented, ExpiresAt: session.ExpiresAt, IdleExpiresAt: session.IdleExpiresAt, Policy: guardianPolicyResponse(session.Policy), GradeLevels: gradeLevels, Homerooms: homerooms, ExistingGuardian: session.ExistingGuardian, GuardianSessionToken: session.GuardianSessionToken}
-}
-
-func decodeOptionalHash(value string) ([]byte, error) {
-	if strings.TrimSpace(value) == "" {
-		return nil, nil
-	}
-	decoded, err := hex.DecodeString(strings.TrimSpace(value))
-	if err != nil || len(decoded) != 32 {
-		return nil, errors.New("invalid hash")
-	}
-	return decoded, nil
 }

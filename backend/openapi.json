@@ -1623,13 +1623,6 @@
             "minLength": 1,
             "type": "string"
           },
-          "signup_notice_hash": {
-            "type": "string"
-          },
-          "signup_notice_version": {
-            "format": "int64",
-            "type": "integer"
-          },
           "source_surface": {
             "type": "string"
           },
@@ -2067,6 +2060,10 @@
             "readOnly": true,
             "type": "string"
           },
+          "privacy_effective_date": {
+            "format": "date",
+            "type": "string"
+          },
           "privacy_notice": {
             "type": "string"
           },
@@ -2075,6 +2072,10 @@
           },
           "signup_notice": {
             "$ref": "#/components/schemas/GuardianSignupNoticeResponse"
+          },
+          "terms_effective_date": {
+            "format": "date",
+            "type": "string"
           },
           "terms_notice": {
             "type": "string"
@@ -2085,8 +2086,10 @@
         },
         "required": [
           "terms_version",
+          "terms_effective_date",
           "terms_notice",
           "privacy_version",
+          "privacy_effective_date",
           "privacy_notice"
         ],
         "type": "object"
