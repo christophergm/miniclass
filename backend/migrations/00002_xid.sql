@@ -98,7 +98,7 @@ alter table health_checks
 alter table health_checks
     alter column id drop default,
     alter column id type uuid using gen_random_uuid(),
-    alter column id set default uuidv7();
+    alter column id set default gen_random_uuid();
 
 drop function if exists public.xid_counter(public.xid20);
 drop function if exists public.xid_pid(public.xid20);
