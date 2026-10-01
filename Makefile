@@ -73,7 +73,7 @@ generate: ## Regenerate the committed backend artifacts (sqlc, openapi.json)
 	@$(MAKE) -C backend generate
 
 smoke: ## Run the full-stack smoke test in throwaway processes
-	@./scripts/smoke-test.sh
+	@PORT="$(PORT)" VITE_PORT="$(VITE_PORT)" ./scripts/smoke-test.sh
 
 ##@ Database
 
