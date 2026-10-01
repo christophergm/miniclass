@@ -109,7 +109,7 @@ describe("GuardianOnboardingPage", () => {
 
     expect(await screen.findByLabelText("Your first name")).toBeInTheDocument();
     expect(
-      screen.getByText(/add a learner to your family’s mini class space/i),
+      screen.getByText(/add a student to your family’s mini class space/i),
     ).toBeInTheDocument();
     expect(screen.queryByLabelText("Student given name")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Grade")).not.toBeInTheDocument();
@@ -138,7 +138,11 @@ describe("GuardianOnboardingPage", () => {
       consented: false,
       policy: {
         ...session.policy,
-        signup_notice: { content: "We can’t wait to learn together.", version: 1, hash: "notice" },
+        signup_notice: {
+          content: "We can’t wait to learn together.",
+          version: 1,
+          hash: "6e6f74696365",
+        },
       },
     });
 
@@ -156,8 +160,22 @@ describe("GuardianOnboardingPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Start registration" }));
     expect(await screen.findByText("A note from your Mini Class team")).toBeInTheDocument();
     expect(screen.queryByLabelText(/organization notice/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Agree and continue" })).toBeDisabled();
 
-    fireEvent.click(screen.getByLabelText(/i’ve read and agree/i));
+    fireEvent.click(screen.getByRole("link", { name: "Read the Terms of Service" }));
+    const termsDialog = await screen.findByRole("dialog", { name: "Terms of Service" });
+    expect(termsDialog).toHaveFocus();
+    expect(screen.getByText(/Version: v1/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/i agree to the terms/i)).not.toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+
+    fireEvent.click(screen.getByRole("link", { name: "Read the Privacy Policy" }));
+    const privacyDialog = await screen.findByRole("dialog", { name: "Privacy Policy" });
+    expect(privacyDialog).toHaveFocus();
+    expect(screen.getByText(/Version: v1/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+
+    fireEvent.click(screen.getByLabelText(/i agree to the terms/i));
     fireEvent.click(screen.getByRole("button", { name: "Agree and continue" }));
 
     await waitFor(() =>
@@ -290,7 +308,7 @@ describe("GuardianOnboardingPage", () => {
     );
 
     fireEvent.click(await screen.findByRole("button", { name: "Start registration" }));
-    fireEvent.click(await screen.findByLabelText(/i’ve read and agree/i));
+    fireEvent.click(await screen.findByLabelText(/i agree to the terms/i));
     fireEvent.click(screen.getByRole("button", { name: "Agree and continue" }));
 
     expect(await screen.findByTestId("location")).toHaveTextContent(

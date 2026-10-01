@@ -10,13 +10,16 @@ import (
 
 	"github.com/chrismott/miniclass/internal/audit"
 	"github.com/chrismott/miniclass/internal/ids"
+	"github.com/chrismott/miniclass/policy"
 )
 
-const (
-	TermsVersion   = "terms-v1"
-	PrivacyVersion = "privacy-v1"
-	TermsNotice    = "You may register only the guardian and student relationship you are authorized to provide."
-	PrivacyNotice  = "MiniClass uses this verified mailbox and roster relationship to provide the current school-year guardian experience."
+var (
+	TermsVersion         = policy.Current.GuardianOnboarding.Terms.Version
+	TermsEffectiveDate   = policy.Current.GuardianOnboarding.Terms.EffectiveDate
+	TermsNotice          = policy.Current.GuardianOnboarding.Terms.Notice
+	PrivacyVersion       = policy.Current.GuardianOnboarding.Privacy.Version
+	PrivacyEffectiveDate = policy.Current.GuardianOnboarding.Privacy.EffectiveDate
+	PrivacyNotice        = policy.Current.GuardianOnboarding.Privacy.Notice
 )
 
 var (
@@ -29,7 +32,6 @@ var (
 	ErrOnboardingRateLimit     = errors.New("guardian onboarding rate limit exceeded")
 	ErrOnboardingEmailConflict = errors.New("guardian email requires administrator review")
 	ErrOTPInvalid              = errors.New("guardian onboarding OTP is invalid or expired")
-	ErrSignupNoticeInvalid     = errors.New("guardian signup notice acceptance is invalid")
 )
 
 type SignupNotice struct {
@@ -39,11 +41,13 @@ type SignupNotice struct {
 }
 
 type Policy struct {
-	TermsVersion   string
-	TermsNotice    string
-	PrivacyVersion string
-	PrivacyNotice  string
-	SignupNotice   *SignupNotice
+	TermsVersion         string
+	TermsEffectiveDate   string
+	TermsNotice          string
+	PrivacyVersion       string
+	PrivacyEffectiveDate string
+	PrivacyNotice        string
+	SignupNotice         *SignupNotice
 }
 
 type Session struct {
@@ -194,14 +198,13 @@ type OTPVerifyInput struct {
 }
 
 type ConsentInput struct {
-	SessionToken        string
-	Email               string
-	TermsVersion        string
-	PrivacyVersion      string
-	SignupNoticeVersion *int
-	SignupNoticeHash    []byte
-	SourceSurface       string
-	Now                 time.Time
+	SessionToken   string
+	Email          string
+	TermsVersion   string
+	PrivacyVersion string
+
+	SourceSurface string
+	Now           time.Time
 }
 
 type CompleteInput struct {

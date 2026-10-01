@@ -48,7 +48,7 @@ export function GuardianOnboardingLayout({
               Mini Class{organizationName ? ` at ${organizationName}` : ""}
             </h1>
             {schoolYearLabel && (
-              <p className="mt-4 inline-flex rounded-full border-2 border-stone-950 bg-[#ffcc2e] px-4 py-1.5 text-sm font-black text-stone-950 shadow-[3px_3px_0_#1c1917]">
+              <p className="mt-4 text-sm font-semibold text-stone-800">
                 {schoolYearLabel} registration
               </p>
             )}

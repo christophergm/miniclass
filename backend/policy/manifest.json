@@ -1,0 +1,16 @@
+{
+  "guardian_onboarding": {
+    "terms": {
+      "title": "Terms of Service",
+      "version": "terms-v1",
+      "effective_date": "2026-09-29",
+      "notice": "You may register only the guardian and student relationship you are authorized to provide."
+    },
+    "privacy": {
+      "title": "Privacy Policy",
+      "version": "privacy-v1",
+      "effective_date": "2026-09-29",
+      "notice": "MiniClass uses this verified mailbox and roster relationship to provide the current school-year guardian experience."
+    }
+  }
+}

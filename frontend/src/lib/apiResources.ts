@@ -249,8 +249,6 @@ export const resourceApi = {
       email: string;
       terms_version: string;
       privacy_version: string;
-      signup_notice_version?: number;
-      signup_notice_hash?: string;
       source_surface?: string;
     },
   ) =>

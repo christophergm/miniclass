@@ -107,7 +107,12 @@ describe("App routing", () => {
     renderApp("/terms", null);
 
     expect(await screen.findByRole("heading", { name: "Terms of Service" })).toBeInTheDocument();
-    expect(screen.getByText("Last updated: September 29, 2026")).toBeInTheDocument();
+    expect(screen.getByText(/Last updated: September 29, 2026 · Version: v1/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "MIT License" })).toHaveAttribute(
+      "href",
+      "https://github.com/christophergm/miniclass/blob/main/LICENSE",
+    );
+    expect(screen.getByRole("link", { name: "MIT License" })).toHaveAttribute("target", "_blank");
     expect(screen.getByRole("link", { name: "hello@miniclass.org" })).toHaveAttribute(
       "href",
       "mailto:hello@miniclass.org",

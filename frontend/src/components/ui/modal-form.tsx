@@ -6,10 +6,13 @@ type ModalFormProps = {
   open: boolean;
   title: string;
   description?: string;
+  titleClassName?: string;
+  initialFocus?: "first" | "dialog";
   dirty?: boolean;
   onClose: () => void;
   children: ReactNode;
   tone?: "default" | "guardian";
+  size?: "default" | "wide";
 };
 
 function focusableElements(container: HTMLElement) {
@@ -25,10 +28,13 @@ export function ModalForm({
   open,
   title,
   description,
+  titleClassName,
+  initialFocus = "first",
   dirty = false,
   onClose,
   children,
   tone = "default",
+  size = "default",
 }: ModalFormProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
@@ -45,9 +51,13 @@ export function ModalForm({
     openerRef.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const dialog = dialogRef.current;
-    const focusable = dialog && focusableElements(dialog);
-    const first = focusable && (focusable[1] ?? focusable[0]);
-    first?.focus();
+    if (initialFocus === "dialog") {
+      dialog?.focus();
+    } else {
+      const focusable = dialog && focusableElements(dialog);
+      const first = focusable && (focusable[1] ?? focusable[0]);
+      first?.focus();
+    }
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
@@ -81,7 +91,7 @@ export function ModalForm({
     function requestClose() {
       if (!dirtyRef.current || window.confirm("Discard unsaved changes?")) closeRef.current();
     }
-  }, [open]);
+  }, [initialFocus, open]);
 
   if (!open) return null;
 
@@ -101,17 +111,18 @@ export function ModalForm({
         aria-labelledby="modal-form-title"
         aria-modal="true"
         className={cn(
-          "w-full max-w-lg p-6",
+          size === "wide" ? "w-full max-w-3xl p-6" : "w-full max-w-lg p-6",
           tone === "guardian"
             ? "rounded-2xl border-4 border-stone-950 bg-[#fffaf0] text-stone-950 shadow-[7px_7px_0_#1c1917]"
             : "rounded-lg border bg-card shadow-xl",
         )}
         ref={dialogRef}
         role="dialog"
+        tabIndex={-1}
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold" id="modal-form-title">
+            <h2 className={cn("text-lg font-semibold", titleClassName)} id="modal-form-title">
               {title}
             </h2>
             {description && (

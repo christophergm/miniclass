@@ -206,6 +206,43 @@ func TestGuardianSignupNoticeReadIsOrganizationScoped(t *testing.T) {
 	require.Nil(t, other.SignupNotice)
 }
 
+func TestGuardianSignupNoticeRevisionsDoNotInvalidateLegalConsent(t *testing.T) {
+	harness := testharness.Open(t)
+	ctx := harness.Context
+	organizationID := harness.MintOrganization(t)
+	actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "guardian signup notice revision integration"}
+	factory := factories.New(harness.Database, string(organizationID), actor)
+	year, err := factory.CreateSchoolYear(ctx, "Synthetic signup notice revision year")
+	require.NoError(t, err)
+	activateGuardianOnboardingYear(t, harness.Database, ctx, organizationID, actor, year.ID)
+
+	delivery := &onboardingOTPDelivery{}
+	store := identity.NewStoreWithAuth(harness.Database, nil, delivery)
+	now := time.Now().UTC()
+	entry, err := store.CreateRegistrationEntry(ctx, organizationID, year.ID, actor, now)
+	require.NoError(t, err)
+	firstNotice := "Bring the confirmation message to registration."
+	_, err = store.UpdateSignupNotice(ctx, organizationID, &firstNotice, actor, now)
+	require.NoError(t, err)
+
+	firstSession, err := store.Begin(ctx, guardian.BeginInput{EntryToken: string(entry.ID), Now: now})
+	require.NoError(t, err)
+	challenge, err := store.RequestOTP(ctx, guardian.OTPRequestInput{SessionToken: firstSession.Token, Email: "guardian@example.test", Now: now})
+	require.NoError(t, err)
+	_, code, _ := delivery.latest()
+	_, err = store.VerifyOTP(ctx, guardian.OTPVerifyInput{SessionToken: firstSession.Token, ChallengeID: challenge.ChallengeID, Code: code, Now: now})
+	require.NoError(t, err)
+	_, err = store.AcceptConsent(ctx, guardian.ConsentInput{SessionToken: firstSession.Token, Email: "guardian@example.test", TermsVersion: guardian.TermsVersion, PrivacyVersion: guardian.PrivacyVersion, SourceSurface: "integration", Now: now})
+	require.NoError(t, err)
+
+	secondNotice := "Registration starts at the main entrance."
+	_, err = store.UpdateSignupNotice(ctx, organizationID, &secondNotice, actor, now.Add(time.Second))
+	require.NoError(t, err)
+	_, err = store.Complete(ctx, guardian.CompleteInput{SessionToken: firstSession.Token, AdultGivenName: "Guardian", AdultFamilyName: "One", Now: now.Add(2 * time.Second)})
+	require.NoError(t, err)
+
+}
+
 func TestGuardianInvitedEmailOTPConsumesOutstandingInvitation(t *testing.T) {
 	harness := testharness.Open(t)
 	ctx := harness.Context
