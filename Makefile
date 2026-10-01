@@ -45,6 +45,7 @@ endef
 
 .PHONY: help setup tools-install generate smoke \
 	db-up db-down db-migrate db-rollback db-status db-migration-new db-seed db-reset \
+	solver-up \
 	dev dev-backend dev-frontend dev-frontend-anonymous token-mint \
 	test test-backend test-frontend test-migrations \
 	test-solver \
@@ -80,6 +81,9 @@ db-up: ## Start PostgreSQL and Mailpit; wait for PostgreSQL to be healthy
 
 db-down: ## Stop the local database services; the data volume survives
 	@docker compose down
+
+solver-up: ## Build, start, and health-check the current solver image
+	@docker compose up --detach --build --wait solver
 
 db-migrate: ## Apply every pending migration
 	@$(MAKE) -C backend migrate-up
@@ -147,7 +151,7 @@ test-frontend: ## Run the frontend unit and mobile E2E tests once
 test-migrations: ## Apply, roll back, and reapply every migration on a scratch database
 	@$(MAKE) -C backend migration-round-trip
 
-test-solver: ## Run expected-scale Go-to-Python solver checks against SOLVER_BASE_URL
+test-solver: solver-up ## Build the solver, then run expected-scale Go-to-Python checks
 	@$(MAKE) -C backend test-solver-sidecar
 
 lint: lint-backend lint-frontend ## Lint both components

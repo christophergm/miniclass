@@ -109,7 +109,7 @@ test: ## Run all backend unit and integration tests
 	go test -race -v ./... -count=1
 
 test-solver-sidecar: ## Run expected-scale Go-to-Python solver checks against SOLVER_BASE_URL
-	@if [ -z "$(SOLVER_BASE_URL)" ]; then echo "SOLVER_BASE_URL is required; start the solver first with 'docker compose up --detach --wait solver'."; exit 1; fi
+	@if [ -z "$(SOLVER_BASE_URL)" ]; then echo "SOLVER_BASE_URL is required; start the current solver image first with 'make solver-up' from the repository root."; exit 1; fi
 	go test -v ./internal/solverclient -run '^(TestExpectedScaleScenarioBuildsContract|TestExpectedScaleSidecarPerformance)$$' -count=1
 
 format: ## Verify Go formatting and run the Go vet analyzer
