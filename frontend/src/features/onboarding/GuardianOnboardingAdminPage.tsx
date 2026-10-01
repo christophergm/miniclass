@@ -749,12 +749,7 @@ export function GuardianOnboardingAdminPage() {
                 />
               )}
               {issuedLinkURL && (
-                <div className="mt-5 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
-                  <p className="font-medium">Copy this newly issued link now.</p>
-                  <p className="mt-1">
-                    It cannot be shown again after this screen is left. Issuing a replacement
-                    revokes the previously active link.
-                  </p>
+                <div className="mt-5">
                   <LinkDisclosure
                     label="Shared guardian registration"
                     onCopy={onCopy}
