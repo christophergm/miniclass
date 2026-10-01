@@ -1,0 +1,102 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing annotated release tag to deploy or rehearse as a rollback
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  checks: read
+
+jobs:
+  prepare:
+    name: Validate release tag
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.release.outputs.environment }}
+      sha: ${{ steps.release.outputs.sha }}
+      tag: ${{ steps.release.outputs.tag }}
+    steps:
+      - name: Check out the release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
+          fetch-depth: 0
+      - name: Validate immutable CI-green release tag
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/release/validate-tag.sh "${{ inputs.tag || github.ref_name }}"
+
+  release:
+    name: Release ${{ needs.prepare.outputs.tag }} to ${{ needs.prepare.outputs.environment }}
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: ${{ needs.prepare.outputs.environment }}
+    concurrency:
+      group: release-${{ needs.prepare.outputs.environment }}
+      cancel-in-progress: false
+    env:
+      RELEASE_SHA: ${{ needs.prepare.outputs.sha }}
+      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+      DATABASE_URL: ${{ secrets.MINICLASS_MIGRATOR_DATABASE_URL }}
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      RENDER_API_SERVICE_ID: ${{ vars.RENDER_API_SERVICE_ID }}
+      RENDER_SOLVER_SERVICE_ID: ${{ vars.RENDER_SOLVER_SERVICE_ID }}
+      RENDER_FRONTEND_SERVICE_ID: ${{ vars.RENDER_FRONTEND_SERVICE_ID }}
+      API_HEALTH_URL: ${{ vars.API_HEALTH_URL }}
+      FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+    steps:
+      - name: Check out the validated commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          fetch-depth: 1
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+      - name: Check release configuration
+        run: |
+          test -n "$DATABASE_URL"
+          test -n "$RENDER_API_KEY"
+          test -n "$RENDER_API_SERVICE_ID"
+          test -n "$RENDER_SOLVER_SERVICE_ID"
+          test -n "$RENDER_FRONTEND_SERVICE_ID"
+          test -n "$API_HEALTH_URL"
+          test -n "$FRONTEND_URL"
+      - name: Apply pending database migrations
+        working-directory: backend
+        run: go run ./cmd/migrate up
+      - name: Record migration status
+        working-directory: backend
+        run: go run ./cmd/migrate status
+      - name: Deploy solver at the release SHA
+        run: ./scripts/release/deploy-render-service.sh "$RENDER_SOLVER_SERVICE_ID" "$RELEASE_SHA"
+      - name: Deploy API at the release SHA
+        run: ./scripts/release/deploy-render-service.sh "$RENDER_API_SERVICE_ID" "$RELEASE_SHA"
+      - name: Deploy frontend at the release SHA
+        run: ./scripts/release/deploy-render-service.sh "$RENDER_FRONTEND_SERVICE_ID" "$RELEASE_SHA"
+      - name: Verify public release health
+        run: |
+          curl --fail --retry 12 --retry-all-errors --retry-delay 5 --silent --show-error "$API_HEALTH_URL"
+          curl --fail --retry 12 --retry-all-errors --retry-delay 5 --silent --show-error "$FRONTEND_URL"
+      - name: Report release
+        run: |
+          {
+            echo "## Release complete"
+            echo
+            echo "- Tag: \`$RELEASE_TAG\`"
+            echo "- Commit: \`$RELEASE_SHA\`"
+            echo "- Environment: \`${{ needs.prepare.outputs.environment }}\`"
+            echo "- API health: $API_HEALTH_URL"
+            echo "- Frontend: $FRONTEND_URL"
+          } >> "$GITHUB_STEP_SUMMARY"

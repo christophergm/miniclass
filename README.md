@@ -13,6 +13,7 @@ preference collection, constraint-based placement, and published class and dismi
 | [`QUICKSTART.md`](./QUICKSTART.md) | The shortest path from a fresh clone to a logged-in local stack. |
 | [`WORKFLOW.md`](./WORKFLOW.md) | How agents pick up, validate and hand off work, and the ten quality gates. |
 | [`docs/production-database-bootstrap.md`](./docs/production-database-bootstrap.md) | How to securely provision Supabase application and migration database roles. |
+| [`docs/release.md`](./docs/release.md) | Configure, execute, and roll back SHA-pinned staging and production releases. |
 | [`AGENTS.md`](./AGENTS.md) | Repository rules that apply to every change. |
 | This file | How to run, drive and troubleshoot it locally. |
 
@@ -326,7 +327,8 @@ recreates the roles and schema.
 
 [ADR 0018](./docs/adr/0018-render-deployment-and-live-beta.md) defines the Oregon deployment
 topology, exact public origins, migrator/application-role separation, exact-SHA promotion, rollback
-at a high level, and the live-beta boundary.
+at a high level, and the live-beta boundary. [`docs/release.md`](./docs/release.md) is the operator
+runbook for the tag-driven GitHub Actions release workflow.
 
 `AUTH_PROVIDER=local` is refused outright when `APP_ENV=production`, so the local signing keypair
 cannot become a production credential.
