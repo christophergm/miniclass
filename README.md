@@ -12,6 +12,7 @@ preference collection, constraint-based placement, and published class and dismi
 | [`docs/adr/`](./docs/adr/) | **Why it is built this way.** Architecture decisions, including the rejected alternatives. |
 | [`QUICKSTART.md`](./QUICKSTART.md) | The shortest path from a fresh clone to a logged-in local stack. |
 | [`WORKFLOW.md`](./WORKFLOW.md) | How agents pick up, validate and hand off work, and the ten quality gates. |
+| [`docs/production-database-bootstrap.md`](./docs/production-database-bootstrap.md) | How to securely provision Supabase application and migration database roles. |
 | [`AGENTS.md`](./AGENTS.md) | Repository rules that apply to every change. |
 | This file | How to run, drive and troubleshoot it locally. |
 

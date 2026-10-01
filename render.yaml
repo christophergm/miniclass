@@ -28,14 +28,20 @@ services:
         sync: false
       - key: INVITATION_CLAIM_BASE_URL
         sync: false
-
       - key: SOLVER_BASE_URL
         sync: false
       - key: SOLVER_REQUEST_TIMEOUT
         value: 15s
       - key: TRUSTED_PROXY_CIDRS
         sync: false
-
+      - key: AUTH_SMTP_ADDRESS
+        sync: false
+      - key: AUTH_SMTP_USERNAME
+        sync: false
+      - key: AUTH_SMTP_PASSWORD
+        sync: false
+      - key: AUTH_SMTP_FROM
+        sync: false
   - type: pserv
     name: miniclass-solver
     runtime: docker
