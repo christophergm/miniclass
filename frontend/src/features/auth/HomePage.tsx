@@ -56,8 +56,8 @@ export function HomePage() {
           <span className="text-4xl" aria-hidden="true">
             🌟
           </span>
-          <h2 className="mt-3 text-2xl font-black text-stone-950">For families</h2>
-          <p className="mx-auto mt-2 max-w-xl font-medium text-stone-700">
+          <h2 className="mt-3 text-2xl font-black text-stone-950">Families</h2>
+          <p className="mx-auto mt-2 max-w-2xl text-pretty font-medium text-stone-700">
             Let your student share their interests and rank the classes they&apos;d most like to
             join.
           </p>

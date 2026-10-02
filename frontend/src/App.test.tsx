@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -79,22 +79,34 @@ describe("App routing", () => {
       "href",
       "/family",
     );
+    expect(screen.getByRole("link", { name: "Contact" })).toHaveAttribute("href", "/contact");
     expect(screen.getByRole("link", { name: "Terms" })).toHaveAttribute("href", "/terms");
     expect(screen.getByRole("link", { name: "Privacy" })).toHaveAttribute("href", "/privacy");
-    expect(screen.getByRole("link", { name: "FAQ" })).toHaveAttribute("href", "/faq");
+    expect(screen.getByRole("link", { name: "About" })).toHaveAttribute("href", "/about");
   });
 
-  it("opens the general contact details from the public footer", async () => {
-    renderApp("/", null);
+  it("renders public contact details on a page", async () => {
+    renderApp("/contact", null);
 
-    fireEvent.click(await screen.findByRole("button", { name: "Contact Us" }));
-
-    expect(await screen.findByRole("dialog", { name: "Contact Us" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Contact" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "hello@miniclass.org" })).toHaveAttribute(
       "href",
       "mailto:hello@miniclass.org",
     );
-    expect(screen.getByText(/contact your program administrator directly/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Help with my student's mini class participation?" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Feedback about the website" })).toBeInTheDocument();
+    expect(screen.getByText(/Konstella, email, or phone/i)).toBeInTheDocument();
+  });
+
+  it("renders the about page without retired FAQ entries", async () => {
+    renderApp("/about", null);
+
+    expect(await screen.findByRole("heading", { name: "About" })).toBeInTheDocument();
+    expect(screen.getByText("What is MiniClass?")).toBeInTheDocument();
+    expect(screen.queryByText("Does MiniClass run my program?")).not.toBeInTheDocument();
+    expect(screen.queryByText("Where is MiniClass available?")).not.toBeInTheDocument();
   });
 
   it("does not retain the undeployed guardian access route", async () => {
