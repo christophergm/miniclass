@@ -372,6 +372,17 @@ export const resourceApi = {
         body: { name },
       }),
     ),
+  updateProgramAutoAssignment: (
+    schoolYearID: string,
+    programID: string,
+    value: Schemas["UpdateProgramAutoAssignmentInputBody"],
+  ) =>
+    unwrap(
+      api.PUT("/api/school-years/{schoolYearID}/programs/{programID}/auto-assignment", {
+        params: { path: { schoolYearID, programID } },
+        body: value,
+      }),
+    ),
   listStudents: (schoolYearID: string) =>
     unwrapList(
       api.GET("/api/school-years/{schoolYearID}/students", {

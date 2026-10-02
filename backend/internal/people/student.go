@@ -47,6 +47,11 @@ func (s *Service) CreateStudent(ctx context.Context, organizationID string, scho
 		if err != nil {
 			return err
 		}
+		if s.studentCreatedHook != nil {
+			if err := s.studentCreatedHook(ctx, tx, created); err != nil {
+				return err
+			}
+		}
 		result = created
 		id, year := created.ID, created.SchoolYearID
 		return tx.Record(ctx, audit.Entry{Action: audit.ActionCreate, ObjectType: "student", ObjectID: &id, SchoolYearID: &year, ChangeSummary: studentSummary(nil, &created)})

@@ -41,10 +41,15 @@ type AdultUpdateInput struct {
 type Service struct {
 	database            *data.DB
 	artifactRegenerator ArtifactRegenerator
+	studentCreatedHook  StudentCreatedHook
 }
 
-func New(database *data.DB) *Service {
-	return &Service{database: database}
+func New(database *data.DB, hooks ...StudentCreatedHook) *Service {
+	service := &Service{database: database}
+	if len(hooks) > 0 {
+		service.studentCreatedHook = hooks[0]
+	}
+	return service
 }
 
 func (s *Service) Create(ctx context.Context, organizationID string, schoolYearID ids.XID, actor audit.Actor, input AdultCreateInput) (data.Adult, error) {

@@ -20,6 +20,7 @@ import (
 
 type ProgramService interface {
 	Create(context.Context, string, audit.Actor, ids.XID, string) (data.Program, error)
+	UpdateAutoAssignment(context.Context, string, audit.Actor, ids.XID, ids.XID, programservice.AutoAssignmentUpdate) (data.Program, error)
 	List(context.Context, string, ids.XID) ([]data.Program, error)
 	ListInterestAreas(context.Context, string, ids.XID, ids.XID, bool) ([]data.InterestArea, error)
 	GetInterestArea(context.Context, string, ids.XID, ids.XID, ids.XID) (data.InterestArea, error)
@@ -81,12 +82,15 @@ type ProgramService interface {
 }
 
 type ProgramResponse struct {
-	ID             string    `json:"id" doc:"Opaque program identifier."`
-	OrganizationID string    `json:"organization_id" doc:"Opaque organization identifier."`
-	SchoolYearID   string    `json:"school_year_id" doc:"Opaque school-year identifier."`
-	Name           string    `json:"name"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	ID                          string    `json:"id" doc:"Opaque program identifier."`
+	OrganizationID              string    `json:"organization_id" doc:"Opaque organization identifier."`
+	SchoolYearID                string    `json:"school_year_id" doc:"Opaque school-year identifier."`
+	Name                        string    `json:"name"`
+	AutoAssignmentEnabled       bool      `json:"auto_assignment_enabled"`
+	AutoAssignmentGradeLevelIDs []string  `json:"auto_assignment_grade_level_ids"`
+	AutoAssignmentHomeroomIDs   []string  `json:"auto_assignment_homeroom_ids"`
+	CreatedAt                   time.Time `json:"created_at"`
+	UpdatedAt                   time.Time `json:"updated_at"`
 }
 
 type ProgramMembershipResponse struct {
@@ -175,6 +179,14 @@ type CreateProgramInput struct {
 	ProgramYearPathInput
 	Body struct {
 		Name string `json:"name" minLength:"1"`
+	}
+}
+type UpdateProgramAutoAssignmentInput struct {
+	ProgramPathInput
+	Body struct {
+		Enabled       bool     `json:"enabled"`
+		GradeLevelIDs []string `json:"grade_level_ids"`
+		HomeroomIDs   []string `json:"homeroom_ids"`
 	}
 }
 type ListProgramMembershipsInput struct{ ProgramPathInput }
@@ -393,6 +405,29 @@ func (h *ProgramHandler) UpdateInterestArea(ctx context.Context, input *UpdateIn
 	return &InterestAreaItemOutput{Body: interestAreaResponse(row)}, nil
 }
 
+func (h *ProgramHandler) UpdateAutoAssignment(ctx context.Context, input *UpdateProgramAutoAssignmentInput) (*ProgramOutput, error) {
+	account, err := programAccount(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if h == nil || h.service == nil || input == nil {
+		return nil, programNotFound()
+	}
+	grades := make([]ids.XID, len(input.Body.GradeLevelIDs))
+	for index, id := range input.Body.GradeLevelIDs {
+		grades[index] = ids.XID(id)
+	}
+	homerooms := make([]ids.XID, len(input.Body.HomeroomIDs))
+	for index, id := range input.Body.HomeroomIDs {
+		homerooms[index] = ids.XID(id)
+	}
+	row, err := h.service.UpdateAutoAssignment(ctx, string(account.OrganizationID), programActor(account), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), programservice.AutoAssignmentUpdate{Enabled: input.Body.Enabled, GradeLevelIDs: grades, HomeroomIDs: homerooms})
+	if err != nil {
+		return nil, programProblem(err)
+	}
+	return &ProgramOutput{Body: programResponse(row)}, nil
+}
+
 func (h *ProgramHandler) ListMemberships(ctx context.Context, input *ListProgramMembershipsInput) (*ProgramMembershipListOutput, error) {
 	account, err := programAccount(ctx)
 	if err != nil {
@@ -472,7 +507,15 @@ func programActor(account auth.AccountPrincipal) audit.Actor {
 	return audit.Actor{Type: audit.ActorTypeUser, UserID: &id, Label: account.Email}
 }
 func programResponse(row data.Program) ProgramResponse {
-	return ProgramResponse{ID: string(row.ID), OrganizationID: string(row.OrganizationID), SchoolYearID: string(row.SchoolYearID), Name: row.Name, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+	grades := make([]string, len(row.AutoAssignmentGradeLevelIDs))
+	for index, id := range row.AutoAssignmentGradeLevelIDs {
+		grades[index] = string(id)
+	}
+	homerooms := make([]string, len(row.AutoAssignmentHomeroomIDs))
+	for index, id := range row.AutoAssignmentHomeroomIDs {
+		homerooms[index] = string(id)
+	}
+	return ProgramResponse{ID: string(row.ID), OrganizationID: string(row.OrganizationID), SchoolYearID: string(row.SchoolYearID), Name: row.Name, AutoAssignmentEnabled: row.AutoAssignmentEnabled, AutoAssignmentGradeLevelIDs: grades, AutoAssignmentHomeroomIDs: homerooms, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
 }
 func interestAreaResponse(row data.InterestArea) InterestAreaResponse {
 	return InterestAreaResponse{ID: string(row.ID), OrganizationID: string(row.OrganizationID), SchoolYearID: string(row.SchoolYearID), ProgramID: string(row.ProgramID), Label: row.Label, Ordinal: row.Ordinal, RetiredAt: row.RetiredAt, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}

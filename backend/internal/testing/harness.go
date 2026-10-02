@@ -61,16 +61,33 @@ func Open(t gotesting.TB) *Harness {
 	setupCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
+	var cleanup []func()
+	setupComplete := false
+	defer func() {
+		if setupComplete {
+			return
+		}
+		for i := len(cleanup) - 1; i >= 0; i-- {
+			cleanup[i]()
+		}
+	}()
+
 	bootstrapPool, err := newTestPool(setupCtx, migratorURL, 1)
 	require.NoError(t, err)
 	if err != nil {
 		return nil
 	}
+	cleanup = append(cleanup, bootstrapPool.Close)
 	require.NoError(t, bootstrapPool.Ping(setupCtx))
 
 	schemaName := fmt.Sprintf("miniclass_isolation_%d", time.Now().UnixNano())
 	_, err = bootstrapPool.Exec(setupCtx, "create schema "+schemaName)
 	require.NoError(t, err)
+	if err == nil {
+		cleanup = append(cleanup, func() {
+			_, _ = bootstrapPool.Exec(context.Background(), "drop schema if exists "+schemaName+" cascade")
+		})
+	}
 
 	migratorSchemaURL, err := withSearchPath(migratorURL, schemaName)
 	require.NoError(t, err)
@@ -84,6 +101,7 @@ func Open(t gotesting.TB) *Harness {
 	if err != nil {
 		return nil
 	}
+	cleanup = append(cleanup, migrator.Close)
 	require.NoError(t, migrator.Ping(setupCtx))
 
 	gooseDB, err := goose.OpenDBWithDriver("postgres", migratorSchemaURL)
@@ -91,6 +109,7 @@ func Open(t gotesting.TB) *Harness {
 	if err != nil {
 		return nil
 	}
+	cleanup = append(cleanup, func() { _ = gooseDB.Close() })
 	// Migrations create schema-local tables but also replace the shared public xid
 	// functions. One connection keeps this session-level advisory lock in effect
 	// for the complete migration run across concurrently executing test packages.
@@ -123,6 +142,7 @@ func Open(t gotesting.TB) *Harness {
 	if err != nil {
 		return nil
 	}
+	cleanup = append(cleanup, app.Close)
 	require.NoError(t, app.Ping(setupCtx))
 
 	databasePool, err := newTestPool(setupCtx, appSchemaURL, 2)
@@ -130,6 +150,7 @@ func Open(t gotesting.TB) *Harness {
 	if err != nil {
 		return nil
 	}
+	cleanup = append(cleanup, databasePool.Close)
 	require.NoError(t, databasePool.Ping(setupCtx))
 
 	database, err := data.NewApplicationFromPool(setupCtx, databasePool)
@@ -146,6 +167,7 @@ func Open(t gotesting.TB) *Harness {
 		Schema:    schemaName,
 		bootstrap: bootstrapPool,
 	}
+	setupComplete = true
 	return sharedHarness
 }
 

@@ -43,6 +43,7 @@ import { AuditLog } from "@/features/audit/AuditLog";
 import { ImportPage } from "@/features/imports/ImportPage";
 import { OfferingPage } from "@/features/programs/OfferingPages";
 import {
+  ProgramAutoAssignmentPage,
   ProgramDetailPage,
   ProgramInterestAreasPage,
   ProgramListPage,
@@ -146,6 +147,10 @@ function AppRoutes() {
               <Route path="programs" element={<ProgramListPage />} />
               <Route path="programs/:programId" element={<ProgramDetailPage />} />
               <Route path="programs/:programId/settings" element={<ProgramSettingsPage />} />
+              <Route
+                path="programs/:programId/settings/auto-assignment"
+                element={<ProgramAutoAssignmentPage />}
+              />
               <Route
                 path="programs/:programId/settings/membership"
                 element={<ProgramMembershipPage />}

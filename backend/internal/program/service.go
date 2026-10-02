@@ -11,6 +11,7 @@ import (
 	"github.com/chrismott/miniclass/internal/audit"
 	"github.com/chrismott/miniclass/internal/data"
 	"github.com/chrismott/miniclass/internal/ids"
+	"github.com/chrismott/miniclass/internal/preference"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -20,6 +21,12 @@ var ErrInterestAreaNoChanges = errors.New("interest area update has no changes")
 type InterestAreaUpdate struct {
 	Label   *string
 	Retired *bool
+}
+
+type AutoAssignmentUpdate struct {
+	Enabled       bool
+	GradeLevelIDs []ids.XID
+	HomeroomIDs   []ids.XID
 }
 
 type Service struct{ database *data.DB }
@@ -50,6 +57,68 @@ func (s *Service) Create(ctx context.Context, organizationID string, actor audit
 		return data.Program{}, fmt.Errorf("create program: %w", err)
 	}
 	return result, nil
+}
+
+func (s *Service) UpdateAutoAssignment(ctx context.Context, organizationID string, actor audit.Actor, schoolYearID, programID ids.XID, input AutoAssignmentUpdate) (data.Program, error) {
+	if s == nil || s.database == nil {
+		return data.Program{}, errors.New("update program automatic assignment: data service is nil")
+	}
+	var result data.Program
+	err := s.database.InTenant(ctx, organizationID, actor, func(ctx context.Context, tx *data.Tx) error {
+		if _, err := tx.GetProgram(ctx, schoolYearID, programID); err != nil {
+			return err
+		}
+		if err := validateAutoAssignmentVocabulary(ctx, tx, schoolYearID, input.GradeLevelIDs, input.HomeroomIDs); err != nil {
+			return err
+		}
+		updated, err := tx.UpdateProgramAutoAssignment(ctx, schoolYearID, programID, input.Enabled, input.GradeLevelIDs, input.HomeroomIDs)
+		if err != nil {
+			return err
+		}
+		result = updated
+		return tx.Record(ctx, audit.Entry{Action: audit.ActionEdit, ObjectType: "program_auto_assignment", ObjectID: &programID, SchoolYearID: &schoolYearID, ChangeSummary: autoAssignmentSummary(updated)})
+	})
+	if err != nil {
+		return data.Program{}, fmt.Errorf("update program automatic assignment: %w", err)
+	}
+	return result, nil
+}
+
+// CreateAutomaticMemberships applies enabled registration-time rules to one newly created normal student.
+func CreateAutomaticMemberships(ctx context.Context, tx *data.Tx, student data.Student) ([]data.ProgramMembership, error) {
+	if tx == nil || student.GradeLevelID == nil || student.IsPlaceholder {
+		return nil, nil
+	}
+	programs, err := tx.ListPrograms(ctx, student.SchoolYearID)
+	if err != nil {
+		return nil, err
+	}
+	memberships := make([]data.ProgramMembership, 0)
+	for _, candidate := range programs {
+		if !candidate.AutoAssignmentEnabled || !matchesAutoAssignment(candidate, *student.GradeLevelID, student.HomeroomID) {
+			continue
+		}
+		membership, err := tx.CreateProgramMembershipWithOrigin(ctx, student.SchoolYearID, candidate.ID, student.ID, "automatic")
+		if err != nil {
+			return nil, err
+		}
+		memberships = append(memberships, membership)
+	}
+	return memberships, nil
+}
+
+func matchesAutoAssignment(candidate data.Program, gradeLevelID, homeroomID ids.XID) bool {
+	return (len(candidate.AutoAssignmentGradeLevelIDs) == 0 || containsAutoAssignmentID(candidate.AutoAssignmentGradeLevelIDs, gradeLevelID)) &&
+		(len(candidate.AutoAssignmentHomeroomIDs) == 0 || containsAutoAssignmentID(candidate.AutoAssignmentHomeroomIDs, homeroomID))
+}
+
+func containsAutoAssignmentID(values []ids.XID, wanted ids.XID) bool {
+	for _, value := range values {
+		if value == wanted {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Service) List(ctx context.Context, organizationID string, schoolYearID ids.XID) ([]data.Program, error) {
@@ -234,6 +303,9 @@ func (s *Service) AddMembership(ctx context.Context, organizationID string, acto
 		if err != nil {
 			return err
 		}
+		if _, err := preference.AppendLateMemberToOpenSurveys(ctx, tx, schoolYearID, programID, studentID); err != nil {
+			return err
+		}
 		memberships, err := tx.ListProgramMemberships(ctx, schoolYearID, programID)
 		if err != nil {
 			return err
@@ -299,6 +371,49 @@ func (s *Service) CountStudentsWithoutGrade(ctx context.Context, organizationID 
 func programSummary(row data.Program) json.RawMessage {
 	value, _ := json.Marshal(map[string]any{"name": row.Name})
 	return value
+}
+
+func autoAssignmentSummary(row data.Program) json.RawMessage {
+	value, _ := json.Marshal(map[string]any{"enabled": row.AutoAssignmentEnabled, "grade_level_ids": row.AutoAssignmentGradeLevelIDs, "homeroom_ids": row.AutoAssignmentHomeroomIDs})
+	return value
+}
+
+func validateAutoAssignmentVocabulary(ctx context.Context, tx *data.Tx, schoolYearID ids.XID, gradeLevelIDs, homeroomIDs []ids.XID) error {
+	seenGrades := make(map[ids.XID]struct{}, len(gradeLevelIDs))
+	for _, id := range gradeLevelIDs {
+		if id == "" {
+			return errors.New("automatic assignment grade level is required")
+		}
+		if _, exists := seenGrades[id]; exists {
+			return errors.New("automatic assignment grade levels must not repeat")
+		}
+		seenGrades[id] = struct{}{}
+		grade, err := tx.GetGradeLevelByID(ctx, schoolYearID, id)
+		if err != nil {
+			return err
+		}
+		if grade.RetiredAt != nil {
+			return errors.New("automatic assignment cannot select a retired grade level")
+		}
+	}
+	seenHomerooms := make(map[ids.XID]struct{}, len(homeroomIDs))
+	for _, id := range homeroomIDs {
+		if id == "" {
+			return errors.New("automatic assignment homeroom is required")
+		}
+		if _, exists := seenHomerooms[id]; exists {
+			return errors.New("automatic assignment homerooms must not repeat")
+		}
+		seenHomerooms[id] = struct{}{}
+		homeroom, err := tx.GetHomeroomByID(ctx, schoolYearID, id)
+		if err != nil {
+			return err
+		}
+		if homeroom.RetiredAt != nil {
+			return errors.New("automatic assignment cannot select a retired homeroom")
+		}
+	}
+	return nil
 }
 
 func membershipSummary(row data.ProgramMembership) json.RawMessage {

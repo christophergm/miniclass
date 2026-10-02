@@ -13,6 +13,8 @@ import (
 	"github.com/chrismott/miniclass/internal/data"
 	"github.com/chrismott/miniclass/internal/ids"
 	"github.com/chrismott/miniclass/internal/people"
+	"github.com/chrismott/miniclass/internal/preference"
+	programservice "github.com/chrismott/miniclass/internal/program"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/unicode/norm"
 )
@@ -431,6 +433,15 @@ func (s *Service) Create(ctx context.Context, principal auth.GuardianPrincipal, 
 		if err != nil {
 			return err
 		}
+		automaticMemberships, err := programservice.CreateAutomaticMemberships(ctx, tx, student)
+		if err != nil {
+			return err
+		}
+		for _, membership := range automaticMemberships {
+			if _, err := preference.AppendLateMemberToOpenSurveys(ctx, tx, student.SchoolYearID, membership.ProgramID, student.ID); err != nil {
+				return err
+			}
+		}
 		studentID, year := student.ID, student.SchoolYearID
 		if err := tx.Record(ctx, audit.Entry{Action: audit.ActionCreate, ObjectType: "student", ObjectID: &studentID, SchoolYearID: &year, ChangeSummary: guardianStudentSummary(&student)}); err != nil {
 			return err
@@ -438,6 +449,12 @@ func (s *Service) Create(ctx context.Context, principal auth.GuardianPrincipal, 
 		relationshipID := relationship.ID
 		if err := tx.Record(ctx, audit.Entry{Action: audit.ActionMembershipChange, ObjectType: "guardian_relationship", ObjectID: &relationshipID, SchoolYearID: &year, ChangeSummary: guardianSelectionSummary(student.ID, false)}); err != nil {
 			return err
+		}
+		for _, membership := range automaticMemberships {
+			membershipID := membership.ID
+			if err := tx.Record(ctx, audit.Entry{Action: audit.ActionMembershipChange, ObjectType: "program_membership", ObjectID: &membershipID, SchoolYearID: &year, ChangeSummary: json.RawMessage(fmt.Sprintf(`{"program_id":%q,"student_id":%q,"origin":"automatic"}`, membership.ProgramID, student.ID))}); err != nil {
+				return err
+			}
 		}
 		result, err = studentView(ctx, tx, student)
 		return err

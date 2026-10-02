@@ -60,6 +60,7 @@ import {
   useSessions,
   useTransitionSession,
   useUpdateInterestArea,
+  useUpdateProgramAutoAssignment,
   useUpdateProgramObjectiveWeights,
   useUpdateSession,
   useUpdateSessionNonParticipation,
@@ -818,6 +819,12 @@ export function ProgramSettingsPage() {
     );
   const destinations = [
     {
+      title: "Auto assignment",
+      description:
+        "Automatically add newly registered students who match grade and homeroom criteria.",
+      path: "auto-assignment",
+    },
+    {
       title: "Membership",
       description: "Manage the annual students included in this programme.",
       path: "membership",
@@ -873,6 +880,112 @@ export function ProgramSettingsPage() {
           </Link>
         ))}
       </div>
+    </PageFrame>
+  );
+}
+
+export function ProgramAutoAssignmentPage() {
+  const { schoolYearId, programId } = useParams<{ schoolYearId: string; programId: string }>();
+  const year = useOutletContext<SchoolYear>();
+  const programs = usePrograms(schoolYearId);
+  const vocabulary = useVocabulary(schoolYearId);
+  const selected = programs.data?.find((program) => program.id === programId);
+  const update = useUpdateProgramAutoAssignment(schoolYearId ?? "", programId ?? "");
+  const [enabled, setEnabled] = useState(false);
+  const [grades, setGrades] = useState<string[]>([]);
+  const [homerooms, setHomerooms] = useState<string[]>([]);
+  useEffect(() => {
+    if (!selected) return;
+    setEnabled(selected.auto_assignment_enabled);
+    setGrades(selected.auto_assignment_grade_level_ids ?? []);
+    setHomerooms(selected.auto_assignment_homeroom_ids ?? []);
+  }, [selected]);
+  if (!schoolYearId || !programId)
+    return (
+      <PageFrame>
+        <p>Program is required.</p>
+      </PageFrame>
+    );
+  const toggle = (values: string[], id: string) =>
+    values.includes(id) ? values.filter((value) => value !== id) : [...values, id];
+  const allStudents = grades.length === 0 && homerooms.length === 0;
+  return (
+    <PageFrame>
+      <ProgramSettingsBreadcrumb
+        current="Auto assignment"
+        programId={programId}
+        programName={selected?.name ?? "Program"}
+        schoolYearId={schoolYearId}
+      />
+      <div className="mt-2">
+        <h1 className="text-3xl font-semibold tracking-tight">Auto assignment</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          The rule applies only when a new student is registered. It never changes existing
+          membership.
+        </p>
+      </div>
+      <Card title="Registration-time membership">
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <input
+            checked={enabled}
+            disabled={year.state === "closed"}
+            onChange={(event) => setEnabled(event.target.checked)}
+            type="checkbox"
+          />{" "}
+          Automatically add matching students
+        </label>
+        {enabled && allStudents && (
+          <p className="mt-4 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+            Every newly registered student will be added to this program.
+          </p>
+        )}
+        <div className="mt-5 grid gap-6 md:grid-cols-2">
+          <fieldset>
+            <legend className="font-medium">Grades</legend>
+            <p className="mt-1 text-sm text-muted-foreground">Leave empty for every grade.</p>
+            {(vocabulary.data?.grade_levels ?? [])
+              .filter((grade) => !grade.retired_at)
+              .map((grade) => (
+                <label className="mt-2 flex gap-2 text-sm" key={grade.id}>
+                  <input
+                    checked={grades.includes(grade.id)}
+                    onChange={() => setGrades(toggle(grades, grade.id))}
+                    type="checkbox"
+                  />
+                  {grade.label}
+                </label>
+              ))}
+          </fieldset>
+          <fieldset>
+            <legend className="font-medium">Homerooms</legend>
+            <p className="mt-1 text-sm text-muted-foreground">Leave empty for every homeroom.</p>
+            {(vocabulary.data?.homerooms ?? [])
+              .filter((homeroom) => !homeroom.retired_at)
+              .map((homeroom) => (
+                <label className="mt-2 flex gap-2 text-sm" key={homeroom.id}>
+                  <input
+                    checked={homerooms.includes(homeroom.id)}
+                    onChange={() => setHomerooms(toggle(homerooms, homeroom.id))}
+                    type="checkbox"
+                  />
+                  {homeroom.name}
+                </label>
+              ))}
+          </fieldset>
+        </div>
+        <Button
+          className="mt-6"
+          disabled={year.state === "closed" || update.isPending}
+          onClick={() =>
+            update.mutate({ enabled, grade_level_ids: grades, homeroom_ids: homerooms })
+          }
+        >
+          Save auto assignment
+        </Button>
+        {update.isError && (
+          <Problem error={update.error} fallback="Unable to save auto assignment." />
+        )}
+      </Card>
     </PageFrame>
   );
 }

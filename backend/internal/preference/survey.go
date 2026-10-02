@@ -553,6 +553,43 @@ func openSurvey(ctx context.Context, tx *data.Tx, current data.InterestProfileSu
 	return tx.Record(ctx, audit.Entry{Action: audit.ActionSurveyLifecycle, ObjectType: "interest_profile_survey", ObjectID: &current.ID, SchoolYearID: &year, ChangeSummary: surveyLifecycleSummary(current, updated)})
 }
 
+// AppendLateMemberToOpenSurveys adds a newly joined member to every currently
+// open survey whose configured audience includes them. It never issues a code.
+func AppendLateMemberToOpenSurveys(ctx context.Context, tx *data.Tx, schoolYearID, programID, studentID ids.XID) ([]ids.XID, error) {
+	surveys, err := tx.ListInterestProfileSurveys(ctx, schoolYearID, programID)
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now().UTC()
+	appended := make([]ids.XID, 0)
+	for _, survey := range surveys {
+		if effectiveSurveyState(survey, now) != data.InterestProfileSurveyOpen || survey.OpensAt == nil || now.Before(*survey.OpensAt) || survey.ClosesAt == nil || !now.Before(*survey.ClosesAt) {
+			continue
+		}
+		audience, err := snapshotAudience(ctx, tx, survey)
+		if err != nil {
+			return nil, err
+		}
+		if !containsSurveyStudent(audience, studentID) {
+			continue
+		}
+		if _, err := tx.CreateInterestProfileSurveyAudienceSnapshot(ctx, schoolYearID, programID, survey.ID, studentID); err != nil {
+			return nil, err
+		}
+		appended = append(appended, survey.ID)
+	}
+	return appended, nil
+}
+
+func containsSurveyStudent(values []ids.XID, wanted ids.XID) bool {
+	for _, value := range values {
+		if value == wanted {
+			return true
+		}
+	}
+	return false
+}
+
 func snapshotAudience(ctx context.Context, tx *data.Tx, survey data.InterestProfileSurvey) ([]ids.XID, error) {
 	members, err := tx.ListInterestProfileSurveyMembers(ctx, survey.SchoolYearID, survey.ProgramID)
 	if err != nil {
@@ -629,16 +666,16 @@ func issueCodes(ctx context.Context, tx *data.Tx, survey data.InterestProfileSur
 }
 
 func regenerateCodes(ctx context.Context, tx *data.Tx, survey data.InterestProfileSurvey) ([]SurveyAccessCode, error) {
-	if _, err := tx.RevokeInterestProfileSurveyAccessCodes(ctx, survey.SchoolYearID, survey.ProgramID, survey.ID); err != nil {
-		return nil, err
-	}
-	snapshots, err := tx.ListInterestProfileSurveyAudienceSnapshot(ctx, survey.SchoolYearID, survey.ProgramID, survey.ID)
+	activeCodes, err := tx.ListActiveInterestProfileSurveyAccessCodes(ctx, survey.SchoolYearID, survey.ProgramID, survey.ID)
 	if err != nil {
 		return nil, err
 	}
-	students := make([]ids.XID, 0, len(snapshots))
-	for _, snapshot := range snapshots {
-		students = append(students, snapshot.StudentID)
+	students := make([]ids.XID, 0, len(activeCodes))
+	for _, code := range activeCodes {
+		students = append(students, code.StudentID)
+	}
+	if _, err := tx.RevokeInterestProfileSurveyAccessCodes(ctx, survey.SchoolYearID, survey.ProgramID, survey.ID); err != nil {
+		return nil, err
 	}
 	return issueCodes(ctx, tx, survey, students)
 }

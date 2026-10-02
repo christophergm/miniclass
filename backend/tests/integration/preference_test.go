@@ -294,7 +294,13 @@ func TestInterestProfileSurveyLifecycleFreezesAudienceAndRetainsScale(t *testing
 	require.NoError(t, err)
 	current, err := service.GetInterestProfileSurvey(ctx, string(organizationID), fixture.year.ID, fixture.program.ID, survey.Survey.ID)
 	require.NoError(t, err)
-	require.Len(t, current.AudienceSnapshot, 2, "opening must freeze the eligible audience")
+	require.Len(t, current.AudienceSnapshot, 3, "a member added while the survey is open is added to its audience")
+	require.Contains(t, []ids.XID{
+		current.AudienceSnapshot[0].StudentID,
+		current.AudienceSnapshot[1].StudentID,
+		current.AudienceSnapshot[2].StudentID,
+	}, thirdStudent.ID)
+	require.Len(t, current.ActiveCodes, 2, "adding a late member does not issue a student access code")
 
 	_, err = service.UpdateInterestProfileSurvey(ctx, string(organizationID), actor, fixture.year.ID, fixture.program.ID, survey.Survey.ID, preference.InterestProfileSurveyUpdate{InterestProfileSurveyInput: preference.InterestProfileSurveyInput{
 		Name: "Changed after opening", Audience: preference.InterestProfileSurveyAudienceInput{Type: data.SurveyAudienceAllMembers}, Questions: []preference.InterestProfileSurveyQuestionInput{{InterestAreaID: fixture.secondArea.ID}},

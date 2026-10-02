@@ -909,12 +909,15 @@ type OrganizationMember struct {
 }
 
 type Program struct {
-	ID             ids.XID            `json:"id"`
-	OrganizationID ids.XID            `json:"organization_id"`
-	SchoolYearID   ids.XID            `json:"school_year_id"`
-	Name           string             `json:"name"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	ID                          ids.XID            `json:"id"`
+	OrganizationID              ids.XID            `json:"organization_id"`
+	SchoolYearID                ids.XID            `json:"school_year_id"`
+	Name                        string             `json:"name"`
+	CreatedAt                   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                   pgtype.Timestamptz `json:"updated_at"`
+	AutoAssignmentEnabled       bool               `json:"auto_assignment_enabled"`
+	AutoAssignmentGradeLevelIds []ids.XID          `json:"auto_assignment_grade_level_ids"`
+	AutoAssignmentHomeroomIds   []ids.XID          `json:"auto_assignment_homeroom_ids"`
 }
 
 type ProgramMembership struct {
@@ -925,6 +928,7 @@ type ProgramMembership struct {
 	StudentID      ids.XID            `json:"student_id"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	Origin         string             `json:"origin"`
 }
 
 type ProgramObjectiveWeight struct {

@@ -127,7 +127,7 @@ func (s *Service) GetInterestProfileResponseTracking(ctx context.Context, organi
 			return err
 		}
 		result = buildResponseTracking(ResponseTrackingInterestProfile, survey.ID, survey.Name, schoolYearID, programID, students, relationships, adults)
-		return err
+		return nil
 	})
 	if err != nil {
 		return ResponseTracking{}, err

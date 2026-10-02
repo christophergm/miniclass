@@ -2,17 +2,76 @@ package integration
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/chrismott/miniclass/internal/audit"
 	"github.com/chrismott/miniclass/internal/auth"
 	"github.com/chrismott/miniclass/internal/data"
 	"github.com/chrismott/miniclass/internal/guardianrecords"
+	"github.com/chrismott/miniclass/internal/ids"
 	"github.com/chrismott/miniclass/internal/people"
+	"github.com/chrismott/miniclass/internal/program"
 	testharness "github.com/chrismott/miniclass/internal/testing"
 	"github.com/chrismott/miniclass/internal/vocabulary"
 	"github.com/stretchr/testify/require"
 )
+
+func TestGuardianRegistrationAppliesMatchingAutoAssignmentOnce(t *testing.T) {
+	harness := testharness.Open(t)
+	ctx := harness.Context
+	actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "guardian auto assignment integration"}
+	peopleService := people.New(harness.Database)
+	tenant := newGuardianFixture(t, harness, peopleService, actor, "GuardianAutoAssignment")
+	_, err := peopleService.CreateGuardianRelationship(ctx, string(tenant.organizationID), tenant.year.ID, actor, people.GuardianRelationshipCreateInput{AdultID: tenant.adult.ID, StudentID: tenant.student.ID, RelationshipType: data.GuardianRelationshipParent})
+	require.NoError(t, err)
+
+	programService := program.New(harness.Database)
+	gradeProgram, err := programService.Create(ctx, string(tenant.organizationID), actor, tenant.year.ID, "Synthetic grade rule")
+	require.NoError(t, err)
+	homeroomProgram, err := programService.Create(ctx, string(tenant.organizationID), actor, tenant.year.ID, "Synthetic homeroom rule")
+	require.NoError(t, err)
+	_, err = programService.UpdateAutoAssignment(ctx, string(tenant.organizationID), actor, tenant.year.ID, gradeProgram.ID, program.AutoAssignmentUpdate{Enabled: true, GradeLevelIDs: []ids.XID{tenant.gradeID}})
+	require.NoError(t, err)
+	_, err = programService.UpdateAutoAssignment(ctx, string(tenant.organizationID), actor, tenant.year.ID, homeroomProgram.ID, program.AutoAssignmentUpdate{Enabled: true, GradeLevelIDs: []ids.XID{tenant.gradeID}, HomeroomIDs: []ids.XID{tenant.homeroomID}})
+	require.NoError(t, err)
+
+	principal := auth.GuardianPrincipal{AdultID: tenant.adult.ID, OrganizationID: tenant.organizationID, SchoolYearID: tenant.year.ID, Email: "guardian@example.test"}
+	guardianService := guardianrecords.New(harness.Database)
+	created, err := guardianService.Create(ctx, principal, guardianrecords.CreateInput{LegalGivenName: "Matching", LegalFamilyName: "Synthetic", GradeLevelID: tenant.gradeID, HomeroomID: tenant.homeroomID, RelationshipType: data.GuardianRelationshipParent}, audit.Actor{Type: audit.ActorTypeLink, Label: "guardian:" + string(tenant.adult.ID)})
+	require.NoError(t, err)
+	for _, programID := range []ids.XID{gradeProgram.ID, homeroomProgram.ID} {
+		memberships, err := programService.ListMemberships(ctx, string(tenant.organizationID), tenant.year.ID, programID)
+		require.NoError(t, err)
+		require.Len(t, memberships, 1)
+		require.Equal(t, created.ID, memberships[0].StudentID)
+	}
+
+	otherGrade, err := vocabulary.New(harness.Database).CreateGrade(ctx, string(tenant.organizationID), tenant.year.ID, actor, "guardian-auto-other", "Guardian Auto Other")
+	require.NoError(t, err)
+	nonMatching, err := guardianService.Create(ctx, principal, guardianrecords.CreateInput{LegalGivenName: "Nonmatching", LegalFamilyName: "Synthetic", GradeLevelID: otherGrade.ID, HomeroomID: tenant.homeroomID, RelationshipType: data.GuardianRelationshipParent}, audit.Actor{Type: audit.ActorTypeLink, Label: "guardian:" + string(tenant.adult.ID)})
+	require.NoError(t, err)
+	_, err = guardianService.Update(ctx, principal, nonMatching.ID, guardianrecords.UpdateInput{GradeLevelID: &tenant.gradeID}, audit.Actor{Type: audit.ActorTypeLink, Label: "guardian:" + string(tenant.adult.ID)})
+	require.NoError(t, err)
+	for _, programID := range []ids.XID{gradeProgram.ID, homeroomProgram.ID} {
+		memberships, err := programService.ListMemberships(ctx, string(tenant.organizationID), tenant.year.ID, programID)
+		require.NoError(t, err)
+		require.Len(t, memberships, 1, "editing a student does not re-evaluate automatic assignment")
+	}
+
+	objectType := "program_membership"
+	entries, err := harness.Database.ListAuditLog(ctx, string(tenant.organizationID), data.AuditLogFilter{ObjectType: &objectType, PageSize: 10})
+	require.NoError(t, err)
+	require.Len(t, entries, 2)
+	for _, entry := range entries {
+		require.Equal(t, string(audit.ActionMembershipChange), entry.Action)
+		var summary struct {
+			Origin string `json:"origin"`
+		}
+		require.NoError(t, json.Unmarshal(entry.ChangeSummary, &summary))
+		require.Equal(t, "automatic", summary.Origin)
+	}
+}
 
 func TestGuardianRecordsUsePrivacySafeLiveScopeAndWarnings(t *testing.T) {
 	harness := testharness.Open(t)
