@@ -48,8 +48,7 @@ function TermsBody() {
     <>
       <p>
         MiniClass is a volunteer-built tool that community education groups—such as Parent Teacher
-        Associations (PTAs)—can use to run their programs. It is currently offered for programs in
-        Washington State, USA.
+        Associations (PTAs)—can use to run their programs.
       </p>
       <LegalSection title="Using MiniClass">
         <ul className="mt-3 list-disc space-y-2 pl-5">

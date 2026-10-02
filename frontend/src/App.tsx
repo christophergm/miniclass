@@ -10,7 +10,8 @@ import { HealthCheck } from "@/features/health/HealthCheck";
 import { ClaimInvitationPage } from "@/features/auth/ClaimInvitationPage";
 import { GuardianAccessPage } from "@/features/auth/GuardianAccessPage";
 import { HomePage } from "@/features/auth/HomePage";
-import { FaqPage } from "@/features/auth/FaqPage";
+import { AboutPage } from "@/features/auth/AboutPage";
+import { ContactPage } from "@/features/auth/ContactPage";
 import { PrivacyPage } from "@/features/auth/PrivacyPage";
 import { TermsPage } from "@/features/auth/TermsPage";
 import { GuardianOnboardingPage } from "@/features/auth/GuardianOnboardingPage";
@@ -109,9 +110,10 @@ function AppRoutes() {
           the contract note in ClaimInvitationPage. */}
       <Route path="/claim" element={<ClaimInvitationPage />} />
       <Route path="/family" element={<GuardianAccessPage />} />
+      <Route path="/contact" element={<ContactPage />} />
       <Route path="/terms" element={<TermsPage />} />
       <Route path="/privacy" element={<PrivacyPage />} />
-      <Route path="/faq" element={<FaqPage />} />
+      <Route path="/about" element={<AboutPage />} />
       <Route path="/guardian/onboarding" element={<GuardianOnboardingPage />} />
       <Route path="/guardian/onboarding/:registrationLinkId" element={<GuardianOnboardingPage />} />
       <Route path="/guardian/preferences" element={<GuardianPreferencePage />} />
