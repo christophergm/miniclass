@@ -50,6 +50,7 @@ type StudentReconciliationResult struct {
 // records the requested regeneration in the reconciliation audit entry while
 // allowing the publication subsystem to supply a real regenerator.
 type ArtifactRegenerator func(context.Context, *data.Tx, ids.XID, ids.XID) (int, error)
+type StudentCreatedHook func(context.Context, *data.Tx, data.Student) error
 
 // StudentReviewSignal is the administrator review surface's stable read
 // model. It deliberately contains opaque IDs and no guardian contact data.
@@ -77,6 +78,11 @@ func (s *Service) CreateStudentCorrection(ctx context.Context, organizationID st
 		created, err := tx.CreateStudentWithMetadata(ctx, schoolYearID, input.GradeLevelID, input.HomeroomID, input.LegalGivenName, input.LegalFamilyName, input.PreferredGivenName, input.ExternalIdentifier, false, "administrator_correction")
 		if err != nil {
 			return err
+		}
+		if s.studentCreatedHook != nil {
+			if err := s.studentCreatedHook(ctx, tx, created); err != nil {
+				return err
+			}
 		}
 		result = created
 		id, year := created.ID, created.SchoolYearID

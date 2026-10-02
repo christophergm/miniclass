@@ -15,12 +15,15 @@ import (
 
 // Program is a named, year-scoped body of activity owned by one organization.
 type Program struct {
-	ID             ids.XID
-	OrganizationID ids.XID
-	SchoolYearID   ids.XID
-	Name           string
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ID                          ids.XID
+	OrganizationID              ids.XID
+	SchoolYearID                ids.XID
+	Name                        string
+	AutoAssignmentEnabled       bool
+	AutoAssignmentGradeLevelIDs []ids.XID
+	AutoAssignmentHomeroomIDs   []ids.XID
+	CreatedAt                   time.Time
+	UpdatedAt                   time.Time
 }
 
 // InterestArea is an ordered, programme-owned vocabulary entry. Its ID is
@@ -66,7 +69,7 @@ func (tx *Tx) CreateProgram(ctx context.Context, schoolYearID ids.XID, name stri
 	if err != nil {
 		return Program{}, wrapProgramMutationError("create program", err)
 	}
-	return program(row)
+	return programFromTextArrays(row.ID, row.OrganizationID, row.SchoolYearID, row.Name, row.CreatedAt, row.UpdatedAt, row.AutoAssignmentEnabled, row.AutoAssignmentGradeLevelIds, row.AutoAssignmentHomeroomIds)
 }
 
 func (tx *Tx) ListPrograms(ctx context.Context, schoolYearID ids.XID) ([]Program, error) {
@@ -76,7 +79,7 @@ func (tx *Tx) ListPrograms(ctx context.Context, schoolYearID ids.XID) ([]Program
 	}
 	result := make([]Program, 0, len(rows))
 	for _, row := range rows {
-		value, err := program(row)
+		value, err := programFromTextArrays(row.ID, row.OrganizationID, row.SchoolYearID, row.Name, row.CreatedAt, row.UpdatedAt, row.AutoAssignmentEnabled, row.AutoAssignmentGradeLevelIds, row.AutoAssignmentHomeroomIds)
 		if err != nil {
 			return nil, err
 		}
@@ -90,7 +93,20 @@ func (tx *Tx) GetProgram(ctx context.Context, schoolYearID, id ids.XID) (Program
 	if err != nil {
 		return Program{}, fmt.Errorf("get program: %w", err)
 	}
-	return program(row)
+	return programFromTextArrays(row.ID, row.OrganizationID, row.SchoolYearID, row.Name, row.CreatedAt, row.UpdatedAt, row.AutoAssignmentEnabled, row.AutoAssignmentGradeLevelIds, row.AutoAssignmentHomeroomIds)
+}
+
+func (tx *Tx) UpdateProgramAutoAssignment(ctx context.Context, schoolYearID, id ids.XID, enabled bool, gradeLevelIDs, homeroomIDs []ids.XID) (Program, error) {
+	row, err := tx.queries.UpdateProgramAutoAssignment(ctx, db.UpdateProgramAutoAssignmentParams{
+		AutoAssignmentEnabled:       enabled,
+		AutoAssignmentGradeLevelIds: xidValues(gradeLevelIDs),
+		AutoAssignmentHomeroomIds:   xidValues(homeroomIDs),
+		ID:                          id, OrganizationID: tx.organizationID, SchoolYearID: schoolYearID,
+	})
+	if err != nil {
+		return Program{}, wrapProgramMutationError("update program automatic assignment", err)
+	}
+	return programFromTextArrays(row.ID, row.OrganizationID, row.SchoolYearID, row.Name, row.CreatedAt, row.UpdatedAt, row.AutoAssignmentEnabled, row.AutoAssignmentGradeLevelIds, row.AutoAssignmentHomeroomIds)
 }
 
 func (tx *Tx) CreateInterestArea(ctx context.Context, schoolYearID, programID ids.XID, label string, ordinal int) (InterestArea, error) {
@@ -214,8 +230,12 @@ func (tx *Tx) ReorderInterestAreas(ctx context.Context, schoolYearID, programID 
 }
 
 func (tx *Tx) CreateProgramMembership(ctx context.Context, schoolYearID, programID, studentID ids.XID) (ProgramMembership, error) {
+	return tx.CreateProgramMembershipWithOrigin(ctx, schoolYearID, programID, studentID, "manual")
+}
+
+func (tx *Tx) CreateProgramMembershipWithOrigin(ctx context.Context, schoolYearID, programID, studentID ids.XID, origin string) (ProgramMembership, error) {
 	row, err := tx.queries.CreateProgramMembership(ctx, db.CreateProgramMembershipParams{
-		OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID, StudentID: studentID,
+		OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID, StudentID: studentID, Origin: origin,
 	})
 	if err != nil {
 		return ProgramMembership{}, wrapProgramMutationError("create program membership", err)
@@ -263,7 +283,7 @@ func (tx *Tx) ListAllProgramsForRegistry(ctx context.Context) ([]Program, error)
 	}
 	result := make([]Program, 0, len(rows))
 	for _, row := range rows {
-		value, err := program(row)
+		value, err := programFromTextArrays(row.ID, row.OrganizationID, row.SchoolYearID, row.Name, row.CreatedAt, row.UpdatedAt, row.AutoAssignmentEnabled, row.AutoAssignmentGradeLevelIds, row.AutoAssignmentHomeroomIds)
 		if err != nil {
 			return nil, err
 		}
@@ -280,7 +300,7 @@ func (tx *Tx) FindProgramForRegistry(ctx context.Context, id ids.XID) (Program, 
 		}
 		return Program{}, fmt.Errorf("find program for registry: %w", err)
 	}
-	return program(row)
+	return programFromTextArrays(row.ID, row.OrganizationID, row.SchoolYearID, row.Name, row.CreatedAt, row.UpdatedAt, row.AutoAssignmentEnabled, row.AutoAssignmentGradeLevelIds, row.AutoAssignmentHomeroomIds)
 }
 
 func (tx *Tx) UpdateProgramForRegistry(ctx context.Context, id ids.XID, name string) (bool, error) {
@@ -385,16 +405,38 @@ func (tx *Tx) DeleteProgramMembershipForRegistry(ctx context.Context, id ids.XID
 	return rows == 1, nil
 }
 
-func program(row db.Program) (Program, error) {
-	createdAt, err := programTime(row.CreatedAt, "created_at")
+func programFromTextArrays(id, organizationID, schoolYearID ids.XID, name string, created, updated pgtype.Timestamptz, autoAssignmentEnabled bool, gradeLevelIDs, homeroomIDs []string) (Program, error) {
+	createdAt, err := programTime(created, "created_at")
 	if err != nil {
 		return Program{}, err
 	}
-	updatedAt, err := programTime(row.UpdatedAt, "updated_at")
+	updatedAt, err := programTime(updated, "updated_at")
 	if err != nil {
 		return Program{}, err
 	}
-	return Program{ID: row.ID, OrganizationID: row.OrganizationID, SchoolYearID: row.SchoolYearID, Name: row.Name, CreatedAt: createdAt, UpdatedAt: updatedAt}, nil
+	return Program{
+		ID: id, OrganizationID: organizationID, SchoolYearID: schoolYearID, Name: name,
+		AutoAssignmentEnabled:       autoAssignmentEnabled,
+		AutoAssignmentGradeLevelIDs: xidStrings(gradeLevelIDs),
+		AutoAssignmentHomeroomIDs:   xidStrings(homeroomIDs),
+		CreatedAt:                   createdAt, UpdatedAt: updatedAt,
+	}, nil
+}
+
+func xidStrings(values []string) []ids.XID {
+	result := make([]ids.XID, len(values))
+	for index, value := range values {
+		result[index] = ids.XID(value)
+	}
+	return result
+}
+
+func xidValues(values []ids.XID) []string {
+	result := make([]string, len(values))
+	for index, value := range values {
+		result[index] = string(value)
+	}
+	return result
 }
 
 func interestArea(row db.InterestArea) (InterestArea, error) {

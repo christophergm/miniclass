@@ -588,6 +588,7 @@ Minimum capability separation:
 | Hard-delete personal data (§21.3) | Y | | |
 | Create a school year; open and close registration | Y | Y | |
 | Review registration; correct and reconcile people | Y | Y | Y |
+| Configure programs, including automatic membership (§12.1) | Y | Y | Y |
 | Author catalog and staffing | Y | Y | Y |
 | Draft, solve, pin and override assignments | Y | Y | Y |
 | Publish; issue and revoke share links | Y | Y | |
@@ -780,7 +781,15 @@ Participation is decided at two levels, and conflating them is a defect in the p
 
 **Program membership** `[Built]` is annual: which of the year's students take part in this program
 at all. Typically a grade range, but membership is explicit rather than derived, so exceptions are
-expressible.
+expressible. A membership records whether an organizer added it manually or the program's
+registration-time automatic-membership rule added it (§12.1). The latter is evaluated only when a
+normal student record is first created in the school year; it is not a continuing derivation.
+
+When a student becomes a member, the system MUST incrementally add them to each currently open
+interest-profile survey (§13.6) and currently open ranked-choice voting session (§13.3) as those
+instruments specify. This addition does not revise a form's opening snapshot or remove any existing
+audience member. Removing program membership later MUST NOT withdraw access from a form to whose
+audience the student has already been added.
 
 **Session participation** `[Partial]` is per session: a member MAY be excluded from an individual
 session. This is a real and routine need — in the reference data the entire grade 5 and 6 cohort was
@@ -1069,6 +1078,9 @@ Four consequences are normative:
   creates an unrelated record.
 - An entry MUST be retirable rather than deletable, because that year's students may reference it
   after it ceases to be used mid-year. Retirement removes it from selection and is audited (§20.1).
+  A grade or homeroom selected by any enabled program automatic-membership rule (§12.1) MUST NOT
+  be retired until an administrator removes that selection from every affected rule; the rejection
+  MUST identify the affected programs.
 - A closed year's vocabulary is read-only, on the same terms as every other record in that year
   (§11.1). Correcting one requires the Owner-only reopen, with a reason, recorded. Purging a year
   removes the vocabulary with the rest of the year-scoped data (§21.4).
@@ -1434,8 +1446,13 @@ controls are limited disclosure, email verification, terms acceptance, registrat
 rate limiting, provenance, duplicate and volume review, and administrative reconciliation. The
 add-student flow never grants access to another guardian's data.
 
-Adding a student does not automatically create program membership (§8.3). Membership remains explicit
-and organizer-controlled, though grade-rule tooling may help populate it.
+Adding a student does not ordinarily create program membership (§8.3). Membership remains explicit
+and organizer-controlled except for a program's enabled automatic-membership rule (§12.1). The rule
+runs only when this flow creates a new normal student record, not when a guardian selects an existing
+student. It MUST run in the same transaction as that new record and guardian relationship, create
+membership in every matching program with `automatic` origin, and be included in the normal audit
+entry. It MUST NOT run for placeholder students (§11.7), later grade or homeroom edits, rule changes,
+or any other event.
 
 ### 11.6 Guardian maintenance, detach and deletion
 
@@ -1459,10 +1476,10 @@ Guardians cannot edit tags, administrator comments, program membership, session 
 assignments, identifiers, provenance, external identifiers or deletion state directly.
 
 A grade or homeroom edit after preferences, membership, draft assignments or published artifacts exist
-MUST NOT silently recompute history. It creates non-blocking review or stale-data warnings where the
-field matters. Future solves use the updated grade. Existing submissions and completed assignments
-remain historical. Published artifacts require republishing or regeneration before the stable URL
-reflects the change.
+MUST NOT silently recompute history. In particular, it MUST NOT re-evaluate automatic program
+membership (§12.1). It creates non-blocking review or stale-data warnings where the field matters.
+Future solves use the updated grade. Existing submissions and completed assignments remain historical.
+Published artifacts require republishing or regeneration before the stable URL reflects the change.
 
 A guardian MAY detach themselves from a student. Detach removes that adult's guardian relationship
 and access; it does not delete a shared student while another active guardian remains. When another
@@ -1594,10 +1611,24 @@ membership, its own preference vocabulary, and its own sessions.
 | Tag definitions | §10.2 |
 | Sessions | §14 |
 | Objective weights | Defaults for the assignment engine (§17.7) |
+| Automatic membership | Optional registration-time rule, described below |
 
 Membership is explicit rather than derived from a grade range. A rule such as "grades 1 to 6" is a
 convenient way to *populate* membership, but the stored fact is the list, so that exceptions are
 expressible without contorting the rule.
+
+A program defaults to **No auto assignment**. Owner, Administrator and Coordinator roles MAY instead
+enable automatic membership for students first registered to the school year (§11.5). The rule has two
+optional sets: grades and homerooms. A student matches when every non-empty set contains that student's
+corresponding year-scoped value: an empty grade set imposes no grade condition, an empty homeroom set
+imposes no homeroom condition, and two empty sets match every newly created student. A student may match
+multiple programs; every matching program receives automatic membership.
+
+The administration surface MUST state the effective rule in plain language before save and MUST warn,
+without blocking, when an enabled rule has no selected grades or homerooms and will add every newly
+registered student. Rule configuration changes are audited, take effect only for future student-record
+creation, and MUST NOT backfill, remove, or otherwise recompute memberships. A selected grade or
+homeroom prevents its retirement under §10.1 until it is removed from the rule.
 
 ### 12.2 Why programs exist
 
@@ -1722,7 +1753,11 @@ For each offering in the session, a student's response is exactly one of:
 Ranked choices require a published catalog (§14.3) and therefore require offering descriptions
 (§8.4) — a student cannot rank what they cannot read. They are available through a student code bound
 to that student and session while voting is open, and through the authenticated guardian view for the
-adult's own students.
+adult's own students. When a student becomes a program member while a ranked-choice session is in
+`VotingOpen` and its voting deadline has not passed, the system MUST add that student to the session's
+voting audience unless they have recorded session non-participation (§8.3). The addition is audited,
+makes the form available through current guardian access, and MUST NOT generate a student access code.
+It does not otherwise change ranked-choice voting behavior.
 
 A rank MUST be unique within a student's response for a session; two offerings cannot both be first
 choice. The system MUST prevent this at entry rather than resolving it at solve time.
@@ -1815,6 +1850,11 @@ Curation rules:
   adding to the vocabulary is a separate, deliberate act (§12.3).
 - Any subset and ordering is permitted.
 - A survey SHOULD be duplicable, so composing next term's refresh starts from last term's.
+- When a student becomes a program member after the survey opens, the system MUST add them to the
+  survey audience if its configured audience includes them: default all-members, attribute, and
+  response-state audiences are evaluated for the newly added student; an explicit-list audience
+  includes only students already on that list. This incremental addition is audited and gives the
+  student's current guardians access to the open form. It MUST NOT generate a student access code.
 - A survey presents each area using that area's display label (§12.3). There is no per-survey
   override; changing how a topic is worded is an edit to the area itself, and applies everywhere.
 
@@ -1871,9 +1911,11 @@ requires a new closing timestamp. Existing unrevoked student codes reactivate; r
 the prior code.
 
 When a survey opens, its audience, included areas and order, rating-scale version, and student access
-codes MUST be snapshotted. An empty audience is allowed but MUST produce a warning. A survey MUST NOT
-be deleted once it has submissions; it is closed and retained, because the submissions are the provenance
-of the effective profile.
+codes MUST be snapshotted. The snapshot governs the opening audience; §13.6.1 permits audited,
+append-only audience additions for students who join the program while the survey is open. Those late
+additions do not generate a student access code at the time they are added. An empty audience is allowed but MUST produce a warning.
+A survey MUST NOT be deleted once it has submissions; it is closed and retained, because the submissions
+are the provenance of the effective profile.
 
 #### 13.6.5 Relationship to ranked choices
 
@@ -1926,8 +1968,11 @@ Preference access is deliberately split by principal while using one underlying 
 
 Interest-profile surveys and ranked choices have separate access grants. A survey may be configured
 with any practical response-window duration; ranked-choice access closes automatically at its session
-voting deadline. Opening snapshots the audience, question set, rating scale, and codes. Reopening is
-allowed with a warning and audit entry and reactivates existing codes unless they are regenerated.
+voting deadline. Opening snapshots the audience, question set, rating scale, and codes. Codes continue
+to be generated and managed for the opening audience; late audience additions under §13.3 and §13.6
+receive guardian access without generating a new code at the time they are added. Reopening is allowed
+with a warning and audit entry
+and reactivates existing codes unless they are regenerated.
 
 ## 14. Catalog, Sessions and Lifecycle
 

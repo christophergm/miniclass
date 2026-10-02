@@ -68,7 +68,8 @@ func (q *Queries) CreateInterestArea(ctx context.Context, arg CreateInterestArea
 
 const createProgram = `-- name: CreateProgram :one
 insert into programs (organization_id, school_year_id, name) values ($1, $2, $3)
-returning id, organization_id, school_year_id, name, created_at, updated_at
+returning id, organization_id, school_year_id, name, created_at, updated_at,
+    auto_assignment_enabled, auto_assignment_grade_level_ids::text[], auto_assignment_homeroom_ids::text[]
 `
 
 type CreateProgramParams struct {
@@ -77,9 +78,21 @@ type CreateProgramParams struct {
 	Name           string  `json:"name"`
 }
 
-func (q *Queries) CreateProgram(ctx context.Context, arg CreateProgramParams) (Program, error) {
+type CreateProgramRow struct {
+	ID                          ids.XID            `json:"id"`
+	OrganizationID              ids.XID            `json:"organization_id"`
+	SchoolYearID                ids.XID            `json:"school_year_id"`
+	Name                        string             `json:"name"`
+	CreatedAt                   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                   pgtype.Timestamptz `json:"updated_at"`
+	AutoAssignmentEnabled       bool               `json:"auto_assignment_enabled"`
+	AutoAssignmentGradeLevelIds []string           `json:"auto_assignment_grade_level_ids"`
+	AutoAssignmentHomeroomIds   []string           `json:"auto_assignment_homeroom_ids"`
+}
+
+func (q *Queries) CreateProgram(ctx context.Context, arg CreateProgramParams) (CreateProgramRow, error) {
 	row := q.db.QueryRow(ctx, createProgram, arg.OrganizationID, arg.SchoolYearID, arg.Name)
-	var i Program
+	var i CreateProgramRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
@@ -87,14 +100,17 @@ func (q *Queries) CreateProgram(ctx context.Context, arg CreateProgramParams) (P
 		&i.Name,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AutoAssignmentEnabled,
+		&i.AutoAssignmentGradeLevelIds,
+		&i.AutoAssignmentHomeroomIds,
 	)
 	return i, err
 }
 
 const createProgramMembership = `-- name: CreateProgramMembership :one
-insert into program_memberships (organization_id, school_year_id, program_id, student_id)
-values ($1, $2, $3, $4)
-returning id, organization_id, school_year_id, program_id, student_id, created_at, updated_at
+insert into program_memberships (organization_id, school_year_id, program_id, student_id, origin)
+values ($1, $2, $3, $4, $5)
+returning id, organization_id, school_year_id, program_id, student_id, created_at, updated_at, origin
 `
 
 type CreateProgramMembershipParams struct {
@@ -102,6 +118,7 @@ type CreateProgramMembershipParams struct {
 	SchoolYearID   ids.XID `json:"school_year_id"`
 	ProgramID      ids.XID `json:"program_id"`
 	StudentID      ids.XID `json:"student_id"`
+	Origin         string  `json:"origin"`
 }
 
 func (q *Queries) CreateProgramMembership(ctx context.Context, arg CreateProgramMembershipParams) (ProgramMembership, error) {
@@ -110,6 +127,7 @@ func (q *Queries) CreateProgramMembership(ctx context.Context, arg CreateProgram
 		arg.SchoolYearID,
 		arg.ProgramID,
 		arg.StudentID,
+		arg.Origin,
 	)
 	var i ProgramMembership
 	err := row.Scan(
@@ -120,6 +138,7 @@ func (q *Queries) CreateProgramMembership(ctx context.Context, arg CreateProgram
 		&i.StudentID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Origin,
 	)
 	return i, err
 }
@@ -210,7 +229,8 @@ func (q *Queries) FindInterestAreaForRegistry(ctx context.Context, arg FindInter
 }
 
 const findProgramForRegistry = `-- name: FindProgramForRegistry :one
-select id, organization_id, school_year_id, name, created_at, updated_at
+select id, organization_id, school_year_id, name, created_at, updated_at,
+    auto_assignment_enabled, auto_assignment_grade_level_ids::text[], auto_assignment_homeroom_ids::text[]
 from programs where id = $1 and organization_id = $2
 `
 
@@ -219,9 +239,21 @@ type FindProgramForRegistryParams struct {
 	OrganizationID ids.XID `json:"organization_id"`
 }
 
-func (q *Queries) FindProgramForRegistry(ctx context.Context, arg FindProgramForRegistryParams) (Program, error) {
+type FindProgramForRegistryRow struct {
+	ID                          ids.XID            `json:"id"`
+	OrganizationID              ids.XID            `json:"organization_id"`
+	SchoolYearID                ids.XID            `json:"school_year_id"`
+	Name                        string             `json:"name"`
+	CreatedAt                   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                   pgtype.Timestamptz `json:"updated_at"`
+	AutoAssignmentEnabled       bool               `json:"auto_assignment_enabled"`
+	AutoAssignmentGradeLevelIds []string           `json:"auto_assignment_grade_level_ids"`
+	AutoAssignmentHomeroomIds   []string           `json:"auto_assignment_homeroom_ids"`
+}
+
+func (q *Queries) FindProgramForRegistry(ctx context.Context, arg FindProgramForRegistryParams) (FindProgramForRegistryRow, error) {
 	row := q.db.QueryRow(ctx, findProgramForRegistry, arg.ID, arg.OrganizationID)
-	var i Program
+	var i FindProgramForRegistryRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
@@ -229,13 +261,15 @@ func (q *Queries) FindProgramForRegistry(ctx context.Context, arg FindProgramFor
 		&i.Name,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AutoAssignmentEnabled,
+		&i.AutoAssignmentGradeLevelIds,
+		&i.AutoAssignmentHomeroomIds,
 	)
 	return i, err
 }
 
 const findProgramMembershipForRegistry = `-- name: FindProgramMembershipForRegistry :one
-select id, organization_id, school_year_id, program_id, student_id, created_at, updated_at
-from program_memberships where id = $1 and organization_id = $2
+select id, organization_id, school_year_id, program_id, student_id, created_at, updated_at, origin from program_memberships where id = $1 and organization_id = $2
 `
 
 type FindProgramMembershipForRegistryParams struct {
@@ -254,6 +288,7 @@ func (q *Queries) FindProgramMembershipForRegistry(ctx context.Context, arg Find
 		&i.StudentID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Origin,
 	)
 	return i, err
 }
@@ -294,7 +329,8 @@ func (q *Queries) GetInterestArea(ctx context.Context, arg GetInterestAreaParams
 }
 
 const getProgram = `-- name: GetProgram :one
-select id, organization_id, school_year_id, name, created_at, updated_at
+select id, organization_id, school_year_id, name, created_at, updated_at,
+    auto_assignment_enabled, auto_assignment_grade_level_ids::text[], auto_assignment_homeroom_ids::text[]
 from programs where id = $1 and organization_id = $2 and school_year_id = $3
 `
 
@@ -304,9 +340,21 @@ type GetProgramParams struct {
 	SchoolYearID   ids.XID `json:"school_year_id"`
 }
 
-func (q *Queries) GetProgram(ctx context.Context, arg GetProgramParams) (Program, error) {
+type GetProgramRow struct {
+	ID                          ids.XID            `json:"id"`
+	OrganizationID              ids.XID            `json:"organization_id"`
+	SchoolYearID                ids.XID            `json:"school_year_id"`
+	Name                        string             `json:"name"`
+	CreatedAt                   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                   pgtype.Timestamptz `json:"updated_at"`
+	AutoAssignmentEnabled       bool               `json:"auto_assignment_enabled"`
+	AutoAssignmentGradeLevelIds []string           `json:"auto_assignment_grade_level_ids"`
+	AutoAssignmentHomeroomIds   []string           `json:"auto_assignment_homeroom_ids"`
+}
+
+func (q *Queries) GetProgram(ctx context.Context, arg GetProgramParams) (GetProgramRow, error) {
 	row := q.db.QueryRow(ctx, getProgram, arg.ID, arg.OrganizationID, arg.SchoolYearID)
-	var i Program
+	var i GetProgramRow
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
@@ -314,6 +362,9 @@ func (q *Queries) GetProgram(ctx context.Context, arg GetProgramParams) (Program
 		&i.Name,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AutoAssignmentEnabled,
+		&i.AutoAssignmentGradeLevelIds,
+		&i.AutoAssignmentHomeroomIds,
 	)
 	return i, err
 }
@@ -397,8 +448,7 @@ func (q *Queries) ListAllInterestAreasForRegistry(ctx context.Context, organizat
 }
 
 const listAllProgramMembershipsForRegistry = `-- name: ListAllProgramMembershipsForRegistry :many
-select id, organization_id, school_year_id, program_id, student_id, created_at, updated_at
-from program_memberships where organization_id = $1 order by id
+select id, organization_id, school_year_id, program_id, student_id, created_at, updated_at, origin from program_memberships where organization_id = $1 order by id
 `
 
 func (q *Queries) ListAllProgramMembershipsForRegistry(ctx context.Context, organizationID ids.XID) ([]ProgramMembership, error) {
@@ -418,6 +468,7 @@ func (q *Queries) ListAllProgramMembershipsForRegistry(ctx context.Context, orga
 			&i.StudentID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Origin,
 		); err != nil {
 			return nil, err
 		}
@@ -430,19 +481,32 @@ func (q *Queries) ListAllProgramMembershipsForRegistry(ctx context.Context, orga
 }
 
 const listAllProgramsForRegistry = `-- name: ListAllProgramsForRegistry :many
-select id, organization_id, school_year_id, name, created_at, updated_at
+select id, organization_id, school_year_id, name, created_at, updated_at,
+    auto_assignment_enabled, auto_assignment_grade_level_ids::text[], auto_assignment_homeroom_ids::text[]
 from programs where organization_id = $1 order by id
 `
 
-func (q *Queries) ListAllProgramsForRegistry(ctx context.Context, organizationID ids.XID) ([]Program, error) {
+type ListAllProgramsForRegistryRow struct {
+	ID                          ids.XID            `json:"id"`
+	OrganizationID              ids.XID            `json:"organization_id"`
+	SchoolYearID                ids.XID            `json:"school_year_id"`
+	Name                        string             `json:"name"`
+	CreatedAt                   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                   pgtype.Timestamptz `json:"updated_at"`
+	AutoAssignmentEnabled       bool               `json:"auto_assignment_enabled"`
+	AutoAssignmentGradeLevelIds []string           `json:"auto_assignment_grade_level_ids"`
+	AutoAssignmentHomeroomIds   []string           `json:"auto_assignment_homeroom_ids"`
+}
+
+func (q *Queries) ListAllProgramsForRegistry(ctx context.Context, organizationID ids.XID) ([]ListAllProgramsForRegistryRow, error) {
 	rows, err := q.db.Query(ctx, listAllProgramsForRegistry, organizationID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Program{}
+	items := []ListAllProgramsForRegistryRow{}
 	for rows.Next() {
-		var i Program
+		var i ListAllProgramsForRegistryRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrganizationID,
@@ -450,6 +514,9 @@ func (q *Queries) ListAllProgramsForRegistry(ctx context.Context, organizationID
 			&i.Name,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.AutoAssignmentEnabled,
+			&i.AutoAssignmentGradeLevelIds,
+			&i.AutoAssignmentHomeroomIds,
 		); err != nil {
 			return nil, err
 		}
@@ -585,7 +652,8 @@ func (q *Queries) ListProgramMemberships(ctx context.Context, arg ListProgramMem
 }
 
 const listPrograms = `-- name: ListPrograms :many
-select id, organization_id, school_year_id, name, created_at, updated_at
+select id, organization_id, school_year_id, name, created_at, updated_at,
+    auto_assignment_enabled, auto_assignment_grade_level_ids::text[], auto_assignment_homeroom_ids::text[]
 from programs where organization_id = $1 and school_year_id = $2 order by name, id
 `
 
@@ -594,15 +662,27 @@ type ListProgramsParams struct {
 	SchoolYearID   ids.XID `json:"school_year_id"`
 }
 
-func (q *Queries) ListPrograms(ctx context.Context, arg ListProgramsParams) ([]Program, error) {
+type ListProgramsRow struct {
+	ID                          ids.XID            `json:"id"`
+	OrganizationID              ids.XID            `json:"organization_id"`
+	SchoolYearID                ids.XID            `json:"school_year_id"`
+	Name                        string             `json:"name"`
+	CreatedAt                   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                   pgtype.Timestamptz `json:"updated_at"`
+	AutoAssignmentEnabled       bool               `json:"auto_assignment_enabled"`
+	AutoAssignmentGradeLevelIds []string           `json:"auto_assignment_grade_level_ids"`
+	AutoAssignmentHomeroomIds   []string           `json:"auto_assignment_homeroom_ids"`
+}
+
+func (q *Queries) ListPrograms(ctx context.Context, arg ListProgramsParams) ([]ListProgramsRow, error) {
 	rows, err := q.db.Query(ctx, listPrograms, arg.OrganizationID, arg.SchoolYearID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Program{}
+	items := []ListProgramsRow{}
 	for rows.Next() {
-		var i Program
+		var i ListProgramsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.OrganizationID,
@@ -610,6 +690,9 @@ func (q *Queries) ListPrograms(ctx context.Context, arg ListProgramsParams) ([]P
 			&i.Name,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.AutoAssignmentEnabled,
+			&i.AutoAssignmentGradeLevelIds,
+			&i.AutoAssignmentHomeroomIds,
 		); err != nil {
 			return nil, err
 		}
@@ -795,6 +878,63 @@ func (q *Queries) UpdateInterestAreaOrdinal(ctx context.Context, arg UpdateInter
 		arg.ProgramID,
 	)
 	return err
+}
+
+const updateProgramAutoAssignment = `-- name: UpdateProgramAutoAssignment :one
+update programs
+set auto_assignment_enabled = $1,
+    auto_assignment_grade_level_ids = $2::text[]::public.xid20[],
+    auto_assignment_homeroom_ids = $3::text[]::public.xid20[]
+where id = $4
+  and organization_id = $5
+  and school_year_id = $6
+returning id, organization_id, school_year_id, name, created_at, updated_at,
+    auto_assignment_enabled, auto_assignment_grade_level_ids::text[], auto_assignment_homeroom_ids::text[]
+`
+
+type UpdateProgramAutoAssignmentParams struct {
+	AutoAssignmentEnabled       bool     `json:"auto_assignment_enabled"`
+	AutoAssignmentGradeLevelIds []string `json:"auto_assignment_grade_level_ids"`
+	AutoAssignmentHomeroomIds   []string `json:"auto_assignment_homeroom_ids"`
+	ID                          ids.XID  `json:"id"`
+	OrganizationID              ids.XID  `json:"organization_id"`
+	SchoolYearID                ids.XID  `json:"school_year_id"`
+}
+
+type UpdateProgramAutoAssignmentRow struct {
+	ID                          ids.XID            `json:"id"`
+	OrganizationID              ids.XID            `json:"organization_id"`
+	SchoolYearID                ids.XID            `json:"school_year_id"`
+	Name                        string             `json:"name"`
+	CreatedAt                   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                   pgtype.Timestamptz `json:"updated_at"`
+	AutoAssignmentEnabled       bool               `json:"auto_assignment_enabled"`
+	AutoAssignmentGradeLevelIds []string           `json:"auto_assignment_grade_level_ids"`
+	AutoAssignmentHomeroomIds   []string           `json:"auto_assignment_homeroom_ids"`
+}
+
+func (q *Queries) UpdateProgramAutoAssignment(ctx context.Context, arg UpdateProgramAutoAssignmentParams) (UpdateProgramAutoAssignmentRow, error) {
+	row := q.db.QueryRow(ctx, updateProgramAutoAssignment,
+		arg.AutoAssignmentEnabled,
+		arg.AutoAssignmentGradeLevelIds,
+		arg.AutoAssignmentHomeroomIds,
+		arg.ID,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+	)
+	var i UpdateProgramAutoAssignmentRow
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.SchoolYearID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.AutoAssignmentEnabled,
+		&i.AutoAssignmentGradeLevelIds,
+		&i.AutoAssignmentHomeroomIds,
+	)
+	return i, err
 }
 
 const updateProgramForRegistry = `-- name: UpdateProgramForRegistry :execrows

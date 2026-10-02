@@ -15,6 +15,7 @@ import (
 	"github.com/chrismott/miniclass/internal/schoolyear"
 	testharness "github.com/chrismott/miniclass/internal/testing"
 	"github.com/chrismott/miniclass/internal/testing/factories"
+	"github.com/chrismott/miniclass/internal/vocabulary"
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
 )
@@ -73,6 +74,36 @@ func TestProgramMembershipRequiresGradeAndFlagsLaterRemoval(t *testing.T) {
 	count, err := service.CountStudentsWithoutGrade(ctx, string(organizationID), year.ID)
 	require.NoError(t, err)
 	require.Equal(t, int64(2), count)
+}
+
+func TestProgramAutoAssignmentPersistsCriteriaAndGuardsVocabularyRetirement(t *testing.T) {
+	harness := testharness.Open(t)
+	ctx := harness.Context
+	organizationID := harness.MintOrganization(t)
+	actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "auto assignment integration test"}
+	factory := factories.New(harness.Database, string(organizationID), actor)
+	year, err := factory.CreateSchoolYear(ctx, "Synthetic auto assignment year")
+	require.NoError(t, err)
+	grade, err := factory.CreateGradeLevel(ctx, year.ID, "synthetic-auto-grade", "Synthetic Auto Grade")
+	require.NoError(t, err)
+	homeroom, err := factory.CreateHomeroom(ctx, year.ID, "Synthetic Auto Room")
+	require.NoError(t, err)
+	programRow, err := factory.CreateProgram(ctx, year.ID, "Synthetic Auto Program")
+	require.NoError(t, err)
+
+	service := program.New(harness.Database)
+	updated, err := service.UpdateAutoAssignment(ctx, string(organizationID), actor, year.ID, programRow.ID, program.AutoAssignmentUpdate{Enabled: true, GradeLevelIDs: []ids.XID{grade.ID}, HomeroomIDs: []ids.XID{homeroom.ID}})
+	require.NoError(t, err)
+	require.True(t, updated.AutoAssignmentEnabled)
+	require.Equal(t, []ids.XID{grade.ID}, updated.AutoAssignmentGradeLevelIDs)
+	require.Equal(t, []ids.XID{homeroom.ID}, updated.AutoAssignmentHomeroomIDs)
+
+	vocabularies := vocabulary.New(harness.Database)
+	retire := true
+	_, err = vocabularies.UpdateGrade(ctx, string(organizationID), year.ID, grade.ID, actor, vocabulary.GradeLevelUpdate{Retired: &retire})
+	require.Error(t, err)
+	_, err = vocabularies.UpdateHomeroom(ctx, string(organizationID), year.ID, homeroom.ID, actor, vocabulary.HomeroomUpdate{Retired: &retire})
+	require.Error(t, err)
 }
 
 func TestInterestAreaVocabularyPreservesIdentityAndAuditsChanges(t *testing.T) {

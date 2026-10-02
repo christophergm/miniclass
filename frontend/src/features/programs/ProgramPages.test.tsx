@@ -6,6 +6,7 @@ import type { SchoolYear } from "@/lib/apiResources";
 import { renderWithQueryClient } from "@/test/queryClient";
 
 import {
+  ProgramAutoAssignmentPage,
   ProgramDetailPage,
   ProgramInterestAreasPage,
   ProgramListPage,
@@ -27,12 +28,16 @@ const mocks = vi.hoisted(() => ({
   programUpdate: vi.fn(),
   sessionUpdate: vi.fn(),
   reorderAreas: vi.fn(),
+  updateAutoAssignment: vi.fn(),
   programs: [
     {
       id: "program-1",
       organization_id: "org-1",
       school_year_id: "year-1",
       name: "Enrichment",
+      auto_assignment_enabled: false,
+      auto_assignment_grade_level_ids: [],
+      auto_assignment_homeroom_ids: [],
       created_at: "",
       updated_at: "",
     },
@@ -237,6 +242,7 @@ vi.mock("./usePrograms", () => {
     useCreateSession: mutation(),
     useProgramObjectiveWeights: query({ defaults, effective: defaults }),
     useUpdateProgramObjectiveWeights: mutation(mocks.programUpdate),
+    useUpdateProgramAutoAssignment: mutation(mocks.updateAutoAssignment),
     useReorderInterestAreas: mutation(mocks.reorderAreas),
     useUpdateInterestArea: mutation(),
   };
@@ -289,6 +295,9 @@ beforeEach(() => {
       organization_id: "org-1",
       school_year_id: "year-1",
       name: "Enrichment",
+      auto_assignment_enabled: false,
+      auto_assignment_grade_level_ids: [],
+      auto_assignment_homeroom_ids: [],
       created_at: "",
       updated_at: "",
     },
@@ -369,6 +378,27 @@ function renderProgramSettings(currentYear = year("active")) {
       <Routes>
         <Route element={<ContextRoute />} path="/y/:schoolYearId">
           <Route element={<ProgramSettingsPage />} path="programs/:programId/settings" />
+        </Route>
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+function renderAutoAssignment(currentYear = year("active")) {
+  function ContextRoute() {
+    return <Outlet context={currentYear} />;
+  }
+  return renderWithQueryClient(
+    <MemoryRouter
+      future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+      initialEntries={["/y/year-1/programs/program-1/settings/auto-assignment"]}
+    >
+      <Routes>
+        <Route element={<ContextRoute />} path="/y/:schoolYearId">
+          <Route
+            element={<ProgramAutoAssignmentPage />}
+            path="programs/:programId/settings/auto-assignment"
+          />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -568,6 +598,9 @@ describe("program year entry", () => {
         organization_id: "org-1",
         school_year_id: "year-1",
         name: "Arts",
+        auto_assignment_enabled: false,
+        auto_assignment_grade_level_ids: [],
+        auto_assignment_homeroom_ids: [],
         created_at: "",
         updated_at: "",
       },
@@ -649,6 +682,27 @@ describe("program navigation", () => {
       "href",
       "/y/year-1/programs/program-1/settings/assignment-planner",
     );
+    expect(screen.getByRole("link", { name: /Open Auto assignment →/ })).toHaveAttribute(
+      "href",
+      "/y/year-1/programs/program-1/settings/auto-assignment",
+    );
+  });
+
+  it("saves an all-student auto-assignment rule", () => {
+    mocks.updateAutoAssignment.mockReset();
+    renderAutoAssignment();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Automatically add matching students" }));
+    expect(
+      screen.getByText("Every newly registered student will be added to this program."),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Save auto assignment" }));
+
+    expect(mocks.updateAutoAssignment).toHaveBeenCalledWith({
+      enabled: true,
+      grade_level_ids: [],
+      homeroom_ids: [],
+    });
   });
 
   it("keeps membership on its dedicated settings page", () => {

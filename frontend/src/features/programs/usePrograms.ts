@@ -20,6 +20,15 @@ export function usePrograms(schoolYearID: string | undefined) {
   });
 }
 
+export function useUpdateProgramAutoAssignment(schoolYearID: string, programID: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (value: { enabled: boolean; grade_level_ids: string[]; homeroom_ids: string[] }) =>
+      resourceApi.updateProgramAutoAssignment(schoolYearID, programID, value),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: programsKey(schoolYearID) }),
+  });
+}
+
 export function useProgramMemberships(
   schoolYearID: string | undefined,
   programID: string | undefined,

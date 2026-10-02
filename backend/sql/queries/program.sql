@@ -1,13 +1,16 @@
 -- name: CreateProgram :one
 insert into programs (organization_id, school_year_id, name) values ($1, $2, $3)
-returning id, organization_id, school_year_id, name, created_at, updated_at;
+returning id, organization_id, school_year_id, name, created_at, updated_at,
+    auto_assignment_enabled, auto_assignment_grade_level_ids::text[], auto_assignment_homeroom_ids::text[];
 
 -- name: ListPrograms :many
-select id, organization_id, school_year_id, name, created_at, updated_at
+select id, organization_id, school_year_id, name, created_at, updated_at,
+    auto_assignment_enabled, auto_assignment_grade_level_ids::text[], auto_assignment_homeroom_ids::text[]
 from programs where organization_id = $1 and school_year_id = $2 order by name, id;
 
 -- name: GetProgram :one
-select id, organization_id, school_year_id, name, created_at, updated_at
+select id, organization_id, school_year_id, name, created_at, updated_at,
+    auto_assignment_enabled, auto_assignment_grade_level_ids::text[], auto_assignment_homeroom_ids::text[]
 from programs where id = $1 and organization_id = $2 and school_year_id = $3;
 
 -- name: CreateInterestArea :one
@@ -55,9 +58,20 @@ set ordinal = $2
 where id = $1 and organization_id = $3 and school_year_id = $4 and program_id = $5;
 
 -- name: CreateProgramMembership :one
-insert into program_memberships (organization_id, school_year_id, program_id, student_id)
-values ($1, $2, $3, $4)
-returning id, organization_id, school_year_id, program_id, student_id, created_at, updated_at;
+insert into program_memberships (organization_id, school_year_id, program_id, student_id, origin)
+values ($1, $2, $3, $4, $5)
+returning *;
+
+-- name: UpdateProgramAutoAssignment :one
+update programs
+set auto_assignment_enabled = sqlc.arg('auto_assignment_enabled'),
+    auto_assignment_grade_level_ids = sqlc.arg('auto_assignment_grade_level_ids')::text[]::public.xid20[],
+    auto_assignment_homeroom_ids = sqlc.arg('auto_assignment_homeroom_ids')::text[]::public.xid20[]
+where id = sqlc.arg('id')
+  and organization_id = sqlc.arg('organization_id')
+  and school_year_id = sqlc.arg('school_year_id')
+returning id, organization_id, school_year_id, name, created_at, updated_at,
+    auto_assignment_enabled, auto_assignment_grade_level_ids::text[], auto_assignment_homeroom_ids::text[];
 
 -- name: ListProgramMemberships :many
 select m.id, m.organization_id, m.school_year_id, m.program_id, m.student_id,
@@ -77,11 +91,13 @@ select count(*) from students where organization_id = $1 and school_year_id = $2
     and deleted_at is null and grade_level_id is null;
 
 -- name: ListAllProgramsForRegistry :many
-select id, organization_id, school_year_id, name, created_at, updated_at
+select id, organization_id, school_year_id, name, created_at, updated_at,
+    auto_assignment_enabled, auto_assignment_grade_level_ids::text[], auto_assignment_homeroom_ids::text[]
 from programs where organization_id = $1 order by id;
 
 -- name: FindProgramForRegistry :one
-select id, organization_id, school_year_id, name, created_at, updated_at
+select id, organization_id, school_year_id, name, created_at, updated_at,
+    auto_assignment_enabled, auto_assignment_grade_level_ids::text[], auto_assignment_homeroom_ids::text[]
 from programs where id = $1 and organization_id = $2;
 
 -- name: UpdateProgramForRegistry :execrows
@@ -91,8 +107,7 @@ update programs set name = $3 where id = $1 and organization_id = $2;
 delete from programs where id = $1 and organization_id = $2;
 
 -- name: ListAllProgramMembershipsForRegistry :many
-select id, organization_id, school_year_id, program_id, student_id, created_at, updated_at
-from program_memberships where organization_id = $1 order by id;
+select * from program_memberships where organization_id = $1 order by id;
 
 -- name: ListAllInterestAreasForRegistry :many
 select id, organization_id, school_year_id, program_id, label, ordinal, retired_at, created_at, updated_at
@@ -114,8 +129,7 @@ from interest_areas
 where organization_id = $1 and school_year_id = $2 and program_id = $3;
 
 -- name: FindProgramMembershipForRegistry :one
-select id, organization_id, school_year_id, program_id, student_id, created_at, updated_at
-from program_memberships where id = $1 and organization_id = $2;
+select * from program_memberships where id = $1 and organization_id = $2;
 
 -- name: TouchProgramMembershipForRegistry :execrows
 update program_memberships set updated_at = now() where id = $1 and organization_id = $2;

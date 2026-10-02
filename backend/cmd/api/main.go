@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/chrismott/miniclass/internal/api"
+	"github.com/chrismott/miniclass/internal/audit"
 	"github.com/chrismott/miniclass/internal/auth"
 	"github.com/chrismott/miniclass/internal/config"
 	"github.com/chrismott/miniclass/internal/data"
@@ -20,6 +21,7 @@ import (
 	"github.com/chrismott/miniclass/internal/identity"
 	"github.com/chrismott/miniclass/internal/ingest"
 	"github.com/chrismott/miniclass/internal/people"
+	"github.com/chrismott/miniclass/internal/preference"
 	"github.com/chrismott/miniclass/internal/program"
 	"github.com/chrismott/miniclass/internal/schoolyear"
 	"github.com/chrismott/miniclass/internal/solver"
@@ -77,6 +79,22 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		return fmt.Errorf("configure solver client: %w", err)
 	}
 	solverService := solver.New(database, solverClient)
+	studentCreatedHook := func(ctx context.Context, tx *data.Tx, student data.Student) error {
+		memberships, err := program.CreateAutomaticMemberships(ctx, tx, student)
+		if err != nil {
+			return err
+		}
+		for _, membership := range memberships {
+			if _, err := preference.AppendLateMemberToOpenSurveys(ctx, tx, student.SchoolYearID, membership.ProgramID, student.ID); err != nil {
+				return err
+			}
+			membershipID := membership.ID
+			if err := tx.Record(ctx, audit.Entry{Action: audit.ActionMembershipChange, ObjectType: "program_membership", ObjectID: &membershipID, SchoolYearID: &student.SchoolYearID, ChangeSummary: []byte(fmt.Sprintf(`{"program_id":%q,"student_id":%q,"origin":"automatic"}`, membership.ProgramID, student.ID))}); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	server := api.NewServerWithConfig(
 		*cfg,
 		api.WithDatabase(database),
@@ -87,8 +105,8 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		api.WithSchoolYears(schoolyear.New(database)),
 		api.WithVocabularies(vocabulary.New(database)),
 		api.WithAdults(people.New(database)),
-		api.WithStudents(people.New(database)),
-		api.WithStudentCorrections(people.New(database)),
+		api.WithStudents(people.New(database, studentCreatedHook)),
+		api.WithStudentCorrections(people.New(database, studentCreatedHook)),
 		api.WithGuardianRelationships(people.New(database)),
 		api.WithGuardianRecords(guardianrecords.New(database, identityStore)),
 		api.WithImportPreview(importService),
