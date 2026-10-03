@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { resourceApi } from "@/lib/apiResources";
 
+import { guardianPreferenceFormsKey } from "../programs/usePrograms";
+
 const key = ["guardian-students"] as const;
 const vocabularyKey = ["guardian-vocabulary"] as const;
 const profileKey = ["guardian-profile"] as const;
@@ -54,7 +56,11 @@ export function useGuardianStudentMutation() {
       homeroom_id?: string;
       relationship_type: "parent" | "guardian" | "grandparent" | "other";
     }) => resourceApi.createOrSelectGuardianStudent(value),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: key }),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: key }),
+        queryClient.invalidateQueries({ queryKey: guardianPreferenceFormsKey }),
+      ]),
   });
 }
 
@@ -68,7 +74,11 @@ export function useGuardianStudentUpdate() {
       studentID: string;
       value: Parameters<typeof resourceApi.updateGuardianStudent>[1];
     }) => resourceApi.updateGuardianStudent(studentID, value),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: key }),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: key }),
+        queryClient.invalidateQueries({ queryKey: guardianPreferenceFormsKey }),
+      ]),
   });
 }
 
@@ -82,7 +92,11 @@ export function useGuardianStudentDetach() {
       studentID: string;
       confirmLastGuardianDeletion: boolean;
     }) => resourceApi.detachGuardianStudent(studentID, confirmLastGuardianDeletion),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: key }),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: key }),
+        queryClient.invalidateQueries({ queryKey: guardianPreferenceFormsKey }),
+      ]),
   });
 }
 

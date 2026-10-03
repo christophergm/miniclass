@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 import { GuardianFeedback, GuardianWorkspaceLayout } from "@/features/auth/GuardianWorkspaceLayout";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { GuardianStudent } from "@/lib/apiResources";
+import type { GuardianStudent, PreferenceForm } from "@/lib/apiResources";
+import { useGuardianPreferenceForms } from "@/features/programs/usePrograms";
 
 import {
   useGuardianStudentCandidates,
@@ -35,6 +37,7 @@ const guardianFieldClass =
 
 export function GuardianStudentsPage() {
   const students = useGuardianStudents();
+  const preferenceForms = useGuardianPreferenceForms();
   const vocabulary = useGuardianVocabulary();
   const [givenName, setGivenName] = useState("");
   const [familyName, setFamilyName] = useState("");
@@ -94,18 +97,25 @@ export function GuardianStudentsPage() {
     );
   }
 
-  const error = students.error ?? vocabulary.error ?? save.error ?? update.error ?? detach.error;
+  const error =
+    students.error ??
+    preferenceForms.error ??
+    vocabulary.error ??
+    save.error ??
+    update.error ??
+    detach.error;
 
   const hasStudents = linkedStudents.length > 0;
 
   return (
     <GuardianWorkspaceLayout
-      description={
-        hasStudents
-          ? "Keep student details up to date, or add another student to your family’s Mini Class space."
-          : "Start by sharing a few details. We’ll check whether your student is already in Mini Class before creating anything new."
+      action={
+        <Button className={guardianPrimaryButtonClass} type="button" onClick={openAddStudent}>
+          Add a student
+        </Button>
       }
-      title={hasStudents ? "Your students" : "Let’s add your student"}
+      description="Manage your students and complete open survey forms."
+      title="My students"
     >
       <div className="mx-auto w-full max-w-3xl">
         <div className="space-y-4">
@@ -116,94 +126,21 @@ export function GuardianStudentsPage() {
             </GuardianFeedback>
           )}
         </div>
-        {linkedStudents.length === 0 ? (
-          <section
-            aria-labelledby="no-linked-students-heading"
-            className="mt-6 rounded-2xl border-2 border-dashed border-[#8f7d62] bg-[#fffaf0] p-7 text-center shadow-[4px_4px_0_#b8a88f]"
-          >
-            <span
-              aria-hidden="true"
-              className="inline-flex size-12 items-center justify-center rounded-full bg-primary/10 text-2xl"
-            >
-              ✨
-            </span>
-            <h2 className="mt-4 text-2xl font-black text-stone-950" id="no-linked-students-heading">
-              Add your first student
-            </h2>
-            <p className="mx-auto mt-2 max-w-md text-sm leading-5 text-stone-700">
-              You can add a student to Mini Class or safely check whether another guardian has
-              already added them.
-            </p>
-          </section>
-        ) : (
-          <ul className="mt-6 space-y-3">
-            {linkedStudents.map((student) => (
-              <li
-                className="rounded-2xl border-2 border-[#8f7d62] bg-[#fffaf0] p-5 shadow-[3px_3px_0_#b8a88f]"
-                key={student.id}
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <div className="text-lg font-black text-stone-950">
-                      {student.preferred_given_name || student.legal_given_name}{" "}
-                      {student.legal_family_name}
-                    </div>
-                    <div className="mt-1 text-sm text-muted-foreground">
-                      {student.grade_label} · {student.homeroom_label}
-                    </div>
-                    {(student.other_guardians ?? []).length > 0 && (
-                      <div className="mt-3 text-sm text-stone-700">
-                        <p className="font-bold text-stone-800">Other linked guardians</p>
-                        <ul className="mt-1 list-disc pl-5">
-                          {(student.other_guardians ?? []).map((guardian) => (
-                            <li key={`${guardian.legal_given_name}-${guardian.legal_family_name}`}>
-                              {guardian.legal_given_name} {guardian.legal_family_name} ·{" "}
-                              {guardian.relationship_type}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      className={guardianSecondaryButtonClass}
-                      size="sm"
-                      type="button"
-                      onClick={() => setEditing(student)}
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      className={guardianWarningButtonClass}
-                      size="sm"
-                      type="button"
-                      onClick={() => {
-                        setRemovalConfirmed(false);
-                        setRemoving(student);
-                      }}
-                    >
-                      Remove
-                    </Button>
-                  </div>
-                </div>
-                {(student.warnings ?? []).map((warning) => (
-                  <p className="mt-2 text-sm text-amber-800" key={warning.code}>
-                    {warning.message}
-                  </p>
-                ))}
-              </li>
-            ))}
-          </ul>
+        {preferenceForms.isLoading && (
+          <p className="mt-6 font-medium text-stone-700" role="status">
+            Loading your students’ surveys…
+          </p>
         )}
-        <div className="mt-10">
-          <Button
-            className={`h-11 ${guardianPrimaryButtonClass}`}
-            type="button"
-            onClick={openAddStudent}
-          >
-            Add a student
-          </Button>
+        <div className="mt-6 space-y-8">
+          {linkedStudents.map((student) => (
+            <GuardianStudentSection
+              forms={openFormsForStudent(preferenceForms.data?.students ?? [], student.id)}
+              key={student.id}
+              student={student}
+              onEdit={() => setEditing(student)}
+            />
+          ))}
+          {!hasStudents && <AddStudentCard empty onAdd={openAddStudent} />}
         </div>
       </div>
       <ModalForm
@@ -379,47 +316,33 @@ export function GuardianStudentsPage() {
       </ModalForm>
 
       <ModalForm
-        onClose={() => setEditing(null)}
+        onClose={() => {
+          setEditing(null);
+          setRemoving(null);
+        }}
         open={Boolean(editing)}
         tone="guardian"
-        title={editing ? `Edit ${studentName(editing)}` : "Edit student"}
-        description="You can update shared name, grade, and homeroom information for a student in your guardian scope."
+        title={
+          removing
+            ? `Remove ${studentName(removing)}?`
+            : editing
+              ? `Edit ${studentName(editing)}`
+              : "Edit student"
+        }
+        description={
+          removing
+            ? ""
+            : "You can update shared name, grade, and homeroom information for a student in your guardian scope."
+        }
       >
-        {editing && (
-          <StudentEditor
-            key={editing.id}
-            grades={grades}
-            homerooms={homerooms}
-            isSaving={update.isPending}
-            student={editing}
-            onCancel={() => setEditing(null)}
-            onSave={(value) =>
-              update.mutate(
-                { studentID: editing.id, value },
-                {
-                  onSuccess: () => {
-                    setEditing(null);
-                    setStatus(`${studentName(editing)} was updated.`);
-                  },
-                },
-              )
-            }
-          />
-        )}
-      </ModalForm>
-
-      <ModalForm
-        onClose={() => setRemoving(null)}
-        open={Boolean(removing)}
-        tone="guardian"
-        title={removing ? `Remove ${studentName(removing)}?` : "Remove student"}
-        description=""
-      >
-        {removing && (
-          <form
-            className="space-y-4"
-            onSubmit={(event) => {
-              event.preventDefault();
+        {removing ? (
+          <RemovalConfirmation
+            isRemoving={detach.isPending}
+            removalConfirmed={removalConfirmed}
+            student={removing}
+            onCancel={() => setRemoving(null)}
+            onConfirmChange={setRemovalConfirmed}
+            onRemove={() =>
               detach.mutate(
                 {
                   studentID: removing.id,
@@ -428,58 +351,251 @@ export function GuardianStudentsPage() {
                 {
                   onSuccess: () => {
                     setRemoving(null);
+                    setEditing(null);
                     setStatus(
                       `${studentName(removing)} was removed from your guardian scope. If no other guardian remains, the record was deleted when it had no history or de-identified to preserve historical records.`,
                     );
                   },
                 },
-              );
-            }}
-          >
-            {(removing.other_guardians ?? []).length > 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Other linked guardians will continue to manage this student.
-              </p>
-            ) : (
-              <>
-                <p className="text-sm text-muted-foreground">
-                  You are the last linked guardian. Removing your relationship will permanently
-                  clear their name from the records. This cannot be undone from guardian access.
-                </p>
-                <label className="flex gap-2 text-sm" htmlFor="guardian-remove-confirmation">
-                  <input
-                    checked={removalConfirmed}
-                    id="guardian-remove-confirmation"
-                    type="checkbox"
-                    onChange={(event) => setRemovalConfirmed(event.target.checked)}
-                  />
-                  I understand this cannot be undone from guardian access.
-                </label>
-              </>
-            )}
-            <div className="flex gap-2">
-              <Button
-                className={guardianWarningButtonClass}
-                disabled={
-                  detach.isPending ||
-                  ((removing.other_guardians ?? []).length === 0 && !removalConfirmed)
-                }
-                type="submit"
-              >
-                {detach.isPending ? "Removing…" : "Remove relationship"}
-              </Button>
-              <Button
-                className={guardianSecondaryButtonClass}
-                type="button"
-                onClick={() => setRemoving(null)}
-              >
-                Cancel
-              </Button>
-            </div>
-          </form>
+              )
+            }
+          />
+        ) : (
+          editing && (
+            <StudentEditor
+              key={editing.id}
+              grades={grades}
+              homerooms={homerooms}
+              isSaving={update.isPending}
+              student={editing}
+              onCancel={() => setEditing(null)}
+              onRemove={() => {
+                setRemovalConfirmed(false);
+                setRemoving(editing);
+              }}
+              onSave={(value) =>
+                update.mutate(
+                  { studentID: editing.id, value },
+                  {
+                    onSuccess: () => {
+                      setEditing(null);
+                      setStatus(`${studentName(editing)} was updated.`);
+                    },
+                  },
+                )
+              }
+            />
+          )
         )}
       </ModalForm>
     </GuardianWorkspaceLayout>
+  );
+}
+
+function GuardianStudentSection({
+  student,
+  forms,
+  onEdit,
+}: {
+  student: GuardianStudent;
+  forms: PreferenceForm[];
+  onEdit: () => void;
+}) {
+  const name = studentName(student);
+  return (
+    <section aria-labelledby={`guardian-student-${student.id}`}>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h2 className="text-xl font-black text-stone-950" id={`guardian-student-${student.id}`}>
+            {name}
+          </h2>
+          <p className="text-sm text-stone-700">
+            {student.grade_label} · {student.homeroom_label}
+          </p>
+        </div>
+        <Button className={guardianSecondaryButtonClass} size="sm" type="button" onClick={onEdit}>
+          Edit
+        </Button>
+      </div>
+      {(student.other_guardians ?? []).length > 0 && (
+        <p className="mb-3 text-sm text-stone-700">
+          <span className="font-bold text-stone-800">Other linked guardians: </span>
+          {(student.other_guardians ?? [])
+            .map(
+              (guardian) =>
+                `${guardian.legal_given_name} ${guardian.legal_family_name} · ${guardian.relationship_type}`,
+            )
+            .join(", ")}
+        </p>
+      )}
+      {(student.warnings ?? []).map((warning) => (
+        <p className="mb-3 text-sm text-amber-800" key={warning.code}>
+          {warning.message}
+        </p>
+      ))}
+      {forms.length === 0 ? (
+        <div className="rounded-2xl border-2 border-dashed border-[#8f7d62] bg-[#fffaf0] p-5 text-center">
+          <p className="font-black text-stone-950">No open surveys right now</p>
+          <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-stone-700">
+            We’ll show a survey here when one opens.
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2">
+          {forms.map((form) => (
+            <GuardianSurveyCard
+              form={form}
+              key={`${form.type}:${form.id}`}
+              studentID={student.id}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function AddStudentCard({ empty, onAdd }: { empty: boolean; onAdd: () => void }) {
+  return (
+    <section
+      aria-labelledby="add-student-heading"
+      className="rounded-3xl border-4 border-dashed border-[#8f7d62] bg-[#fffaf0] p-6 text-center shadow-[5px_5px_0_#b8a88f] sm:p-8"
+    >
+      <h2 className="text-xl font-black text-stone-950" id="add-student-heading">
+        {empty ? "Add your first student" : "Add another student"}
+      </h2>
+      <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-stone-700">
+        You can add a student to Mini Class or check whether another guardian has already added
+        them.
+      </p>
+      <Button className={`mt-5 ${guardianPrimaryButtonClass}`} type="button" onClick={onAdd}>
+        Add a student
+      </Button>
+    </section>
+  );
+}
+
+function openFormsForStudent(
+  students: Array<{ student_id: string; forms?: PreferenceForm[] | null }>,
+  studentID: string,
+) {
+  return [...(students.find((student) => student.student_id === studentID)?.forms ?? [])]
+    .filter((form) => guardianSurveyStatus(form) !== "closed")
+    .sort(
+      (left, right) => guardianSurveyStatusPriority(left) - guardianSurveyStatusPriority(right),
+    );
+}
+
+type GuardianSurveyStatus = "needs_attention" | "completed" | "closed";
+
+function guardianSurveyStatus(form: PreferenceForm): GuardianSurveyStatus {
+  const closesAt = form.closes_at ? new Date(form.closes_at) : null;
+  if (!closesAt || Number.isNaN(closesAt.getTime()) || closesAt.getTime() <= Date.now()) {
+    return "closed";
+  }
+  return form.submitted_at ? "completed" : "needs_attention";
+}
+
+function guardianSurveyStatusPriority(form: PreferenceForm) {
+  return { needs_attention: 0, completed: 1, closed: 2 }[guardianSurveyStatus(form)];
+}
+
+function GuardianSurveyCard({ form, studentID }: { form: PreferenceForm; studentID: string }) {
+  const status = guardianSurveyStatus(form);
+  const title = form.session_name || form.name;
+  const action = status === "needs_attention" ? "Complete" : "Review completed";
+  return (
+    <Link
+      aria-label={`${action} ${title} for ${form.student_name ?? "this student"}`}
+      className={`block rounded-2xl border-3 p-5 shadow-[4px_4px_0_#b8a88f] transition-transform hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#287d96] ${
+        status === "needs_attention"
+          ? "border-[#8f7d62] bg-[#ffcc2e] ring-4 ring-[#f2633b]/30"
+          : "border-[#8f7d62] bg-[#fffaf0]"
+      }`}
+      to={`/guardian/students/${studentID}/${form.id}`}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-bold text-stone-700">{form.program_name}</p>
+          <h3 className="mt-1 text-xl font-black text-stone-950">{title}</h3>
+        </div>
+        <span
+          className={`rounded-full border-2 px-3 py-1 text-xs font-black uppercase tracking-wide ${
+            status === "needs_attention"
+              ? "border-stone-950 bg-[#f2633b] text-white"
+              : "border-[#78c5d9] bg-[#d8f2f8] text-[#287d96]"
+          }`}
+        >
+          {status === "needs_attention" ? "Complete this form" : "Completed"}
+        </span>
+      </div>
+      <p className="mt-4 text-sm font-semibold text-stone-800">
+        {status === "needs_attention"
+          ? "Open survey →"
+          : "Completed — select to review or update this response."}
+      </p>
+    </Link>
+  );
+}
+
+function RemovalConfirmation({
+  student,
+  removalConfirmed,
+  isRemoving,
+  onConfirmChange,
+  onRemove,
+  onCancel,
+}: {
+  student: GuardianStudent;
+  removalConfirmed: boolean;
+  isRemoving: boolean;
+  onConfirmChange: (confirmed: boolean) => void;
+  onRemove: () => void;
+  onCancel: () => void;
+}) {
+  const isLastGuardian = (student.other_guardians ?? []).length === 0;
+  return (
+    <form
+      className="space-y-4"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onRemove();
+      }}
+    >
+      {isLastGuardian ? (
+        <>
+          <p className="text-sm text-muted-foreground">
+            You are the last linked guardian. Removing your relationship will permanently clear
+            their name from the records. This cannot be undone from guardian access.
+          </p>
+          <label className="flex gap-2 text-sm" htmlFor="guardian-remove-confirmation">
+            <input
+              checked={removalConfirmed}
+              id="guardian-remove-confirmation"
+              type="checkbox"
+              onChange={(event) => onConfirmChange(event.target.checked)}
+            />
+            I understand this cannot be undone from guardian access.
+          </label>
+        </>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          Other linked guardians will continue to manage this student.
+        </p>
+      )}
+      <div className="flex gap-2">
+        <Button
+          className={guardianWarningButtonClass}
+          disabled={isRemoving || (isLastGuardian && !removalConfirmed)}
+          type="submit"
+        >
+          {isRemoving ? "Removing…" : "Remove relationship"}
+        </Button>
+        <Button className={guardianSecondaryButtonClass} type="button" onClick={onCancel}>
+          Back to edit
+        </Button>
+      </div>
+    </form>
   );
 }
 
@@ -490,6 +606,7 @@ function StudentEditor({
   isSaving,
   onSave,
   onCancel,
+  onRemove,
 }: {
   student: GuardianStudent;
   grades: Array<{ id: string; label: string }>;
@@ -503,6 +620,7 @@ function StudentEditor({
     homeroom_id: string;
   }) => void;
   onCancel: () => void;
+  onRemove: () => void;
 }) {
   const [givenName, setGivenName] = useState(student.legal_given_name);
   const [familyName, setFamilyName] = useState(student.legal_family_name);
@@ -575,7 +693,7 @@ function StudentEditor({
         value={homeroomID}
         onChange={setHomeroomID}
       />
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Button
           className={guardianPrimaryButtonClass}
           disabled={
@@ -590,8 +708,11 @@ function StudentEditor({
         >
           {isSaving ? "Saving…" : "Save changes"}
         </Button>
-        <Button type="button" variant="outline" onClick={onCancel}>
+        <Button className={guardianSecondaryButtonClass} type="button" onClick={onCancel}>
           Cancel
+        </Button>
+        <Button className={guardianWarningButtonClass} type="button" onClick={onRemove}>
+          Remove student
         </Button>
       </div>
     </form>

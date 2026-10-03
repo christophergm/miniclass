@@ -197,7 +197,7 @@ export function GuardianOnboardingPage() {
   function continueExistingGuardian(next: GuardianOnboardingSession): boolean {
     if (!next.existing_guardian || !next.consented || !next.guardian_session_token) return false;
     setApplicationSession(next.guardian_session_token);
-    navigate("/guardian/preferences", { replace: true });
+    navigate("/guardian/students", { replace: true });
     return true;
   }
 
@@ -232,7 +232,7 @@ export function GuardianOnboardingPage() {
                 <div className="mt-6 space-y-3">
                   <Button
                     className={primaryButtonClass}
-                    onClick={() => navigate("/guardian/preferences")}
+                    onClick={() => navigate("/guardian/students")}
                     type="button"
                   >
                     Continue as {guardianSession.data.guardian_name}

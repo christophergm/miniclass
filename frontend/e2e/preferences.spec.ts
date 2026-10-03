@@ -59,19 +59,41 @@ test("a guardian can submit for each scoped student on a phone", async ({ page }
       },
     });
   });
+  await page.route("**/api/guardian/students", async (route) => {
+    await route.fulfill({
+      json: [
+        {
+          id: "student-1",
+          legal_given_name: "Synthetic",
+          legal_family_name: "One",
+          grade_label: "Fourth grade",
+          homeroom_id: "room-1",
+          homeroom_label: "Room 12",
+        },
+        {
+          id: "student-2",
+          legal_given_name: "Synthetic",
+          legal_family_name: "Two",
+          grade_label: "Fourth grade",
+          homeroom_id: "room-1",
+          homeroom_label: "Room 12",
+        },
+      ],
+    });
+  });
   await page.route("**/api/guardian/interest-profile-surveys/**", async (route) => {
     submittedPath = new URL(route.request().url()).pathname;
     await route.fulfill({ json: firstForm });
   });
 
-  await page.goto("/guardian/preferences");
-  await expect(page.getByRole("heading", { name: "Preference forms" })).toBeVisible();
+  await page.goto("/guardian/students");
+  await expect(page.getByRole("heading", { name: "My students" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Synthetic One", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Synthetic Two", exact: true })).toBeVisible();
   await expect(page.getByText("Complete this form")).toHaveCount(2);
   await expect(page.getByRole("button", { name: "Interested", exact: true })).not.toBeVisible();
   await page.getByRole("link", { name: /complete interest profile for synthetic one/i }).click();
-  await expect(page).toHaveURL("/guardian/preferences/student-1/survey-student-1");
+  await expect(page).toHaveURL("/guardian/students/student-1/survey-student-1");
   await page.getByRole("button", { name: "Interested", exact: true }).click();
   await page.getByRole("button", { name: "Save and go back" }).click();
 

@@ -43,7 +43,7 @@ function renderPage() {
     <MemoryRouter initialEntries={["/family"]}>
       <Routes>
         <Route path="/family" element={<GuardianAccessPage />} />
-        <Route path="/guardian/preferences" element={<LocationProbe />} />
+        <Route path="/guardian/students" element={<LocationProbe />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -98,7 +98,7 @@ describe("GuardianAccessPage", () => {
       }),
     );
     expect(mocks.setSession).toHaveBeenCalledWith("guardian-token");
-    expect(await screen.findByTestId("location")).toHaveTextContent("/guardian/preferences");
+    expect(await screen.findByTestId("location")).toHaveTextContent("/guardian/students");
   });
 
   it("shows organization and school-year labels when an email has multiple contexts", async () => {

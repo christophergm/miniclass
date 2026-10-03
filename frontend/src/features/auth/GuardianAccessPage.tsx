@@ -33,7 +33,7 @@ export function GuardianAccessPage() {
     void resourceApi
       .getGuardianAuthContext()
       .then(() => {
-        if (active) navigate("/guardian/preferences", { replace: true });
+        if (active) navigate("/guardian/students", { replace: true });
       })
       .catch((reason: unknown) => {
         if (!active) return;
@@ -84,7 +84,7 @@ export function GuardianAccessPage() {
   function openVerification(response: GuardianAccessVerification) {
     if (response.session) {
       setApplicationSession(response.session.session_token);
-      navigate("/guardian/preferences", { replace: true });
+      navigate("/guardian/students", { replace: true });
       return;
     }
     if (!response.selection_token || !response.contexts?.length) {
@@ -104,7 +104,7 @@ export function GuardianAccessPage() {
     try {
       const session = await resourceApi.selectGuardianAccessContext(selectionToken, context);
       setApplicationSession(session.session_token);
-      navigate("/guardian/preferences", { replace: true });
+      navigate("/guardian/students", { replace: true });
     } catch (reason) {
       setError(errorMessage(reason));
     } finally {

@@ -136,7 +136,9 @@ describe("preference pages", () => {
     expect(
       screen.getByText(/their preference forms will show up here when they open/i),
     ).toBeInTheDocument();
-    expect(screen.getByRole("navigation", { name: "Guardian navigation" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("navigation", { name: "Guardian navigation" }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Guardian tools" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Add or link a student" })).toHaveAttribute(
       "href",
@@ -184,7 +186,7 @@ describe("preference pages", () => {
     expect(screen.getAllByText("Complete this form")).toHaveLength(1);
     expect(screen.getByRole("link", { name: /complete interest profile/i })).toHaveAttribute(
       "href",
-      "/guardian/preferences/student-1/survey-1",
+      "/guardian/students/student-1/survey-1",
     );
     expect(screen.queryByRole("button", { name: /^Interested$/ })).not.toBeInTheDocument();
   });
@@ -193,11 +195,11 @@ describe("preference pages", () => {
     renderWithQueryClient(
       <MemoryRouter
         future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
-        initialEntries={["/guardian/preferences/student-1/survey-1"]}
+        initialEntries={["/guardian/students/student-1/survey-1"]}
       >
         <Routes>
           <Route
-            path="/guardian/preferences/:studentId/:formId"
+            path="/guardian/students/:studentId/:formId"
             element={<GuardianPreferenceFormPage />}
           />
         </Routes>
@@ -230,14 +232,14 @@ describe("preference pages", () => {
     renderWithQueryClient(
       <MemoryRouter
         future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
-        initialEntries={["/guardian/preferences/student-1/survey-1"]}
+        initialEntries={["/guardian/students/student-1/survey-1"]}
       >
         <Routes>
           <Route
-            path="/guardian/preferences/:studentId/:formId"
+            path="/guardian/students/:studentId/:formId"
             element={<GuardianPreferenceFormPage />}
           />
-          <Route path="/guardian/preferences" element={<p>Back at preference forms</p>} />
+          <Route path="/guardian/students" element={<p>Back at my students</p>} />
         </Routes>
       </MemoryRouter>,
     );
@@ -261,7 +263,7 @@ describe("preference pages", () => {
       }),
       expect.anything(),
     );
-    expect(screen.getByText("Back at preference forms")).toBeInTheDocument();
+    expect(screen.getByText("Back at my students")).toBeInTheDocument();
   });
 
   it("disables saving until a partially completed form is ready to save", () => {
@@ -286,11 +288,11 @@ describe("preference pages", () => {
     renderWithQueryClient(
       <MemoryRouter
         future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
-        initialEntries={["/guardian/preferences/student-1/survey-1"]}
+        initialEntries={["/guardian/students/student-1/survey-1"]}
       >
         <Routes>
           <Route
-            path="/guardian/preferences/:studentId/:formId"
+            path="/guardian/students/:studentId/:formId"
             element={<GuardianPreferenceFormPage />}
           />
         </Routes>
