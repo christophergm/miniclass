@@ -203,7 +203,7 @@ describe("GuardianOnboardingPage", () => {
             path="/guardian/onboarding/:registrationLinkId"
             element={<GuardianOnboardingPage />}
           />
-          <Route path="/guardian/preferences" element={<LocationProbe />} />
+          <Route path="/guardian/students" element={<LocationProbe />} />
         </Routes>
       </MemoryRouter>,
     );
@@ -211,7 +211,7 @@ describe("GuardianOnboardingPage", () => {
     expect(await screen.findByText(/you’re already registered as morgan lee/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Continue as Morgan Lee" }));
     expect(await screen.findByTestId("location")).toHaveTextContent(
-      '"pathname":"/guardian/preferences"',
+      '"pathname":"/guardian/students"',
     );
   });
 
@@ -266,7 +266,7 @@ describe("GuardianOnboardingPage", () => {
             path="/guardian/onboarding/:registrationLinkId"
             element={<GuardianOnboardingPage />}
           />
-          <Route path="/guardian/preferences" element={<LocationProbe />} />
+          <Route path="/guardian/students" element={<LocationProbe />} />
         </Routes>
       </MemoryRouter>,
     );
@@ -282,12 +282,12 @@ describe("GuardianOnboardingPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Confirm email" }));
 
     expect(await screen.findByTestId("location")).toHaveTextContent(
-      '"pathname":"/guardian/preferences"',
+      '"pathname":"/guardian/students"',
     );
     expect(mocks.complete).not.toHaveBeenCalled();
   });
 
-  it("collects stale consent before returning an existing guardian to preferences", async () => {
+  it("collects stale consent before returning an existing guardian to students", async () => {
     mocks.begin.mockResolvedValue({ ...session, consented: false, existing_guardian: true });
     mocks.acceptConsent.mockResolvedValue({
       ...session,
@@ -302,7 +302,7 @@ describe("GuardianOnboardingPage", () => {
             path="/guardian/onboarding/:registrationLinkId"
             element={<GuardianOnboardingPage />}
           />
-          <Route path="/guardian/preferences" element={<LocationProbe />} />
+          <Route path="/guardian/students" element={<LocationProbe />} />
         </Routes>
       </MemoryRouter>,
     );
@@ -312,7 +312,7 @@ describe("GuardianOnboardingPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Agree and continue" }));
 
     expect(await screen.findByTestId("location")).toHaveTextContent(
-      '"pathname":"/guardian/preferences"',
+      '"pathname":"/guardian/students"',
     );
     expect(mocks.complete).not.toHaveBeenCalled();
   });

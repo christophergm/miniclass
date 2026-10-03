@@ -65,7 +65,6 @@ import {
   AdministratorPreferencePage,
   AdministratorRankedChoiceKioskPage,
   GuardianPreferenceFormPage,
-  GuardianPreferencePage,
   StudentCodeInterestProfilePage,
   StudentCodeRankedChoicePage,
 } from "@/features/preferences/PreferencePages";
@@ -117,12 +116,11 @@ function AppRoutes() {
       <Route path="/about" element={<AboutPage />} />
       <Route path="/guardian/onboarding" element={<GuardianOnboardingPage />} />
       <Route path="/guardian/onboarding/:registrationLinkId" element={<GuardianOnboardingPage />} />
-      <Route path="/guardian/preferences" element={<GuardianPreferencePage />} />
+      <Route path="/guardian/students" element={<GuardianStudentsPage />} />
       <Route
-        path="/guardian/preferences/:studentId/:formId"
+        path="/guardian/students/:studentId/:formId"
         element={<GuardianPreferenceFormPage />}
       />
-      <Route path="/guardian/students" element={<GuardianStudentsPage />} />
       <Route path="/guardian/profile" element={<GuardianProfilePage />} />
       <Route
         path="/respond/interest-profile-surveys/:schoolYearId/:programId/:surveyId"

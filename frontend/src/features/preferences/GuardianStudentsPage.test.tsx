@@ -9,6 +9,7 @@ import { GuardianStudentsPage } from "./GuardianStudentsPage";
 const mocks = vi.hoisted(() => ({
   updateMutate: vi.fn(),
   detachMutate: vi.fn(),
+  guardianForms: null as unknown,
 }));
 
 const student = {
@@ -31,6 +32,14 @@ const student = {
 let linkedStudents = [student];
 let candidateMatches: Array<typeof student> = [];
 
+vi.mock("@/features/programs/usePrograms", () => ({
+  useGuardianPreferenceForms: () => ({
+    data: mocks.guardianForms,
+    isLoading: false,
+    error: null,
+  }),
+}));
+
 vi.mock("./useGuardianRecords", () => ({
   useGuardianStudents: () => ({ data: linkedStudents, error: null }),
   useGuardianVocabulary: () => ({
@@ -52,6 +61,24 @@ describe("GuardianStudentsPage", () => {
     candidateMatches = [];
     mocks.updateMutate.mockReset();
     mocks.detachMutate.mockReset();
+    mocks.guardianForms = {
+      school_year_id: "year-1",
+      students: [
+        {
+          student_id: "student-1",
+          display_name: "Sammy Lee",
+          forms: [
+            {
+              id: "survey-1",
+              type: "interest_profile",
+              name: "Interest profile",
+              program_name: "Clubs",
+              closes_at: "2099-09-01T12:00:00Z",
+            },
+          ],
+        },
+      ],
+    };
   });
 
   it("explains how to add or link a student when none are linked", () => {
@@ -64,9 +91,55 @@ describe("GuardianStudentsPage", () => {
 
     expect(screen.getByRole("heading", { name: "Add your first student" })).toBeInTheDocument();
     expect(
-      screen.getByText(/safely check whether another guardian has already added them/i),
+      screen.getByText(/check whether another guardian has already added them/i),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Add a student" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Add a student" })).toHaveLength(2);
+  });
+
+  it("shows open surveys, including completed ones, but hides closed surveys", () => {
+    mocks.guardianForms = {
+      school_year_id: "year-1",
+      students: [
+        {
+          student_id: "student-1",
+          display_name: "Sammy Lee",
+          forms: [
+            {
+              id: "open-survey",
+              type: "interest_profile",
+              name: "Open survey",
+              program_name: "Clubs",
+              closes_at: "2099-09-01T12:00:00Z",
+            },
+            {
+              id: "completed-survey",
+              type: "interest_profile",
+              name: "Completed survey",
+              program_name: "Clubs",
+              closes_at: "2099-09-01T12:00:00Z",
+              submitted_at: "2026-09-01T12:00:00Z",
+            },
+            {
+              id: "closed-survey",
+              type: "interest_profile",
+              name: "Closed survey",
+              program_name: "Clubs",
+              closes_at: "2020-09-01T12:00:00Z",
+            },
+          ],
+        },
+      ],
+    };
+    renderWithQueryClient(
+      <MemoryRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
+        <GuardianStudentsPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Open survey")).toBeInTheDocument();
+    expect(screen.getByText("Completed survey")).toBeInTheDocument();
+    expect(screen.getByText("Completed")).toBeInTheDocument();
+    expect(screen.queryByText("Closed survey")).not.toBeInTheDocument();
   });
 
   it("opens the add-student form in a modal with preferred name before matching", () => {
@@ -79,7 +152,7 @@ describe("GuardianStudentsPage", () => {
     expect(
       screen.queryByRole("dialog", { name: "Tell us about your student" }),
     ).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Add a student" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Add a student" })[0]);
 
     const dialog = screen.getByRole("dialog", { name: "Tell us about your student" });
     const preferredName = within(dialog).getByLabelText("Preferred name (optional)");
@@ -99,7 +172,7 @@ describe("GuardianStudentsPage", () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Add a student" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Add a student" })[0]);
     const dialog = screen.getByRole("dialog", { name: "Tell us about your student" });
     fireEvent.change(within(dialog).getByLabelText("Given name"), { target: { value: "Sam" } });
     fireEvent.change(within(dialog).getByLabelText("Family name"), { target: { value: "Lee" } });
@@ -119,7 +192,7 @@ describe("GuardianStudentsPage", () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Add a student" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Add a student" })[0]);
     const dialog = screen.getByRole("dialog", { name: "Tell us about your student" });
     fireEvent.change(within(dialog).getByLabelText("Given name"), { target: { value: "Sam" } });
     fireEvent.change(within(dialog).getByLabelText("Family name"), { target: { value: "Lee" } });
@@ -162,7 +235,7 @@ describe("GuardianStudentsPage", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("Other linked guardians")).toBeInTheDocument();
+    expect(screen.getByText(/Other linked guardians:/)).toBeInTheDocument();
     expect(screen.getByText("Avery Lee · parent")).toBeInTheDocument();
   });
 
@@ -200,7 +273,9 @@ describe("GuardianStudentsPage", () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    const editDialog = screen.getByRole("dialog");
+    fireEvent.click(within(editDialog).getByRole("button", { name: "Remove student" }));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText(/You are the last linked guardian/i)).toBeInTheDocument();
     expect(
@@ -236,7 +311,9 @@ describe("GuardianStudentsPage", () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    const editDialog = screen.getByRole("dialog");
+    fireEvent.click(within(editDialog).getByRole("button", { name: "Remove student" }));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText(/Other linked guardians will continue/i)).toBeInTheDocument();
     expect(

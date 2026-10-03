@@ -301,7 +301,7 @@ const guardianPreferencesWorkspace = {
 };
 
 function guardianFormPath(studentID: string, form: PreferenceForm) {
-  return `/guardian/preferences/${studentID}/${form.id}`;
+  return `/guardian/students/${studentID}/${form.id}`;
 }
 
 type GuardianFormStatus = "needs_attention" | "completed" | "closed";
@@ -495,8 +495,8 @@ export function GuardianPreferenceFormPage() {
             ? query.error.message
             : "This preference form is no longer available."}
         </GuardianFeedback>
-        <Link className="mt-4 inline-block font-bold underline" to="/guardian/preferences">
-          Back to preference forms
+        <Link className="mt-4 inline-block font-bold underline" to="/guardian/students">
+          Back to my students
         </Link>
       </FocusedPreferenceFrame>
     );
@@ -507,7 +507,7 @@ export function GuardianPreferenceFormPage() {
       setShowExitConfirm(true);
       return;
     }
-    navigate("/guardian/preferences");
+    navigate("/guardian/students");
   }
 
   function saveAndGoBack() {
@@ -521,7 +521,7 @@ export function GuardianPreferenceFormPage() {
     setHasUnsavedChanges(false);
     if (returnAfterSaveRef.current) {
       returnAfterSaveRef.current = false;
-      navigate("/guardian/preferences");
+      navigate("/guardian/students");
     }
   }
 
@@ -589,7 +589,7 @@ export function GuardianPreferenceFormPage() {
       {showExitConfirm && (
         <UnsavedChangesModal
           canSave={canSubmit}
-          onExit={() => navigate("/guardian/preferences")}
+          onExit={() => navigate("/guardian/students")}
           onKeepEditing={() => setShowExitConfirm(false)}
           onSaveAndExit={saveAndGoBack}
         />
