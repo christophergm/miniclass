@@ -189,11 +189,20 @@ function offeringValues(offering: Offering): OfferingFormValues {
     interest_area_id: offering.interest_area_id ?? "",
   };
 }
-function OfferingField({ label, ...props }: { label: string } & ComponentProps<typeof Input>) {
+function OfferingField({
+  label,
+  required,
+  ...props
+}: { label: string } & ComponentProps<typeof Input>) {
   return (
     <label className="text-sm font-medium">
       {label}
-      <Input className="mt-2" {...props} />
+      {required && (
+        <span aria-hidden="true" className="ml-1 text-destructive">
+          *
+        </span>
+      )}
+      <Input className="mt-2" required={required} {...props} />
     </label>
   );
 }
@@ -293,6 +302,12 @@ export function OfferingPage() {
         title={offeringId ? "Offering details" : "New offering"}
         description="Set one property per row. Minimum and maximum grade define the eligibility window."
       >
+        <p className="mt-5 text-sm text-muted-foreground">
+          <span aria-hidden="true" className="text-destructive">
+            *
+          </span>{" "}
+          Required fields
+        </p>
         <form className="mt-5 grid gap-5" onSubmit={submit}>
           <OfferingField
             aria-label="Offering name"
@@ -309,30 +324,35 @@ export function OfferingPage() {
             onChange={(event) => setValue({ ...value, description: event.target.value })}
             value={value.description}
           />
-          <OfferingField
-            aria-label="Maximum enrollment"
-            disabled={readOnly}
-            label="Maximum enrollment"
-            min="1"
-            onChange={(event) => setValue({ ...value, capacity: event.target.value })}
-            required
-            type="number"
-            value={value.capacity}
-          />
-          <OfferingField
-            aria-label="Minimum viable enrollment"
-            disabled={readOnly}
-            label="Minimum viable enrollment"
-            min="0"
-            onChange={(event) =>
-              setValue({ ...value, minimum_viable_enrollment: event.target.value })
-            }
-            type="number"
-            value={value.minimum_viable_enrollment}
-          />
+          <div className="grid gap-5 sm:grid-cols-2">
+            <OfferingField
+              aria-label="Minimum viable enrollment"
+              disabled={readOnly}
+              label="Minimum viable enrollment"
+              min="0"
+              onChange={(event) =>
+                setValue({ ...value, minimum_viable_enrollment: event.target.value })
+              }
+              type="number"
+              value={value.minimum_viable_enrollment}
+            />
+            <OfferingField
+              aria-label="Maximum enrollment"
+              disabled={readOnly}
+              label="Maximum enrollment"
+              min="1"
+              onChange={(event) => setValue({ ...value, capacity: event.target.value })}
+              required
+              type="number"
+              value={value.capacity}
+            />
+          </div>
           <div className="grid gap-5 sm:grid-cols-2">
             <label className="text-sm font-medium">
               Minimum grade
+              <span aria-hidden="true" className="ml-1 text-destructive">
+                *
+              </span>
               <select
                 aria-label="Minimum grade"
                 className="mt-2 flex h-9 w-full rounded-md border bg-transparent px-3 text-sm"
@@ -351,6 +371,9 @@ export function OfferingPage() {
             </label>
             <label className="text-sm font-medium">
               Maximum grade
+              <span aria-hidden="true" className="ml-1 text-destructive">
+                *
+              </span>
               <select
                 aria-label="Maximum grade"
                 className="mt-2 flex h-9 w-full rounded-md border bg-transparent px-3 text-sm"
