@@ -369,6 +369,42 @@ func (q *Queries) GetProgram(ctx context.Context, arg GetProgramParams) (GetProg
 	return i, err
 }
 
+const listActiveProgramMembershipStudentIDs = `-- name: ListActiveProgramMembershipStudentIDs :many
+select m.student_id
+from program_memberships m
+join students s on s.id = m.student_id and s.organization_id = m.organization_id
+    and s.school_year_id = m.school_year_id
+where m.organization_id = $1 and m.school_year_id = $2 and m.program_id = $3
+  and s.deleted_at is null
+order by m.student_id
+`
+
+type ListActiveProgramMembershipStudentIDsParams struct {
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+	ProgramID      ids.XID `json:"program_id"`
+}
+
+func (q *Queries) ListActiveProgramMembershipStudentIDs(ctx context.Context, arg ListActiveProgramMembershipStudentIDsParams) ([]ids.XID, error) {
+	rows, err := q.db.Query(ctx, listActiveProgramMembershipStudentIDs, arg.OrganizationID, arg.SchoolYearID, arg.ProgramID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ids.XID{}
+	for rows.Next() {
+		var student_id ids.XID
+		if err := rows.Scan(&student_id); err != nil {
+			return nil, err
+		}
+		items = append(items, student_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAllInterestAreas = `-- name: ListAllInterestAreas :many
 select id, organization_id, school_year_id, program_id, label, ordinal, retired_at, created_at, updated_at
 from interest_areas

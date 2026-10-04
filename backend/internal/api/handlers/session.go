@@ -3,11 +3,13 @@ package handlers
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/chrismott/miniclass/internal/api/problems"
+	"github.com/chrismott/miniclass/internal/auth"
 	"github.com/chrismott/miniclass/internal/data"
 	"github.com/chrismott/miniclass/internal/ids"
 	"github.com/chrismott/miniclass/internal/preference"
@@ -260,6 +262,7 @@ func (h *ProgramHandler) TransitionSession(ctx context.Context, input *Transitio
 		NextState: data.SessionState(input.Body.State), Reason: input.Body.Reason, Confirm: input.Body.Confirm, VotingDeadline: input.Body.VotingDeadline,
 	})
 	if err != nil {
+		h.logTransitionFailure(ctx, account, input, err)
 		return nil, sessionProblem(err)
 	}
 	warnings := make([]SessionTransitionWarningResponse, 0, len(result.Warnings))
@@ -438,12 +441,36 @@ func parseMeetingDate(value string) (time.Time, error) {
 	return date, nil
 }
 
+func (h *ProgramHandler) logTransitionFailure(ctx context.Context, account auth.AccountPrincipal, input *TransitionSessionInput, cause error) {
+	logger := h.logger
+	if logger == nil {
+		logger = slog.Default()
+	}
+	logger.ErrorContext(ctx, "session transition failed",
+		slog.String("organization_id", string(account.OrganizationID)),
+		slog.String("school_year_id", input.SchoolYearID),
+		slog.String("program_id", input.ProgramID),
+		slog.String("session_id", input.SessionID),
+		slog.String("requested_state", input.Body.State),
+		slog.Bool("confirm", input.Body.Confirm),
+		slog.Any("error", cause),
+	)
+}
+
 func sessionNotFound() error {
 	return problems.New(http.StatusNotFound, problems.ResourceNotFound, "session not found")
 }
 
 func meetingDateNotFound() error {
 	return problems.New(http.StatusNotFound, problems.ResourceNotFound, "meeting date not found")
+}
+
+func sessionLookupNotFound(err error) bool {
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return false
+	}
+	message := err.Error()
+	return strings.Contains(message, "get session:") || strings.Contains(message, "get session for update:")
 }
 
 func sessionTransitionGateDetail(err error) string {
@@ -459,7 +486,7 @@ func sessionTransitionGateDetail(err error) string {
 func sessionProblem(err error) error {
 	var pgErr *pgconn.PgError
 	switch {
-	case errors.Is(err, pgx.ErrNoRows), strings.Contains(err.Error(), "session not found"):
+	case sessionLookupNotFound(err), strings.Contains(err.Error(), "session not found"):
 		return sessionNotFound()
 	case strings.Contains(err.Error(), "meeting date not found"):
 		return meetingDateNotFound()
