@@ -9,7 +9,7 @@
   "packageManager": "bun@1.3.14",
   "scripts": {
     "generate:api": "openapi-typescript ../backend/openapi.json -o src/lib/api.generated.ts",
-    "dev": "bun run generate:api && sh -c 'set -a; if [ -f ../.env ]; then . ../.env; fi; set +a; exec bunx --bun vite --port ${VITE_PORT:-5173} \"$@\"' --",
+    "dev": "bun run generate:api && sh -c 'dev_token_was_set=${VITE_DEV_TOKEN+x}; dev_token=${VITE_DEV_TOKEN-}; set -a; if [ -f ../.env ]; then . ../.env; fi; set +a; if [ -n \"$dev_token_was_set\" ]; then VITE_DEV_TOKEN=$dev_token; export VITE_DEV_TOKEN; fi; exec bunx --bun vite --port ${VITE_PORT:-5173} \"$@\"' --",
     "build": "bun run generate:api && bunx --bun tsc && bunx --bun vite build",
     "format": "bunx --bun biome format --write .",
     "format:check": "bunx --bun biome format .",
