@@ -1,6 +1,8 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { AuthContext, type AuthContextValue } from "@/lib/hooks/auth-context";
 
 import { MfaPage } from "./MfaPage";
 
@@ -11,14 +13,40 @@ function jsonResponse(body: unknown) {
   });
 }
 
-function renderMfa() {
+function LocationDisplay() {
+  const location = useLocation();
+  return <output data-testid="location">{location.pathname}</output>;
+}
+
+function renderMfa({
+  initialEntry = "/mfa?redirect=%2Fyears",
+  signOut = vi.fn(async () => {}),
+}: {
+  initialEntry?: string;
+  signOut?: AuthContextValue["signOut"];
+} = {}) {
+  const auth: AuthContextValue = {
+    authConfigured: true,
+    authError: null,
+    isLoading: false,
+    session: null,
+    sessionEndedReason: null,
+    signIn: vi.fn(),
+    signUp: vi.fn(),
+    resetPassword: vi.fn(),
+    signOut,
+  };
+
   return render(
-    <MemoryRouter
-      future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
-      initialEntries={["/mfa?redirect=%2Fyears"]}
-    >
-      <MfaPage />
-    </MemoryRouter>,
+    <AuthContext.Provider value={auth}>
+      <MemoryRouter
+        future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+        initialEntries={[initialEntry]}
+      >
+        <MfaPage />
+        <LocationDisplay />
+      </MemoryRouter>
+    </AuthContext.Provider>,
   );
 }
 
@@ -76,5 +104,40 @@ describe("MFA enrollment state", () => {
     expect(
       screen.queryByText("MFA is not configured for this account yet."),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("MFA logout", () => {
+  it("signs out an administrator, shows pending feedback, and redirects", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => jsonResponse({ enrolled: true })),
+    );
+    let resolveSignOut!: () => void;
+    const signOut = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSignOut = resolve;
+        }),
+    );
+
+    renderMfa({ signOut });
+
+    fireEvent.click(await screen.findByRole("button", { name: "Log out" }));
+
+    expect(signOut).toHaveBeenCalledOnce();
+    expect(screen.getByRole("button", { name: "Logging out…" })).toBeDisabled();
+
+    await act(async () => {
+      resolveSignOut();
+    });
+
+    expect(screen.getByTestId("location")).toHaveTextContent("/sign-in");
+  });
+
+  it("does not show administrator logout in guardian mode", () => {
+    renderMfa({ initialEntry: "/mfa?mode=guardian" });
+
+    expect(screen.queryByRole("button", { name: "Log out" })).not.toBeInTheDocument();
   });
 });

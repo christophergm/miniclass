@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api";
 import { setApplicationSession } from "@/lib/auth";
 import { resourceApi, type MFAEnrollment } from "@/lib/apiResources";
+import { useAuth } from "@/lib/hooks/useAuth";
 
 import { AuthErrorMessage, AuthLayout } from "./AuthLayout";
 import { errorMessage } from "./auth-utils";
@@ -24,6 +25,7 @@ function authenticatorUri(secret: string): string {
 }
 
 export function MfaPage() {
+  const { signOut } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const guardianMode = searchParams.get("mode") === "guardian";
@@ -34,6 +36,7 @@ export function MfaPage() {
   const [proof, setProof] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   useEffect(() => {
     if (guardianMode) return;
@@ -84,6 +87,19 @@ export function MfaPage() {
       setError(errorMessage(reason));
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function logOut() {
+    setError(null);
+    setIsSigningOut(true);
+    try {
+      await signOut();
+      navigate("/sign-in", { replace: true });
+    } catch (reason) {
+      setError(errorMessage(reason));
+    } finally {
+      setIsSigningOut(false);
     }
   }
 
@@ -154,8 +170,12 @@ export function MfaPage() {
               onChange={(event) => setProof(event.target.value)}
             />
           </label>
-          <Button className="w-full" type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Verifying…" : "Continue to MiniClass"}
+          <Button
+            className="w-full border-2 border-stone-950 bg-[#ffcc2e] font-black text-stone-950 shadow-[3px_3px_0_#1c1917] hover:bg-[#eab91e]"
+            type="submit"
+            disabled={isSubmitting || isSigningOut}
+          >
+            {isSubmitting ? "Verifying…" : "Continue"}
           </Button>
           <button
             className="w-full text-sm text-muted-foreground hover:text-foreground"
@@ -168,6 +188,17 @@ export function MfaPage() {
           >
             {recoveryMode ? "Use authenticator code" : "Use a recovery code"}
           </button>
+          {!guardianMode && (
+            <Button
+              className="w-full"
+              variant="outline"
+              type="button"
+              onClick={() => void logOut()}
+              disabled={isSubmitting || isSigningOut}
+            >
+              {isSigningOut ? "Logging out…" : "Log out"}
+            </Button>
+          )}
         </form>
       ) : (
         <div className="mt-6 space-y-4">
@@ -178,7 +209,7 @@ export function MfaPage() {
             className="w-full"
             type="button"
             onClick={() => void startEnrollment()}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isSigningOut}
           >
             {isSubmitting ? "Preparing MFA…" : "Set up MFA"}
           </Button>
