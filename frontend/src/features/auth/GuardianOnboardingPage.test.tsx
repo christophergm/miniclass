@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ApiError } from "@/lib/api";
 import { renderWithQueryClient } from "@/test/queryClient";
 
 import { GuardianOnboardingPage } from "./GuardianOnboardingPage";
@@ -14,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   getGuardianAuthContext: vi.fn(),
   revokeAuthSession: vi.fn(),
   requestOTP: vi.fn(),
+  redeemInvitation: vi.fn(),
   verifyOTP: vi.fn(),
 }));
 
@@ -26,6 +28,7 @@ vi.mock("@/lib/apiResources", () => ({
     getGuardianAuthContext: mocks.getGuardianAuthContext,
     revokeAuthSession: mocks.revokeAuthSession,
     requestGuardianOnboardingOTP: mocks.requestOTP,
+    redeemGuardianInvitation: mocks.redeemInvitation,
     verifyGuardianOnboardingOTP: mocks.verifyOTP,
   },
 }));
@@ -62,6 +65,7 @@ describe("GuardianOnboardingPage", () => {
     mocks.getGuardianAuthContext.mockReset();
     mocks.revokeAuthSession.mockReset();
     mocks.requestOTP.mockReset();
+    mocks.redeemInvitation.mockReset();
     mocks.verifyOTP.mockReset();
     sessionStorage.clear();
     mocks.getGuardianAuthContext.mockRejectedValue(new Error("not a guardian"));
@@ -315,6 +319,32 @@ describe("GuardianOnboardingPage", () => {
       '"pathname":"/guardian/students"',
     );
     expect(mocks.complete).not.toHaveBeenCalled();
+  });
+
+  it("shows an actionable error and return-home link for an invalid personal invitation", async () => {
+    mocks.redeemInvitation.mockRejectedValue(
+      new ApiError("http", "invitation is invalid or expired", 404, "invitation-invalid"),
+    );
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={["/guardian/onboarding?invitation=expired-token"]}>
+        <Routes>
+          <Route path="/guardian/onboarding" element={<GuardianOnboardingPage />} />
+          <Route path="/" element={<LocationProbe />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByText(
+        "The registration link has expired or is invalid. Contact your program administrator to get a new link.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Opening your secure registration invitation…"),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("link", { name: "Return home" }));
+    expect(await screen.findByTestId("location")).toHaveTextContent('"pathname":"/"');
   });
 
   it("shows a neutral unavailable message when beginning an invalid shared link", async () => {
