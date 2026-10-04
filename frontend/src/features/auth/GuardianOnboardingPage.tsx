@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ModalForm } from "@/components/ui/modal-form";
 import { resourceApi, type GuardianOnboardingSession } from "@/lib/apiResources";
+import { ApiError } from "@/lib/api";
 import { clearApplicationSession, hasApplicationSession, setApplicationSession } from "@/lib/auth";
 
 import { errorMessage } from "./auth-utils";
@@ -30,6 +31,8 @@ const fieldClass =
   "mt-2 h-11 border-2 border-stone-950 bg-white text-base text-stone-950 shadow-[2px_2px_0_#1c1917] focus-visible:ring-[#f2633b]";
 const unavailableLinkMessage =
   "This registration link is unavailable. Please contact your organization for a new link.";
+const invalidInvitationMessage =
+  "The registration link has expired or is invalid. Contact your program administrator to get a new link.";
 
 export function GuardianOnboardingPage() {
   const [searchParams] = useSearchParams();
@@ -43,6 +46,7 @@ export function GuardianOnboardingPage() {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [openLegalDocument, setOpenLegalDocument] = useState<LegalDocumentKind | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isInvitationInvalid, setIsInvitationInvalid] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [registeringAsDifferentGuardian, setRegisteringAsDifferentGuardian] = useState(false);
   const startedLink = useRef<string | null>(null);
@@ -79,7 +83,14 @@ export function GuardianOnboardingPage() {
         setSession(next);
         if (next.email) setEmail(next.email);
       })
-      .catch((reason) => setError(errorMessage(reason)));
+      .catch((reason) => {
+        if (reason instanceof ApiError && reason.code === "invitation-invalid") {
+          setIsInvitationInvalid(true);
+          setError(invalidInvitationMessage);
+          return;
+        }
+        setError(errorMessage(reason));
+      });
   }, [invitationToken, isSharedLink]);
 
   async function beginSharedRegistration() {
@@ -215,6 +226,16 @@ export function GuardianOnboardingPage() {
       >
         {isUnavailable ? (
           <GuardianOnboardingError message={unavailableLinkMessage} />
+        ) : isInvitationInvalid ? (
+          <section className="text-center">
+            {error && <GuardianOnboardingError message={error} />}
+            <Button
+              asChild
+              className="mt-6 h-12 border-2 border-stone-950 bg-[#fffaf0] px-6 text-base font-black text-stone-950 shadow-[3px_3px_0_#1c1917] hover:bg-white"
+            >
+              <Link to="/">Return home</Link>
+            </Button>
+          </section>
         ) : (
           <>
             {error && <GuardianOnboardingError message={error} />}
