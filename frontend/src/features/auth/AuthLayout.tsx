@@ -18,7 +18,7 @@ export function AuthLayout({ children, header }: PropsWithChildren<{ header?: Re
         ) : (
           header
         )}
-        <div className="mt-8">{children}</div>
+        <div className={header === null ? undefined : "mt-8"}>{children}</div>
       </section>
     </PublicPageLayout>
   );

@@ -62,6 +62,29 @@ describe("GuardianAccessPage", () => {
     mocks.requestOTP.mockResolvedValue({ accepted: true, challenge_id: "challenge-1" });
   });
 
+  it("distinguishes returning email sign-in from first-time registration", () => {
+    renderPage();
+
+    expect(screen.queryByRole("heading", { name: "Family access" })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Already registered? Sign in" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Enter the email you used to register your family\./),
+    ).toHaveTextContent(
+      "We’ll send you a sign-in code so you can access your students and their surveys.",
+    );
+    expect(
+      screen.getByRole("heading", { name: "First time? You’ll need a link" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Ask your program administrator for a registration link."),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Open the link to register your family\./)).toHaveTextContent(
+      "You can't register by entering your email on this page.",
+    );
+  });
+
   it("shows a one-time session-end message supplied by navigation state", async () => {
     renderPage({
       sessionEndMessage: "Your session has ended due to inactivity. Sign in again to continue.",
@@ -97,7 +120,24 @@ describe("GuardianAccessPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send one-time code" }));
     await waitFor(() => expect(mocks.requestOTP).toHaveBeenCalledWith("guardian@example.test"));
 
-    fireEvent.change(await screen.findByLabelText("One-time code"), {
+    const codeInput = await screen.findByLabelText("One-time code");
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Already registered? Sign in" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Check your email for a sign-in code\./)).toHaveTextContent(
+      "If it doesn’t arrive, check your spam folder and make sure you used the email you registered with.",
+    );
+    expect(
+      screen.getByText(/We won’t send a sign-in code until you’ve registered\./),
+    ).toHaveTextContent(
+      "Ask your program administrator for a registration link and use it to register your family first.",
+    );
+    expect(screen.getByText(/Check your email for a sign-in code\./).parentElement).toHaveClass(
+      "border-dashed",
+      "border-[#287d96]",
+      "bg-[#d8f2f8]",
+    );
+    fireEvent.change(codeInput, {
       target: { value: "123456" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Enter" }));

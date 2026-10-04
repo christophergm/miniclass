@@ -121,25 +121,16 @@ export function GuardianAccessPage() {
     }
   }
 
-  const familyHeader = (
-    <div>
-      <h1 className="text-lg font-black tracking-tight">Family access</h1>
-      <p className="mt-1 text-sm font-medium text-stone-700">
-        Sign in as a guardian to share your student&apos;s interests and class preferences.
-      </p>
-    </div>
-  );
-
   if (checkingSession) {
     return (
-      <AuthLayout header={familyHeader}>
+      <AuthLayout header={null}>
         <p role="status">Checking your guardian session…</p>
       </AuthLayout>
     );
   }
 
   return (
-    <AuthLayout header={familyHeader}>
+    <AuthLayout header={null}>
       {error && <AuthErrorMessage message={error} />}
 
       {contextSelection ? (
@@ -174,11 +165,19 @@ export function GuardianAccessPage() {
           </ul>
         </section>
       ) : challengeID ? (
-        <form className="mt-6 space-y-4" onSubmit={verifyOTP}>
-          <p className="rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-            If the email matches a guardian record, a code has been sent. The message and response
-            are the same for unknown or duplicate email addresses.
-          </p>
+        <form className="space-y-4" onSubmit={verifyOTP}>
+          <h1 className="text-2xl font-black tracking-tight">Already registered? Sign in</h1>
+          <div className="space-y-3 rounded-xl border-2 border-dashed border-[#287d96] bg-[#d8f2f8] px-4 py-3 text-sm font-medium leading-6 text-stone-700">
+            <p>
+              Check your email for a sign-in code. If it doesn’t arrive, check your spam folder and
+              make sure you used the email you registered with.
+            </p>
+            <p>
+              <strong className="font-black text-stone-950">First time here?</strong> We won’t send
+              a sign-in code until you’ve registered. Ask your program administrator for a
+              registration link and use it to register your family first.
+            </p>
+          </div>
           <label className="block space-y-2 text-sm font-medium" htmlFor="guardian-otp-code">
             One-time code
             <Input
@@ -214,12 +213,12 @@ export function GuardianAccessPage() {
           </button>
         </form>
       ) : (
-        <form className="mt-6 space-y-4" onSubmit={requestOTP}>
+        <form className="space-y-4" onSubmit={requestOTP}>
           <div>
-            <h2 className="text-2xl font-black tracking-tight">Returning to MiniClass?</h2>
+            <h1 className="text-2xl font-black tracking-tight">Already registered? Sign in</h1>
             <p className="mt-1 text-sm text-stone-700">
-              If you&apos;ve already registered using a link from your program, enter your email
-              address to receive a one-time sign-in code.
+              Enter the email you used to register your family. We’ll send you a sign-in code so you
+              can access your students and their surveys.
             </p>
           </div>
           <label className="block space-y-2 text-sm font-semibold" htmlFor="guardian-email">
@@ -242,10 +241,16 @@ export function GuardianAccessPage() {
             {isSubmitting ? "Sending code…" : "Send one-time code"}
           </Button>
           <div className="border-t-2 border-stone-950/20 pt-5">
-            <h2 className="text-2xl font-black tracking-tight">New to MiniClass?</h2>
-            <p className="mt-1 text-sm text-stone-700">
-              Ask your program administrator for your access link.
-            </p>
+            <h2 className="text-2xl font-black tracking-tight">First time? You’ll need a link</h2>
+            <div className="mt-3 rounded-xl border-2 border-dashed border-[#287d96] bg-[#d8f2f8] px-4 py-3 text-sm font-medium leading-6 text-stone-700">
+              <p className="font-black text-stone-950">
+                Ask your program administrator for a registration link.
+              </p>
+              <p className="mt-1">
+                Open the link to register your family. You can&apos;t register by entering your
+                email on this page.
+              </p>
+            </div>
           </div>
         </form>
       )}
