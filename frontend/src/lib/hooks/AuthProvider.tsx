@@ -18,10 +18,22 @@ export function AuthProvider({ children, client = supabase }: AuthProviderProps)
   useEffect(() => {
     let mounted = true;
 
+    const unsubscribeSessionEnded = onSessionEnded((reason) => {
+      if (!mounted) return;
+      queryClient.clear();
+      setSession(null);
+      setSessionEndedReason(reason);
+      setIsLoading(false);
+      if (client) {
+        void client.auth.signOut();
+      }
+    });
+
     if (!client) {
       setIsLoading(false);
       return () => {
         mounted = false;
+        unsubscribeSessionEnded();
       };
     }
 
@@ -42,14 +54,6 @@ export function AuthProvider({ children, client = supabase }: AuthProviderProps)
         setAuthError(null);
         setIsLoading(false);
       }
-    });
-
-    const unsubscribeSessionEnded = onSessionEnded((reason) => {
-      if (!mounted) return;
-      setSession(null);
-      setSessionEndedReason(reason);
-      setIsLoading(false);
-      void client.auth.signOut();
     });
 
     void client.auth.getSession().then(({ data: sessionData, error }) => {

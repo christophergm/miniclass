@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ import { AuthErrorMessage, AuthLayout } from "./AuthLayout";
 import { errorMessage } from "./auth-utils";
 
 export function GuardianAccessPage() {
+  const location = useLocation();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [challengeID, setChallengeID] = useState<string | null>(null);
@@ -26,6 +27,14 @@ export function GuardianAccessPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [checkingSession, setCheckingSession] = useState(() => hasApplicationSession());
+  const sessionEndMessage = (location.state as { sessionEndMessage?: unknown } | null)
+    ?.sessionEndMessage;
+
+  useEffect(() => {
+    if (typeof sessionEndMessage === "string") {
+      setError(sessionEndMessage);
+    }
+  }, [sessionEndMessage]);
 
   useEffect(() => {
     if (!hasApplicationSession()) return;

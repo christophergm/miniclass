@@ -24,7 +24,9 @@ export type DevTokenStatus =
 
 export type SessionEndedReason =
   | { kind: "local-dev-token-expired"; expiresAt: Date }
-  | { kind: "api-invalid-token" };
+  | { kind: "api-invalid-token" }
+  | { kind: "api-guardian-session-invalid" }
+  | { kind: "api-guardian-session-inactive" };
 
 type SessionEndedListener = (reason: SessionEndedReason) => void;
 const sessionEndedListeners = new Set<SessionEndedListener>();

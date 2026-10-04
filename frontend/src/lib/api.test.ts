@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   ApiError,
@@ -22,6 +22,10 @@ const me = {
   organization: { id: "org-test", name: "Test organisation" },
   role: "Owner",
 };
+
+afterEach(() => {
+  sessionStorage.clear();
+});
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -249,6 +253,62 @@ describe("response handling", () => {
         code: "capability-required",
       });
       expect(required).not.toHaveBeenCalled();
+    } finally {
+      unsubscribe();
+    }
+  });
+
+  it("reports a guardian capability denial as an inactive guardian session", async () => {
+    sessionStorage.setItem("miniclass.application-session", "guardian-token");
+    const ended = vi.fn();
+    const unsubscribe = onSessionEnded(ended);
+    try {
+      const { client } = stubClient(
+        () =>
+          new Response(
+            JSON.stringify({
+              type: "capability-required",
+              title: "Capability required",
+              detail: "the principal lacks the required capability",
+            }),
+            { status: 403, headers: { "Content-Type": "application/problem+json" } },
+          ),
+      );
+
+      await expect(unwrap(client.GET("/api/school-years"))).rejects.toMatchObject({
+        status: 403,
+        code: "capability-required",
+      });
+      expect(ended).toHaveBeenCalledWith({ kind: "api-guardian-session-inactive" });
+      expect(sessionStorage.getItem("miniclass.application-session")).toBeNull();
+    } finally {
+      unsubscribe();
+    }
+  });
+
+  it("reports an invalid guardian bearer as a terminal guardian-session event", async () => {
+    sessionStorage.setItem("miniclass.application-session", "guardian-token");
+    const ended = vi.fn();
+    const unsubscribe = onSessionEnded(ended);
+    try {
+      const { client } = stubClient(
+        () =>
+          new Response(
+            JSON.stringify({
+              type: "invalid-token",
+              title: "Invalid token",
+              detail: "the bearer token is invalid",
+            }),
+            { status: 401, headers: { "Content-Type": "application/problem+json" } },
+          ),
+      );
+
+      await expect(unwrap(client.GET("/api/me"))).rejects.toMatchObject({
+        status: 401,
+        code: "invalid-token",
+      });
+      expect(ended).toHaveBeenCalledWith({ kind: "api-guardian-session-invalid" });
+      expect(sessionStorage.getItem("miniclass.application-session")).toBeNull();
     } finally {
       unsubscribe();
     }
