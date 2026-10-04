@@ -29,6 +29,10 @@ const mocks = vi.hoisted(() => ({
   sessionUpdate: vi.fn(),
   reorderAreas: vi.fn(),
   updateAutoAssignment: vi.fn(),
+  autoAssignmentPending: false,
+  summaryState: "ready" as "ready" | "loading" | "error",
+  includeRetiredArea: false,
+  emptySummaries: false,
   programs: [
     {
       id: "program-1",
@@ -36,8 +40,8 @@ const mocks = vi.hoisted(() => ({
       school_year_id: "year-1",
       name: "Enrichment",
       auto_assignment_enabled: false,
-      auto_assignment_grade_level_ids: [],
-      auto_assignment_homeroom_ids: [],
+      auto_assignment_grade_level_ids: [] as string[],
+      auto_assignment_homeroom_ids: [] as string[],
       created_at: "",
       updated_at: "",
     },
@@ -46,7 +50,17 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("./usePrograms", () => {
   const query = (data: unknown) =>
-    vi.fn(() => ({ data, isLoading: false, isError: false, error: null }));
+    vi.fn(() => ({
+      data:
+        mocks.summaryState === "ready"
+          ? mocks.emptySummaries && Array.isArray(data)
+            ? []
+            : data
+          : undefined,
+      isLoading: mocks.summaryState === "loading",
+      isError: mocks.summaryState === "error",
+      error: null,
+    }));
   const mutation = (mutate = vi.fn()) =>
     vi.fn(() => ({ mutate, isPending: false, isError: false, error: null }));
   const defaults = {
@@ -175,10 +189,21 @@ vi.mock("./usePrograms", () => {
         },
       ],
     }),
-    useProgramInterestAreas: query([
-      { id: "area-1", label: "Making", ordinal: 1, retired_at: null },
-      { id: "area-2", label: "Gardening", ordinal: 2, retired_at: null },
-      { id: "area-3", label: "Music", ordinal: 3, retired_at: null },
+    useProgramInterestAreas: vi.fn(() =>
+      query([
+        { id: "area-1", label: "Making", ordinal: 1, retired_at: null },
+        { id: "area-2", label: "Gardening", ordinal: 2, retired_at: null },
+        { id: "area-3", label: "Music", ordinal: 3, retired_at: null },
+        ...(mocks.includeRetiredArea
+          ? [{ id: "area-retired", label: "Retired area", ordinal: 4, retired_at: "2026-09-01" }]
+          : []),
+      ])(),
+    ),
+    useInterestProfileSurveys: query([
+      { id: "survey-open-1", state: "open", closes_at: "2020-01-01T00:00:00Z" },
+      { id: "survey-open-2", state: "open" },
+      { id: "survey-draft", state: "draft" },
+      { id: "survey-closed", state: "closed" },
     ]),
     useVocabulary: query({
       school_year_id: "year-1",
@@ -240,7 +265,12 @@ vi.mock("./usePrograms", () => {
     useCreateSession: mutation(),
     useProgramObjectiveWeights: query({ defaults, effective: defaults }),
     useUpdateProgramObjectiveWeights: mutation(mocks.programUpdate),
-    useUpdateProgramAutoAssignment: mutation(mocks.updateAutoAssignment),
+    useUpdateProgramAutoAssignment: vi.fn(() => ({
+      mutate: mocks.updateAutoAssignment,
+      isPending: mocks.autoAssignmentPending,
+      isError: false,
+      error: null,
+    })),
     useReorderInterestAreas: mutation(mocks.reorderAreas),
     useUpdateInterestArea: mutation(),
   };
@@ -261,7 +291,7 @@ vi.mock("@/lib/hooks/useVocabulary", () => ({
           updated_at: "",
         },
       ],
-      homerooms: [],
+      homerooms: [{ id: "homeroom-1", name: "Oak" }],
     },
     isLoading: false,
     isError: false,
@@ -287,6 +317,10 @@ const year = (state: SchoolYear["state"]): SchoolYear => ({
 });
 
 beforeEach(() => {
+  mocks.summaryState = "ready";
+  mocks.autoAssignmentPending = false;
+  mocks.includeRetiredArea = false;
+  mocks.emptySummaries = false;
   mocks.programs = [
     {
       id: "program-1",
@@ -554,13 +588,22 @@ describe("program year entry", () => {
     expect(screen.getByRole("heading", { name: "Programs" })).toBeInTheDocument();
   });
 
-  it("shows the school year and status before peer Programs and People sections", () => {
+  it("shows the school year and status, then People before Programs", () => {
     renderProgramYearEntry();
 
     expect(screen.getByRole("heading", { name: "2026–27" })).toBeInTheDocument();
     expect(screen.getByText("active")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Programs", level: 2 })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "People", level: 2 })).toBeInTheDocument();
+    const people = screen.getByRole("heading", { name: "People", level: 2 });
+    const programs = screen.getByRole("heading", { name: "Programs", level: 2 });
+    const yearHeading = screen.getByRole("heading", { name: "2026–27" });
+    expect(yearHeading.compareDocumentPosition(people) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(
+      0,
+    );
+    expect(people.compareDocumentPosition(programs) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    expect(
+      screen.getByRole("link", { name: "Import records →" }).compareDocumentPosition(programs) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
   });
 
   it("places the read-only notice above Programs for a closed school year", () => {
@@ -639,13 +682,9 @@ describe("program navigation", () => {
     expect(sessionLink).toHaveAttribute("href", "/y/year-1/programs/program-1/sessions/session-1");
     expect(sessionLink).toHaveClass("after:absolute", "after:inset-0");
     expect(screen.queryByRole("button", { name: "Edit Autumn session" })).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Students" })).toBeInTheDocument();
-    expect(screen.getByText("1")).toBeInTheDocument();
-    expect(screen.getByText("out of 2 in 2026–27")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Membership/ })).toHaveAttribute(
-      "href",
-      "/y/year-1/programs/program-1/settings/membership",
-    );
+    expect(screen.queryByRole("heading", { name: "Students" })).not.toBeInTheDocument();
+    expect(screen.queryByText("out of 2 in 2026–27")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Membership/ })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Program settings" })).toHaveAttribute(
       "href",
       "/y/year-1/programs/program-1/settings",
@@ -669,26 +708,277 @@ describe("program navigation", () => {
     expect(screen.getByRole("heading", { name: "Enrichment settings" })).toBeInTheDocument();
     expect(screen.queryByText("Response tracking")).not.toBeInTheDocument();
     expect(screen.queryByText("Preference access codes")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Open Membership →/ })).toHaveAttribute(
-      "href",
-      "/y/year-1/programs/program-1/settings/membership",
+    for (const [title, path] of [
+      ["Students", "membership"],
+      ["Interest areas", "interest-areas"],
+      ["Interest-profile surveys", "interest-profile-surveys"],
+      ["Assignment planner", "assignment-planner"],
+      ["Auto assignment", "auto-assignment"],
+    ]) {
+      expect(screen.getByRole("link", { name: `Open ${title}` })).toHaveAttribute(
+        "href",
+        `/y/year-1/programs/program-1/settings/${path}`,
+      );
+    }
+  });
+
+  it("keeps every card compact with a hover and keyboard-focus cue beside its title", () => {
+    renderProgramSettings();
+
+    for (const title of [
+      "Students",
+      "Auto assignment",
+      "Interest areas",
+      "Interest-profile surveys",
+      "Assignment planner",
+    ]) {
+      const card = screen.getByRole("link", { name: `Open ${title}` });
+      const heading = within(card).getByRole("heading", { name: title });
+      const cue = within(card).getByText("Open →");
+      expect(cue.parentElement).toBe(heading.parentElement);
+      expect(cue).toHaveClass(
+        "opacity-0",
+        "group-hover:opacity-100",
+        "group-focus-visible:opacity-100",
+      );
+      expect(card.querySelectorAll("p")).toHaveLength(1);
+      expect(card).not.toHaveTextContent(`Open ${title} →`);
+    }
+    expect(screen.queryByText("Students included in this program.")).not.toBeInTheDocument();
+  });
+
+  it("groups settings in order and combines current counts with their explanations", () => {
+    mocks.includeRetiredArea = true;
+    renderProgramSettings();
+
+    expect(
+      screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent),
+    ).toEqual(["Members", "Interests", "Assignments"]);
+    const members = screen.getByRole("region", { name: "Members" });
+    expect(
+      within(members)
+        .getAllByRole("heading", { level: 3 })
+        .map((heading) => heading.textContent),
+    ).toEqual(["Students", "Auto assignment"]);
+    expect(screen.getByRole("link", { name: "Open Students" })).toHaveTextContent(
+      "1 student in this program out of 2 in 2026–27",
     );
-    expect(screen.getByRole("link", { name: /Open Interest areas →/ })).toHaveAttribute(
-      "href",
-      "/y/year-1/programs/program-1/settings/interest-areas",
+    expect(screen.getByRole("link", { name: "Open Interest areas" })).toHaveTextContent(
+      "3 active interest areas define the vocabulary used by this program.",
     );
-    expect(screen.getByRole("link", { name: /Open Interest-profile surveys →/ })).toHaveAttribute(
-      "href",
-      "/y/year-1/programs/program-1/settings/interest-profile-surveys",
+    expect(screen.getByRole("link", { name: "Open Interest-profile surveys" })).toHaveTextContent(
+      "2 open surveys collecting interest profiles from this program’s students.",
     );
-    expect(screen.getByRole("link", { name: /Open Assignment planner →/ })).toHaveAttribute(
-      "href",
-      "/y/year-1/programs/program-1/settings/assignment-planner",
+    expect(screen.getByRole("link", { name: "Open Assignment planner" }).closest("section")).toBe(
+      screen.getByRole("region", { name: "Assignments" }),
     );
-    expect(screen.getByRole("link", { name: /Open Auto assignment →/ })).toHaveAttribute(
-      "href",
-      "/y/year-1/programs/program-1/settings/auto-assignment",
+  });
+
+  it("emphasises leading counts without enlarging the explanatory text", () => {
+    renderProgramSettings();
+
+    for (const [title, count] of [
+      ["Students", "1"],
+      ["Interest areas", "3"],
+      ["Interest-profile surveys", "2"],
+    ]) {
+      const card = screen.getByRole("link", { name: `Open ${title}` });
+      const number = within(card).getByText(count);
+      expect(number.tagName).toBe("STRONG");
+      expect(number).toHaveClass("text-lg", "font-semibold", "text-foreground");
+      expect(card.querySelectorAll("p")).toHaveLength(1);
+    }
+  });
+
+  it("summarises enabled auto-assignment criteria in the registration explanation", () => {
+    mocks.programs[0].auto_assignment_enabled = true;
+    mocks.programs[0].auto_assignment_grade_level_ids = ["grade-1"];
+    mocks.programs[0].auto_assignment_homeroom_ids = ["homeroom-1"];
+    renderProgramSettings();
+
+    const card = screen.getByRole("link", { name: "Open Auto assignment" });
+    expect(card).toHaveTextContent("Enabled");
+    expect(card).toHaveTextContent(
+      "Students will be automatically added when they register (Grades: Grade 1 · Homerooms: Oak).",
     );
+    expect(card).not.toHaveTextContent("All students will be automatically added");
+    for (const label of ["Grade 1", "Oak"]) {
+      const criterion = within(card).getByText(label);
+      expect(criterion.tagName).toBe("STRONG");
+      expect(criterion).toHaveClass("font-semibold", "text-foreground");
+    }
+  });
+
+  it("explains disabled auto assignment without showing inactive criteria", () => {
+    mocks.programs[0].auto_assignment_grade_level_ids = ["grade-1"];
+    mocks.programs[0].auto_assignment_homeroom_ids = ["homeroom-1"];
+    renderProgramSettings();
+
+    const card = screen.getByRole("link", { name: "Open Auto assignment" });
+    expect(card).toHaveTextContent("Disabled");
+    expect(card).toHaveTextContent("Students will not be automatically added when they register.");
+    expect(card).not.toHaveTextContent("Grades:");
+    expect(card).not.toHaveTextContent("Homerooms:");
+  });
+
+  it("summarises an unfiltered auto-assignment rule", () => {
+    mocks.programs[0].auto_assignment_enabled = true;
+    renderProgramSettings();
+
+    const card = screen.getByRole("link", { name: "Open Auto assignment" });
+    expect(card).toHaveTextContent("Enabled");
+    expect(card).toHaveTextContent("All students will be automatically added when they register.");
+    const allStudents = within(card).getByText("All students");
+    expect(allStudents.tagName).toBe("STRONG");
+    expect(allStudents).toHaveClass("font-semibold", "text-foreground");
+  });
+
+  it("emphasises All for an unrestricted auto-assignment criterion", () => {
+    mocks.programs[0].auto_assignment_enabled = true;
+    mocks.programs[0].auto_assignment_grade_level_ids = ["grade-1"];
+    renderProgramSettings();
+
+    const card = screen.getByRole("link", { name: "Open Auto assignment" });
+    const allHomerooms = within(card).getByText("All");
+    expect(allHomerooms.tagName).toBe("STRONG");
+    expect(allHomerooms).toHaveClass("font-semibold", "text-foreground");
+  });
+
+  it("shows zero for successfully loaded empty summaries", () => {
+    mocks.emptySummaries = true;
+    renderProgramSettings();
+
+    expect(screen.getByRole("link", { name: "Open Students" })).toHaveTextContent(
+      "0 students in this program out of 2 in 2026–27",
+    );
+    expect(screen.getByRole("link", { name: "Open Interest areas" })).toHaveTextContent(
+      "0 active interest areas",
+    );
+    expect(screen.getByRole("link", { name: "Open Interest-profile surveys" })).toHaveTextContent(
+      "0 open surveys",
+    );
+  });
+
+  it.each(["loading", "error"] as const)(
+    "keeps destinations accessible without false counts during %s",
+    (state) => {
+      mocks.summaryState = state;
+      renderProgramSettings();
+
+      for (const title of ["Students", "Interest areas", "Interest-profile surveys"]) {
+        const card = screen.getByRole("link", { name: `Open ${title}` });
+        expect(card).toHaveTextContent(
+          state === "loading" ? "Loading summary…" : "Unable to load summary.",
+        );
+        expect(card).not.toHaveTextContent("0");
+      }
+    },
+  );
+
+  it.each([
+    ["Students", renderMembership],
+    ["Auto assignment", renderAutoAssignment],
+    ["Interest areas", renderInterestAreas],
+    ["Assignment planner", renderProgramObjectives],
+  ] as const)("uses the settings breadcrumb on %s", (title, renderPage) => {
+    renderPage();
+
+    const breadcrumb = screen.getByRole("navigation", { name: "Program breadcrumb" });
+    expect(
+      within(breadcrumb)
+        .getAllByRole("link")
+        .filter((link) => link.hasAttribute("href"))
+        .map((link) => link.textContent),
+    ).toEqual(["2026–27", "Enrichment", "Settings"]);
+    expect(within(breadcrumb).getByRole("link", { name: "Settings" })).toHaveAttribute(
+      "href",
+      "/y/year-1/programs/program-1/settings",
+    );
+    expect(breadcrumb.querySelector('[aria-current="page"]')).toHaveTextContent(title);
+    expect(screen.queryByText("Back to settings")).not.toBeInTheDocument();
+  });
+
+  it.each(["loading", "error"] as const)(
+    "preserves assignment-planner navigation during %s",
+    (state) => {
+      mocks.summaryState = state;
+      renderProgramObjectives();
+
+      expect(screen.getByRole("heading", { name: "Assignment planner" })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute(
+        "href",
+        "/y/year-1/programs/program-1/settings",
+      );
+      expect(
+        screen.getByText(
+          state === "loading"
+            ? "Loading assignment planner…"
+            : "Unable to load assignment planner.",
+        ),
+      ).toBeInTheDocument();
+    },
+  );
+
+  it("disables criteria while automatic membership is off and preserves their selections", () => {
+    mocks.programs[0].auto_assignment_grade_level_ids = ["grade-1"];
+    mocks.programs[0].auto_assignment_homeroom_ids = ["homeroom-1"];
+    renderAutoAssignment();
+
+    const enabled = screen.getByRole("checkbox", { name: "Automatically add matching students" });
+    const grade = screen.getByRole("checkbox", { name: "Grade 1" });
+    const homeroom = screen.getByRole("checkbox", { name: "Oak" });
+    expect(grade).toBeDisabled();
+    expect(homeroom).toBeDisabled();
+    expect(grade).toBeChecked();
+    expect(homeroom).toBeChecked();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+
+    fireEvent.click(enabled);
+    expect(grade).toBeEnabled();
+    expect(homeroom).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+
+    fireEvent.click(enabled);
+    expect(grade).toBeDisabled();
+    expect(homeroom).toBeDisabled();
+    expect(grade).toBeChecked();
+    expect(homeroom).toBeChecked();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+  });
+
+  it("enables Save for changed criteria and disables it when the selections are restored", () => {
+    mocks.programs[0].auto_assignment_enabled = true;
+    mocks.programs[0].auto_assignment_grade_level_ids = ["grade-1"];
+    renderAutoAssignment();
+
+    const save = screen.getByRole("button", { name: "Save" });
+    const grade = screen.getByRole("checkbox", { name: "Grade 1" });
+    const homeroom = screen.getByRole("checkbox", { name: "Oak" });
+    expect(save).toBeDisabled();
+    fireEvent.click(grade);
+    expect(save).toBeEnabled();
+    fireEvent.click(grade);
+    expect(save).toBeDisabled();
+    fireEvent.click(homeroom);
+    expect(save).toBeEnabled();
+    fireEvent.click(homeroom);
+    expect(save).toBeDisabled();
+  });
+
+  it("keeps Save disabled during an in-flight update", () => {
+    mocks.autoAssignmentPending = true;
+    renderAutoAssignment();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Automatically add matching students" }));
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+  });
+
+  it("keeps all automatic-membership controls disabled for a closed year", () => {
+    mocks.programs[0].auto_assignment_enabled = true;
+    renderAutoAssignment(year("closed"));
+
+    for (const checkbox of screen.getAllByRole("checkbox")) expect(checkbox).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
   });
 
   it("saves an all-student auto-assignment rule", () => {
@@ -699,7 +989,7 @@ describe("program navigation", () => {
     expect(
       screen.getByText("Every newly registered student will be added to this program."),
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Save auto assignment" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(mocks.updateAutoAssignment).toHaveBeenCalledWith({
       enabled: true,
@@ -711,14 +1001,17 @@ describe("program navigation", () => {
   it("keeps membership on its dedicated settings page", () => {
     renderMembership();
 
-    expect(screen.getByRole("heading", { name: "Membership" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Students" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Program membership" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "2026–27" })).toHaveAttribute("href", "/y/year-1");
     expect(screen.getByRole("link", { name: "Enrichment" })).toHaveAttribute(
       "href",
       "/y/year-1/programs/program-1",
     );
-    expect(screen.queryByRole("link", { name: "Settings" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute(
+      "href",
+      "/y/year-1/programs/program-1/settings",
+    );
     expect(screen.queryByRole("heading", { name: "Sessions" })).not.toBeInTheDocument();
   });
 });

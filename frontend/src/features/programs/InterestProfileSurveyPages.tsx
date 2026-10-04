@@ -16,6 +16,7 @@ import type {
 import { usePeople } from "@/features/people/roster-queries";
 import { useVocabulary } from "@/lib/hooks/useVocabulary";
 import { useProgramName } from "./useProgramName";
+import { ProgramSettingsBreadcrumb } from "./ProgramSettingsBreadcrumb";
 import {
   useCreateInterestProfileSurvey,
   useDeleteInterestProfileSurvey,
@@ -680,13 +681,13 @@ export function InterestProfileSurveysPage() {
 
   return (
     <PageFrame>
-      <Link
-        className="text-sm font-medium text-primary hover:underline"
-        to={`/y/${schoolYearId}/programs/${programId}/settings`}
-      >
-        ← Back to {programName} settings
-      </Link>
-      <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
+      <ProgramSettingsBreadcrumb
+        current="Interest-profile surveys"
+        programId={programId}
+        programName={programName}
+        schoolYearId={schoolYearId}
+      />
+      <div className="mt-2 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Interest-profile surveys</h1>
           <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
