@@ -178,6 +178,8 @@ format: ## Check Go formatting and run the vet analyzer
 build-frontend: ## Type-check and build the production frontend bundle
 	@cd frontend && bun run build
 
+# The smoke gate uses throwaway ports so `make check` can run alongside the normal
+# local API and Vite servers.
 check: db-up ## Run all ten CI gates in CI order, failing fast
 	@echo "Running the ten gates CI publishes. Fail-fast; each failure names its CI check."
 	$(call gate,Backend tests,$(MAKE) test-backend,fix the failing test)
@@ -189,6 +191,6 @@ check: db-up ## Run all ten CI gates in CI order, failing fast
 	$(call gate,Frontend build,$(MAKE) build-frontend,fix the type or build error above)
 	$(call gate,Frontend lint,$(MAKE) lint-frontend,fix the reported findings then rerun 'make lint-frontend')
 	$(call gate,Repository formatting,git diff --check,remove the trailing whitespace or conflict marker it names)
-	$(call gate,Developer tooling,$(MAKE) smoke,fix the full-stack smoke-test failure)
+	$(call gate,Developer tooling,$(MAKE) smoke PORT=18080 VITE_PORT=15173,fix the full-stack smoke-test failure)
 	@echo ""
 	@echo "All ten gates passed. This is what CI runs."

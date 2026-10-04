@@ -1,10 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AppWithAuth } from "./App";
-import type { AuthClient, Session } from "./lib/auth";
+import { reportSessionEnded, type AuthClient, type Session } from "./lib/auth";
 
 // The client hands a Request to fetch, so the URL comes off the Request rather
 // than from stringifying the first argument.
@@ -59,6 +59,7 @@ function authenticatedClient(): AuthClient {
 }
 
 afterEach(() => {
+  sessionStorage.clear();
   vi.restoreAllMocks();
 });
 
@@ -107,6 +108,20 @@ describe("App routing", () => {
     expect(screen.getByText("What is MiniClass?")).toBeInTheDocument();
     expect(screen.queryByText("Does MiniClass run my program?")).not.toBeInTheDocument();
     expect(screen.queryByText("Where is MiniClass available?")).not.toBeInTheDocument();
+  });
+
+  it("returns an expired guardian session to family access with an inactivity message", async () => {
+    sessionStorage.setItem("miniclass.application-session", "guardian-token");
+    renderApp("/family", null);
+
+    act(() => reportSessionEnded({ kind: "api-guardian-session-inactive" }));
+
+    expect(
+      await screen.findByText(
+        "Your session has ended due to inactivity. Sign in again to continue.",
+      ),
+    ).toBeInTheDocument();
+    expect(sessionStorage.getItem("miniclass.application-session")).toBeNull();
   });
 
   it("does not retain the undeployed guardian access route", async () => {
@@ -172,7 +187,7 @@ describe("App routing", () => {
     renderApp("/years", authenticatedClient());
 
     expect(
-      await screen.findByRole("heading", { name: "Secure administrator access" }),
+      await screen.findByRole("heading", { name: "Administrator access" }),
     ).toBeInTheDocument();
     expect(
       screen.getByText("Verify MFA to continue to the page you requested."),

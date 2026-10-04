@@ -3,7 +3,7 @@ import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from "react
 
 import { AppShell } from "@/components/AppShell";
 import { onMfaRequired } from "@/lib/api";
-import { hasApplicationSession, type AuthClient } from "@/lib/auth";
+import { hasApplicationSession, onSessionEnded, type AuthClient } from "@/lib/auth";
 import { AuthProvider } from "@/lib/hooks/AuthProvider";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { HealthCheck } from "@/features/health/HealthCheck";
@@ -99,6 +99,20 @@ function AppRoutes() {
       navigate(`/mfa?redirect=${encodeURIComponent(redirect)}`, { replace: true });
     });
   }, [location.hash, location.pathname, location.search, navigate]);
+
+  useEffect(() => {
+    return onSessionEnded((reason) => {
+      const message =
+        reason.kind === "api-guardian-session-inactive"
+          ? "Your session has ended due to inactivity. Sign in again to continue."
+          : reason.kind === "api-guardian-session-invalid"
+            ? "Your session has ended due to an invalid session. Sign in again to continue."
+            : null;
+      if (message) {
+        navigate("/family", { replace: true, state: { sessionEndMessage: message } });
+      }
+    });
+  }, [navigate]);
 
   return (
     <Routes>

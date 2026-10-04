@@ -38,9 +38,9 @@ function LocationProbe() {
   return <output data-testid="location">{location.pathname}</output>;
 }
 
-function renderPage() {
+function renderPage(state?: unknown) {
   return renderWithQueryClient(
-    <MemoryRouter initialEntries={["/family"]}>
+    <MemoryRouter initialEntries={[{ pathname: "/family", state }]}>
       <Routes>
         <Route path="/family" element={<GuardianAccessPage />} />
         <Route path="/guardian/students" element={<LocationProbe />} />
@@ -60,6 +60,18 @@ describe("GuardianAccessPage", () => {
     mocks.hasSession.mockReset();
     mocks.hasSession.mockReturnValue(false);
     mocks.requestOTP.mockResolvedValue({ accepted: true, challenge_id: "challenge-1" });
+  });
+
+  it("shows a one-time session-end message supplied by navigation state", async () => {
+    renderPage({
+      sessionEndMessage: "Your session has ended due to inactivity. Sign in again to continue.",
+    });
+
+    expect(
+      await screen.findByText(
+        "Your session has ended due to inactivity. Sign in again to continue.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("requests guardian OTP using email only and enters a single returned context", async () => {

@@ -91,10 +91,10 @@ export function MfaPage() {
     <AuthLayout>
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">
-          {guardianMode ? "Request administrator access" : "Secure administrator access"}
+          {guardianMode ? "Request administrator access" : "Administrator access"}
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          MiniClass requires a fresh MFA proof before administrator data or actions are available.
+          Provide a fresh MFA proof before continuing with administrative actions.
         </p>
         {searchParams.has("redirect") && (
           <p className="mt-2 text-sm text-muted-foreground" role="status">

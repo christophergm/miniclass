@@ -2,7 +2,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import type { AuthChangeEvent, AuthClient, Session } from "@/lib/auth";
+import {
+  reportSessionEnded,
+  type AuthChangeEvent,
+  type AuthClient,
+  type Session,
+} from "@/lib/auth";
 
 import { AuthProvider } from "./AuthProvider";
 import { useAuth } from "./useAuth";
@@ -78,6 +83,20 @@ describe("AuthProvider query cache boundary", () => {
     expect(queryClient.getQueryData(["account"])).toBeUndefined();
     expect(queryClient.getQueryData(["school-years", "year-a"])).toBeUndefined();
     expect(screen.getByTestId("session-user")).toHaveTextContent("user-b");
+  });
+
+  it("clears resource caches when a guardian session ends", async () => {
+    const harness = authClient(session("user-a"));
+    const queryClient = new QueryClient();
+    renderProvider(harness.client, queryClient);
+    await waitForInitialSession();
+
+    queryClient.setQueryData(["guardian-students"], [{ id: "student-a" }]);
+
+    act(() => reportSessionEnded({ kind: "api-guardian-session-inactive" }));
+
+    expect(queryClient.getQueryData(["guardian-students"])).toBeUndefined();
+    expect(harness.client.auth.signOut).toHaveBeenCalledTimes(1);
   });
 
   it("keeps resource caches intact when the same identity refreshes its token", async () => {
