@@ -639,8 +639,7 @@ export function ProgramDetailPage() {
   const students = usePeople("student", schoolYearId);
   const responseTrackingSummaries = useResponseTrackingSummaries(schoolYearId, programId);
   const createSession = useCreateSession(schoolYearId ?? "", programId ?? "");
-  const updateSession = useUpdateSession(schoolYearId ?? "", programId ?? "");
-  const [sessionEditor, setSessionEditor] = useState<"create" | Session | null>(null);
+  const [createSessionOpen, setCreateSessionOpen] = useState(false);
   const [sessionDraft, setSessionDraft] = useState<SessionDraft>({ name: "", meetingDates: [] });
   if (!schoolYearId || !programId)
     return (
@@ -651,13 +650,7 @@ export function ProgramDetailPage() {
   const submitSession = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const value = { name: sessionDraft.name.trim(), meeting_dates: sessionDraft.meetingDates };
-    if (sessionEditor === "create")
-      createSession.mutate(value, { onSuccess: () => setSessionEditor(null) });
-    else if (sessionEditor)
-      updateSession.mutate(
-        { sessionID: sessionEditor.id, value },
-        { onSuccess: () => setSessionEditor(null) },
-      );
+    createSession.mutate(value, { onSuccess: () => setCreateSessionOpen(false) });
   };
   return (
     <PageFrame>
@@ -699,10 +692,13 @@ export function ProgramDetailPage() {
                 summary.instrument_id === session.id,
             );
             return (
-              <div className="rounded-md border p-4" key={session.id}>
-                <div className="grid gap-x-8 gap-y-3 sm:grid-cols-[repeat(3,minmax(0,1fr))_auto]">
+              <div
+                className="relative rounded-md border p-4 transition-colors hover:border-primary/50 hover:bg-accent/50 focus-within:border-primary/50 focus-within:bg-accent/50"
+                key={session.id}
+              >
+                <div className="grid gap-x-8 gap-y-3 sm:grid-cols-3">
                   <Link
-                    className="min-w-0 hover:text-primary"
+                    className="min-w-0 after:absolute after:inset-0 after:rounded-md focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring focus-visible:after:ring-offset-2"
                     to={`/y/${schoolYearId}/programs/${programId}/sessions/${session.id}`}
                   >
                     <h3 className="font-medium">{session.name}</h3>
@@ -715,7 +711,7 @@ export function ProgramDetailPage() {
                       session.state === "voting_open" &&
                       responseTracking && (
                         <Link
-                          className="text-sm font-medium text-primary hover:underline"
+                          className="relative z-10 text-sm font-medium text-primary hover:underline"
                           to={`/y/${schoolYearId}/programs/${programId}/response-tracking/sessions/${session.id}`}
                         >
                           Responses: {percent(responseTracking.completion_percentage)} (
@@ -728,22 +724,6 @@ export function ProgramDetailPage() {
                       <li key={date}>{date}</li>
                     ))}
                   </ul>
-                  <Button
-                    aria-label={`Edit ${session.name}`}
-                    disabled={readOnly}
-                    onClick={() => {
-                      setSessionDraft({
-                        name: session.name,
-                        meetingDates: [...(session.meeting_dates ?? [])],
-                      });
-                      setSessionEditor(session);
-                    }}
-                    size="sm"
-                    type="button"
-                    variant="outline"
-                  >
-                    Edit
-                  </Button>
                 </div>
                 {warningCount > 0 && (
                   <div className="mt-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
@@ -759,33 +739,26 @@ export function ProgramDetailPage() {
           disabled={readOnly}
           onClick={() => {
             setSessionDraft({ name: "", meetingDates: [] });
-            setSessionEditor("create");
+            setCreateSessionOpen(true);
           }}
           type="button"
         >
           Create session
         </Button>
         <ModalForm
-          dirty={
-            sessionEditor !== null &&
-            (sessionDraft.name.trim() !== (sessionEditor === "create" ? "" : sessionEditor.name) ||
-              JSON.stringify(sessionDraft.meetingDates) !==
-                JSON.stringify(
-                  sessionEditor === "create" ? [] : (sessionEditor.meeting_dates ?? []),
-                ))
-          }
-          onClose={() => setSessionEditor(null)}
-          open={sessionEditor !== null}
-          title={sessionEditor === "create" ? "Create session" : "Edit session"}
-          description="Add at least one meeting date. Saving replaces the session name and dates atomically."
+          dirty={Boolean(sessionDraft.name.trim()) || sessionDraft.meetingDates.length > 0}
+          onClose={() => setCreateSessionOpen(false)}
+          open={createSessionOpen}
+          title="Create session"
+          description="Add at least one meeting date."
         >
           <SessionForm
-            error={createSession.error || updateSession.error}
-            onCancel={() => setSessionEditor(null)}
+            error={createSession.error}
+            onCancel={() => setCreateSessionOpen(false)}
             onChange={setSessionDraft}
             onSubmit={submitSession}
-            pending={createSession.isPending || updateSession.isPending}
-            submitLabel={sessionEditor === "create" ? "Create session" : "Save session"}
+            pending={createSession.isPending}
+            submitLabel="Create session"
             value={sessionDraft}
           />
         </ModalForm>
