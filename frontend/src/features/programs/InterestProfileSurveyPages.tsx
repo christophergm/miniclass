@@ -530,8 +530,8 @@ function LifecycleForm({
   onSubmit,
 }: {
   action: "open" | "reopen";
-  value: { closingAt: string; reason: string; regenerateCodes: boolean };
-  onChange: (value: { closingAt: string; reason: string; regenerateCodes: boolean }) => void;
+  value: { closingAt: string; reason: string };
+  onChange: (value: { closingAt: string; reason: string }) => void;
   pending: boolean;
   error: unknown;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -540,7 +540,7 @@ function LifecycleForm({
     <form className="space-y-4" onSubmit={onSubmit}>
       <p className="text-sm text-muted-foreground">
         {action === "open"
-          ? "Opening snapshots the audience and issues student access codes. An empty audience is allowed but will be shown as a warning."
+          ? "Opening snapshots the audience and makes the form available through guardian login. An empty audience is allowed but will be shown as a warning."
           : "Reopening is allowed for late responses, requires a reason and a new closing time, and is recorded in the audit log."}
       </p>
       <label className="block text-sm font-medium">
@@ -566,20 +566,6 @@ function LifecycleForm({
           />
         </label>
       )}
-      <label className="flex items-start gap-2 text-sm">
-        <input
-          aria-label="Regenerate access codes"
-          checked={value.regenerateCodes}
-          onChange={(event) => onChange({ ...value, regenerateCodes: event.target.checked })}
-          type="checkbox"
-        />
-        <span>
-          Regenerate access codes
-          <span className="block text-xs text-muted-foreground">
-            This invalidates existing codes; the newly issued list is returned only once.
-          </span>
-        </span>
-      </label>
       <Button
         disabled={pending || !value.closingAt || (action === "reopen" && !value.reason.trim())}
         type="submit"
@@ -615,7 +601,6 @@ export function InterestProfileSurveysPage() {
   const [lifecycleValue, setLifecycleValue] = useState({
     closingAt: "",
     reason: "",
-    regenerateCodes: false,
   });
   const [notice, setNotice] = useState<string[]>([]);
   const activeAreas = useMemo(
@@ -655,7 +640,6 @@ export function InterestProfileSurveysPage() {
     setLifecycleValue({
       closingAt: toDatetimeLocal(survey.closes_at),
       reason: "",
-      regenerateCodes: false,
     });
   }
 
@@ -669,7 +653,6 @@ export function InterestProfileSurveysPage() {
           state: "open",
           closing_at: toISOString(lifecycleValue.closingAt),
           reason: lifecycleValue.reason.trim() || undefined,
-          regenerate_codes: lifecycleValue.regenerateCodes,
         },
       },
       {
@@ -682,7 +665,11 @@ export function InterestProfileSurveysPage() {
   }
 
   function closeSurvey(survey: InterestProfileSurvey) {
-    if (!window.confirm(`Close “${survey.name}”? Students will no longer be able to submit.`))
+    if (
+      !window.confirm(
+        `Close “${survey.name}”? Guardians will no longer be able to submit responses.`,
+      )
+    )
       return;
     transition.mutate({ surveyID: survey.id, value: { state: "closed" } });
   }
@@ -755,8 +742,7 @@ export function InterestProfileSurveysPage() {
                   </Badge>
                 </div>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  {survey.questions?.length ?? 0} areas · {survey.active_codes?.length ?? 0} active
-                  codes · {stateLabel(survey.audience_type)}
+                  {survey.questions?.length ?? 0} areas · {stateLabel(survey.audience_type)}
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Opens {formatDate(survey.opens_at)} · Closes {formatDate(survey.closes_at)}
@@ -829,12 +815,6 @@ export function InterestProfileSurveysPage() {
               </div>
             </div>
             <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm">
-              <Link
-                className="font-medium text-primary hover:underline"
-                to={`/y/${schoolYearId}/programs/${programId}/settings/access-codes`}
-              >
-                Manage access codes
-              </Link>
               <Link
                 className="font-medium text-primary hover:underline"
                 to={`/y/${schoolYearId}/programs/${programId}/response-tracking/surveys/${survey.id}`}

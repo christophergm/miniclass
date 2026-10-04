@@ -133,45 +133,6 @@ func (s *Service) GetInterestProfileForm(ctx context.Context, organizationID str
 	return result, nil
 }
 
-// GetInterestProfileFormByCode resolves the one instrument-bound code before
-// loading the form. The code is never returned in the form or any response.
-func (s *Service) GetInterestProfileFormByCode(ctx context.Context, organizationID string, schoolYearID, programID, surveyID ids.XID, code string) (PreferenceForm, error) {
-	if s == nil || s.database == nil {
-		return PreferenceForm{}, ErrPreferenceServiceNil
-	}
-	var result PreferenceForm
-	err := s.database.InTenantRead(ctx, organizationID, func(ctx context.Context, tx *data.Tx) error {
-		survey, err := tx.GetInterestProfileSurvey(ctx, schoolYearID, programID, surveyID)
-		if err != nil {
-			return err
-		}
-		studentID, err := tx.FindActiveInterestProfileSurveyAccessCode(ctx, schoolYearID, programID, surveyID, surveyCodeHash(code))
-		if err != nil {
-			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				return err
-			}
-			return ErrSurveyCodeInvalid
-		}
-		student, err := tx.GetStudentByID(ctx, schoolYearID, studentID)
-		if err != nil {
-			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				return err
-			}
-			return ErrSurveyCodeInvalid
-		}
-		program, err := tx.GetProgram(ctx, schoolYearID, programID)
-		if err != nil {
-			return err
-		}
-		result, err = interestProfileForm(ctx, tx, survey, program.Name, student)
-		return err
-	})
-	if err != nil {
-		return PreferenceForm{}, fmt.Errorf("get interest profile form by code: %w", err)
-	}
-	return result, nil
-}
-
 // GetRankedChoiceForm returns one currently open session catalog for a
 // selected participating student.
 func (s *Service) GetRankedChoiceForm(ctx context.Context, organizationID string, schoolYearID, programID, sessionID, studentID ids.XID) (PreferenceForm, error) {
@@ -200,45 +161,6 @@ func (s *Service) GetRankedChoiceForm(ctx context.Context, organizationID string
 	})
 	if err != nil {
 		return PreferenceForm{}, fmt.Errorf("get ranked-choice form: %w", err)
-	}
-	return result, nil
-}
-
-// GetRankedChoiceFormByCode resolves the one session-bound code before
-// returning the course guide and the student's latest valid response.
-func (s *Service) GetRankedChoiceFormByCode(ctx context.Context, organizationID string, schoolYearID, programID, sessionID ids.XID, code string) (PreferenceForm, error) {
-	if s == nil || s.database == nil {
-		return PreferenceForm{}, ErrPreferenceServiceNil
-	}
-	var result PreferenceForm
-	err := s.database.InTenantRead(ctx, organizationID, func(ctx context.Context, tx *data.Tx) error {
-		session, err := tx.GetSession(ctx, schoolYearID, programID, sessionID)
-		if err != nil {
-			return err
-		}
-		studentID, err := tx.FindActiveRankedChoiceAccessCode(ctx, schoolYearID, programID, sessionID, rankedChoiceCodeHash(code))
-		if err != nil {
-			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				return err
-			}
-			return ErrRankedChoiceCodeInvalid
-		}
-		student, err := tx.GetStudentByID(ctx, schoolYearID, studentID)
-		if err != nil {
-			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				return err
-			}
-			return ErrRankedChoiceCodeInvalid
-		}
-		program, err := tx.GetProgram(ctx, schoolYearID, programID)
-		if err != nil {
-			return err
-		}
-		result, err = rankedChoiceForm(ctx, tx, session, program.Name, student)
-		return err
-	})
-	if err != nil {
-		return PreferenceForm{}, fmt.Errorf("get ranked-choice form by code: %w", err)
 	}
 	return result, nil
 }

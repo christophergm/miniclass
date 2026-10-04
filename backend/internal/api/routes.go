@@ -283,30 +283,6 @@ func registerOperations(api huma.API, options RouterOptions) {
 
 	preferenceHandler := handlers.NewPreferenceHandler(options.Programs)
 	registerOperation(api, huma.Operation{
-		OperationID: "get-student-code-interest-profile-form", Method: http.MethodPost,
-		Path:    apiBasePath + "/respondent/interest-profile-surveys/{schoolYearID}/{programID}/{surveyID}/form",
-		Summary: "Open an interest-profile form with a student access code",
-		Errors:  []int{http.StatusConflict, http.StatusNotFound},
-	}, auth.CapabilityPublic, false, preferenceHandler.StudentCodeInterestForm)
-	registerOperation(api, huma.Operation{
-		OperationID: "submit-student-code-interest-profile", Method: http.MethodPost,
-		Path:    apiBasePath + "/respondent/interest-profile-surveys/{schoolYearID}/{programID}/{surveyID}/submit",
-		Summary: "Submit an interest profile with a student access code",
-		Errors:  []int{http.StatusBadRequest, http.StatusConflict, http.StatusForbidden, http.StatusNotFound},
-	}, auth.CapabilityPublic, false, preferenceHandler.StudentCodeInterestSubmit)
-	registerOperation(api, huma.Operation{
-		OperationID: "get-student-code-ranked-choice-form", Method: http.MethodPost,
-		Path:    apiBasePath + "/respondent/sessions/{schoolYearID}/{programID}/{sessionID}/form",
-		Summary: "Open a ranked-choice form with a student access code",
-		Errors:  []int{http.StatusConflict, http.StatusNotFound},
-	}, auth.CapabilityPublic, false, preferenceHandler.StudentCodeRankedForm)
-	registerOperation(api, huma.Operation{
-		OperationID: "submit-student-code-ranked-choice", Method: http.MethodPost,
-		Path:    apiBasePath + "/respondent/sessions/{schoolYearID}/{programID}/{sessionID}/submit",
-		Summary: "Submit ranked choices with a student access code",
-		Errors:  []int{http.StatusBadRequest, http.StatusConflict, http.StatusForbidden, http.StatusNotFound},
-	}, auth.CapabilityPublic, false, preferenceHandler.StudentCodeRankedSubmit)
-	registerOperation(api, huma.Operation{
 		OperationID: "list-guardian-preference-forms", Method: http.MethodGet,
 		Path:    apiBasePath + "/guardian/preference-forms",
 		Summary: "List the current guardian preference forms",
@@ -754,8 +730,6 @@ func registerOperations(api huma.API, options RouterOptions) {
 	registerOperation(api, huma.Operation{OperationID: "update-interest-profile-survey", Method: http.MethodPatch, Path: apiBasePath + "/school-years/{schoolYearID}/programs/{programID}/interest-profile-surveys/{surveyID}", Summary: "Edit an interest-profile survey", Errors: []int{http.StatusBadRequest, http.StatusConflict, http.StatusNotFound}}, auth.CapabilityManageRoster, false, programs.UpdateInterestProfileSurvey)
 	registerOperation(api, huma.Operation{OperationID: "delete-interest-profile-survey", Method: http.MethodDelete, Path: apiBasePath + "/school-years/{schoolYearID}/programs/{programID}/interest-profile-surveys/{surveyID}", Summary: "Delete an interest-profile survey", Errors: []int{http.StatusConflict, http.StatusNotFound}}, auth.CapabilityManageRoster, false, programs.DeleteInterestProfileSurvey)
 	registerOperation(api, huma.Operation{OperationID: "transition-interest-profile-survey", Method: http.MethodPost, Path: apiBasePath + "/school-years/{schoolYearID}/programs/{programID}/interest-profile-surveys/{surveyID}/transition", Summary: "Transition an interest-profile survey", Errors: []int{http.StatusBadRequest, http.StatusConflict, http.StatusNotFound}}, auth.CapabilityManageRoster, false, programs.TransitionInterestProfileSurvey)
-	registerOperation(api, huma.Operation{OperationID: "regenerate-interest-profile-survey-codes", Method: http.MethodPost, Path: apiBasePath + "/school-years/{schoolYearID}/programs/{programID}/interest-profile-surveys/{surveyID}/regenerate-codes", Summary: "Regenerate interest-profile survey access codes", Errors: []int{http.StatusBadRequest, http.StatusConflict, http.StatusNotFound}}, auth.CapabilityManageRoster, false, programs.RegenerateInterestProfileSurveyCodes)
-	registerOperation(api, huma.Operation{OperationID: "revoke-interest-profile-survey-codes", Method: http.MethodPost, Path: apiBasePath + "/school-years/{schoolYearID}/programs/{programID}/interest-profile-surveys/{surveyID}/revoke-codes", Summary: "Revoke interest-profile survey access codes", Errors: []int{http.StatusBadRequest, http.StatusConflict, http.StatusNotFound}}, auth.CapabilityManageRoster, false, programs.RevokeInterestProfileSurveyCodes)
 	registerOperation(api, huma.Operation{OperationID: "list-program-memberships", Method: http.MethodGet, Path: apiBasePath + "/school-years/{schoolYearID}/programs/{programID}/memberships", Summary: "List program memberships", Errors: []int{http.StatusNotFound}}, auth.CapabilityManageRoster, false, programs.ListMemberships)
 	registerOperation(api, huma.Operation{OperationID: "create-program-membership", Method: http.MethodPost, Path: apiBasePath + "/school-years/{schoolYearID}/programs/{programID}/memberships", Summary: "Add a student to a program", Errors: []int{http.StatusBadRequest, http.StatusConflict, http.StatusNotFound}}, auth.CapabilityManageRoster, false, programs.AddMembership)
 	registerOperation(api, huma.Operation{OperationID: "delete-program-membership", Method: http.MethodDelete, Path: apiBasePath + "/school-years/{schoolYearID}/programs/{programID}/memberships/{membershipID}", Summary: "Remove a student from a program", Errors: []int{http.StatusConflict, http.StatusNotFound}}, auth.CapabilityManageRoster, false, programs.DeleteMembership)
@@ -767,8 +741,6 @@ func registerOperations(api huma.API, options RouterOptions) {
 	registerOperation(api, huma.Operation{OperationID: "update-session", Method: http.MethodPatch, Path: apiBasePath + "/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}", Summary: "Edit a programme session", Errors: []int{http.StatusBadRequest, http.StatusConflict, http.StatusNotFound}}, auth.CapabilityManageCatalog, false, programs.UpdateSession)
 	registerOperation(api, huma.Operation{OperationID: "delete-session", Method: http.MethodDelete, Path: apiBasePath + "/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}", Summary: "Delete a programme session", Errors: []int{http.StatusConflict, http.StatusNotFound}}, auth.CapabilityManageCatalog, false, programs.DeleteSession)
 	registerOperation(api, huma.Operation{OperationID: "transition-session", Method: http.MethodPost, Path: apiBasePath + "/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/transition", Summary: "Transition a programme session lifecycle state", Errors: []int{http.StatusBadRequest, http.StatusConflict, http.StatusNotFound}}, auth.CapabilityManageCatalog, false, programs.TransitionSession)
-	registerOperation(api, huma.Operation{OperationID: "regenerate-ranked-choice-access-codes", Method: http.MethodPost, Path: apiBasePath + "/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/regenerate-codes", Summary: "Regenerate ranked-choice access codes", Errors: []int{http.StatusBadRequest, http.StatusConflict, http.StatusNotFound}}, auth.CapabilityManageCatalog, false, programs.RegenerateRankedChoiceAccessCodes)
-	registerOperation(api, huma.Operation{OperationID: "revoke-ranked-choice-access-codes", Method: http.MethodPost, Path: apiBasePath + "/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/revoke-codes", Summary: "Revoke ranked-choice access codes", Errors: []int{http.StatusBadRequest, http.StatusConflict, http.StatusNotFound}}, auth.CapabilityManageCatalog, false, programs.RevokeRankedChoiceAccessCodes)
 	registerOperation(api, huma.Operation{OperationID: "list-meeting-dates", Method: http.MethodGet, Path: apiBasePath + "/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/meeting-dates", Summary: "List session meeting dates", Errors: []int{http.StatusNotFound}}, auth.CapabilityManageCatalog, false, programs.ListMeetingDates)
 	registerOperation(api, huma.Operation{OperationID: "create-meeting-date", Method: http.MethodPost, Path: apiBasePath + "/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/meeting-dates", Summary: "Add a session meeting date", Errors: []int{http.StatusBadRequest, http.StatusConflict, http.StatusNotFound}}, auth.CapabilityManageCatalog, false, programs.CreateMeetingDate)
 	registerOperation(api, huma.Operation{OperationID: "get-meeting-date", Method: http.MethodGet, Path: apiBasePath + "/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/meeting-dates/{meetingDateID}", Summary: "Get a session meeting date", Errors: []int{http.StatusNotFound}}, auth.CapabilityManageCatalog, false, programs.GetMeetingDate)

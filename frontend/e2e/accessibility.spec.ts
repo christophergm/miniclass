@@ -13,20 +13,24 @@ const form = {
   interest_answers: [],
 };
 
-test("student preference form keeps an accessible mobile baseline", async ({ page }) => {
-  await page.route("**/api/respondent/interest-profile-surveys/**", async (route) => {
-    if (new URL(route.request().url()).pathname.endsWith("/form")) {
-      await route.fulfill({ json: form });
-      return;
-    }
-    await route.fulfill({ json: form });
+test("guardian preference form keeps an accessible mobile baseline", async ({ page }) => {
+  await page.addInitScript(() => {
+    sessionStorage.setItem("miniclass.application-session", "guardian-token");
   });
-
-  await page.goto(
-    "/respond/interest-profile-surveys/year-1/program-1/survey-student-1?organization_id=org-1&code=secret",
+  await page.route("**/api/guardian/preference-forms", (route) =>
+    route.fulfill({
+      json: {
+        school_year_id: "year-1",
+        students: [{ student_id: "student-1", display_name: "Synthetic Student", forms: [form] }],
+      },
+    }),
   );
+
+  await page.goto("/guardian/students/student-1/survey-student-1");
   await expect(page.getByRole("heading", { name: form.name })).toBeVisible();
   await expect(page.getByRole("group", { name: "Making things" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save and go back" })).toBeVisible();
 
   const unnamedControls = await page.locator("input, select, textarea").evaluateAll((elements) =>
     elements

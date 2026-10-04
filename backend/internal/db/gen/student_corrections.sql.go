@@ -36,8 +36,6 @@ select (
     + (select count(*) from ranked_choice_submissions rcs where rcs.organization_id = $1 and rcs.school_year_id = $2 and rcs.student_id = $3)
     + (select count(*) from interest_profile_survey_audience_students ias where ias.organization_id = $1 and ias.school_year_id = $2 and ias.student_id = $3)
     + (select count(*) from interest_profile_survey_audience_snapshots iass where iass.organization_id = $1 and iass.school_year_id = $2 and iass.student_id = $3)
-    + (select count(*) from interest_profile_survey_access_codes isac where isac.organization_id = $1 and isac.school_year_id = $2 and isac.student_id = $3)
-    + (select count(*) from ranked_choice_access_codes rcac where rcac.organization_id = $1 and rcac.school_year_id = $2 and rcac.student_id = $3)
 )::bigint
 `
 

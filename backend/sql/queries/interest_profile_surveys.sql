@@ -131,27 +131,6 @@ from interest_profile_survey_audience_snapshots
 where organization_id = $1 and school_year_id = $2 and program_id = $3 and survey_id = $4
 order by student_id, id;
 
--- name: CreateInterestProfileSurveyAccessCode :one
-insert into interest_profile_survey_access_codes (organization_id, school_year_id, program_id, survey_id, student_id, code_hash)
-values ($1, $2, $3, $4, $5, $6)
-returning id, organization_id, school_year_id, program_id, survey_id, student_id, code_hash, issued_at, revoked_at;
-
--- name: ListActiveInterestProfileSurveyAccessCodes :many
-select id, organization_id, school_year_id, program_id, survey_id, student_id, code_hash, issued_at, revoked_at
-from interest_profile_survey_access_codes
-where organization_id = $1 and school_year_id = $2 and program_id = $3 and survey_id = $4 and revoked_at is null
-order by student_id, id;
-
--- name: RevokeInterestProfileSurveyAccessCodes :execrows
-update interest_profile_survey_access_codes
-set revoked_at = now()
-where organization_id = $1 and school_year_id = $2 and program_id = $3 and survey_id = $4 and revoked_at is null;
-
--- name: FindActiveInterestProfileSurveyAccessCode :one
-select id, organization_id, school_year_id, program_id, survey_id, student_id, code_hash, issued_at, revoked_at
-from interest_profile_survey_access_codes
-where organization_id = $1 and school_year_id = $2 and program_id = $3 and survey_id = $4 and code_hash = $5 and revoked_at is null;
-
 -- name: ListInterestProfileSurveyPriorResponders :many
 select distinct student_id
 from interest_profile_submissions
@@ -251,20 +230,4 @@ order by school_year_id, program_id, survey_id, student_id, id;
 -- name: FindInterestProfileSurveyAudienceSnapshotForRegistry :one
 select id, organization_id, school_year_id, program_id, survey_id, student_id, created_at
 from interest_profile_survey_audience_snapshots
-where id = $1 and organization_id = $2;
-
--- name: ListAllInterestProfileSurveyAccessCodesForRegistry :many
-select id, organization_id, school_year_id, program_id, survey_id, student_id, code_hash, issued_at, revoked_at
-from interest_profile_survey_access_codes
-where organization_id = $1
-order by school_year_id, program_id, survey_id, student_id, issued_at, id;
-
--- name: FindInterestProfileSurveyAccessCodeForRegistry :one
-select id, organization_id, school_year_id, program_id, survey_id, student_id, code_hash, issued_at, revoked_at
-from interest_profile_survey_access_codes
-where id = $1 and organization_id = $2;
-
--- name: RevokeInterestProfileSurveyAccessCodeForRegistry :execrows
-update interest_profile_survey_access_codes
-set revoked_at = coalesce(revoked_at, now())
 where id = $1 and organization_id = $2;

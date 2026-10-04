@@ -54,7 +54,7 @@ import {
   SessionObjectiveWeightsPage,
   SessionPage,
 } from "@/features/programs/ProgramPages";
-import { ProgramAccessCodesPage } from "@/features/programs/ProgramAccessCodesPage";
+
 import { InterestProfileSurveysPage } from "@/features/programs/InterestProfileSurveyPages";
 import {
   InterestProfileResponseTrackingPage,
@@ -65,8 +65,6 @@ import {
   AdministratorPreferencePage,
   AdministratorRankedChoiceKioskPage,
   GuardianPreferenceFormPage,
-  StudentCodeInterestProfilePage,
-  StudentCodeRankedChoicePage,
 } from "@/features/preferences/PreferencePages";
 import { GuardianStudentsPage } from "@/features/preferences/GuardianStudentsPage";
 import { GuardianProfilePage } from "@/features/preferences/GuardianProfilePage";
@@ -136,14 +134,7 @@ function AppRoutes() {
         element={<GuardianPreferenceFormPage />}
       />
       <Route path="/guardian/profile" element={<GuardianProfilePage />} />
-      <Route
-        path="/respond/interest-profile-surveys/:schoolYearId/:programId/:surveyId"
-        element={<StudentCodeInterestProfilePage />}
-      />
-      <Route
-        path="/respond/sessions/:schoolYearId/:programId/:sessionId"
-        element={<StudentCodeRankedChoicePage />}
-      />
+
       <Route path="/mfa" element={<MfaPage />} />
       <Route element={<ProtectedRoute />}>
         <Route path="/preferences/admin/kiosk" element={<AdministratorRankedChoiceKioskPage />} />
@@ -171,10 +162,7 @@ function AppRoutes() {
                 path="programs/:programId/settings/interest-areas"
                 element={<ProgramInterestAreasPage />}
               />
-              <Route
-                path="programs/:programId/settings/access-codes"
-                element={<ProgramAccessCodesPage />}
-              />
+
               <Route
                 path="programs/:programId/settings/interest-profile-surveys"
                 element={<InterestProfileSurveysPage />}

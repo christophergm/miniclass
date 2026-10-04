@@ -19,9 +19,7 @@ select (
     (select count(*) from interest_profile_submissions ips where ips.organization_id = $2 and ips.school_year_id = $3 and ips.student_id = $1) +
     (select count(*) from ranked_choice_submissions rcs where rcs.organization_id = $2 and rcs.school_year_id = $3 and rcs.student_id = $1) +
     (select count(*) from interest_profile_survey_audience_students ipsa where ipsa.organization_id = $2 and ipsa.school_year_id = $3 and ipsa.student_id = $1) +
-    (select count(*) from interest_profile_survey_audience_snapshots ipss where ipss.organization_id = $2 and ipss.school_year_id = $3 and ipss.student_id = $1) +
-    (select count(*) from ranked_choice_access_codes rcac where rcac.organization_id = $2 and rcac.school_year_id = $3 and rcac.student_id = $1) +
-    (select count(*) from interest_profile_survey_access_codes ipsac where ipsac.organization_id = $2 and ipsac.school_year_id = $3 and ipsac.student_id = $1)
+    (select count(*) from interest_profile_survey_audience_snapshots ipss where ipss.organization_id = $2 and ipss.school_year_id = $3 and ipss.student_id = $1)
 )::bigint as count
 `
 
@@ -381,21 +379,6 @@ func (q *Queries) HardDeleteStudentNonParticipations(ctx context.Context, arg Ha
 	return err
 }
 
-const hardDeleteStudentRankedAccessCodes = `-- name: HardDeleteStudentRankedAccessCodes :exec
-delete from ranked_choice_access_codes where organization_id = $2 and school_year_id = $3 and student_id = $1
-`
-
-type HardDeleteStudentRankedAccessCodesParams struct {
-	StudentID      ids.XID `json:"student_id"`
-	OrganizationID ids.XID `json:"organization_id"`
-	SchoolYearID   ids.XID `json:"school_year_id"`
-}
-
-func (q *Queries) HardDeleteStudentRankedAccessCodes(ctx context.Context, arg HardDeleteStudentRankedAccessCodesParams) error {
-	_, err := q.db.Exec(ctx, hardDeleteStudentRankedAccessCodes, arg.StudentID, arg.OrganizationID, arg.SchoolYearID)
-	return err
-}
-
 const hardDeleteStudentRankedSubmissions = `-- name: HardDeleteStudentRankedSubmissions :exec
 delete from ranked_choice_submissions where organization_id = $2 and school_year_id = $3 and student_id = $1
 `
@@ -423,21 +406,6 @@ type HardDeleteStudentRelationshipsParams struct {
 
 func (q *Queries) HardDeleteStudentRelationships(ctx context.Context, arg HardDeleteStudentRelationshipsParams) error {
 	_, err := q.db.Exec(ctx, hardDeleteStudentRelationships, arg.StudentID, arg.OrganizationID, arg.SchoolYearID)
-	return err
-}
-
-const hardDeleteStudentSurveyAccessCodes = `-- name: HardDeleteStudentSurveyAccessCodes :exec
-delete from interest_profile_survey_access_codes where organization_id = $2 and school_year_id = $3 and student_id = $1
-`
-
-type HardDeleteStudentSurveyAccessCodesParams struct {
-	StudentID      ids.XID `json:"student_id"`
-	OrganizationID ids.XID `json:"organization_id"`
-	SchoolYearID   ids.XID `json:"school_year_id"`
-}
-
-func (q *Queries) HardDeleteStudentSurveyAccessCodes(ctx context.Context, arg HardDeleteStudentSurveyAccessCodesParams) error {
-	_, err := q.db.Exec(ctx, hardDeleteStudentSurveyAccessCodes, arg.StudentID, arg.OrganizationID, arg.SchoolYearID)
 	return err
 }
 

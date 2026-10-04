@@ -83,14 +83,6 @@ join students s on s.id = m.student_id and s.organization_id = m.organization_id
 where m.organization_id = $1 and m.school_year_id = $2 and m.program_id = $3
 order by s.legal_family_name, s.legal_given_name, s.id;
 
--- name: ListActiveProgramMembershipStudentIDs :many
-select m.student_id
-from program_memberships m
-join students s on s.id = m.student_id and s.organization_id = m.organization_id
-    and s.school_year_id = m.school_year_id
-where m.organization_id = $1 and m.school_year_id = $2 and m.program_id = $3
-  and s.deleted_at is null
-order by m.student_id;
 
 -- name: DeleteProgramMembership :execrows
 delete from program_memberships where id = $1 and organization_id = $2 and school_year_id = $3 and program_id = $4;

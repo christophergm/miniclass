@@ -14,14 +14,10 @@ import {
   usePrograms,
   useRankedChoiceResponseTracking,
   useSessions,
-  useStudentCodeInterestProfileForm,
-  useStudentCodeRankedChoiceForm,
   useSubmitAdministratorInterestProfile,
   useSubmitAdministratorRankedChoice,
   useSubmitGuardianInterestProfile,
   useSubmitGuardianRankedChoice,
-  useSubmitStudentCodeInterestProfile,
-  useSubmitStudentCodeRankedChoice,
 } from "@/features/programs/usePrograms";
 import { useSchoolYears } from "@/features/school-years/useSchoolYears";
 import type {
@@ -59,233 +55,6 @@ function ErrorMessage({ error, fallback }: { error: unknown; fallback: string })
     >
       {error instanceof Error ? error.message : fallback}
     </p>
-  );
-}
-
-function AccessCodeEntry({
-  organizationID,
-  code,
-  onSubmit,
-}: {
-  organizationID: string;
-  code: string;
-  onSubmit: (organizationID: string, code: string) => void;
-}) {
-  const [organization, setOrganization] = useState(organizationID);
-  const [accessCode, setAccessCode] = useState(code);
-  return (
-    <section className="rounded-lg border bg-card p-5 shadow-sm">
-      <h1 className="text-2xl font-semibold tracking-tight">Open your preference form</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        Enter the organization identifier and the private code you received. The code is bound to
-        one student and one instrument.
-      </p>
-      <form
-        className="mt-6 space-y-4"
-        onSubmit={(event) => {
-          event.preventDefault();
-          onSubmit(organization.trim(), accessCode.trim());
-        }}
-      >
-        <label className="block text-sm font-medium" htmlFor="organization-id">
-          Organization identifier
-          <Input
-            className="mt-2"
-            id="organization-id"
-            onChange={(event) => setOrganization(event.target.value)}
-            required
-            value={organization}
-          />
-        </label>
-        <label className="block text-sm font-medium" htmlFor="student-access-code">
-          Student access code
-          <Input
-            className="mt-2 font-mono tracking-widest"
-            id="student-access-code"
-            onChange={(event) => setAccessCode(event.target.value)}
-            required
-            value={accessCode}
-          />
-        </label>
-        <Button disabled={!organization.trim() || !accessCode.trim()} type="submit">
-          Open form
-        </Button>
-      </form>
-    </section>
-  );
-}
-
-export function StudentCodeInterestProfilePage() {
-  const { schoolYearId, programId, surveyId } = useParams<{
-    schoolYearId: string;
-    programId: string;
-    surveyId: string;
-  }>();
-  const [searchParams] = useSearchParams();
-  const [credentials, setCredentials] = useState<{ organizationID: string; code: string } | null>(
-    () => {
-      const organizationID = searchParams.get("organization_id")?.trim() ?? "";
-      const code = searchParams.get("code")?.trim() ?? "";
-      return organizationID && code ? { organizationID, code } : null;
-    },
-  );
-  const formQuery = useStudentCodeInterestProfileForm(
-    schoolYearId,
-    programId,
-    surveyId,
-    credentials?.organizationID,
-    credentials?.code,
-  );
-  const submit = useSubmitStudentCodeInterestProfile(
-    schoolYearId ?? "",
-    programId ?? "",
-    surveyId ?? "",
-    credentials?.organizationID ?? "",
-    credentials?.code ?? "",
-  );
-
-  if (!credentials) {
-    return (
-      <PageFrame>
-        <AccessCodeEntry
-          code={searchParams.get("code") ?? ""}
-          onSubmit={(organizationID, code) => setCredentials({ organizationID, code })}
-          organizationID={searchParams.get("organization_id") ?? ""}
-        />
-      </PageFrame>
-    );
-  }
-  if (formQuery.isLoading)
-    return (
-      <PageFrame>
-        <p role="status">Loading your form…</p>
-      </PageFrame>
-    );
-  if (formQuery.error)
-    return (
-      <PageFrame>
-        <ErrorMessage error={formQuery.error} fallback="Unable to open this form." />
-        <Button
-          className="mt-4"
-          onClick={() => setCredentials(null)}
-          type="button"
-          variant="outline"
-        >
-          Use another code
-        </Button>
-      </PageFrame>
-    );
-  if (!formQuery.data)
-    return (
-      <PageFrame>
-        <ErrorMessage error={null} fallback="This form is unavailable." />
-      </PageFrame>
-    );
-
-  return (
-    <PageFrame>
-      <div className="mb-6">
-        <Link className="text-sm font-medium text-primary hover:underline" to="/family">
-          Need family access instead?
-        </Link>
-      </div>
-      <PreferenceFormEditor
-        error={submit.error instanceof Error ? submit.error.message : null}
-        form={formQuery.data}
-        isSubmitting={submit.isPending}
-        onSubmit={(value) => submit.mutate(value as PreferenceInterestAnswerInput[])}
-        saved={submit.isSuccess}
-        submitLabel="Save interest profile"
-      />
-    </PageFrame>
-  );
-}
-
-export function StudentCodeRankedChoicePage() {
-  const { schoolYearId, programId, sessionId } = useParams<{
-    schoolYearId: string;
-    programId: string;
-    sessionId: string;
-  }>();
-  const [searchParams] = useSearchParams();
-  const [credentials, setCredentials] = useState<{ organizationID: string; code: string } | null>(
-    () => {
-      const organizationID = searchParams.get("organization_id")?.trim() ?? "";
-      const code = searchParams.get("code")?.trim() ?? "";
-      return organizationID && code ? { organizationID, code } : null;
-    },
-  );
-  const formQuery = useStudentCodeRankedChoiceForm(
-    schoolYearId,
-    programId,
-    sessionId,
-    credentials?.organizationID,
-    credentials?.code,
-  );
-  const submit = useSubmitStudentCodeRankedChoice(
-    schoolYearId ?? "",
-    programId ?? "",
-    sessionId ?? "",
-    credentials?.organizationID ?? "",
-    credentials?.code ?? "",
-  );
-
-  if (!credentials) {
-    return (
-      <PageFrame>
-        <AccessCodeEntry
-          code={searchParams.get("code") ?? ""}
-          onSubmit={(organizationID, code) => setCredentials({ organizationID, code })}
-          organizationID={searchParams.get("organization_id") ?? ""}
-        />
-      </PageFrame>
-    );
-  }
-  if (formQuery.isLoading)
-    return (
-      <PageFrame>
-        <p role="status">Loading your course guide…</p>
-      </PageFrame>
-    );
-  if (formQuery.error)
-    return (
-      <PageFrame>
-        <ErrorMessage error={formQuery.error} fallback="Unable to open this course guide." />
-        <Button
-          className="mt-4"
-          onClick={() => setCredentials(null)}
-          type="button"
-          variant="outline"
-        >
-          Use another code
-        </Button>
-      </PageFrame>
-    );
-  if (!formQuery.data)
-    return (
-      <PageFrame>
-        <ErrorMessage error={null} fallback="This course guide is unavailable." />
-      </PageFrame>
-    );
-
-  return (
-    <PageFrame wide>
-      {submit.isSuccess ? (
-        <RankedChoiceDone
-          onRevise={() => submit.reset()}
-          sessionName={formQuery.data.session_name || formQuery.data.name}
-        />
-      ) : (
-        <PreferenceFormEditor
-          error={submit.error instanceof Error ? submit.error.message : null}
-          form={formQuery.data}
-          isSubmitting={submit.isPending}
-          onSubmit={(value) => submit.mutate(value as PreferenceRankedAnswerInput[])}
-          saved={false}
-          submitLabel="Submit my choices"
-        />
-      )}
-    </PageFrame>
   );
 }
 
@@ -725,11 +494,11 @@ function ExistingResponseModal({
 
 function RankedChoiceDone({
   sessionName,
-  onRevise,
+
   administratorReturn,
 }: {
   sessionName: string;
-  onRevise?: () => void;
+
   administratorReturn?: string;
 }) {
   return (
@@ -744,15 +513,7 @@ function RankedChoiceDone({
       <p className="mt-4 text-xl text-muted-foreground">
         Your choices have been submitted for {sessionName}.
       </p>
-      {onRevise && (
-        <button
-          className="mt-10 text-sm text-muted-foreground underline hover:text-foreground"
-          onClick={onRevise}
-          type="button"
-        >
-          Change my answers
-        </button>
-      )}
+
       {administratorReturn && (
         <Link
           className="mt-12 text-xs text-muted-foreground/70 underline hover:text-foreground"

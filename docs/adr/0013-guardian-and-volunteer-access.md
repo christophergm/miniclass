@@ -5,9 +5,13 @@
 - **Implements:** SPEC §6.2, §6.5–6.6, §9.3–9.4, §13.8, §19.5
 - **Amended in part by:**
   [0017](./0017-guardian-self-registration-as-production-roster-authority.md) — roster registration
-  principal, self-asserted guardian-relationship provenance, and optional known-email invitations
+  principal, self-asserted guardian-relationship provenance, and optional known-email invitations;
+  [0019](./0019-retire-direct-student-access.md) — retires student codes and direct student access
 - **Related:** [0002](./0002-authentication-and-access-mechanisms.md),
   [0012](./0012-remove-the-household-entity.md)
+
+The student-code decision below is historical and superseded by ADR 0019. Adult authentication,
+administrator-on-behalf entry, and separate published-artifact access remain in force.
 
 ## Context
 

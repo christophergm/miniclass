@@ -1,10 +1,6 @@
 package preference
 
 import (
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -34,7 +30,6 @@ var (
 	ErrSurveyScaleRequired           = errors.New("interest profile survey requires at least one scale option")
 	ErrSurveyAudienceInvalid         = errors.New("interest profile survey audience filter is invalid")
 	ErrSurveyNotAcceptingSubmissions = errors.New("interest profile survey is not accepting submissions")
-	ErrSurveyCodeInvalid             = errors.New("interest profile survey access code is invalid or revoked")
 )
 
 type InterestProfileSurveyQuestionInput struct {
@@ -71,18 +66,9 @@ type InterestProfileSurveyUpdate struct {
 }
 
 type InterestProfileSurveyTransitionInput struct {
-	State           data.InterestProfileSurveyState
-	ClosingAt       *time.Time
-	RegenerateCodes bool
-	Reason          string
-}
-
-type SurveyAccessCode struct {
-	StudentID   ids.XID
-	Code        string
-	DisplayName string
-	HomeroomID  ids.XID
-	Homeroom    string
+	State     data.InterestProfileSurveyState
+	ClosingAt *time.Time
+	Reason    string
 }
 
 type InterestProfileSurveyView struct {
@@ -91,13 +77,11 @@ type InterestProfileSurveyView struct {
 	Questions          []data.InterestProfileSurveyQuestion
 	ScaleOptions       []data.InterestProfileSurveyScaleOption
 	AudienceSnapshot   []data.InterestProfileSurveyAudienceSnapshot
-	ActiveCodes        []data.InterestProfileSurveyAccessCode
 }
 
 type InterestProfileSurveyTransitionResult struct {
-	Survey      InterestProfileSurveyView
-	Warnings    []string
-	AccessCodes []SurveyAccessCode
+	Survey   InterestProfileSurveyView
+	Warnings []string
 }
 
 var defaultInterestProfileSurveyScale = []InterestProfileSurveyScaleOptionInput{
@@ -332,13 +316,6 @@ func (s *Service) TransitionInterestProfileSurvey(ctx context.Context, organizat
 			if err != nil {
 				return err
 			}
-			if input.RegenerateCodes {
-				codes, err := regenerateCodes(ctx, tx, updated)
-				if err != nil {
-					return err
-				}
-				result.AccessCodes = codes
-			}
 			result.Warnings = append(result.Warnings, SurveyWarningReopened)
 			result.Survey, err = surveyView(ctx, tx, updated)
 			if err != nil {
@@ -353,60 +330,6 @@ func (s *Service) TransitionInterestProfileSurvey(ctx context.Context, organizat
 		return InterestProfileSurveyTransitionResult{}, fmt.Errorf("transition interest profile survey: %w", err)
 	}
 	return result, nil
-}
-
-func (s *Service) RegenerateInterestProfileSurveyCodes(ctx context.Context, organizationID string, actor audit.Actor, schoolYearID, programID, surveyID ids.XID, reason string) ([]SurveyAccessCode, error) {
-	if s == nil || s.database == nil {
-		return nil, ErrPreferenceServiceNil
-	}
-	if strings.TrimSpace(reason) == "" {
-		return nil, ErrAccessCodeReasonRequired
-	}
-	var result []SurveyAccessCode
-	err := s.database.InTenant(ctx, organizationID, actor, func(ctx context.Context, tx *data.Tx) error {
-		survey, err := tx.GetInterestProfileSurvey(ctx, schoolYearID, programID, surveyID)
-		if err != nil {
-			return err
-		}
-		if effectiveSurveyState(survey, time.Now().UTC()) != data.InterestProfileSurveyOpen {
-			return ErrSurveyNotAcceptingSubmissions
-		}
-		result, err = regenerateCodes(ctx, tx, survey)
-		if err != nil {
-			return err
-		}
-		year := survey.SchoolYearID
-		return tx.Record(ctx, audit.Entry{Action: audit.ActionSurveyCodeChange, ObjectType: "interest_profile_survey_access_code", ObjectID: &surveyID, SchoolYearID: &year, Reason: strings.TrimSpace(reason), ChangeSummary: mustJSON(map[string]any{"regenerated": len(result)})})
-	})
-	if err != nil {
-		return nil, fmt.Errorf("regenerate interest profile survey codes: %w", err)
-	}
-	return result, nil
-}
-
-func (s *Service) RevokeInterestProfileSurveyCodes(ctx context.Context, organizationID string, actor audit.Actor, schoolYearID, programID, surveyID ids.XID, reason string) error {
-	if s == nil || s.database == nil {
-		return ErrPreferenceServiceNil
-	}
-	if strings.TrimSpace(reason) == "" {
-		return ErrAccessCodeReasonRequired
-	}
-	err := s.database.InTenant(ctx, organizationID, actor, func(ctx context.Context, tx *data.Tx) error {
-		survey, err := tx.GetInterestProfileSurvey(ctx, schoolYearID, programID, surveyID)
-		if err != nil {
-			return err
-		}
-		count, err := tx.RevokeInterestProfileSurveyAccessCodes(ctx, schoolYearID, programID, surveyID)
-		if err != nil {
-			return err
-		}
-		year := survey.SchoolYearID
-		return tx.Record(ctx, audit.Entry{Action: audit.ActionSurveyCodeChange, ObjectType: "interest_profile_survey_access_code", ObjectID: &surveyID, SchoolYearID: &year, Reason: strings.TrimSpace(reason), ChangeSummary: mustJSON(map[string]any{"revoked": count})})
-	})
-	if err != nil {
-		return fmt.Errorf("revoke interest profile survey codes: %w", err)
-	}
-	return nil
 }
 
 func (s *Service) SubmitInterestProfileSurvey(ctx context.Context, organizationID string, actor audit.Actor, input InterestProfileSurveySubmissionInput) (data.InterestProfileSubmission, error) {
@@ -424,22 +347,6 @@ func (s *Service) SubmitInterestProfileSurvey(ctx context.Context, organizationI
 			return ErrSurveyNotAcceptingSubmissions
 		}
 		studentID := input.StudentID
-		if input.Channel == data.PreferenceChannelStudentCode {
-			if strings.TrimSpace(input.Code) == "" {
-				return ErrSurveyCodeInvalid
-			}
-			resolvedStudentID, err := tx.FindActiveInterestProfileSurveyAccessCode(ctx, input.SchoolYearID, input.ProgramID, input.SurveyID, surveyCodeHash(input.Code))
-			if err != nil {
-				if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-					return err
-				}
-				return ErrSurveyCodeInvalid
-			}
-			if studentID != "" && studentID != resolvedStudentID {
-				return ErrSurveyCodeInvalid
-			}
-			studentID = resolvedStudentID
-		}
 		if studentID == "" {
 			return errors.New("submit interest profile survey: student id is required")
 		}
@@ -485,7 +392,6 @@ type InterestProfileSurveySubmissionInput struct {
 	ProgramID       ids.XID
 	SurveyID        ids.XID
 	StudentID       ids.XID
-	Code            string
 	Channel         data.PreferenceSubmissionChannel
 	ActorAdultID    *ids.XID
 	GuardianAdultID *ids.XID
@@ -537,11 +443,6 @@ func openSurvey(ctx context.Context, tx *data.Tx, current data.InterestProfileSu
 	if err != nil {
 		return err
 	}
-	accessCodes, err := issueCodes(ctx, tx, updated, audience)
-	if err != nil {
-		return err
-	}
-	result.AccessCodes = accessCodes
 	if len(audience) == 0 {
 		result.Warnings = append(result.Warnings, SurveyWarningEmptyAudience)
 	}
@@ -554,7 +455,7 @@ func openSurvey(ctx context.Context, tx *data.Tx, current data.InterestProfileSu
 }
 
 // AppendLateMemberToOpenSurveys adds a newly joined member to every currently
-// open survey whose configured audience includes them. It never issues a code.
+// open survey whose configured audience includes them.
 func AppendLateMemberToOpenSurveys(ctx context.Context, tx *data.Tx, schoolYearID, programID, studentID ids.XID) ([]ids.XID, error) {
 	surveys, err := tx.ListInterestProfileSurveys(ctx, schoolYearID, programID)
 	if err != nil {
@@ -646,53 +547,6 @@ func snapshotAudience(ctx context.Context, tx *data.Tx, survey data.InterestProf
 	return result, nil
 }
 
-func issueCodes(ctx context.Context, tx *data.Tx, survey data.InterestProfileSurvey, studentIDs []ids.XID) ([]SurveyAccessCode, error) {
-	result := make([]SurveyAccessCode, 0, len(studentIDs))
-	for _, studentID := range studentIDs {
-		code, err := newSurveyCode()
-		if err != nil {
-			return nil, err
-		}
-		if _, err := tx.CreateInterestProfileSurveyAccessCode(ctx, survey.SchoolYearID, survey.ProgramID, survey.ID, studentID, surveyCodeHash(code)); err != nil {
-			return nil, err
-		}
-		recipient, err := accessCodeRecipient(ctx, tx, survey.SchoolYearID, studentID)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, SurveyAccessCode{StudentID: studentID, Code: code, DisplayName: recipient.DisplayName, HomeroomID: recipient.HomeroomID, Homeroom: recipient.Homeroom})
-	}
-	return result, nil
-}
-
-func regenerateCodes(ctx context.Context, tx *data.Tx, survey data.InterestProfileSurvey) ([]SurveyAccessCode, error) {
-	activeCodes, err := tx.ListActiveInterestProfileSurveyAccessCodes(ctx, survey.SchoolYearID, survey.ProgramID, survey.ID)
-	if err != nil {
-		return nil, err
-	}
-	students := make([]ids.XID, 0, len(activeCodes))
-	for _, code := range activeCodes {
-		students = append(students, code.StudentID)
-	}
-	if _, err := tx.RevokeInterestProfileSurveyAccessCodes(ctx, survey.SchoolYearID, survey.ProgramID, survey.ID); err != nil {
-		return nil, err
-	}
-	return issueCodes(ctx, tx, survey, students)
-}
-
-func newSurveyCode() (string, error) {
-	buffer := make([]byte, 24)
-	if _, err := rand.Read(buffer); err != nil {
-		return "", fmt.Errorf("generate interest profile survey access code: %w", err)
-	}
-	return base64.RawURLEncoding.EncodeToString(buffer), nil
-}
-
-func surveyCodeHash(code string) string {
-	digest := sha256.Sum256([]byte(code))
-	return hex.EncodeToString(digest[:])
-}
-
 func surveyView(ctx context.Context, tx *data.Tx, survey data.InterestProfileSurvey) (InterestProfileSurveyView, error) {
 	survey.State = effectiveSurveyState(survey, time.Now().UTC())
 	definitionStudents, err := tx.ListInterestProfileSurveyDefinitionStudents(ctx, survey.SchoolYearID, survey.ProgramID, survey.ID)
@@ -711,11 +565,7 @@ func surveyView(ctx context.Context, tx *data.Tx, survey data.InterestProfileSur
 	if err != nil {
 		return InterestProfileSurveyView{}, err
 	}
-	activeCodes, err := tx.ListActiveInterestProfileSurveyAccessCodes(ctx, survey.SchoolYearID, survey.ProgramID, survey.ID)
-	if err != nil {
-		return InterestProfileSurveyView{}, err
-	}
-	return InterestProfileSurveyView{Survey: survey, DefinitionStudents: definitionStudents, Questions: questions, ScaleOptions: options, AudienceSnapshot: audienceSnapshot, ActiveCodes: activeCodes}, nil
+	return InterestProfileSurveyView{Survey: survey, DefinitionStudents: definitionStudents, Questions: questions, ScaleOptions: options, AudienceSnapshot: audienceSnapshot}, nil
 }
 
 func effectiveSurveyState(survey data.InterestProfileSurvey, now time.Time) data.InterestProfileSurveyState {

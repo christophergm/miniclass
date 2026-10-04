@@ -456,8 +456,7 @@ rankings tell them *where to put people*. §13 sets out how they coexist.
 The following are understood, wanted, and out of scope for the first release. §24 records the
 reasoning and any consequences.
 
-- Bulk and workflow notifications, including preference reminders, emailing student access codes and
-  automated invitation delivery. Transactional email required for adult authentication is in scope;
+- Bulk and workflow notifications, including preference reminders and automated invitation delivery. Transactional email required for adult authentication is in scope;
   invitation email import and single-use invitation-link export are part of registration (§11.3).
 - Change-tracking against a published baseline.
 - Optimized matching of volunteers to classes.
@@ -527,9 +526,9 @@ diverge.
 
 ## 6. Personas and Roles
 
-Three persona categories interact with the system. Administrative users have accounts; guardians use
-email-verified, consent-gated sessions rather than password accounts; students use narrow,
-survey-scoped access proofs rather than accounts.
+Administrative users and guardians interact with the system. Administrative users have accounts;
+guardians use email-verified, consent-gated sessions rather than password accounts. Students are the
+subjects of preferences and placements, not independently authenticated users.
 
 ### 6.1 Program organizer / administrator
 
@@ -565,9 +564,9 @@ any other adult information.
 ### 6.3 Student
 
 The subject of every placement and the author of the preferences that drive it, but not an account
-user in v1. A student may use a survey-scoped access code as a non-account principal to submit their
-own interest profile or ranked choices; the code grants no broader system access (§13.8). Preference
-records identify the student they describe and separately record who or what submitted them.
+user or independently authenticated principal in v1. Family-facing preference access requires guardian
+login; audited administrator-on-behalf entry, including the ranked-choice kiosk, remains available
+(§13.8). Preference records identify the student they describe separately from the submitting actor.
 
 ### 6.4 Role and permission model
 
@@ -599,12 +598,12 @@ program but should not be the person who publishes it or removes a family's data
 permissions, including per-program scoping of administrators, are `Implementation-defined`.
 
 Capabilities are evaluated on the resolved principal, not inferred from a name, email address, or
-browser mode. Guardian, student-code, and public-reader principals never inherit account capabilities.
+browser mode. Guardian and public-reader principals never inherit account capabilities.
 In particular:
 
 - A guardian session may maintain only the adult's own profile, add students through the limited
   §11.5 flow, and read or submit for only the adult's current guardian-scoped students.
-- A student-code principal may read and submit only for its one student and one bound instrument.
+
 - Administrator-on-behalf entry is an administrative capability, and the acting administrator and
   target student remain distinct in the resulting record (§13.8).
 - A mode switch changes the surface presented; it never broadens the principal's server-side grants.
@@ -948,7 +947,7 @@ remembering to filter.
 
 ### 9.3 Authentication
 
-Five mechanisms, deliberately unequal, with one adult identity able to hold both guardian and
+Four mechanisms, deliberately unequal, with one adult identity able to hold both guardian and
 administrator capabilities. The proof, resulting session, and grants are distinct:
 
 | Principal | Authentication proof | Session and minimum grant |
@@ -956,7 +955,7 @@ administrator capabilities. The proof, resulting session, and grants are distinc
 | Owner, Administrator, Coordinator | Account credential plus mandatory MFA for administration | Renewable account session; account capabilities at organization scope |
 | Guardian onboarding | Shared organization/year entry link plus email OTP, or single-use invitation link, followed by terms acceptance | Bounded, revocable guardian session; may create/confirm the adult's own record and add students |
 | Guardian | Short-lived, single-use email OTP | Bounded, revocable guardian session; current guardian scope derived per request |
-| Student | High-entropy survey/session access code | Instrument-bound principal for one student; no account or broader access |
+
 | Public reader | Unauthenticated share link | Expiring, artifact-scoped access (§9.5) |
 
 Only administrators have administrative accounts. Guardian onboarding and guardian access do not
@@ -1010,10 +1009,10 @@ to administration. Survey mode MUST NOT expose administrative or program-wide da
 - Every tenant-scoped write MUST use the tenant unit-of-work path and record an audit entry in the
   same transaction, or declare an explicit `NoAuditRequired` reason. Reads MUST use the read-only
   tenant path (§20.1; ADRs 0007 and 0008).
-- The security test suite MUST cover cross-tenant not-found behavior, cross-student guardian and
-  student-code denial, account-link scope, OTP single-use and expiry, MFA assurance and reset
-  invalidation, code regeneration/revocation, and audit attribution. These tests are required for a
-  new access path, not optional end-to-end coverage. Guardian registration additionally requires tests
+- The security test suite MUST cover cross-tenant not-found behavior, cross-student guardian denial,
+  account-link scope, OTP single-use and expiry, MFA assurance and reset invalidation, rejection of
+  retired student-code access and new student-code submissions, and audit attribution. These tests are
+  required for a new access path, not optional end-to-end coverage. Guardian registration additionally requires tests
   for public-link and invitation scope, terms acceptance before writes, minimal match disclosure, rate
   limiting, registration-link history isolation, and neutral rejection of expired, revoked, closed, or
   purged registration surfaces.
@@ -1289,8 +1288,8 @@ second guardian registers independently and may attach to the same student witho
 of that student and without learning about the first guardian.
 
 The student-specific consent/provenance event is the guardian's add-student action. v1 does not
-require separate student assent for roster creation; student access codes later authorize preference
-submission only (§13.8).
+require separate student assent for roster creation; preference submission requires guardian or
+administrator-on-behalf access (§13.8).
 
 Administrator tools remain necessary for individual add, edit, delete, duplicate reconciliation,
 classroom and grade setup, placeholder students, and other manual corrections. Except for placeholder
@@ -1751,12 +1750,12 @@ For each offering in the session, a student's response is exactly one of:
 | *(no response)* | No opinion expressed (§13.5) |
 
 Ranked choices require a published catalog (§14.3) and therefore require offering descriptions
-(§8.4) — a student cannot rank what they cannot read. They are available through a student code bound
-to that student and session while voting is open, and through the authenticated guardian view for the
-adult's own students. When a student becomes a program member while a ranked-choice session is in
+(§8.4) — a student cannot rank what they cannot read. They are available through the authenticated
+guardian view for the adult's own students while voting is open, and through audited
+administrator-on-behalf entry. When a student becomes a program member while a ranked-choice session is in
 `VotingOpen` and its voting deadline has not passed, the system MUST add that student to the session's
 voting audience unless they have recorded session non-participation (§8.3). The addition is audited,
-makes the form available through current guardian access, and MUST NOT generate a student access code.
+makes the form available through current guardian access, and grants no independent student access.
 It does not otherwise change ranked-choice voting behavior.
 
 A rank MUST be unique within a student's response for a session; two offerings cannot both be first
@@ -1854,7 +1853,7 @@ Curation rules:
   survey audience if its configured audience includes them: default all-members, attribute, and
   response-state audiences are evaluated for the newly added student; an explicit-list audience
   includes only students already on that list. This incremental addition is audited and gives the
-  student's current guardians access to the open form. It MUST NOT generate a student access code.
+  student's current guardians access to the open form. It grants no independent student access.
 - A survey presents each area using that area's display label (§12.3). There is no per-survey
   override; changing how a topic is worded is an edit to the area itself, and applies everywhere.
 
@@ -1907,13 +1906,12 @@ A survey MUST have a closing timestamp when it opens. Submissions stop automatic
 even if the lifecycle transition is finalized by a later job or request. A closed survey MAY be reopened,
 with a warning, on the same reasoning as §14.5 — a family that missed the deadline is a routine case,
 and forbidding it only pushes the fix outside the system. Reopening MUST be recorded in the audit log and
-requires a new closing timestamp. Existing unrevoked student codes reactivate; regeneration invalidates
-the prior code.
+requires a new closing timestamp. Current guardian scope is checked on every request after reopening.
 
-When a survey opens, its audience, included areas and order, rating-scale version, and student access
-codes MUST be snapshotted. The snapshot governs the opening audience; §13.6.1 permits audited,
-append-only audience additions for students who join the program while the survey is open. Those late
-additions do not generate a student access code at the time they are added. An empty audience is allowed but MUST produce a warning.
+When a survey opens, its audience, included areas and order, and rating-scale version MUST be
+snapshotted. The snapshot governs the opening audience; §13.6.1 permits audited, append-only audience
+additions for students who join the program while the survey is open. An empty audience is allowed but
+MUST produce a warning.
 A survey MUST NOT be deleted once it has submissions; it is closed and retained, because the submissions
 are the provenance of the effective profile.
 
@@ -1932,8 +1930,9 @@ Requirements:
 
 - A preference record MUST be bound to a specific student at the moment of creation. It MUST NOT
   identify the student by typed name.
-- A submission MUST record who submitted it and when, including whether it was made through guardian,
-  student-code, or administrator-on-behalf access.
+- A submission MUST record who submitted it and when, including whether it was made through guardian
+  or administrator-on-behalf access. Historical student-code submissions MUST retain their original
+  attribution and remain effective; new student-code submissions MUST be rejected.
 - Collection MUST be scoped by a submission window with an opening and closing time. Interest-profile
   surveys use an administrator-configured window; ranked choices use the session lifecycle (§14.3).
 - The system MUST be able to report, at any time, which students have not responded (§19.5).
@@ -1954,25 +1953,32 @@ Preference access is deliberately split by principal while using one underlying 
 
 - **Guardian access** begins with a short-lived, single-use email OTP and creates a bounded, revocable
   session. The session shows only the adult's current guardian-scoped students and their open forms.
-- **Student access** uses a high-entropy code bound to one student and one survey or session. Codes are
-  stored hashed, are regenerable and revocable, and are valid only while the bound instrument is open.
-  They grant access only to that student's response. The code is a student-code principal, not an
-  account or an adult identity.
+
 - **Administrator access** begins from the adult's linked administrative identity and requires step-up
   MFA. An administrator can open a form for a selected student and submit on that student's behalf;
-  the response records the acting administrator, target student, channel, and submission time.
+  the response records the acting administrator, target student, channel, and submission time. The
+  administrator-authenticated ranked-choice kiosk remains an administrator-on-behalf surface, not an
+  independent student credential.
 - A student whose guardian cannot use email self-service remains eligible, and an administrator can
   submit on the student's behalf through the audited admin-on-behalf path.
 - Distinct adult records MUST NOT share an email for OTP access. Duplicate emails are a warning that
   requires resolution before OTP access is issued; the system MUST NOT silently merge their scopes.
 
-Interest-profile surveys and ranked choices have separate access grants. A survey may be configured
-with any practical response-window duration; ranked-choice access closes automatically at its session
-voting deadline. Opening snapshots the audience, question set, rating scale, and codes. Codes continue
-to be generated and managed for the opening audience; late audience additions under §13.3 and §13.6
-receive guardian access without generating a new code at the time they are added. Reopening is allowed
-with a warning and audit entry
-and reactivates existing codes unless they are regenerated.
+Guardian login is the only family-facing preference access path. Guardians reach available forms
+through "My students"; no independent student access links or codes are issued or accepted. The same
+student's current guardians share response history: the latest valid per-area rating or complete
+ranked-choice response is effective regardless of the authorised submitting actor.
+
+Interest-profile surveys and ranked choices retain separate audiences and response windows. A survey
+may be configured with any practical response-window duration; ranked-choice access closes
+automatically at its session voting deadline. Opening a survey snapshots the audience, question set,
+and rating scale. Late audience additions under §13.3 and §13.6 receive current guardian access.
+Reopening is allowed with a warning and audit entry; it does not issue credentials.
+
+Student-code credential storage and all issuance, distribution, lookup, regeneration, and revocation
+surfaces are removed. Historical submissions and audit events remain unchanged. New student-code
+submissions MUST be rejected at both the application data layer and database insert boundary. Guardian
+onboarding, invitation links, email OTP, and published-artifact share links (§9.5) are unaffected.
 
 ## 14. Catalog, Sessions and Lifecycle
 
@@ -2856,7 +2862,7 @@ counts. This report is also the basis for targeting a follow-up survey at non-re
 
 Transactional email required for OTP authentication is in scope. Invitation email import and
 single-use invitation-link export are governed by §11.3. Bulk and workflow notifications, including
-automated invitation delivery, preference reminders and emailing student codes, remain out of scope
+automated invitation delivery and preference reminders, remain out of scope
 (§4.3, §24.1).
 
 ### 19.6 Participation reporting
@@ -3291,16 +3297,15 @@ administrator-on-behalf path.
 
 Transactional authentication email is in scope. Invitation email import and invitation-link export are
 in scope, but automated invitation delivery is deferred (§11.3, §24.1). Bulk and workflow
-notifications, including emailing student codes or reminders, remain deferred. Volunteer sign-up and
+notifications, including preference reminders, remain deferred. Volunteer sign-up and
 availability are handled through Konstella; this system has no non-guardian volunteer self-service
 access.
 
 ### 24.3 Deferred: broader student access
 
-Students have narrow, survey-scoped access in v1 through high-entropy codes bound to one student and one
-interest-profile survey or ranked-choice session. They have no account and no access to placements,
-guardian data, program-wide data, or a general dashboard. Broader student account and system access
-remains deferred.
+Students have no independent authentication or access links in v1. Family-facing access is through
+guardian login; administrator-on-behalf entry and the administrator-authenticated ranked-choice kiosk
+remain available (§13.8). Independent student accounts and system access remain deferred.
 
 ### 24.4 Known limitation carried forward
 

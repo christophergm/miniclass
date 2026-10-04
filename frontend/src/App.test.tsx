@@ -61,6 +61,7 @@ function authenticatedClient(): AuthClient {
 afterEach(() => {
   sessionStorage.clear();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 // The school-year pages are deliberately not mocked: these tests assert what
@@ -84,6 +85,58 @@ describe("App routing", () => {
     expect(screen.getByRole("link", { name: "Terms" })).toHaveAttribute("href", "/terms");
     expect(screen.getByRole("link", { name: "Privacy" })).toHaveAttribute("href", "/privacy");
     expect(screen.getByRole("link", { name: "About" })).toHaveAttribute("href", "/about");
+  });
+
+  it.each([
+    "/respond/interest-profile-surveys/year-1/program-1/survey-1?organization_id=org-1&code=secret",
+    "/respond/sessions/year-1/program-1/session-1?organization_id=org-1&code=secret",
+  ])("does not retain the anonymous preference route %s", async (path) => {
+    renderApp(path, null);
+
+    expect(await screen.findByRole("heading", { name: "Page not found" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Student access code")).not.toBeInTheDocument();
+  });
+
+  it("does not retain program access-code settings", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        if (requestUrl(input).endsWith("/api/me")) {
+          return jsonResponse({
+            principal: { id: "user-test", email: "admin@example.com" },
+            organization: { id: "org-test", name: "Test organisation" },
+            role: "Owner",
+          });
+        }
+        if (requestUrl(input).endsWith("/api/school-years/year-1")) {
+          return jsonResponse({
+            id: "year-1",
+            organization_id: "org-test",
+            label: "2026–27",
+            state: "active",
+            created_at: "2026-08-01T00:00:00Z",
+            updated_at: "2026-08-01T00:00:00Z",
+          });
+        }
+        return jsonResponse([]);
+      }),
+    );
+    renderApp("/y/year-1/programs/program-1/settings/access-codes", authenticatedClient());
+
+    expect(await screen.findByRole("heading", { name: "Page not found" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Preference access codes" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("protects the administrator kiosk with sign-in", async () => {
+    renderApp(
+      "/preferences/admin/kiosk?year=year-1&program=program-1&session=session-1&student=student-1",
+      null,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Start" })).not.toBeInTheDocument();
   });
 
   it("renders public contact details on a page", async () => {

@@ -790,18 +790,6 @@ type InterestProfileSurvey struct {
 	UpdatedAt             pgtype.Timestamptz                     `json:"updated_at"`
 }
 
-type InterestProfileSurveyAccessCode struct {
-	ID             ids.XID            `json:"id"`
-	OrganizationID ids.XID            `json:"organization_id"`
-	SchoolYearID   ids.XID            `json:"school_year_id"`
-	ProgramID      ids.XID            `json:"program_id"`
-	SurveyID       ids.XID            `json:"survey_id"`
-	StudentID      ids.XID            `json:"student_id"`
-	CodeHash       string             `json:"code_hash"`
-	IssuedAt       pgtype.Timestamptz `json:"issued_at"`
-	RevokedAt      pgtype.Timestamptz `json:"revoked_at"`
-}
-
 type InterestProfileSurveyAudienceSnapshot struct {
 	ID             ids.XID            `json:"id"`
 	OrganizationID ids.XID            `json:"organization_id"`
@@ -951,18 +939,6 @@ type ProgramObjectiveWeight struct {
 	TagBalancePenalty             float64            `json:"tag_balance_penalty"`
 	CreatedAt                     pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt                     pgtype.Timestamptz `json:"updated_at"`
-}
-
-type RankedChoiceAccessCode struct {
-	ID             ids.XID            `json:"id"`
-	OrganizationID ids.XID            `json:"organization_id"`
-	SchoolYearID   ids.XID            `json:"school_year_id"`
-	ProgramID      ids.XID            `json:"program_id"`
-	SessionID      ids.XID            `json:"session_id"`
-	StudentID      ids.XID            `json:"student_id"`
-	CodeHash       string             `json:"code_hash"`
-	IssuedAt       pgtype.Timestamptz `json:"issued_at"`
-	RevokedAt      pgtype.Timestamptz `json:"revoked_at"`
 }
 
 type RankedChoiceResponse struct {

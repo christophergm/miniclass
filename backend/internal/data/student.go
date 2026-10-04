@@ -159,14 +159,8 @@ func (tx *Tx) CountStudentAssociatedData(ctx context.Context, schoolYearID, id i
 }
 
 func (tx *Tx) HardDeleteStudent(ctx context.Context, schoolYearID, id ids.XID) error {
-	params := db.HardDeleteStudentRankedAccessCodesParams{StudentID: id, OrganizationID: tx.organizationID, SchoolYearID: schoolYearID}
-	if err := tx.queries.HardDeleteStudentRankedAccessCodes(ctx, params); err != nil {
-		return err
-	}
-	if err := tx.queries.HardDeleteStudentSurveyAccessCodes(ctx, db.HardDeleteStudentSurveyAccessCodesParams(params)); err != nil {
-		return err
-	}
-	if err := tx.queries.HardDeleteStudentSurveySnapshots(ctx, db.HardDeleteStudentSurveySnapshotsParams(params)); err != nil {
+	params := db.HardDeleteStudentSurveySnapshotsParams{StudentID: id, OrganizationID: tx.organizationID, SchoolYearID: schoolYearID}
+	if err := tx.queries.HardDeleteStudentSurveySnapshots(ctx, params); err != nil {
 		return err
 	}
 	if err := tx.queries.HardDeleteStudentSurveyAudience(ctx, db.HardDeleteStudentSurveyAudienceParams(params)); err != nil {

@@ -8,10 +8,14 @@
   as an alternative provider; [0013](./0013-guardian-and-volunteer-access.md) — adult OTP sessions,
   student survey codes, and step-up MFA;
   [0017](./0017-guardian-self-registration-as-production-roster-authority.md) — the organization/year
-  roster-registration principal
+  roster-registration principal;
+  [0019](./0019-retire-direct-student-access.md) — removes direct student authentication and credentials
 - **Related:** [0001](./0001-application-stack-and-topology.md),
   [0006](./0006-household-and-volunteer-access.md),
   [0008](./0008-authorization-capabilities-and-audit.md)
+
+Direct student access described below is historical and superseded by ADR 0019. Guardian login is
+now the only family-facing preference path; administrator entry and the ranked-choice kiosk remain.
 
 ## Context
 

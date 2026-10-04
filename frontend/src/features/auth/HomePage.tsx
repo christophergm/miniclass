@@ -58,8 +58,8 @@ export function HomePage() {
           </span>
           <h2 className="mt-3 text-2xl font-black text-stone-950">Families</h2>
           <p className="mx-auto mt-2 max-w-2xl text-pretty font-medium text-stone-700">
-            Let your student share their interests and rank the classes they&apos;d most like to
-            join.
+            Sign in as a guardian to complete preference forms with your student. Share their
+            interests and rank the classes they&apos;d most like to join.
           </p>
           <Button
             asChild

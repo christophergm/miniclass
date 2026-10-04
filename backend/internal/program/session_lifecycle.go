@@ -12,7 +12,6 @@ import (
 	"github.com/chrismott/miniclass/internal/audit"
 	"github.com/chrismott/miniclass/internal/data"
 	"github.com/chrismott/miniclass/internal/ids"
-	"github.com/chrismott/miniclass/internal/preference"
 )
 
 var (
@@ -54,7 +53,6 @@ type SessionTransitionResult struct {
 	Applied              bool
 	RequiresConfirmation bool
 	Warnings             []SessionTransitionWarning
-	AccessCodes          []preference.RankedChoiceAccessCode
 }
 
 // SessionTransitionPlan is the pure state-machine decision. It is deliberately
@@ -227,22 +225,6 @@ func (s *Service) TransitionSession(ctx context.Context, organizationID string, 
 			return err
 		}
 		result = SessionTransitionResult{Session: updated, FromState: plan.FromState, ToState: plan.ToState, Applied: true, Warnings: plan.Warnings}
-		if input.NextState == data.SessionVotingOpen {
-			activeCodes, err := tx.ListActiveRankedChoiceAccessCodes(ctx, schoolYearID, programID, sessionID)
-			if err != nil {
-				return err
-			}
-			if len(activeCodes) == 0 {
-				students, err := tx.ListParticipatingStudentIDs(ctx, schoolYearID, programID, sessionID)
-				if err != nil {
-					return err
-				}
-				result.AccessCodes, err = preference.IssueRankedChoiceAccessCodes(ctx, tx, updated, students)
-				if err != nil {
-					return err
-				}
-			}
-		}
 		id, year := updated.ID, updated.SchoolYearID
 		return tx.Record(ctx, audit.Entry{
 			Action:        audit.ActionSessionStateTransition,

@@ -66,18 +66,12 @@ type ProgramService interface {
 	UpdateInterestProfileSurvey(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, preference.InterestProfileSurveyUpdate) (preference.InterestProfileSurveyView, error)
 	DeleteInterestProfileSurvey(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID) error
 	TransitionInterestProfileSurvey(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, preference.InterestProfileSurveyTransitionInput) (preference.InterestProfileSurveyTransitionResult, error)
-	RegenerateInterestProfileSurveyCodes(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, string) ([]preference.SurveyAccessCode, error)
-	RevokeInterestProfileSurveyCodes(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, string) error
-	RegenerateRankedChoiceAccessCodes(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, string) ([]preference.RankedChoiceAccessCode, error)
-	RevokeRankedChoiceAccessCodes(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, string) error
 	GetInterestProfileForm(context.Context, string, ids.XID, ids.XID, ids.XID, ids.XID) (preference.PreferenceForm, error)
-	GetInterestProfileFormByCode(context.Context, string, ids.XID, ids.XID, ids.XID, string) (preference.PreferenceForm, error)
 	SubmitInterestProfileSurvey(context.Context, string, audit.Actor, preference.InterestProfileSurveySubmissionInput) (data.InterestProfileSubmission, error)
 	GetInterestProfileResponseTracking(context.Context, string, ids.XID, ids.XID, ids.XID) (preference.ResponseTracking, error)
 	ListResponseTrackingSummaries(context.Context, string, ids.XID, ids.XID) ([]preference.ResponseTrackingSummary, error)
 	ListGuardianPreferenceForms(context.Context, string, ids.XID, ids.XID) (preference.GuardianPreferenceForms, error)
 	GetRankedChoiceForm(context.Context, string, ids.XID, ids.XID, ids.XID, ids.XID) (preference.PreferenceForm, error)
-	GetRankedChoiceFormByCode(context.Context, string, ids.XID, ids.XID, ids.XID, string) (preference.PreferenceForm, error)
 	SubmitRankedChoices(context.Context, string, audit.Actor, preference.RankedChoiceSubmissionInput) (data.RankedChoiceSubmission, error)
 	GetRankedChoiceResponseTracking(context.Context, string, ids.XID, ids.XID, ids.XID) (preference.ResponseTracking, error)
 }
