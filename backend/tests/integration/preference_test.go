@@ -74,6 +74,39 @@ func TestInterestProfileSubmissionsOverlayAndRetainAttribution(t *testing.T) {
 	}
 }
 
+// A membership is retained for history when a student is soft-deleted, but the
+// deleted student must not receive a voting credential.
+func TestRankedChoiceOpeningExcludesSoftDeletedMembers(t *testing.T) {
+	harness := testharness.Open(t)
+	ctx := harness.Context
+	organizationID := harness.MintOrganization(t)
+	actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "ranked-choice deleted member test"}
+	factory := factories.New(harness.Database, string(organizationID), actor)
+	fixture := createPreferenceFixture(t, harness, factory, "deleted-member")
+
+	deleted, err := factory.CreateStudent(ctx, fixture.year.ID, people.StudentCreateInput{
+		LegalGivenName: "Synthetic", LegalFamilyName: "Deleted Member", GradeLevelID: &fixture.grade.ID, HomeroomID: fixture.student.HomeroomID,
+	})
+	require.NoError(t, err)
+	_, err = factory.AddProgramMembership(ctx, fixture.year.ID, fixture.program.ID, deleted.ID)
+	require.NoError(t, err)
+	require.NoError(t, people.New(harness.Database).DeleteStudent(ctx, string(organizationID), fixture.year.ID, deleted.ID, actor))
+
+	session, err := factory.CreateSession(ctx, fixture.year.ID, fixture.program.ID, "Synthetic Voting Session", []time.Time{time.Date(2026, 11, 6, 0, 0, 0, 0, time.UTC)})
+	require.NoError(t, err)
+	_, err = factory.CreateOffering(ctx, fixture.year.ID, fixture.program.ID, session.ID, "Synthetic Offering", "Synthetic description", nil, 10, fixture.grade.ID, fixture.grade.ID, "", "", "", nil)
+	require.NoError(t, err)
+	_, err = factory.ConfigureRankedChoice(ctx, fixture.year.ID, fixture.program.ID, session.ID, 1, time.Now().UTC().Add(time.Hour))
+	require.NoError(t, err)
+	_, err = factory.TransitionSession(ctx, fixture.year.ID, fixture.program.ID, session.ID, data.SessionCatalogPublished, false, "", nil)
+	require.NoError(t, err)
+
+	opened, err := factory.TransitionSession(ctx, fixture.year.ID, fixture.program.ID, session.ID, data.SessionVotingOpen, false, "", nil)
+	require.NoError(t, err)
+	require.Len(t, opened.AccessCodes, 1)
+	require.Equal(t, fixture.student.ID, opened.AccessCodes[0].StudentID)
+}
+
 func TestInvalidRankedChoiceSubmissionDoesNotReplaceValidResponse(t *testing.T) {
 	harness := testharness.Open(t)
 	ctx := harness.Context

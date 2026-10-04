@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -278,10 +279,21 @@ type UpdateSessionObjectiveWeightsInput struct {
 }
 type DeleteSessionObjectiveWeightsInput struct{ SessionPathInput }
 
-type ProgramHandler struct{ service ProgramService }
+type ProgramHandler struct {
+	service ProgramService
+	logger  *slog.Logger
+}
 
 func NewProgramHandler(service ProgramService) *ProgramHandler {
 	return &ProgramHandler{service: service}
+}
+
+// WithLogger supplies the diagnostic logger used for failed catalog mutations.
+func (h *ProgramHandler) WithLogger(logger *slog.Logger) *ProgramHandler {
+	if h != nil {
+		h.logger = logger
+	}
+	return h
 }
 
 func (h *ProgramHandler) List(ctx context.Context, input *ListProgramsInput) (*ProgramListOutput, error) {

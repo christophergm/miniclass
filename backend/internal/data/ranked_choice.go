@@ -77,9 +77,11 @@ func (tx *Tx) RevokeRankedChoiceAccessCodes(ctx context.Context, schoolYearID, p
 // ListParticipatingStudentIDs returns the current session participation
 // projection used when first opening ranked-choice voting.
 func (tx *Tx) ListParticipatingStudentIDs(ctx context.Context, schoolYearID, programID, sessionID ids.XID) ([]ids.XID, error) {
-	memberships, err := tx.ListProgramMemberships(ctx, schoolYearID, programID)
+	studentIDs, err := tx.queries.ListActiveProgramMembershipStudentIDs(ctx, db.ListActiveProgramMembershipStudentIDsParams{
+		OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID,
+	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list active program membership students: %w", err)
 	}
 	nonParticipations, err := tx.ListSessionNonParticipations(ctx, schoolYearID, programID, sessionID)
 	if err != nil {
@@ -89,10 +91,10 @@ func (tx *Tx) ListParticipatingStudentIDs(ctx context.Context, schoolYearID, pro
 	for _, row := range nonParticipations {
 		excluded[row.StudentID] = struct{}{}
 	}
-	result := make([]ids.XID, 0, len(memberships))
-	for _, membership := range memberships {
-		if _, ok := excluded[membership.StudentID]; !ok {
-			result = append(result, membership.StudentID)
+	result := make([]ids.XID, 0, len(studentIDs))
+	for _, studentID := range studentIDs {
+		if _, ok := excluded[studentID]; !ok {
+			result = append(result, studentID)
 		}
 	}
 	return result, nil
