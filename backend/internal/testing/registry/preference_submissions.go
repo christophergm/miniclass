@@ -9,6 +9,7 @@ import (
 	"github.com/chrismott/miniclass/internal/audit"
 	"github.com/chrismott/miniclass/internal/data"
 	"github.com/chrismott/miniclass/internal/ids"
+	"github.com/chrismott/miniclass/internal/people"
 	"github.com/chrismott/miniclass/internal/preference"
 	testharness "github.com/chrismott/miniclass/internal/testing"
 	"github.com/chrismott/miniclass/internal/testing/factories"
@@ -31,10 +32,6 @@ func init() {
 		Factory: createRankedChoiceResponse, ReadIDs: readRankedChoiceResponseIDs,
 		FetchByID: fetchRankedChoiceResponseByID, UpdateByID: immutableUpdate, DeleteByID: immutableDelete,
 		InsertWithForeignParent: insertRankedChoiceResponseWithForeignParent})
-	Register(Entity{TableName: "ranked_choice_access_codes", YearScoped: true,
-		Factory: createRankedChoiceAccessCode, ReadIDs: readRankedChoiceAccessCodeIDs,
-		FetchByID: fetchRankedChoiceAccessCodeByID, UpdateByID: revokeRankedChoiceAccessCode, DeleteByID: revokeRankedChoiceAccessCode,
-		InsertWithForeignParent: insertRankedChoiceAccessCodeWithForeignParent})
 }
 
 func createInterestProfileSubmission(ctx context.Context, harness *testharness.Harness, organizationID ids.XID) (ids.XID, error) {
@@ -42,9 +39,9 @@ func createInterestProfileSubmission(ctx context.Context, harness *testharness.H
 	if err != nil {
 		return "", err
 	}
-	submission, err := fixture.factory.SubmitInterestProfile(ctx, preference.InterestProfileSubmissionInput{
-		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, StudentID: fixture.student.ID,
-		Channel: data.PreferenceChannelStudentCode,
+	submission, err := fixture.factory.SubmitInterestProfileSurvey(ctx, preference.InterestProfileSurveySubmissionInput{
+		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, StudentID: fixture.student.ID, SurveyID: fixture.surveyID,
+		Channel: data.PreferenceChannelGuardian, ActorAdultID: &fixture.adultID, GuardianAdultID: &fixture.adultID,
 		Answers: []data.InterestProfileAnswer{{InterestAreaID: fixture.area.ID, Rating: data.InterestProfileInterested}},
 	})
 	return submission.ID, err
@@ -55,9 +52,9 @@ func createInterestProfileResponse(ctx context.Context, harness *testharness.Har
 	if err != nil {
 		return "", err
 	}
-	submission, err := fixture.factory.SubmitInterestProfile(ctx, preference.InterestProfileSubmissionInput{
-		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, StudentID: fixture.student.ID,
-		Channel: data.PreferenceChannelStudentCode,
+	submission, err := fixture.factory.SubmitInterestProfileSurvey(ctx, preference.InterestProfileSurveySubmissionInput{
+		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, StudentID: fixture.student.ID, SurveyID: fixture.surveyID,
+		Channel: data.PreferenceChannelGuardian, ActorAdultID: &fixture.adultID, GuardianAdultID: &fixture.adultID,
 		Answers: []data.InterestProfileAnswer{{InterestAreaID: fixture.area.ID, Rating: data.InterestProfileInterested}},
 	})
 	if err != nil {
@@ -84,7 +81,7 @@ func createRankedChoiceSubmission(ctx context.Context, harness *testharness.Harn
 	}
 	submission, err := fixture.factory.SubmitRankedChoices(ctx, preference.RankedChoiceSubmissionInput{
 		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SessionID: fixture.session.ID, StudentID: fixture.student.ID,
-		Code: fixture.accessCode, Channel: data.PreferenceChannelStudentCode,
+		Channel: data.PreferenceChannelGuardian, ActorAdultID: &fixture.adultID, GuardianAdultID: &fixture.adultID,
 		Responses: []data.RankedChoiceResponseInput{{OfferingID: fixture.offering.ID, Answer: data.RankedChoiceInterested}},
 	})
 	return submission.ID, err
@@ -97,7 +94,7 @@ func createRankedChoiceResponse(ctx context.Context, harness *testharness.Harnes
 	}
 	_, err = fixture.factory.SubmitRankedChoices(ctx, preference.RankedChoiceSubmissionInput{
 		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SessionID: fixture.session.ID, StudentID: fixture.student.ID,
-		Code: fixture.accessCode, Channel: data.PreferenceChannelStudentCode,
+		Channel: data.PreferenceChannelGuardian, ActorAdultID: &fixture.adultID, GuardianAdultID: &fixture.adultID,
 		Responses: []data.RankedChoiceResponseInput{{OfferingID: fixture.offering.ID, Answer: data.RankedChoiceInterested}},
 	})
 	if err != nil {
@@ -122,16 +119,18 @@ func createRankedChoiceResponse(ctx context.Context, harness *testharness.Harnes
 }
 
 type interestFixture struct {
-	factory *factories.Factory
-	year    data.SchoolYear
-	grade   data.GradeLevel
-	program data.Program
-	student data.Student
-	area    data.InterestArea
+	factory  *factories.Factory
+	year     data.SchoolYear
+	grade    data.GradeLevel
+	program  data.Program
+	student  data.Student
+	area     data.InterestArea
+	adultID  ids.XID
+	surveyID ids.XID
 }
 
 func createInterestFixture(ctx context.Context, harness *testharness.Harness, organizationID ids.XID) (interestFixture, error) {
-	actor := audit.Actor{Type: audit.ActorTypeLink, Label: "layer 2 student-code fixture"}
+	actor := audit.Actor{Type: audit.ActorTypeLink, Label: "layer 2 guardian fixture"}
 	factory := factories.New(harness.Database, string(organizationID), actor)
 	year, err := factory.CreateSchoolYear(ctx, fmt.Sprintf("Synthetic preference year %s", organizationID))
 	if err != nil {
@@ -160,18 +159,34 @@ func createInterestFixture(ctx context.Context, harness *testharness.Harness, or
 	if err != nil {
 		return interestFixture{}, err
 	}
-	return interestFixture{factory: factory, year: year, grade: grade, program: programRow, student: student, area: area}, nil
+	adult, err := factory.CreateAdult(ctx, year.ID, people.AdultCreateInput{LegalGivenName: "Synthetic", LegalFamilyName: "Preference Guardian"})
+	if err != nil {
+		return interestFixture{}, err
+	}
+	if _, err := factory.CreateGuardianRelationship(ctx, year.ID, people.GuardianRelationshipCreateInput{AdultID: adult.ID, StudentID: student.ID, RelationshipType: data.GuardianRelationshipParent}); err != nil {
+		return interestFixture{}, err
+	}
+	service := preference.New(harness.Database)
+	survey, err := service.CreateInterestProfileSurvey(ctx, string(organizationID), actor, year.ID, programRow.ID, preference.InterestProfileSurveyInput{Name: "Synthetic Preference Survey", Audience: preference.InterestProfileSurveyAudienceInput{Type: data.SurveyAudienceAllMembers}, Questions: []preference.InterestProfileSurveyQuestionInput{{InterestAreaID: area.ID}}})
+	if err != nil {
+		return interestFixture{}, err
+	}
+	closingAt := time.Now().UTC().Add(time.Hour)
+	if _, err := service.TransitionInterestProfileSurvey(ctx, string(organizationID), actor, year.ID, programRow.ID, survey.Survey.ID, preference.InterestProfileSurveyTransitionInput{State: data.InterestProfileSurveyOpen, ClosingAt: &closingAt}); err != nil {
+		return interestFixture{}, err
+	}
+	return interestFixture{factory: factory, year: year, grade: grade, program: programRow, student: student, area: area, adultID: adult.ID, surveyID: survey.Survey.ID}, nil
 }
 
 type rankedFixture struct {
-	factory    *factories.Factory
-	year       data.SchoolYear
-	program    data.Program
-	student    data.Student
-	grade      data.GradeLevel
-	session    data.Session
-	offering   data.Offering
-	accessCode string
+	factory  *factories.Factory
+	year     data.SchoolYear
+	program  data.Program
+	student  data.Student
+	grade    data.GradeLevel
+	session  data.Session
+	offering data.Offering
+	adultID  ids.XID
 }
 
 func createRankedFixture(ctx context.Context, harness *testharness.Harness, organizationID ids.XID) (rankedFixture, error) {
@@ -197,10 +212,7 @@ func createRankedFixture(ctx context.Context, harness *testharness.Harness, orga
 	if err != nil {
 		return rankedFixture{}, err
 	}
-	if len(opened.AccessCodes) != 1 {
-		return rankedFixture{}, fmt.Errorf("ranked choice fixture: expected one access code, got %d", len(opened.AccessCodes))
-	}
-	return rankedFixture{factory: interest.factory, year: interest.year, grade: interest.grade, program: interest.program, student: interest.student, session: opened.Session, offering: offering, accessCode: opened.AccessCodes[0].Code}, nil
+	return rankedFixture{factory: interest.factory, year: interest.year, grade: interest.grade, program: interest.program, student: interest.student, session: opened.Session, offering: offering, adultID: interest.adultID}, nil
 }
 
 func readInterestProfileSubmissionIDs(ctx context.Context, tx *data.Tx) ([]ids.XID, error) {
@@ -259,43 +271,6 @@ func fetchRankedChoiceResponseByID(ctx context.Context, tx *data.Tx, id ids.XID)
 	return row.ID != "", err
 }
 
-func createRankedChoiceAccessCode(ctx context.Context, harness *testharness.Harness, organizationID ids.XID) (ids.XID, error) {
-	fixture, err := createRankedFixture(ctx, harness, organizationID)
-	if err != nil {
-		return "", err
-	}
-	var rows []data.RankedChoiceAccessCode
-	err = harness.Database.InTenantRead(ctx, string(organizationID), func(ctx context.Context, tx *data.Tx) error {
-		rows, err = tx.ListActiveRankedChoiceAccessCodes(ctx, fixture.year.ID, fixture.program.ID, fixture.session.ID)
-		return err
-	})
-	if err != nil {
-		return "", err
-	}
-	if len(rows) == 0 {
-		return "", errors.New("ranked choice access code fixture: code not found")
-	}
-	return rows[0].ID, nil
-}
-
-func readRankedChoiceAccessCodeIDs(ctx context.Context, tx *data.Tx) ([]ids.XID, error) {
-	rows, err := tx.ListAllRankedChoiceAccessCodesForRegistry(ctx)
-	result := make([]ids.XID, 0, len(rows))
-	for _, row := range rows {
-		result = append(result, row.ID)
-	}
-	return result, err
-}
-
-func fetchRankedChoiceAccessCodeByID(ctx context.Context, tx *data.Tx, id ids.XID) (bool, error) {
-	row, err := tx.FindRankedChoiceAccessCodeForRegistry(ctx, id)
-	return row.ID != "", err
-}
-
-func revokeRankedChoiceAccessCode(ctx context.Context, tx *data.Tx, id ids.XID) (bool, error) {
-	return tx.RevokeRankedChoiceAccessCodeForRegistry(ctx, id)
-}
-
 func immutableUpdate(context.Context, *data.Tx, ids.XID) (bool, error) { return false, nil }
 func immutableDelete(context.Context, *data.Tx, ids.XID) (bool, error) { return false, nil }
 
@@ -304,7 +279,7 @@ func insertInterestProfileSubmissionWithForeignParent(ctx context.Context, harne
 	if err != nil {
 		return err
 	}
-	return insertForeign(ctx, harness, tenantID, `insert into interest_profile_submissions (organization_id, school_year_id, program_id, student_id, channel, actor_type, actor_label) values ($1, $2, $3, $4, 'student_code', 'link', 'foreign')`, foreignOrganizationID, fixture.year.ID, fixture.program.ID, fixture.student.ID)
+	return insertForeign(ctx, harness, tenantID, `insert into interest_profile_submissions (organization_id, school_year_id, program_id, student_id, channel, actor_type, actor_adult_id, actor_label) values ($1, $2, $3, $4, 'guardian', 'link', $5, 'foreign')`, foreignOrganizationID, fixture.year.ID, fixture.program.ID, fixture.student.ID, fixture.adultID)
 }
 
 func insertInterestProfileResponseWithForeignParent(ctx context.Context, harness *testharness.Harness, tenantID, foreignOrganizationID ids.XID) error {
@@ -312,7 +287,7 @@ func insertInterestProfileResponseWithForeignParent(ctx context.Context, harness
 	if err != nil {
 		return err
 	}
-	submission, err := fixture.factory.SubmitInterestProfile(ctx, preference.InterestProfileSubmissionInput{SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, StudentID: fixture.student.ID, Channel: data.PreferenceChannelStudentCode, Answers: []data.InterestProfileAnswer{{InterestAreaID: fixture.area.ID, Rating: data.InterestProfileInterested}}})
+	submission, err := fixture.factory.SubmitInterestProfileSurvey(ctx, preference.InterestProfileSurveySubmissionInput{SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SurveyID: fixture.surveyID, StudentID: fixture.student.ID, Channel: data.PreferenceChannelGuardian, ActorAdultID: &fixture.adultID, GuardianAdultID: &fixture.adultID, Answers: []data.InterestProfileAnswer{{InterestAreaID: fixture.area.ID, Rating: data.InterestProfileInterested}}})
 	if err != nil {
 		return err
 	}
@@ -324,7 +299,7 @@ func insertRankedChoiceSubmissionWithForeignParent(ctx context.Context, harness 
 	if err != nil {
 		return err
 	}
-	return insertForeign(ctx, harness, tenantID, `insert into ranked_choice_submissions (organization_id, school_year_id, program_id, session_id, student_id, channel, actor_type, actor_label) values ($1, $2, $3, $4, $5, 'student_code', 'link', 'foreign')`, foreignOrganizationID, fixture.year.ID, fixture.program.ID, fixture.session.ID, fixture.student.ID)
+	return insertForeign(ctx, harness, tenantID, `insert into ranked_choice_submissions (organization_id, school_year_id, program_id, session_id, student_id, channel, actor_type, actor_adult_id, actor_label) values ($1, $2, $3, $4, $5, 'guardian', 'link', $6, 'foreign')`, foreignOrganizationID, fixture.year.ID, fixture.program.ID, fixture.session.ID, fixture.student.ID, fixture.adultID)
 }
 
 func insertRankedChoiceResponseWithForeignParent(ctx context.Context, harness *testharness.Harness, tenantID, foreignOrganizationID ids.XID) error {
@@ -332,19 +307,11 @@ func insertRankedChoiceResponseWithForeignParent(ctx context.Context, harness *t
 	if err != nil {
 		return err
 	}
-	submission, err := fixture.factory.SubmitRankedChoices(ctx, preference.RankedChoiceSubmissionInput{SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SessionID: fixture.session.ID, StudentID: fixture.student.ID, Code: fixture.accessCode, Channel: data.PreferenceChannelStudentCode, Responses: []data.RankedChoiceResponseInput{{OfferingID: fixture.offering.ID, Answer: data.RankedChoiceInterested}}})
+	submission, err := fixture.factory.SubmitRankedChoices(ctx, preference.RankedChoiceSubmissionInput{SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SessionID: fixture.session.ID, StudentID: fixture.student.ID, Channel: data.PreferenceChannelGuardian, ActorAdultID: &fixture.adultID, GuardianAdultID: &fixture.adultID, Responses: []data.RankedChoiceResponseInput{{OfferingID: fixture.offering.ID, Answer: data.RankedChoiceInterested}}})
 	if err != nil {
 		return err
 	}
 	return insertForeign(ctx, harness, tenantID, `insert into ranked_choice_responses (organization_id, school_year_id, program_id, session_id, submission_id, offering_id, response) values ($1, $2, $3, $4, $5, $6, 'interested')`, foreignOrganizationID, fixture.year.ID, fixture.program.ID, fixture.session.ID, submission.ID, fixture.offering.ID)
-}
-
-func insertRankedChoiceAccessCodeWithForeignParent(ctx context.Context, harness *testharness.Harness, tenantID, foreignOrganizationID ids.XID) error {
-	fixture, err := createRankedFixture(ctx, harness, foreignOrganizationID)
-	if err != nil {
-		return err
-	}
-	return insertForeign(ctx, harness, tenantID, `insert into ranked_choice_access_codes (organization_id, school_year_id, program_id, session_id, student_id, code_hash) values ($1, $2, $3, $4, $5, $6)`, foreignOrganizationID, fixture.year.ID, fixture.program.ID, fixture.session.ID, fixture.student.ID, "foreign-code-hash")
 }
 
 func insertForeign(ctx context.Context, harness *testharness.Harness, tenantID ids.XID, query string, args ...any) error {

@@ -165,7 +165,7 @@ describe("phase 4 generated resources", () => {
     vi.unstubAllGlobals();
   });
 
-  it("routes respondent and tracking calls through the generated API contract", async () => {
+  it("routes guardian submission and tracking calls through the generated API contract", async () => {
     const requests: Request[] = [];
     vi.stubGlobal(
       "fetch",
@@ -179,18 +179,19 @@ describe("phase 4 generated resources", () => {
       }),
     );
 
-    await resourceApi.getStudentCodeRankedChoiceForm(
-      "year-1",
-      "program-1",
-      "session-1",
-      "org-1",
-      "code-1",
-    );
+    await resourceApi.submitGuardianRankedChoice("year-1", "program-1", "session-1", "student-1", [
+      { offering_id: "offering-1", answer: "ranked", rank: 1 },
+    ]);
     await resourceApi.getInterestProfileResponseTracking("year-1", "program-1", "survey-1");
     await resourceApi.getRankedChoiceResponseTracking("year-1", "program-1", "session-1");
 
     expect(requests.map((request) => request.method)).toEqual(["POST", "GET", "GET"]);
-    expect(requests[0].url).toContain("/api/respondent/sessions/year-1/program-1/session-1/form");
+    expect(requests[0].url).toContain(
+      "/api/guardian/sessions/year-1/program-1/session-1/students/student-1",
+    );
+    await expect(requests[0].json()).resolves.toEqual({
+      responses: [{ offering_id: "offering-1", answer: "ranked", rank: 1 }],
+    });
     expect(requests[1].url).toContain(
       "/api/school-years/year-1/programs/program-1/interest-profile-surveys/survey-1/response-tracking",
     );

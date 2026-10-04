@@ -190,23 +190,19 @@ func TestEveryRegisteredOperationDeclaresCapabilityMetadata(t *testing.T) {
 	// Every entry is a decision to expose an endpoint to the internet, so this
 	// test fails on a new public operation until someone adds it here.
 	allowedPublicOperations := map[string]bool{
-		"GET /api/health":                                                                            true,
-		"POST /api/auth/adult/otp/request":                                                           true,
-		"POST /api/auth/adult/otp/verify":                                                            true,
-		"POST /api/auth/adult/otp/context":                                                           true,
-		"POST /api/guardian/onboarding/session":                                                      true,
-		"GET /api/guardian/onboarding/{registrationLinkID}":                                          true,
-		"POST /api/guardian/onboarding/begin":                                                        true,
-		"POST /api/guardian/onboarding/{registrationLinkID}/begin":                                   true,
-		"POST /api/guardian/onboarding/complete":                                                     true,
-		"POST /api/guardian/onboarding/consent":                                                      true,
-		"POST /api/guardian/onboarding/invitation/redeem":                                            true,
-		"POST /api/guardian/onboarding/otp/request":                                                  true,
-		"POST /api/guardian/onboarding/otp/verify":                                                   true,
-		"POST /api/respondent/interest-profile-surveys/{schoolYearID}/{programID}/{surveyID}/form":   true,
-		"POST /api/respondent/interest-profile-surveys/{schoolYearID}/{programID}/{surveyID}/submit": true,
-		"POST /api/respondent/sessions/{schoolYearID}/{programID}/{sessionID}/form":                  true,
-		"POST /api/respondent/sessions/{schoolYearID}/{programID}/{sessionID}/submit":                true,
+		"GET /api/health":                                          true,
+		"POST /api/auth/adult/otp/request":                         true,
+		"POST /api/auth/adult/otp/verify":                          true,
+		"POST /api/auth/adult/otp/context":                         true,
+		"POST /api/guardian/onboarding/session":                    true,
+		"GET /api/guardian/onboarding/{registrationLinkID}":        true,
+		"POST /api/guardian/onboarding/begin":                      true,
+		"POST /api/guardian/onboarding/{registrationLinkID}/begin": true,
+		"POST /api/guardian/onboarding/complete":                   true,
+		"POST /api/guardian/onboarding/consent":                    true,
+		"POST /api/guardian/onboarding/invitation/redeem":          true,
+		"POST /api/guardian/onboarding/otp/request":                true,
+		"POST /api/guardian/onboarding/otp/verify":                 true,
 	}
 
 	document := NewOpenAPI(RouterOptions{})

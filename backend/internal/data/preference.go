@@ -14,12 +14,16 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-// PreferenceSubmissionChannel identifies the narrow access path used for a
-// response. It is stored with each retained submission, not inferred later.
+// ErrPreferenceChannelRetired rejects writes without changing historical provenance.
+var ErrPreferenceChannelRetired = errors.New("preference submission: student_code channel is retired")
+
+// PreferenceSubmissionChannel records how a retained response was submitted.
+// Historical channels remain readable even when that access path is retired.
 type PreferenceSubmissionChannel string
 
 const (
-	PreferenceChannelGuardian              PreferenceSubmissionChannel = "guardian"
+	PreferenceChannelGuardian PreferenceSubmissionChannel = "guardian"
+	// PreferenceChannelStudentCode is retained only for reading historical submissions.
 	PreferenceChannelStudentCode           PreferenceSubmissionChannel = "student_code"
 	PreferenceChannelAdministratorOnBehalf PreferenceSubmissionChannel = "administrator_on_behalf"
 )
@@ -121,48 +125,8 @@ type RankedChoiceResponse struct {
 	CreatedAt      time.Time
 }
 
-func (tx *Tx) CreateInterestProfileSubmission(ctx context.Context, schoolYearID, programID, studentID ids.XID, channel PreferenceSubmissionChannel, actorAdultID *ids.XID, answers []InterestProfileAnswer) (InterestProfileSubmission, []InterestProfileResponse, error) {
-	if err := validateSubmissionAttribution(tx.actor, channel, actorAdultID); err != nil {
-		return InterestProfileSubmission{}, nil, err
-	}
-	if len(answers) == 0 {
-		return InterestProfileSubmission{}, nil, errors.New("create interest profile submission: at least one area response is required")
-	}
-	if err := validateInterestProfileAnswers(answers); err != nil {
-		return InterestProfileSubmission{}, nil, err
-	}
-	row, err := tx.queries.CreateInterestProfileSubmission(ctx, db.CreateInterestProfileSubmissionParams{
-		OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID, StudentID: studentID,
-		Channel: db.PreferenceSubmissionChannel(channel), ActorType: db.AuditActorType(tx.actor.Type), ActorUserID: tx.actor.UserID,
-		ActorAdultID: actorAdultID, ActorLabel: strings.TrimSpace(tx.actor.Label),
-	})
-	if err != nil {
-		return InterestProfileSubmission{}, nil, fmt.Errorf("create interest profile submission: %w", err)
-	}
-	submission, err := interestProfileSubmissionValues(row.ID, row.OrganizationID, row.SchoolYearID, row.ProgramID, row.SurveyID, row.StudentID, row.Channel, row.ActorType, row.ActorUserID, row.ActorAdultID, row.ActorLabel, row.SubmittedAt, row.CreatedAt)
-	if err != nil {
-		return InterestProfileSubmission{}, nil, err
-	}
-	responses := make([]InterestProfileResponse, 0, len(answers))
-	for _, answer := range answers {
-		created, err := tx.queries.CreateInterestProfileResponse(ctx, db.CreateInterestProfileResponseParams{
-			OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID,
-			SubmissionID: submission.ID, InterestAreaID: answer.InterestAreaID, Response: db.InterestProfileRating(answer.Rating),
-		})
-		if err != nil {
-			return InterestProfileSubmission{}, nil, fmt.Errorf("create interest profile response: %w", err)
-		}
-		value, err := interestProfileResponse(created)
-		if err != nil {
-			return InterestProfileSubmission{}, nil, err
-		}
-		responses = append(responses, value)
-	}
-	return submission, responses, nil
-}
-
-// CreateInterestProfileSurveySubmission is the survey-bound variant of the
-// retained submission write. Keeping the survey ID on the append-only parent
+// CreateInterestProfileSurveySubmission records a survey-bound response.
+// Keeping the survey ID on the append-only parent
 // lets later audience filters identify a response to a named instrument.
 func (tx *Tx) CreateInterestProfileSurveySubmission(ctx context.Context, schoolYearID, programID, surveyID, studentID ids.XID, channel PreferenceSubmissionChannel, actorAdultID *ids.XID, answers []InterestProfileAnswer) (InterestProfileSubmission, []InterestProfileResponse, error) {
 	if err := validateSubmissionAttribution(tx.actor, channel, actorAdultID); err != nil {
@@ -351,9 +315,7 @@ func validateSubmissionAttribution(actor audit.Actor, channel PreferenceSubmissi
 			return errors.New("preference submission: guardian channel requires a guardian link and adult id")
 		}
 	case PreferenceChannelStudentCode:
-		if actor.Type != audit.ActorTypeLink || actorAdultID != nil {
-			return errors.New("preference submission: student-code channel requires a student-code link")
-		}
+		return ErrPreferenceChannelRetired
 	case PreferenceChannelAdministratorOnBehalf:
 		if actor.Type != audit.ActorTypeUser || actor.UserID == nil || actorAdultID != nil {
 			return errors.New("preference submission: administrator-on-behalf channel requires an administrator user")

@@ -20,25 +20,28 @@ func TestInterestProfileSubmissionsOverlayAndRetainAttribution(t *testing.T) {
 	harness := testharness.Open(t)
 	ctx := harness.Context
 	organizationID := harness.MintOrganization(t)
-	actor := audit.Actor{Type: audit.ActorTypeLink, Label: "synthetic preference respondent"}
+	actor := preferenceAdminActor(t, harness, organizationID)
 	factory := factories.New(harness.Database, string(organizationID), actor)
 	fixture := createPreferenceFixture(t, harness, factory, "interest")
 	adult, err := factory.CreateAdult(ctx, fixture.year.ID, people.AdultCreateInput{LegalGivenName: "Synthetic", LegalFamilyName: "Guardian"})
 	require.NoError(t, err)
 	service := preference.New(harness.Database)
+	surveyID := openPreferenceSurvey(t, harness, organizationID, actor, fixture)
+	_, err = factory.CreateGuardianRelationship(ctx, fixture.year.ID, people.GuardianRelationshipCreateInput{AdultID: adult.ID, StudentID: fixture.student.ID, RelationshipType: data.GuardianRelationshipParent})
+	require.NoError(t, err)
 
-	first, err := service.SubmitInterestProfile(ctx, string(organizationID), actor, preference.InterestProfileSubmissionInput{
-		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, StudentID: fixture.student.ID,
-		Channel: data.PreferenceChannelStudentCode,
+	first, err := service.SubmitInterestProfileSurvey(ctx, string(organizationID), actor, preference.InterestProfileSurveySubmissionInput{
+		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SurveyID: surveyID, StudentID: fixture.student.ID,
+		Channel: data.PreferenceChannelAdministratorOnBehalf,
 		Answers: []data.InterestProfileAnswer{
 			{InterestAreaID: fixture.area.ID, Rating: data.InterestProfileVeryInterested},
 			{InterestAreaID: fixture.secondArea.ID, Rating: data.InterestProfileInterested},
 		},
 	})
 	require.NoError(t, err)
-	second, err := service.SubmitInterestProfile(ctx, string(organizationID), actor, preference.InterestProfileSubmissionInput{
-		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, StudentID: fixture.student.ID,
-		Channel: data.PreferenceChannelGuardian, ActorAdultID: &adult.ID,
+	second, err := service.SubmitInterestProfileSurvey(ctx, string(organizationID), audit.Actor{Type: audit.ActorTypeLink, Label: "synthetic guardian"}, preference.InterestProfileSurveySubmissionInput{
+		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SurveyID: surveyID, StudentID: fixture.student.ID,
+		Channel: data.PreferenceChannelGuardian, ActorAdultID: &adult.ID, GuardianAdultID: &adult.ID,
 		Answers: []data.InterestProfileAnswer{{InterestAreaID: fixture.area.ID, Rating: data.InterestProfileNotInterested}},
 	})
 	require.NoError(t, err)
@@ -60,7 +63,7 @@ func TestInterestProfileSubmissionsOverlayAndRetainAttribution(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Len(t, history, 2)
-	require.Equal(t, data.PreferenceChannelStudentCode, history[0].Channel)
+	require.Equal(t, data.PreferenceChannelAdministratorOnBehalf, history[0].Channel)
 	require.Nil(t, history[0].ActorAdultID)
 	require.Equal(t, data.PreferenceChannelGuardian, history[1].Channel)
 	require.Equal(t, adult.ID, *history[1].ActorAdultID)
@@ -75,7 +78,7 @@ func TestInterestProfileSubmissionsOverlayAndRetainAttribution(t *testing.T) {
 }
 
 // A membership is retained for history when a student is soft-deleted, but the
-// deleted student must not receive a voting credential.
+// deleted student must not have a respondent form.
 func TestRankedChoiceOpeningExcludesSoftDeletedMembers(t *testing.T) {
 	harness := testharness.Open(t)
 	ctx := harness.Context
@@ -103,15 +106,19 @@ func TestRankedChoiceOpeningExcludesSoftDeletedMembers(t *testing.T) {
 
 	opened, err := factory.TransitionSession(ctx, fixture.year.ID, fixture.program.ID, session.ID, data.SessionVotingOpen, false, "", nil)
 	require.NoError(t, err)
-	require.Len(t, opened.AccessCodes, 1)
-	require.Equal(t, fixture.student.ID, opened.AccessCodes[0].StudentID)
+	require.Equal(t, data.SessionVotingOpen, opened.Session.State)
+	service := preference.New(harness.Database)
+	_, err = service.GetRankedChoiceForm(ctx, string(organizationID), fixture.year.ID, fixture.program.ID, session.ID, deleted.ID)
+	require.Error(t, err, "deleted students must not have a respondent form")
+	_, err = service.GetRankedChoiceForm(ctx, string(organizationID), fixture.year.ID, fixture.program.ID, session.ID, fixture.student.ID)
+	require.NoError(t, err)
 }
 
 func TestInvalidRankedChoiceSubmissionDoesNotReplaceValidResponse(t *testing.T) {
 	harness := testharness.Open(t)
 	ctx := harness.Context
 	organizationID := harness.MintOrganization(t)
-	actor := audit.Actor{Type: audit.ActorTypeLink, Label: "synthetic student-code respondent"}
+	actor := preferenceAdminActor(t, harness, organizationID)
 	factory := factories.New(harness.Database, string(organizationID), actor)
 	fixture := createPreferenceFixture(t, harness, factory, "ranked")
 	session, err := factory.CreateSession(ctx, fixture.year.ID, fixture.program.ID, "Synthetic Voting Session", []time.Time{time.Date(2026, 11, 6, 0, 0, 0, 0, time.UTC)})
@@ -124,15 +131,13 @@ func TestInvalidRankedChoiceSubmissionDoesNotReplaceValidResponse(t *testing.T) 
 	require.NoError(t, err)
 	_, err = factory.TransitionSession(ctx, fixture.year.ID, fixture.program.ID, session.ID, data.SessionCatalogPublished, false, "", nil)
 	require.NoError(t, err)
-	opened, err := factory.TransitionSession(ctx, fixture.year.ID, fixture.program.ID, session.ID, data.SessionVotingOpen, false, "", nil)
+	_, err = factory.TransitionSession(ctx, fixture.year.ID, fixture.program.ID, session.ID, data.SessionVotingOpen, false, "", nil)
 	require.NoError(t, err)
-	require.Len(t, opened.AccessCodes, 1)
-	accessCode := opened.AccessCodes[0].Code
 	service := preference.New(harness.Database)
 	rankOne := 1
 	valid, err := service.SubmitRankedChoices(ctx, string(organizationID), actor, preference.RankedChoiceSubmissionInput{
 		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SessionID: session.ID, StudentID: fixture.student.ID,
-		Code: accessCode, Channel: data.PreferenceChannelStudentCode,
+		Channel: data.PreferenceChannelAdministratorOnBehalf,
 		Responses: []data.RankedChoiceResponseInput{
 			{OfferingID: offeringA.ID, Answer: data.RankedChoiceRanked, Rank: &rankOne},
 			{OfferingID: offeringB.ID, Answer: data.RankedChoiceInterested},
@@ -143,7 +148,7 @@ func TestInvalidRankedChoiceSubmissionDoesNotReplaceValidResponse(t *testing.T) 
 	duplicateRank := 1
 	_, err = service.SubmitRankedChoices(ctx, string(organizationID), actor, preference.RankedChoiceSubmissionInput{
 		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SessionID: session.ID, StudentID: fixture.student.ID,
-		Code: accessCode, Channel: data.PreferenceChannelStudentCode,
+		Channel: data.PreferenceChannelAdministratorOnBehalf,
 		Responses: []data.RankedChoiceResponseInput{
 			{OfferingID: offeringA.ID, Answer: data.RankedChoiceRanked, Rank: &duplicateRank},
 			{OfferingID: offeringB.ID, Answer: data.RankedChoiceRanked, Rank: &duplicateRank},
@@ -166,7 +171,7 @@ func TestRankedChoiceWindowFollowsSessionLifecycle(t *testing.T) {
 	harness := testharness.Open(t)
 	ctx := harness.Context
 	organizationID := harness.MintOrganization(t)
-	actor := audit.Actor{Type: audit.ActorTypeLink, Label: "synthetic ranked-choice lifecycle respondent"}
+	actor := preferenceAdminActor(t, harness, organizationID)
 	factory := factories.New(harness.Database, string(organizationID), actor)
 	fixture := createPreferenceFixture(t, harness, factory, "ranked-window")
 	session, err := factory.CreateSession(ctx, fixture.year.ID, fixture.program.ID, "Synthetic Voting Window", []time.Time{time.Date(2026, 11, 13, 0, 0, 0, 0, time.UTC)})
@@ -178,9 +183,8 @@ func TestRankedChoiceWindowFollowsSessionLifecycle(t *testing.T) {
 	require.NoError(t, err)
 	_, err = factory.TransitionSession(ctx, fixture.year.ID, fixture.program.ID, session.ID, data.SessionCatalogPublished, false, "", nil)
 	require.NoError(t, err)
-	opened, err := factory.TransitionSession(ctx, fixture.year.ID, fixture.program.ID, session.ID, data.SessionVotingOpen, false, "", nil)
+	_, err = factory.TransitionSession(ctx, fixture.year.ID, fixture.program.ID, session.ID, data.SessionVotingOpen, false, "", nil)
 	require.NoError(t, err)
-	require.Len(t, opened.AccessCodes, 1)
 
 	_, err = factory.TransitionSession(ctx, fixture.year.ID, fixture.program.ID, session.ID, data.SessionAssigning, false, "", nil)
 	require.ErrorIs(t, err, program.ErrSessionTransitionInvalid)
@@ -188,7 +192,7 @@ func TestRankedChoiceWindowFollowsSessionLifecycle(t *testing.T) {
 	service := preference.New(harness.Database)
 	_, err = service.SubmitRankedChoices(ctx, string(organizationID), actor, preference.RankedChoiceSubmissionInput{
 		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SessionID: session.ID,
-		Code: opened.AccessCodes[0].Code, Channel: data.PreferenceChannelStudentCode,
+		StudentID: fixture.student.ID, Channel: data.PreferenceChannelAdministratorOnBehalf,
 		Responses: []data.RankedChoiceResponseInput{{OfferingID: offering.ID, Answer: data.RankedChoiceInterested}},
 	})
 	require.NoError(t, err)
@@ -197,7 +201,7 @@ func TestRankedChoiceWindowFollowsSessionLifecycle(t *testing.T) {
 	require.NoError(t, err)
 	_, err = service.SubmitRankedChoices(ctx, string(organizationID), actor, preference.RankedChoiceSubmissionInput{
 		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SessionID: session.ID,
-		Code: opened.AccessCodes[0].Code, Channel: data.PreferenceChannelStudentCode,
+		StudentID: fixture.student.ID, Channel: data.PreferenceChannelAdministratorOnBehalf,
 		Responses: []data.RankedChoiceResponseInput{{OfferingID: offering.ID, Answer: data.RankedChoiceInterested}},
 	})
 	require.ErrorIs(t, err, preference.ErrRankedChoiceNotAccepting)
@@ -210,76 +214,8 @@ func TestRankedChoiceWindowFollowsSessionLifecycle(t *testing.T) {
 	reopened, err := factory.TransitionSession(ctx, fixture.year.ID, fixture.program.ID, session.ID, data.SessionVotingOpen, true, "reopening for late response", &newDeadline)
 	require.NoError(t, err)
 	require.True(t, reopened.Applied)
-	require.Empty(t, reopened.AccessCodes, "reopening preserves the existing bound grant")
 	require.NotNil(t, reopened.Session.RankedChoice)
 	require.WithinDuration(t, newDeadline, *reopened.Session.RankedChoice.Deadline, time.Second)
-}
-
-func TestRankedChoiceAccessCodeRegenerationAndRevocation(t *testing.T) {
-	harness := testharness.Open(t)
-	ctx := harness.Context
-	organizationID := harness.MintOrganization(t)
-	actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "synthetic code organizer"}
-	factory := factories.New(harness.Database, string(organizationID), actor)
-	fixture := createPreferenceFixture(t, harness, factory, "code rotation")
-	session, err := factory.CreateSession(ctx, fixture.year.ID, fixture.program.ID, "Synthetic Code Rotation Session", []time.Time{time.Date(2026, 11, 20, 0, 0, 0, 0, time.UTC)})
-	require.NoError(t, err)
-	offering, err := factory.CreateOffering(ctx, fixture.year.ID, fixture.program.ID, session.ID, "Synthetic Code Rotation Offering", "Synthetic description", nil, 10, fixture.grade.ID, fixture.grade.ID, "", "", "", nil)
-	require.NoError(t, err)
-	_, err = factory.ConfigureRankedChoice(ctx, fixture.year.ID, fixture.program.ID, session.ID, 1, time.Now().UTC().Add(time.Hour))
-	require.NoError(t, err)
-	_, err = factory.TransitionSession(ctx, fixture.year.ID, fixture.program.ID, session.ID, data.SessionCatalogPublished, false, "", nil)
-	require.NoError(t, err)
-	opened, err := factory.TransitionSession(ctx, fixture.year.ID, fixture.program.ID, session.ID, data.SessionVotingOpen, false, "", nil)
-	require.NoError(t, err)
-	require.Len(t, opened.AccessCodes, 1)
-	originalCode := opened.AccessCodes[0].Code
-	service := preference.New(harness.Database)
-
-	_, err = service.SubmitRankedChoices(ctx, string(organizationID), actor, preference.RankedChoiceSubmissionInput{
-		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SessionID: session.ID,
-		Code: "guess", Channel: data.PreferenceChannelStudentCode,
-		Responses: []data.RankedChoiceResponseInput{{OfferingID: offering.ID, Answer: data.RankedChoiceInterested}},
-	})
-	require.ErrorIs(t, err, preference.ErrRankedChoiceCodeInvalid)
-
-	_, err = service.SubmitRankedChoices(ctx, string(organizationID), actor, preference.RankedChoiceSubmissionInput{
-		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SessionID: session.ID,
-		StudentID: ids.XID("synthetic-other-student"), Code: originalCode, Channel: data.PreferenceChannelStudentCode,
-		Responses: []data.RankedChoiceResponseInput{{OfferingID: offering.ID, Answer: data.RankedChoiceInterested}},
-	})
-	require.ErrorIs(t, err, preference.ErrRankedChoiceStudentMismatch)
-
-	foreignOrganizationID := harness.MintOrganization(t)
-	_, err = service.SubmitRankedChoices(ctx, string(foreignOrganizationID), actor, preference.RankedChoiceSubmissionInput{
-		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SessionID: session.ID,
-		Code: originalCode, Channel: data.PreferenceChannelStudentCode,
-		Responses: []data.RankedChoiceResponseInput{{OfferingID: offering.ID, Answer: data.RankedChoiceInterested}},
-	})
-	require.Error(t, err)
-
-	regenerated, err := service.RegenerateRankedChoiceAccessCodes(ctx, string(organizationID), actor, fixture.year.ID, fixture.program.ID, session.ID, "synthetic replacement")
-	require.NoError(t, err)
-	require.Len(t, regenerated, 1)
-	require.NotEqual(t, originalCode, regenerated[0].Code)
-	require.Equal(t, fixture.student.ID, regenerated[0].StudentID)
-	require.NotEmpty(t, regenerated[0].DisplayName)
-	require.NotEmpty(t, regenerated[0].Homeroom)
-
-	_, err = service.SubmitRankedChoices(ctx, string(organizationID), actor, preference.RankedChoiceSubmissionInput{
-		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SessionID: session.ID,
-		Code: originalCode, Channel: data.PreferenceChannelStudentCode,
-		Responses: []data.RankedChoiceResponseInput{{OfferingID: offering.ID, Answer: data.RankedChoiceInterested}},
-	})
-	require.ErrorIs(t, err, preference.ErrRankedChoiceCodeInvalid)
-
-	require.NoError(t, service.RevokeRankedChoiceAccessCodes(ctx, string(organizationID), actor, fixture.year.ID, fixture.program.ID, session.ID, "synthetic revoke"))
-	_, err = service.SubmitRankedChoices(ctx, string(organizationID), actor, preference.RankedChoiceSubmissionInput{
-		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SessionID: session.ID,
-		Code: regenerated[0].Code, Channel: data.PreferenceChannelStudentCode,
-		Responses: []data.RankedChoiceResponseInput{{OfferingID: offering.ID, Answer: data.RankedChoiceInterested}},
-	})
-	require.ErrorIs(t, err, preference.ErrRankedChoiceCodeInvalid)
 }
 
 func TestInterestProfileSurveyLifecycleFreezesAudienceAndRetainsScale(t *testing.T) {
@@ -287,7 +223,7 @@ func TestInterestProfileSurveyLifecycleFreezesAudienceAndRetainsScale(t *testing
 	ctx := harness.Context
 	organizationID := harness.MintOrganization(t)
 	actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "synthetic survey organizer"}
-	respondentActor := audit.Actor{Type: audit.ActorTypeLink, Label: "synthetic survey respondent"}
+	respondentActor := preferenceAdminActor(t, harness, organizationID)
 	factory := factories.New(harness.Database, string(organizationID), actor)
 	fixture := createPreferenceFixture(t, harness, factory, "survey")
 	secondStudent, err := factory.CreateStudent(ctx, fixture.year.ID, people.StudentCreateInput{LegalGivenName: "Synthetic", LegalFamilyName: "Second Survey", GradeLevelID: &fixture.grade.ID, HomeroomID: fixture.student.HomeroomID})
@@ -313,13 +249,7 @@ func TestInterestProfileSurveyLifecycleFreezesAudienceAndRetainsScale(t *testing
 	require.NoError(t, err)
 	require.Equal(t, data.InterestProfileSurveyOpen, opened.Survey.Survey.State)
 	require.Len(t, opened.Survey.AudienceSnapshot, 2)
-	require.Len(t, opened.AccessCodes, 2)
 	require.Empty(t, opened.Warnings)
-	codes := make(map[ids.XID]string, len(opened.AccessCodes))
-	for _, code := range opened.AccessCodes {
-		require.NotEmpty(t, code.Code)
-		codes[code.StudentID] = code.Code
-	}
 
 	thirdStudent, err := factory.CreateStudent(ctx, fixture.year.ID, people.StudentCreateInput{LegalGivenName: "Synthetic", LegalFamilyName: "Third Survey", GradeLevelID: &fixture.grade.ID, HomeroomID: fixture.student.HomeroomID})
 	require.NoError(t, err)
@@ -333,7 +263,6 @@ func TestInterestProfileSurveyLifecycleFreezesAudienceAndRetainsScale(t *testing
 		current.AudienceSnapshot[1].StudentID,
 		current.AudienceSnapshot[2].StudentID,
 	}, thirdStudent.ID)
-	require.Len(t, current.ActiveCodes, 2, "adding a late member does not issue a student access code")
 
 	_, err = service.UpdateInterestProfileSurvey(ctx, string(organizationID), actor, fixture.year.ID, fixture.program.ID, survey.Survey.ID, preference.InterestProfileSurveyUpdate{InterestProfileSurveyInput: preference.InterestProfileSurveyInput{
 		Name: "Changed after opening", Audience: preference.InterestProfileSurveyAudienceInput{Type: data.SurveyAudienceAllMembers}, Questions: []preference.InterestProfileSurveyQuestionInput{{InterestAreaID: fixture.secondArea.ID}},
@@ -344,7 +273,7 @@ func TestInterestProfileSurveyLifecycleFreezesAudienceAndRetainsScale(t *testing
 	require.NoError(t, err)
 	require.Equal(t, data.InterestProfileSurveyClosed, closed.Survey.Survey.State)
 	_, err = service.SubmitInterestProfileSurvey(ctx, string(organizationID), respondentActor, preference.InterestProfileSurveySubmissionInput{
-		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SurveyID: survey.Survey.ID, Code: codes[fixture.student.ID], Channel: data.PreferenceChannelStudentCode,
+		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SurveyID: survey.Survey.ID, StudentID: fixture.student.ID, Channel: data.PreferenceChannelAdministratorOnBehalf,
 		Answers: []data.InterestProfileAnswer{{InterestAreaID: fixture.area.ID, Rating: data.InterestProfileInterested}},
 	})
 	require.ErrorIs(t, err, preference.ErrSurveyNotAcceptingSubmissions)
@@ -354,31 +283,14 @@ func TestInterestProfileSurveyLifecycleFreezesAudienceAndRetainsScale(t *testing
 	require.NoError(t, err)
 	require.Equal(t, data.InterestProfileSurveyOpen, reopened.Survey.Survey.State)
 	require.Contains(t, reopened.Warnings, preference.SurveyWarningReopened)
-	require.Empty(t, reopened.AccessCodes, "reopening without regeneration reuses the existing codes")
 
 	firstSubmission, err := service.SubmitInterestProfileSurvey(ctx, string(organizationID), respondentActor, preference.InterestProfileSurveySubmissionInput{
-		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SurveyID: survey.Survey.ID, Code: codes[fixture.student.ID], Channel: data.PreferenceChannelStudentCode,
+		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SurveyID: survey.Survey.ID, StudentID: fixture.student.ID, Channel: data.PreferenceChannelAdministratorOnBehalf,
 		Answers: []data.InterestProfileAnswer{{InterestAreaID: fixture.area.ID, Rating: data.InterestProfileVeryInterested}},
 	})
 	require.NoError(t, err)
 	require.NotNil(t, firstSubmission.SurveyID)
 	require.Equal(t, survey.Survey.ID, *firstSubmission.SurveyID)
-
-	regenerated, err := service.RegenerateInterestProfileSurveyCodes(ctx, string(organizationID), actor, fixture.year.ID, fixture.program.ID, survey.Survey.ID, "synthetic regeneration")
-	require.NoError(t, err)
-	require.Len(t, regenerated, 2)
-	require.NotEqual(t, codes[fixture.student.ID], regenerated[0].Code)
-	_, err = service.SubmitInterestProfileSurvey(ctx, string(organizationID), respondentActor, preference.InterestProfileSurveySubmissionInput{
-		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SurveyID: survey.Survey.ID, Code: codes[fixture.student.ID], Channel: data.PreferenceChannelStudentCode,
-		Answers: []data.InterestProfileAnswer{{InterestAreaID: fixture.area.ID, Rating: data.InterestProfileInterested}},
-	})
-	require.ErrorIs(t, err, preference.ErrSurveyCodeInvalid)
-	require.NoError(t, service.RevokeInterestProfileSurveyCodes(ctx, string(organizationID), actor, fixture.year.ID, fixture.program.ID, survey.Survey.ID, "synthetic revoke"))
-	_, err = service.SubmitInterestProfileSurvey(ctx, string(organizationID), respondentActor, preference.InterestProfileSurveySubmissionInput{
-		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SurveyID: survey.Survey.ID, Code: regenerated[0].Code, Channel: data.PreferenceChannelStudentCode,
-		Answers: []data.InterestProfileAnswer{{InterestAreaID: fixture.area.ID, Rating: data.InterestProfileInterested}},
-	})
-	require.ErrorIs(t, err, preference.ErrSurveyCodeInvalid)
 
 	err = service.DeleteInterestProfileSurvey(ctx, string(organizationID), actor, fixture.year.ID, fixture.program.ID, survey.Survey.ID)
 	require.ErrorIs(t, err, preference.ErrSurveyHasSubmissions)
@@ -420,14 +332,13 @@ func TestInterestProfileSurveyAllowsEmptyAudienceAndStopsAtDeadline(t *testing.T
 	require.NoError(t, err)
 	require.Contains(t, opened.Warnings, preference.SurveyWarningEmptyAudience)
 	require.Empty(t, opened.Survey.AudienceSnapshot)
-	require.Empty(t, opened.AccessCodes)
 
 	time.Sleep(20 * time.Millisecond)
 	current, err := service.GetInterestProfileSurvey(ctx, string(organizationID), fixture.year.ID, fixture.program.ID, survey.Survey.ID)
 	require.NoError(t, err)
 	require.Equal(t, data.InterestProfileSurveyClosed, current.Survey.State)
 	_, err = service.SubmitInterestProfileSurvey(ctx, string(organizationID), actor, preference.InterestProfileSurveySubmissionInput{
-		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SurveyID: survey.Survey.ID, Code: "not-issued", Channel: data.PreferenceChannelStudentCode,
+		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SurveyID: survey.Survey.ID, StudentID: fixture.student.ID, Channel: data.PreferenceChannelAdministratorOnBehalf,
 		Answers: []data.InterestProfileAnswer{{InterestAreaID: fixture.area.ID, Rating: data.InterestProfileInterested}},
 	})
 	require.ErrorIs(t, err, preference.ErrSurveyNotAcceptingSubmissions)
@@ -480,13 +391,8 @@ func TestPreferenceFormsRespectGuardianScopeAndSupportEverySubmissionMode(t *tes
 	})
 	require.NoError(t, err)
 	closingAt := time.Now().UTC().Add(time.Hour)
-	openedSurvey, err := service.TransitionInterestProfileSurvey(ctx, string(organizationID), organizer, fixture.year.ID, fixture.program.ID, survey.Survey.ID, preference.InterestProfileSurveyTransitionInput{State: data.InterestProfileSurveyOpen, ClosingAt: &closingAt})
+	_, err = service.TransitionInterestProfileSurvey(ctx, string(organizationID), organizer, fixture.year.ID, fixture.program.ID, survey.Survey.ID, preference.InterestProfileSurveyTransitionInput{State: data.InterestProfileSurveyOpen, ClosingAt: &closingAt})
 	require.NoError(t, err)
-	require.Len(t, openedSurvey.AccessCodes, 3)
-	codes := make(map[ids.XID]string, len(openedSurvey.AccessCodes))
-	for _, code := range openedSurvey.AccessCodes {
-		codes[code.StudentID] = code.Code
-	}
 
 	guardianForms, err := service.ListGuardianPreferenceForms(ctx, string(organizationID), fixture.year.ID, firstAdult.ID)
 	require.NoError(t, err)
@@ -500,10 +406,10 @@ func TestPreferenceFormsRespectGuardianScopeAndSupportEverySubmissionMode(t *tes
 	require.Len(t, otherGuardianForms.Students, 1)
 	require.Equal(t, otherStudent.ID, otherGuardianForms.Students[0].StudentID)
 
-	codeForm, err := service.GetInterestProfileFormByCode(ctx, string(organizationID), fixture.year.ID, fixture.program.ID, survey.Survey.ID, codes[fixture.student.ID])
+	form, err := service.GetInterestProfileForm(ctx, string(organizationID), fixture.year.ID, fixture.program.ID, survey.Survey.ID, fixture.student.ID)
 	require.NoError(t, err)
-	require.Equal(t, fixture.student.ID, codeForm.StudentID)
-	require.NotEmpty(t, codeForm.StudentName)
+	require.Equal(t, fixture.student.ID, form.StudentID)
+	require.NotEmpty(t, form.StudentName)
 
 	firstRating := data.InterestProfileVeryInterested
 	_, err = service.SubmitInterestProfileSurvey(ctx, string(organizationID), respondent, preference.InterestProfileSurveySubmissionInput{
@@ -552,17 +458,9 @@ func TestPreferenceFormsRespectGuardianScopeAndSupportEverySubmissionMode(t *tes
 	require.NoError(t, err)
 	_, err = factory.TransitionSession(ctx, fixture.year.ID, fixture.program.ID, session.ID, data.SessionCatalogPublished, false, "", nil)
 	require.NoError(t, err)
-	openedSession, err := factory.TransitionSession(ctx, fixture.year.ID, fixture.program.ID, session.ID, data.SessionVotingOpen, false, "", nil)
+	_, err = factory.TransitionSession(ctx, fixture.year.ID, fixture.program.ID, session.ID, data.SessionVotingOpen, false, "", nil)
 	require.NoError(t, err)
-	require.NotEmpty(t, openedSession.AccessCodes)
-	var rankedCode string
-	for _, code := range openedSession.AccessCodes {
-		if code.StudentID == fixture.student.ID {
-			rankedCode = code.Code
-		}
-	}
-	require.NotEmpty(t, rankedCode)
-	rankedForm, err := service.GetRankedChoiceFormByCode(ctx, string(organizationID), fixture.year.ID, fixture.program.ID, session.ID, rankedCode)
+	rankedForm, err := service.GetRankedChoiceForm(ctx, string(organizationID), fixture.year.ID, fixture.program.ID, session.ID, fixture.student.ID)
 	require.NoError(t, err)
 	require.Len(t, rankedForm.Offerings, 2)
 	position := 1
@@ -582,7 +480,7 @@ func TestResponseTrackingUsesStudentDenominatorAndGuardianFollowUp(t *testing.T)
 	ctx := harness.Context
 	organizationID := harness.MintOrganization(t)
 	organizer := audit.Actor{Type: audit.ActorTypeSystem, Label: "synthetic response tracking organizer"}
-	respondent := audit.Actor{Type: audit.ActorTypeLink, Label: "synthetic response tracking respondent"}
+	respondent := preferenceAdminActor(t, harness, organizationID)
 	factory := factories.New(harness.Database, string(organizationID), organizer)
 	fixture := createPreferenceFixture(t, harness, factory, "response tracking")
 	secondStudent, err := factory.CreateStudent(ctx, fixture.year.ID, people.StudentCreateInput{LegalGivenName: "Synthetic", LegalFamilyName: "Tracking Second", GradeLevelID: &fixture.grade.ID, HomeroomID: fixture.student.HomeroomID})
@@ -610,16 +508,12 @@ func TestResponseTrackingUsesStudentDenominatorAndGuardianFollowUp(t *testing.T)
 	})
 	require.NoError(t, err)
 	closingAt := time.Now().UTC().Add(time.Hour)
-	openedSurvey, err := service.TransitionInterestProfileSurvey(ctx, string(organizationID), organizer, fixture.year.ID, fixture.program.ID, survey.Survey.ID, preference.InterestProfileSurveyTransitionInput{State: data.InterestProfileSurveyOpen, ClosingAt: &closingAt})
+	_, err = service.TransitionInterestProfileSurvey(ctx, string(organizationID), organizer, fixture.year.ID, fixture.program.ID, survey.Survey.ID, preference.InterestProfileSurveyTransitionInput{State: data.InterestProfileSurveyOpen, ClosingAt: &closingAt})
 	require.NoError(t, err)
-	codes := make(map[ids.XID]string, len(openedSurvey.AccessCodes))
-	for _, code := range openedSurvey.AccessCodes {
-		codes[code.StudentID] = code.Code
-	}
 	for _, student := range []data.Student{fixture.student, secondStudent} {
 		_, err = service.SubmitInterestProfileSurvey(ctx, string(organizationID), respondent, preference.InterestProfileSurveySubmissionInput{
 			SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SurveyID: survey.Survey.ID, StudentID: student.ID,
-			Code: codes[student.ID], Channel: data.PreferenceChannelStudentCode,
+			Channel: data.PreferenceChannelAdministratorOnBehalf,
 			Answers: []data.InterestProfileAnswer{{InterestAreaID: fixture.area.ID, Rating: data.InterestProfileInterested}},
 		})
 		require.NoError(t, err)
@@ -644,18 +538,11 @@ func TestResponseTrackingUsesStudentDenominatorAndGuardianFollowUp(t *testing.T)
 	require.NoError(t, err)
 	_, err = factory.TransitionSession(ctx, fixture.year.ID, fixture.program.ID, session.ID, data.SessionCatalogPublished, false, "", nil)
 	require.NoError(t, err)
-	openedSession, err := factory.TransitionSession(ctx, fixture.year.ID, fixture.program.ID, session.ID, data.SessionVotingOpen, false, "", nil)
+	_, err = factory.TransitionSession(ctx, fixture.year.ID, fixture.program.ID, session.ID, data.SessionVotingOpen, false, "", nil)
 	require.NoError(t, err)
-	var rankedCode string
-	for _, code := range openedSession.AccessCodes {
-		if code.StudentID == fixture.student.ID {
-			rankedCode = code.Code
-		}
-	}
-	require.NotEmpty(t, rankedCode)
 	_, err = service.SubmitRankedChoices(ctx, string(organizationID), respondent, preference.RankedChoiceSubmissionInput{
 		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SessionID: session.ID, StudentID: fixture.student.ID,
-		Code: rankedCode, Channel: data.PreferenceChannelStudentCode,
+		Channel:   data.PreferenceChannelAdministratorOnBehalf,
 		Responses: []data.RankedChoiceResponseInput{{OfferingID: offering.ID, Answer: data.RankedChoiceInterested}},
 	})
 	require.NoError(t, err)
@@ -671,6 +558,29 @@ func TestResponseTrackingUsesStudentDenominatorAndGuardianFollowUp(t *testing.T)
 	foreignOrganizationID := harness.MintOrganization(t)
 	_, err = service.GetInterestProfileResponseTracking(ctx, string(foreignOrganizationID), fixture.year.ID, fixture.program.ID, survey.Survey.ID)
 	require.Error(t, err)
+}
+
+func preferenceAdminActor(t *testing.T, harness *testharness.Harness, organizationID ids.XID) audit.Actor {
+	t.Helper()
+	var userID ids.XID
+	require.NoError(t, harness.Migrator.QueryRow(harness.Context, `insert into users (provider_subject, email) values ($1, $2) returning id`, "preference-admin-"+string(organizationID), "synthetic-admin-"+string(organizationID)+"@example.test").Scan(&userID))
+	_, err := harness.Migrator.Exec(harness.Context, `insert into organization_members (organization_id, user_id, role) values ($1, $2, 'administrator')`, organizationID, userID)
+	require.NoError(t, err)
+	return audit.Actor{Type: audit.ActorTypeUser, UserID: &userID, Label: "synthetic-admin-" + string(organizationID) + "@example.test"}
+}
+
+func openPreferenceSurvey(t *testing.T, harness *testharness.Harness, organizationID ids.XID, actor audit.Actor, fixture preferenceFixture) ids.XID {
+	t.Helper()
+	service := preference.New(harness.Database)
+	survey, err := service.CreateInterestProfileSurvey(harness.Context, string(organizationID), actor, fixture.year.ID, fixture.program.ID, preference.InterestProfileSurveyInput{
+		Name: "Synthetic Preference Survey", Audience: preference.InterestProfileSurveyAudienceInput{Type: data.SurveyAudienceAllMembers},
+		Questions: []preference.InterestProfileSurveyQuestionInput{{InterestAreaID: fixture.area.ID}, {InterestAreaID: fixture.secondArea.ID}},
+	})
+	require.NoError(t, err)
+	closingAt := time.Now().UTC().Add(time.Hour)
+	_, err = service.TransitionInterestProfileSurvey(harness.Context, string(organizationID), actor, fixture.year.ID, fixture.program.ID, survey.Survey.ID, preference.InterestProfileSurveyTransitionInput{State: data.InterestProfileSurveyOpen, ClosingAt: &closingAt})
+	require.NoError(t, err)
+	return survey.Survey.ID
 }
 
 type preferenceFixture struct {

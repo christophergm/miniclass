@@ -36,10 +36,6 @@ func init() {
 		ReadIDs: readInterestProfileSurveyAudienceSnapshotIDs, FetchByID: fetchInterestProfileSurveyAudienceSnapshotByID,
 		UpdateByID: immutableUpdate, DeleteByID: immutableDelete,
 		InsertWithForeignParent: insertInterestProfileSurveyAudienceSnapshotWithForeignParent})
-	Register(Entity{TableName: "interest_profile_survey_access_codes", YearScoped: true, Factory: createInterestProfileSurveyAccessCode,
-		ReadIDs: readInterestProfileSurveyAccessCodeIDs, FetchByID: fetchInterestProfileSurveyAccessCodeByID,
-		UpdateByID: updateInterestProfileSurveyAccessCodeByID, DeleteByID: immutableDelete,
-		InsertWithForeignParent: insertInterestProfileSurveyAccessCodeWithForeignParent})
 }
 
 type surveyFixture struct {
@@ -146,14 +142,6 @@ func createInterestProfileSurveyAudienceSnapshot(ctx context.Context, harness *t
 	return fixture.survey.AudienceSnapshot[0].ID, nil
 }
 
-func createInterestProfileSurveyAccessCode(ctx context.Context, harness *testharness.Harness, organizationID ids.XID) (ids.XID, error) {
-	fixture, err := createOpenSurveyFixture(ctx, harness, organizationID)
-	if err != nil {
-		return "", err
-	}
-	return fixture.survey.ActiveCodes[0].ID, nil
-}
-
 func readInterestProfileSurveyIDs(ctx context.Context, tx *data.Tx) ([]ids.XID, error) {
 	rows, err := tx.ListAllInterestProfileSurveysForRegistry(ctx)
 	result := make([]ids.XID, 0, len(rows))
@@ -256,24 +244,6 @@ func fetchInterestProfileSurveyAudienceSnapshotByID(ctx context.Context, tx *dat
 	return row.ID != "", err
 }
 
-func readInterestProfileSurveyAccessCodeIDs(ctx context.Context, tx *data.Tx) ([]ids.XID, error) {
-	rows, err := tx.ListAllInterestProfileSurveyAccessCodesForRegistry(ctx)
-	result := make([]ids.XID, 0, len(rows))
-	for _, row := range rows {
-		result = append(result, row.ID)
-	}
-	return result, err
-}
-
-func fetchInterestProfileSurveyAccessCodeByID(ctx context.Context, tx *data.Tx, id ids.XID) (bool, error) {
-	row, err := tx.FindInterestProfileSurveyAccessCodeForRegistry(ctx, id)
-	return row.ID != "", err
-}
-
-func updateInterestProfileSurveyAccessCodeByID(ctx context.Context, tx *data.Tx, id ids.XID) (bool, error) {
-	return tx.RevokeInterestProfileSurveyAccessCodeForRegistry(ctx, id)
-}
-
 func insertInterestProfileSurveyWithForeignParent(ctx context.Context, harness *testharness.Harness, tenantID, foreignOrganizationID ids.XID) error {
 	fixture, err := createSurveyFixture(ctx, harness, foreignOrganizationID)
 	if err != nil {
@@ -312,12 +282,4 @@ func insertInterestProfileSurveyAudienceSnapshotWithForeignParent(ctx context.Co
 		return err
 	}
 	return insertForeign(ctx, harness, tenantID, `insert into interest_profile_survey_audience_snapshots (organization_id, school_year_id, program_id, survey_id, student_id) values ($1, $2, $3, $4, $5)`, foreignOrganizationID, fixture.year.ID, fixture.program.ID, fixture.survey.Survey.ID, fixture.student.ID)
-}
-
-func insertInterestProfileSurveyAccessCodeWithForeignParent(ctx context.Context, harness *testharness.Harness, tenantID, foreignOrganizationID ids.XID) error {
-	fixture, err := createOpenSurveyFixture(ctx, harness, foreignOrganizationID)
-	if err != nil {
-		return err
-	}
-	return insertForeign(ctx, harness, tenantID, `insert into interest_profile_survey_access_codes (organization_id, school_year_id, program_id, survey_id, student_id, code_hash) values ($1, $2, $3, $4, $5, $6)`, foreignOrganizationID, fixture.year.ID, fixture.program.ID, fixture.survey.Survey.ID, fixture.student.ID, "foreign-code-hash")
 }

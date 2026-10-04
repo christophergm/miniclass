@@ -102,45 +102,6 @@ func (q *Queries) CreateInterestProfileSurvey(ctx context.Context, arg CreateInt
 	return i, err
 }
 
-const createInterestProfileSurveyAccessCode = `-- name: CreateInterestProfileSurveyAccessCode :one
-insert into interest_profile_survey_access_codes (organization_id, school_year_id, program_id, survey_id, student_id, code_hash)
-values ($1, $2, $3, $4, $5, $6)
-returning id, organization_id, school_year_id, program_id, survey_id, student_id, code_hash, issued_at, revoked_at
-`
-
-type CreateInterestProfileSurveyAccessCodeParams struct {
-	OrganizationID ids.XID `json:"organization_id"`
-	SchoolYearID   ids.XID `json:"school_year_id"`
-	ProgramID      ids.XID `json:"program_id"`
-	SurveyID       ids.XID `json:"survey_id"`
-	StudentID      ids.XID `json:"student_id"`
-	CodeHash       string  `json:"code_hash"`
-}
-
-func (q *Queries) CreateInterestProfileSurveyAccessCode(ctx context.Context, arg CreateInterestProfileSurveyAccessCodeParams) (InterestProfileSurveyAccessCode, error) {
-	row := q.db.QueryRow(ctx, createInterestProfileSurveyAccessCode,
-		arg.OrganizationID,
-		arg.SchoolYearID,
-		arg.ProgramID,
-		arg.SurveyID,
-		arg.StudentID,
-		arg.CodeHash,
-	)
-	var i InterestProfileSurveyAccessCode
-	err := row.Scan(
-		&i.ID,
-		&i.OrganizationID,
-		&i.SchoolYearID,
-		&i.ProgramID,
-		&i.SurveyID,
-		&i.StudentID,
-		&i.CodeHash,
-		&i.IssuedAt,
-		&i.RevokedAt,
-	)
-	return i, err
-}
-
 const createInterestProfileSurveyAudienceSnapshot = `-- name: CreateInterestProfileSurveyAudienceSnapshot :one
 insert into interest_profile_survey_audience_snapshots (organization_id, school_year_id, program_id, survey_id, student_id)
 values ($1, $2, $3, $4, $5)
@@ -454,71 +415,6 @@ func (q *Queries) DeleteInterestProfileSurveyScaleOptions(ctx context.Context, a
 	return err
 }
 
-const findActiveInterestProfileSurveyAccessCode = `-- name: FindActiveInterestProfileSurveyAccessCode :one
-select id, organization_id, school_year_id, program_id, survey_id, student_id, code_hash, issued_at, revoked_at
-from interest_profile_survey_access_codes
-where organization_id = $1 and school_year_id = $2 and program_id = $3 and survey_id = $4 and code_hash = $5 and revoked_at is null
-`
-
-type FindActiveInterestProfileSurveyAccessCodeParams struct {
-	OrganizationID ids.XID `json:"organization_id"`
-	SchoolYearID   ids.XID `json:"school_year_id"`
-	ProgramID      ids.XID `json:"program_id"`
-	SurveyID       ids.XID `json:"survey_id"`
-	CodeHash       string  `json:"code_hash"`
-}
-
-func (q *Queries) FindActiveInterestProfileSurveyAccessCode(ctx context.Context, arg FindActiveInterestProfileSurveyAccessCodeParams) (InterestProfileSurveyAccessCode, error) {
-	row := q.db.QueryRow(ctx, findActiveInterestProfileSurveyAccessCode,
-		arg.OrganizationID,
-		arg.SchoolYearID,
-		arg.ProgramID,
-		arg.SurveyID,
-		arg.CodeHash,
-	)
-	var i InterestProfileSurveyAccessCode
-	err := row.Scan(
-		&i.ID,
-		&i.OrganizationID,
-		&i.SchoolYearID,
-		&i.ProgramID,
-		&i.SurveyID,
-		&i.StudentID,
-		&i.CodeHash,
-		&i.IssuedAt,
-		&i.RevokedAt,
-	)
-	return i, err
-}
-
-const findInterestProfileSurveyAccessCodeForRegistry = `-- name: FindInterestProfileSurveyAccessCodeForRegistry :one
-select id, organization_id, school_year_id, program_id, survey_id, student_id, code_hash, issued_at, revoked_at
-from interest_profile_survey_access_codes
-where id = $1 and organization_id = $2
-`
-
-type FindInterestProfileSurveyAccessCodeForRegistryParams struct {
-	ID             ids.XID `json:"id"`
-	OrganizationID ids.XID `json:"organization_id"`
-}
-
-func (q *Queries) FindInterestProfileSurveyAccessCodeForRegistry(ctx context.Context, arg FindInterestProfileSurveyAccessCodeForRegistryParams) (InterestProfileSurveyAccessCode, error) {
-	row := q.db.QueryRow(ctx, findInterestProfileSurveyAccessCodeForRegistry, arg.ID, arg.OrganizationID)
-	var i InterestProfileSurveyAccessCode
-	err := row.Scan(
-		&i.ID,
-		&i.OrganizationID,
-		&i.SchoolYearID,
-		&i.ProgramID,
-		&i.SurveyID,
-		&i.StudentID,
-		&i.CodeHash,
-		&i.IssuedAt,
-		&i.RevokedAt,
-	)
-	return i, err
-}
-
 const findInterestProfileSurveyAudienceSnapshotForRegistry = `-- name: FindInterestProfileSurveyAudienceSnapshotForRegistry :one
 select id, organization_id, school_year_id, program_id, survey_id, student_id, created_at
 from interest_profile_survey_audience_snapshots
@@ -710,92 +606,6 @@ func (q *Queries) GetInterestProfileSurvey(ctx context.Context, arg GetInterestP
 		&i.UpdatedAt,
 	)
 	return i, err
-}
-
-const listActiveInterestProfileSurveyAccessCodes = `-- name: ListActiveInterestProfileSurveyAccessCodes :many
-select id, organization_id, school_year_id, program_id, survey_id, student_id, code_hash, issued_at, revoked_at
-from interest_profile_survey_access_codes
-where organization_id = $1 and school_year_id = $2 and program_id = $3 and survey_id = $4 and revoked_at is null
-order by student_id, id
-`
-
-type ListActiveInterestProfileSurveyAccessCodesParams struct {
-	OrganizationID ids.XID `json:"organization_id"`
-	SchoolYearID   ids.XID `json:"school_year_id"`
-	ProgramID      ids.XID `json:"program_id"`
-	SurveyID       ids.XID `json:"survey_id"`
-}
-
-func (q *Queries) ListActiveInterestProfileSurveyAccessCodes(ctx context.Context, arg ListActiveInterestProfileSurveyAccessCodesParams) ([]InterestProfileSurveyAccessCode, error) {
-	rows, err := q.db.Query(ctx, listActiveInterestProfileSurveyAccessCodes,
-		arg.OrganizationID,
-		arg.SchoolYearID,
-		arg.ProgramID,
-		arg.SurveyID,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []InterestProfileSurveyAccessCode{}
-	for rows.Next() {
-		var i InterestProfileSurveyAccessCode
-		if err := rows.Scan(
-			&i.ID,
-			&i.OrganizationID,
-			&i.SchoolYearID,
-			&i.ProgramID,
-			&i.SurveyID,
-			&i.StudentID,
-			&i.CodeHash,
-			&i.IssuedAt,
-			&i.RevokedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listAllInterestProfileSurveyAccessCodesForRegistry = `-- name: ListAllInterestProfileSurveyAccessCodesForRegistry :many
-select id, organization_id, school_year_id, program_id, survey_id, student_id, code_hash, issued_at, revoked_at
-from interest_profile_survey_access_codes
-where organization_id = $1
-order by school_year_id, program_id, survey_id, student_id, issued_at, id
-`
-
-func (q *Queries) ListAllInterestProfileSurveyAccessCodesForRegistry(ctx context.Context, organizationID ids.XID) ([]InterestProfileSurveyAccessCode, error) {
-	rows, err := q.db.Query(ctx, listAllInterestProfileSurveyAccessCodesForRegistry, organizationID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []InterestProfileSurveyAccessCode{}
-	for rows.Next() {
-		var i InterestProfileSurveyAccessCode
-		if err := rows.Scan(
-			&i.ID,
-			&i.OrganizationID,
-			&i.SchoolYearID,
-			&i.ProgramID,
-			&i.SurveyID,
-			&i.StudentID,
-			&i.CodeHash,
-			&i.IssuedAt,
-			&i.RevokedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const listAllInterestProfileSurveyAudienceSnapshotsForRegistry = `-- name: ListAllInterestProfileSurveyAudienceSnapshotsForRegistry :many
@@ -1316,51 +1126,6 @@ func (q *Queries) ListInterestProfileSurveys(ctx context.Context, arg ListIntere
 		return nil, err
 	}
 	return items, nil
-}
-
-const revokeInterestProfileSurveyAccessCodeForRegistry = `-- name: RevokeInterestProfileSurveyAccessCodeForRegistry :execrows
-update interest_profile_survey_access_codes
-set revoked_at = coalesce(revoked_at, now())
-where id = $1 and organization_id = $2
-`
-
-type RevokeInterestProfileSurveyAccessCodeForRegistryParams struct {
-	ID             ids.XID `json:"id"`
-	OrganizationID ids.XID `json:"organization_id"`
-}
-
-func (q *Queries) RevokeInterestProfileSurveyAccessCodeForRegistry(ctx context.Context, arg RevokeInterestProfileSurveyAccessCodeForRegistryParams) (int64, error) {
-	result, err := q.db.Exec(ctx, revokeInterestProfileSurveyAccessCodeForRegistry, arg.ID, arg.OrganizationID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
-}
-
-const revokeInterestProfileSurveyAccessCodes = `-- name: RevokeInterestProfileSurveyAccessCodes :execrows
-update interest_profile_survey_access_codes
-set revoked_at = now()
-where organization_id = $1 and school_year_id = $2 and program_id = $3 and survey_id = $4 and revoked_at is null
-`
-
-type RevokeInterestProfileSurveyAccessCodesParams struct {
-	OrganizationID ids.XID `json:"organization_id"`
-	SchoolYearID   ids.XID `json:"school_year_id"`
-	ProgramID      ids.XID `json:"program_id"`
-	SurveyID       ids.XID `json:"survey_id"`
-}
-
-func (q *Queries) RevokeInterestProfileSurveyAccessCodes(ctx context.Context, arg RevokeInterestProfileSurveyAccessCodesParams) (int64, error) {
-	result, err := q.db.Exec(ctx, revokeInterestProfileSurveyAccessCodes,
-		arg.OrganizationID,
-		arg.SchoolYearID,
-		arg.ProgramID,
-		arg.SurveyID,
-	)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
 }
 
 const setInterestProfileSurveyState = `-- name: SetInterestProfileSurveyState :one

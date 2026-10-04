@@ -77,10 +77,15 @@ func TestLayerTwoRegistryIsDeterministic(t *testing.T) {
 	require.NotEmpty(t, entries)
 
 	// Ensure essential tables are present and year-scoped where appropriate.
-	for _, table := range []string{"school_years", "grade_levels", "homerooms", "adults", "students", "guardian_relationships", "guardian_invitation_contacts", "guardian_onboarding_consents", "programs", "program_memberships", "interest_areas", "sessions", "meeting_dates", "offerings", "session_non_participations", "program_objective_weights", "session_objective_weight_overrides", "interest_profile_submissions", "interest_profile_responses", "ranked_choice_submissions", "ranked_choice_responses", "ranked_choice_access_codes", "interest_profile_surveys", "interest_profile_survey_audience_students", "interest_profile_survey_questions", "interest_profile_survey_scale_options", "interest_profile_survey_audience_snapshots", "interest_profile_survey_access_codes"} {
+	for _, table := range []string{"school_years", "grade_levels", "homerooms", "adults", "students", "guardian_relationships", "guardian_invitation_contacts", "guardian_onboarding_consents", "programs", "program_memberships", "interest_areas", "sessions", "meeting_dates", "offerings", "session_non_participations", "program_objective_weights", "session_objective_weight_overrides", "interest_profile_submissions", "interest_profile_responses", "ranked_choice_submissions", "ranked_choice_responses", "interest_profile_surveys", "interest_profile_survey_audience_students", "interest_profile_survey_questions", "interest_profile_survey_scale_options", "interest_profile_survey_audience_snapshots"} {
 		entry, ok := registry.ForTable(table)
 		require.True(t, ok, table+" is missing from the registry")
 		require.Equal(t, table, entry.TableName)
+	}
+
+	for _, retired := range []string{"ranked_choice_access_codes", "interest_profile_survey_access_codes"} {
+		_, ok := registry.ForTable(retired)
+		require.False(t, ok, retired+" must not remain in the registry")
 	}
 
 	schoolYears, ok := registry.ForTable("school_years")
@@ -128,8 +133,5 @@ func TestLayerTwoRegistryIsDeterministic(t *testing.T) {
 		require.True(t, entry.YearScoped)
 		require.True(t, entry.Immutable)
 	}
-	accessCodes, ok := registry.ForTable("ranked_choice_access_codes")
-	require.True(t, ok)
-	require.True(t, accessCodes.YearScoped)
-	require.False(t, accessCodes.Immutable)
+
 }

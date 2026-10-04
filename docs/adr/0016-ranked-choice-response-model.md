@@ -4,6 +4,8 @@
 - **Date:** 2026-09-02
 - **Relates to:** SPEC §5.2, §13.1, §13.3–§13.5, §13.8, §17.4, §17.5
 - **Related:** [0003](./0003-assignment-solver-technology.md)
+- **Amended in part by:** [0019](./0019-retire-direct-student-access.md) — removes direct-code revision
+  access while retaining the administrator-authenticated kiosk and ranked-choice interaction
 
 ## Context
 
@@ -109,14 +111,14 @@ excluded because they do not inform this preference decision.
 **3. Submission ends in a dedicated completion state.** A persistent action area summarizes bucket
 counts and exposes the submission action. Moving an offering requires no confirmation and offers an
 undo action; confirmation is reserved for a final response with no favorites or unanswered offerings.
-After a successful submission, the form is replaced by a prominent, age-neutral `Done!` screen. A
-student who followed a direct code may use a subtle link to revise answers while voting remains open.
+After a successful submission, the form is replaced by a prominent, age-neutral `Done!` screen. Guardian-authenticated forms permit revision while voting remains open. Direct-code access is retired
+by ADR 0019.
 
 **4. Administrator kiosk mode reuses the interaction, not the student credential.** Under SPEC
 §13.8 an authenticated administrator selects the year, program, ranked-choice session and student,
 then starts a dedicated full-screen form through an explicit handoff screen. The form submits through
 the administrator channel so the response records the actor, target student, channel and time; it
-must not generate, reveal or impersonate the student's private access code. An existing response is
+must not create independent student access; student credentials are retired by ADR 0019. An existing response is
 identified before handoff, may be reviewed after an administrator warning, and is preloaded for a
 legitimate correction.
 

@@ -67,7 +67,7 @@ type PreferenceFormResponse struct {
 	Name            string                                 `json:"name"`
 	Introduction    string                                 `json:"introduction,omitempty"`
 	StudentID       string                                 `json:"student_id" doc:"Opaque student identifier bound to this form."`
-	StudentName     string                                 `json:"student_name,omitempty" doc:"Shown to the student identified by a ranked-choice code, guardians and administrators."`
+	StudentName     string                                 `json:"student_name,omitempty" doc:"Shown only to authorized guardians and administrators."`
 	ClosesAt        *time.Time                             `json:"closes_at,omitempty" format:"date-time"`
 	RankDepth       int                                    `json:"rank_depth,omitempty"`
 	Questions       []PreferenceFormQuestionResponse       `json:"questions,omitempty"`
@@ -190,44 +190,6 @@ type RankedChoiceAnswerInput struct {
 	Rank       *int   `json:"rank,omitempty" minimum:"1"`
 }
 
-type InterestProfileSubmitBody struct {
-	OrganizationID string                       `json:"organization_id" minLength:"1" doc:"Opaque organization identifier from the respondent link."`
-	Code           string                       `json:"code" minLength:"1" doc:"High-entropy instrument-bound access code."`
-	Answers        []InterestProfileAnswerInput `json:"answers" minItems:"1"`
-}
-
-type RankedChoiceSubmitBody struct {
-	OrganizationID string                    `json:"organization_id" minLength:"1" doc:"Opaque organization identifier from the respondent link."`
-	Code           string                    `json:"code" minLength:"1" doc:"High-entropy instrument-bound access code."`
-	Responses      []RankedChoiceAnswerInput `json:"responses" minItems:"1"`
-}
-
-type InterestProfileStudentCodeInput struct {
-	InterestProfilePreferenceFormPathInput
-	Body struct {
-		OrganizationID string `json:"organization_id" minLength:"1"`
-		Code           string `json:"code" minLength:"1"`
-	}
-}
-
-type InterestProfileStudentCodeSubmitInput struct {
-	InterestProfilePreferenceFormPathInput
-	Body InterestProfileSubmitBody
-}
-
-type RankedChoiceStudentCodeInput struct {
-	RankedChoicePreferenceFormPathInput
-	Body struct {
-		OrganizationID string `json:"organization_id" minLength:"1"`
-		Code           string `json:"code" minLength:"1"`
-	}
-}
-
-type RankedChoiceStudentCodeSubmitInput struct {
-	RankedChoicePreferenceFormPathInput
-	Body RankedChoiceSubmitBody
-}
-
 type InterestProfileGuardianSubmitInput struct {
 	PreferenceStudentPathInput
 	Body struct {
@@ -290,65 +252,11 @@ func (h *PreferenceHandler) GuardianForms(ctx context.Context, _ *struct{}) (*Gu
 	for _, student := range forms.Students {
 		studentForms := make([]PreferenceFormResponse, 0, len(student.Forms))
 		for _, form := range student.Forms {
-			studentForms = append(studentForms, preferenceFormResponse(form, true))
+			studentForms = append(studentForms, preferenceFormResponse(form))
 		}
 		students = append(students, GuardianPreferenceStudentResponse{StudentID: string(student.StudentID), DisplayName: student.DisplayName, Forms: studentForms})
 	}
 	return &GuardianPreferenceFormsOutput{Body: GuardianPreferenceFormsResponse{SchoolYearID: string(forms.SchoolYearID), Students: students}}, nil
-}
-
-func (h *PreferenceHandler) StudentCodeInterestForm(ctx context.Context, input *InterestProfileStudentCodeInput) (*PreferenceFormOutput, error) {
-	if h == nil || h.service == nil || input == nil {
-		return nil, preferenceServiceUnavailable()
-	}
-	form, err := h.service.GetInterestProfileFormByCode(ctx, input.Body.OrganizationID, ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), ids.XID(input.SurveyID), input.Body.Code)
-	if err != nil {
-		return nil, preferenceProblem(err)
-	}
-	return &PreferenceFormOutput{Body: preferenceFormResponse(form, false)}, nil
-}
-
-func (h *PreferenceHandler) StudentCodeInterestSubmit(ctx context.Context, input *InterestProfileStudentCodeSubmitInput) (*PreferenceFormOutput, error) {
-	if h == nil || h.service == nil || input == nil {
-		return nil, preferenceServiceUnavailable()
-	}
-	actor := audit.Actor{Type: audit.ActorTypeLink, Label: "student-code respondent"}
-	_, err := h.service.SubmitInterestProfileSurvey(ctx, input.Body.OrganizationID, actor, preference.InterestProfileSurveySubmissionInput{SchoolYearID: ids.XID(input.SchoolYearID), ProgramID: ids.XID(input.ProgramID), SurveyID: ids.XID(input.SurveyID), Code: input.Body.Code, Channel: data.PreferenceChannelStudentCode, Answers: interestAnswers(input.Body.Answers)})
-	if err != nil {
-		return nil, preferenceProblem(err)
-	}
-	form, err := h.service.GetInterestProfileFormByCode(ctx, input.Body.OrganizationID, ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), ids.XID(input.SurveyID), input.Body.Code)
-	if err != nil {
-		return nil, preferenceProblem(err)
-	}
-	return &PreferenceFormOutput{Body: preferenceFormResponse(form, false)}, nil
-}
-
-func (h *PreferenceHandler) StudentCodeRankedForm(ctx context.Context, input *RankedChoiceStudentCodeInput) (*PreferenceFormOutput, error) {
-	if h == nil || h.service == nil || input == nil {
-		return nil, preferenceServiceUnavailable()
-	}
-	form, err := h.service.GetRankedChoiceFormByCode(ctx, input.Body.OrganizationID, ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), ids.XID(input.SessionID), input.Body.Code)
-	if err != nil {
-		return nil, preferenceProblem(err)
-	}
-	return &PreferenceFormOutput{Body: preferenceFormResponse(form, true)}, nil
-}
-
-func (h *PreferenceHandler) StudentCodeRankedSubmit(ctx context.Context, input *RankedChoiceStudentCodeSubmitInput) (*PreferenceFormOutput, error) {
-	if h == nil || h.service == nil || input == nil {
-		return nil, preferenceServiceUnavailable()
-	}
-	actor := audit.Actor{Type: audit.ActorTypeLink, Label: "student-code respondent"}
-	_, err := h.service.SubmitRankedChoices(ctx, input.Body.OrganizationID, actor, preference.RankedChoiceSubmissionInput{SchoolYearID: ids.XID(input.SchoolYearID), ProgramID: ids.XID(input.ProgramID), SessionID: ids.XID(input.SessionID), Code: input.Body.Code, Channel: data.PreferenceChannelStudentCode, Responses: rankedAnswers(input.Body.Responses)})
-	if err != nil {
-		return nil, preferenceProblem(err)
-	}
-	form, err := h.service.GetRankedChoiceFormByCode(ctx, input.Body.OrganizationID, ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), ids.XID(input.SessionID), input.Body.Code)
-	if err != nil {
-		return nil, preferenceProblem(err)
-	}
-	return &PreferenceFormOutput{Body: preferenceFormResponse(form, true)}, nil
 }
 
 func (h *PreferenceHandler) GuardianInterestSubmit(ctx context.Context, input *InterestProfileGuardianSubmitInput) (*PreferenceFormOutput, error) {
@@ -369,7 +277,7 @@ func (h *PreferenceHandler) GuardianInterestSubmit(ctx context.Context, input *I
 	if err != nil {
 		return nil, preferenceProblem(err)
 	}
-	return &PreferenceFormOutput{Body: preferenceFormResponse(form, true)}, nil
+	return &PreferenceFormOutput{Body: preferenceFormResponse(form)}, nil
 }
 
 func (h *PreferenceHandler) GuardianRankedSubmit(ctx context.Context, input *RankedChoiceGuardianSubmitInput) (*PreferenceFormOutput, error) {
@@ -390,7 +298,7 @@ func (h *PreferenceHandler) GuardianRankedSubmit(ctx context.Context, input *Ran
 	if err != nil {
 		return nil, preferenceProblem(err)
 	}
-	return &PreferenceFormOutput{Body: preferenceFormResponse(form, true)}, nil
+	return &PreferenceFormOutput{Body: preferenceFormResponse(form)}, nil
 }
 
 func (h *PreferenceHandler) AdministratorForm(ctx context.Context, input *AdministratorPreferenceFormInput) (*PreferenceFormOutput, error) {
@@ -413,7 +321,7 @@ func (h *PreferenceHandler) AdministratorForm(ctx context.Context, input *Admini
 	if err != nil {
 		return nil, preferenceProblem(err)
 	}
-	return &PreferenceFormOutput{Body: preferenceFormResponse(form, true)}, nil
+	return &PreferenceFormOutput{Body: preferenceFormResponse(form)}, nil
 }
 
 func (h *PreferenceHandler) AdministratorInterestSubmit(ctx context.Context, input *InterestProfileAdministratorSubmitInput) (*PreferenceFormOutput, error) {
@@ -432,7 +340,7 @@ func (h *PreferenceHandler) AdministratorInterestSubmit(ctx context.Context, inp
 	if err != nil {
 		return nil, preferenceProblem(err)
 	}
-	return &PreferenceFormOutput{Body: preferenceFormResponse(form, true)}, nil
+	return &PreferenceFormOutput{Body: preferenceFormResponse(form)}, nil
 }
 
 func (h *PreferenceHandler) AdministratorRankedSubmit(ctx context.Context, input *RankedChoiceAdministratorSubmitInput) (*PreferenceFormOutput, error) {
@@ -451,7 +359,7 @@ func (h *PreferenceHandler) AdministratorRankedSubmit(ctx context.Context, input
 	if err != nil {
 		return nil, preferenceProblem(err)
 	}
-	return &PreferenceFormOutput{Body: preferenceFormResponse(form, true)}, nil
+	return &PreferenceFormOutput{Body: preferenceFormResponse(form)}, nil
 }
 
 func (h *PreferenceHandler) ResponseTrackingSummaries(ctx context.Context, input *PreferenceFormPathInput) (*ResponseTrackingSummaryOutput, error) {
@@ -508,16 +416,14 @@ func (h *PreferenceHandler) RankedChoiceResponseTracking(ctx context.Context, in
 	return &ResponseTrackingOutput{Body: responseTrackingResponse(tracking)}, nil
 }
 
-func preferenceFormResponse(form preference.PreferenceForm, includeStudentName bool) PreferenceFormResponse {
+func preferenceFormResponse(form preference.PreferenceForm) PreferenceFormResponse {
 	var sessionID *string
 	if form.SessionID != "" {
 		value := string(form.SessionID)
 		sessionID = &value
 	}
 	result := PreferenceFormResponse{Type: string(form.Type), ID: string(form.ID), SchoolYearID: string(form.SchoolYearID), ProgramID: string(form.ProgramID), SessionID: sessionID, ProgramName: form.ProgramName, SessionName: form.SessionName, Name: form.Name, Introduction: form.Introduction, StudentID: string(form.StudentID), ClosesAt: form.ClosesAt, RankDepth: form.RankDepth, Questions: []PreferenceFormQuestionResponse{}, ScaleOptions: []PreferenceFormScaleOptionResponse{}, Offerings: []PreferenceFormOfferingResponse{}, InterestAnswers: []PreferenceFormInterestAnswerResponse{}, RankedAnswers: []PreferenceFormRankedAnswerResponse{}, SubmittedAt: form.SubmittedAt}
-	if includeStudentName {
-		result.StudentName = form.StudentName
-	}
+	result.StudentName = form.StudentName
 	for _, question := range form.Questions {
 		result.Questions = append(result.Questions, PreferenceFormQuestionResponse{InterestAreaID: string(question.InterestAreaID), Label: question.Label, Ordinal: question.Ordinal})
 	}
@@ -604,8 +510,6 @@ func preferenceProblem(err error) error {
 	switch {
 	case err == nil:
 		return nil
-	case errors.Is(err, preference.ErrSurveyCodeInvalid), errors.Is(err, preference.ErrRankedChoiceCodeInvalid):
-		return problems.New(http.StatusNotFound, problems.ResourceNotFound, "the preference access code is invalid or revoked")
 	case errors.Is(err, preference.ErrPreferenceStudentNotProgramMember):
 		return problems.New(http.StatusBadRequest, problems.ProgramConflict, "the selected student is not included in the selected program")
 	case errors.Is(err, preference.ErrPreferenceFormNotAvailable), errors.Is(err, preference.ErrSurveyNotAcceptingSubmissions), errors.Is(err, preference.ErrRankedChoiceNotAccepting), errors.Is(err, preference.ErrRankedChoiceDeadlinePassed):
@@ -614,10 +518,6 @@ func preferenceProblem(err error) error {
 		return problems.New(http.StatusForbidden, problems.CapabilityRequired, "the selected student is outside the respondent scope")
 	case errors.Is(err, preference.ErrRankedChoiceNotConfigured):
 		return problems.New(http.StatusConflict, problems.ProgramConflict, "ranked-choice voting is not configured for this session")
-	case errors.Is(err, preference.ErrRankedChoiceCodeRequired):
-		return problems.New(http.StatusBadRequest, problems.ProgramConflict, "a student access code is required")
-	case errors.Is(err, preference.ErrRankedChoiceStudentMismatch):
-		return problems.New(http.StatusForbidden, problems.CapabilityRequired, "the access code is not bound to the selected student")
 	case errors.Is(err, pgx.ErrNoRows):
 		return problems.New(http.StatusNotFound, problems.ResourceNotFound, "the preference instrument or student was not found")
 	case data.IsSchoolYearClosed(err):

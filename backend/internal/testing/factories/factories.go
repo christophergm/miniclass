@@ -124,13 +124,13 @@ func (f *Factory) AddProgramMembership(ctx context.Context, schoolYearID, progra
 	return f.programs.AddMembership(ctx, f.organizationID, f.actor, schoolYearID, programID, studentID)
 }
 
-// SubmitInterestProfile records a synthetic preference through the normal
+// SubmitInterestProfileSurvey records a synthetic preference through the normal
 // audited service path.
-func (f *Factory) SubmitInterestProfile(ctx context.Context, input preference.InterestProfileSubmissionInput) (data.InterestProfileSubmission, error) {
+func (f *Factory) SubmitInterestProfileSurvey(ctx context.Context, input preference.InterestProfileSurveySubmissionInput) (data.InterestProfileSubmission, error) {
 	if err := f.validate(); err != nil {
 		return data.InterestProfileSubmission{}, err
 	}
-	return f.preferences.SubmitInterestProfile(ctx, f.organizationID, f.actor, input)
+	return f.preferences.SubmitInterestProfileSurvey(ctx, f.organizationID, f.actor, input)
 }
 
 // SubmitRankedChoices records a synthetic catalog response through the normal

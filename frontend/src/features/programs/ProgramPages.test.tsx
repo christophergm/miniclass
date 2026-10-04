@@ -227,8 +227,6 @@ vi.mock("./usePrograms", () => {
     })),
     useDeleteOffering: mutation(),
     useTransitionSession: mutation(mocks.transition),
-    useRegenerateRankedChoiceAccessCodes: mutation(),
-    useRevokeRankedChoiceAccessCodes: mutation(),
     useCreateSessionNonParticipation: mutation(),
     useUpdateSessionNonParticipation: mutation(),
     useDeleteSessionNonParticipation: mutation(),
@@ -670,6 +668,7 @@ describe("program navigation", () => {
 
     expect(screen.getByRole("heading", { name: "Enrichment settings" })).toBeInTheDocument();
     expect(screen.queryByText("Response tracking")).not.toBeInTheDocument();
+    expect(screen.queryByText("Preference access codes")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Open Membership →/ })).toHaveAttribute(
       "href",
       "/y/year-1/programs/program-1/settings/membership",

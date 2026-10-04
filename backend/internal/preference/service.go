@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"slices"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/chrismott/miniclass/internal/audit"
@@ -24,12 +23,8 @@ var (
 	ErrRankedChoiceNotConfigured   = errors.New("ranked-choice voting is not configured for this session")
 	ErrRankedChoiceNotAccepting    = errors.New("ranked-choice voting is not accepting submissions")
 	ErrRankedChoiceDeadlinePassed  = errors.New("ranked-choice voting deadline has passed")
-	ErrRankedChoiceCodeRequired    = errors.New("ranked-choice student-code access requires a code")
-	ErrRankedChoiceCodeInvalid     = errors.New("ranked-choice student-code access code is invalid or revoked")
-	ErrRankedChoiceStudentMismatch = errors.New("ranked-choice access code is not bound to this student")
 	ErrRankedChoiceStudentExcluded = errors.New("student is not participating in this session")
 	ErrRankedChoiceGuardianScope   = errors.New("student is outside the guardian scope")
-	ErrAccessCodeReasonRequired    = errors.New("access-code changes require a reason")
 	ErrInterestAreaNotInProgram    = errors.New("interest area is not in the program")
 	ErrSurveyStudentExcluded       = errors.New("student is not in the survey audience")
 )
@@ -38,64 +33,15 @@ type Service struct{ database *data.DB }
 
 func New(database *data.DB) *Service { return &Service{database: database} }
 
-type InterestProfileSubmissionInput struct {
-	SchoolYearID ids.XID
-	ProgramID    ids.XID
-	StudentID    ids.XID
-	Channel      data.PreferenceSubmissionChannel
-	ActorAdultID *ids.XID
-	Answers      []data.InterestProfileAnswer
-}
-
 type RankedChoiceSubmissionInput struct {
 	SchoolYearID    ids.XID
 	ProgramID       ids.XID
 	SessionID       ids.XID
 	StudentID       ids.XID
-	Code            string
 	Channel         data.PreferenceSubmissionChannel
 	ActorAdultID    *ids.XID
 	GuardianAdultID *ids.XID
 	Responses       []data.RankedChoiceResponseInput
-}
-
-func (s *Service) SubmitInterestProfile(ctx context.Context, organizationID string, actor audit.Actor, input InterestProfileSubmissionInput) (data.InterestProfileSubmission, error) {
-	if s == nil || s.database == nil {
-		return data.InterestProfileSubmission{}, ErrPreferenceServiceNil
-	}
-	if err := validateInterestProfileInput(input); err != nil {
-		return data.InterestProfileSubmission{}, err
-	}
-	var result data.InterestProfileSubmission
-	err := s.database.InTenant(ctx, organizationID, actor, func(ctx context.Context, tx *data.Tx) error {
-		areas, err := tx.ListInterestAreas(ctx, input.SchoolYearID, input.ProgramID, true)
-		if err != nil {
-			return err
-		}
-		known := make(map[ids.XID]struct{}, len(areas))
-		for _, area := range areas {
-			known[area.ID] = struct{}{}
-		}
-		for _, answer := range input.Answers {
-			if _, ok := known[answer.InterestAreaID]; !ok {
-				return fmt.Errorf("%w: %s", ErrInterestAreaNotInProgram, answer.InterestAreaID)
-			}
-		}
-		created, _, err := tx.CreateInterestProfileSubmission(ctx, input.SchoolYearID, input.ProgramID, input.StudentID, input.Channel, input.ActorAdultID, input.Answers)
-		if err != nil {
-			return err
-		}
-		result = created
-		id, year := created.ID, created.SchoolYearID
-		return tx.Record(ctx, audit.Entry{
-			Action: audit.ActionPreferenceSubmission, ObjectType: "interest_profile_submission", ObjectID: &id, SchoolYearID: &year,
-			ChangeSummary: mustJSON(map[string]any{"student_id": created.StudentID, "program_id": created.ProgramID, "channel": created.Channel, "response_count": len(input.Answers)}),
-		})
-	})
-	if err != nil {
-		return data.InterestProfileSubmission{}, fmt.Errorf("submit interest profile: %w", err)
-	}
-	return result, nil
 }
 
 func (s *Service) EffectiveInterestProfile(ctx context.Context, organizationID string, schoolYearID, programID, studentID ids.XID) ([]data.EffectiveInterestProfileValue, error) {
@@ -138,22 +84,6 @@ func (s *Service) SubmitRankedChoices(ctx context.Context, organizationID string
 			return ErrRankedChoiceDeadlinePassed
 		}
 		studentID := input.StudentID
-		if input.Channel == data.PreferenceChannelStudentCode {
-			if strings.TrimSpace(input.Code) == "" {
-				return ErrRankedChoiceCodeRequired
-			}
-			resolvedStudentID, err := tx.FindActiveRankedChoiceAccessCode(ctx, input.SchoolYearID, input.ProgramID, input.SessionID, rankedChoiceCodeHash(input.Code))
-			if err != nil {
-				if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-					return err
-				}
-				return ErrRankedChoiceCodeInvalid
-			}
-			if studentID != "" && studentID != resolvedStudentID {
-				return ErrRankedChoiceStudentMismatch
-			}
-			studentID = resolvedStudentID
-		}
 		if studentID == "" {
 			return errors.New("submit ranked choices: student id is required")
 		}
@@ -339,21 +269,11 @@ func ValidateRankedChoiceResponseSetWithDepth(responses []data.RankedChoiceRespo
 	return nil
 }
 
-func validateInterestProfileInput(input InterestProfileSubmissionInput) error {
-	if input.SchoolYearID == "" || input.ProgramID == "" || input.StudentID == "" {
-		return errors.New("submit interest profile: school year, program, and student ids are required")
-	}
-	if len(input.Answers) == 0 {
-		return errors.New("submit interest profile: at least one area response is required")
-	}
-	return nil
-}
-
 func validateRankedChoiceInput(input RankedChoiceSubmissionInput) error {
 	if input.SchoolYearID == "" || input.ProgramID == "" || input.SessionID == "" {
 		return errors.New("submit ranked choices: school year, program, and session ids are required")
 	}
-	if input.Channel != data.PreferenceChannelStudentCode && input.StudentID == "" {
+	if input.StudentID == "" {
 		return errors.New("submit ranked choices: student id is required")
 	}
 	return nil

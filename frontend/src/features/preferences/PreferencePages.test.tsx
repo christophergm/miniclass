@@ -7,18 +7,23 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   GuardianPreferenceFormPage,
   GuardianPreferencePage,
-  StudentCodeInterestProfilePage,
+  AdministratorRankedChoiceKioskPage,
 } from "./PreferencePages";
 
 const mocks = vi.hoisted(() => ({
-  studentForm: null as unknown,
+  administratorForm: null as unknown,
   guardianForms: null as unknown,
-  studentMutation: { mutate: vi.fn(), isPending: false, isSuccess: false, error: null },
+  administratorMutation: { mutate: vi.fn(), isPending: false, isSuccess: false, error: null },
+  guardianRankedMutation: { mutate: vi.fn(), isPending: false, isSuccess: false, error: null },
   guardianMutation: { mutate: vi.fn(), isPending: false, isSuccess: false, error: null },
 }));
 
 vi.mock("@/features/programs/usePrograms", () => ({
-  useAdministratorPreferenceForm: vi.fn(() => ({ data: null, isLoading: false, error: null })),
+  useAdministratorPreferenceForm: vi.fn(() => ({
+    data: mocks.administratorForm,
+    isLoading: false,
+    error: null,
+  })),
   useGuardianPreferenceForms: vi.fn(() => ({
     data: mocks.guardianForms,
     isLoading: false,
@@ -28,38 +33,15 @@ vi.mock("@/features/programs/usePrograms", () => ({
   usePrograms: vi.fn(() => ({ data: [], isLoading: false, error: null })),
   useProgramMemberships: vi.fn(() => ({ data: [], isLoading: false, error: null })),
   useSessions: vi.fn(() => ({ data: [], isLoading: false, error: null })),
-  useStudentCodeInterestProfileForm: vi.fn(() => ({
-    data: mocks.studentForm,
-    isLoading: false,
-    error: null,
-  })),
-  useStudentCodeRankedChoiceForm: vi.fn(() => ({ data: null, isLoading: false, error: null })),
   useSubmitAdministratorInterestProfile: vi.fn(() => ({
     mutate: vi.fn(),
     isPending: false,
     isSuccess: false,
     error: null,
   })),
-  useSubmitAdministratorRankedChoice: vi.fn(() => ({
-    mutate: vi.fn(),
-    isPending: false,
-    isSuccess: false,
-    error: null,
-  })),
+  useSubmitAdministratorRankedChoice: vi.fn(() => mocks.administratorMutation),
   useSubmitGuardianInterestProfile: vi.fn(() => mocks.guardianMutation),
-  useSubmitGuardianRankedChoice: vi.fn(() => ({
-    mutate: vi.fn(),
-    isPending: false,
-    isSuccess: false,
-    error: null,
-  })),
-  useSubmitStudentCodeInterestProfile: vi.fn(() => mocks.studentMutation),
-  useSubmitStudentCodeRankedChoice: vi.fn(() => ({
-    mutate: vi.fn(),
-    isPending: false,
-    isSuccess: false,
-    error: null,
-  })),
+  useSubmitGuardianRankedChoice: vi.fn(() => mocks.guardianRankedMutation),
 }));
 
 vi.mock("@/features/school-years/useSchoolYears", () => ({
@@ -80,9 +62,26 @@ const form = {
   interest_answers: [],
 };
 
+const rankedForm = {
+  type: "ranked_choice",
+  id: "session-1",
+  session_id: "session-1",
+  school_year_id: "year-1",
+  program_id: "program-1",
+  program_name: "Clubs",
+  session_name: "Autumn clubs",
+  name: "Autumn club choices",
+  student_id: "student-1",
+  student_name: "Synthetic Student",
+  closes_at: "2099-09-01T12:00:00Z",
+  rank_depth: 1,
+  offerings: [{ id: "offering-1", name: "Making things", description: "Build something useful." }],
+  ranked_answers: [],
+};
+
 describe("preference pages", () => {
   beforeEach(() => {
-    mocks.studentForm = form;
+    mocks.administratorForm = null;
     mocks.guardianForms = {
       school_year_id: "year-1",
       students: [
@@ -93,23 +92,24 @@ describe("preference pages", () => {
         },
       ],
     };
-    mocks.studentMutation.mutate.mockClear();
+    mocks.administratorMutation.mutate.mockClear();
+    mocks.guardianRankedMutation.mutate.mockClear();
     mocks.guardianMutation.mutate.mockClear();
-    Object.assign(mocks.studentMutation, { isPending: false, isSuccess: false, error: null });
+    Object.assign(mocks.administratorMutation, { isPending: false, isSuccess: false, error: null });
     Object.assign(mocks.guardianMutation, { isPending: false, isSuccess: false, error: null });
   });
 
-  it("supports a student-code submission on a narrow viewport without admin navigation", () => {
+  it("supports a guardian submission on a narrow viewport without admin navigation", () => {
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
     renderWithQueryClient(
       <MemoryRouter
         future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
-        initialEntries={["/respond/year-1/program-1/survey-1?organization_id=org-1&code=secret"]}
+        initialEntries={["/guardian/students/student-1/survey-1"]}
       >
         <Routes>
           <Route
-            path="/respond/:schoolYearId/:programId/:surveyId"
-            element={<StudentCodeInterestProfilePage />}
+            path="/guardian/students/:studentId/:formId"
+            element={<GuardianPreferenceFormPage />}
           />
         </Routes>
       </MemoryRouter>,
@@ -117,11 +117,88 @@ describe("preference pages", () => {
 
     expect(screen.queryByText("Submit preferences")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /^Interested$/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Save interest profile" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save and go back" }));
 
-    expect(mocks.studentMutation.mutate).toHaveBeenCalledWith([
-      { interest_area_id: "area-1", rating: "interested" },
-    ]);
+    expect(mocks.guardianMutation.mutate).toHaveBeenCalledWith(
+      {
+        schoolYearID: "year-1",
+        programID: "program-1",
+        surveyID: "survey-1",
+        studentID: "student-1",
+        answers: [{ interest_area_id: "area-1", rating: "interested" }],
+      },
+      expect.anything(),
+    );
+  });
+
+  it("submits ranked choices for a guardian-scoped student", () => {
+    mocks.guardianForms = {
+      school_year_id: "year-1",
+      students: [
+        { student_id: "student-1", display_name: "Synthetic Student", forms: [rankedForm] },
+      ],
+    };
+    renderWithQueryClient(
+      <MemoryRouter
+        future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+        initialEntries={["/guardian/students/student-1/session-1"]}
+      >
+        <Routes>
+          <Route
+            path="/guardian/students/:studentId/:formId"
+            element={<GuardianPreferenceFormPage />}
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Move to Very interested" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save and go back" }));
+
+    expect(mocks.guardianRankedMutation.mutate).toHaveBeenCalledWith(
+      {
+        schoolYearID: "year-1",
+        programID: "program-1",
+        sessionID: "session-1",
+        studentID: "student-1",
+        responses: [{ offering_id: "offering-1", answer: "ranked", rank: 1 }],
+      },
+      expect.anything(),
+    );
+    expect(mocks.administratorMutation.mutate).not.toHaveBeenCalled();
+  });
+
+  it("keeps the ranked-choice kiosk handoff and submits through the administrator channel", () => {
+    mocks.administratorForm = rankedForm;
+    renderWithQueryClient(
+      <MemoryRouter
+        future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+        initialEntries={[
+          "/preferences/admin/kiosk?year=year-1&program=program-1&session=session-1&student=student-1",
+        ]}
+      >
+        <AdministratorRankedChoiceKioskPage />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Ready for Synthetic Student" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Move to Very interested" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Start" }));
+    fireEvent.click(screen.getByRole("button", { name: "Move to Very interested" }));
+    fireEvent.click(screen.getByRole("button", { name: "Submit my choices" }));
+
+    expect(mocks.administratorMutation.mutate).toHaveBeenCalledWith({
+      schoolYearID: "year-1",
+      programID: "program-1",
+      sessionID: "session-1",
+      studentID: "student-1",
+      responses: [{ offering_id: "offering-1", answer: "ranked", rank: 1 }],
+    });
+    expect(mocks.guardianRankedMutation.mutate).not.toHaveBeenCalled();
   });
 
   it("guides guardians to add a student when none are linked", () => {

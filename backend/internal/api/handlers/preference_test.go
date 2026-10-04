@@ -15,7 +15,7 @@ func TestPreferenceProblemReportsWhenStudentIsNotInProgram(t *testing.T) {
 	require.NotContains(t, problem.Error(), "no longer accepting submissions")
 }
 
-func TestPreferenceFormResponseHidesRosterNameFromStudentCodeRespondents(t *testing.T) {
+func TestPreferenceFormResponseIncludesAuthorizedStudentName(t *testing.T) {
 	form := preference.PreferenceForm{
 		Type:         preference.FormTypeInterestProfile,
 		ID:           ids.XID("survey-1"),
@@ -26,10 +26,7 @@ func TestPreferenceFormResponseHidesRosterNameFromStudentCodeRespondents(t *test
 		Name:         "Synthetic Interest Form",
 	}
 
-	studentResponse := preferenceFormResponse(form, false)
-	require.Equal(t, "student-1", studentResponse.StudentID)
-	require.Empty(t, studentResponse.StudentName)
-
-	adminResponse := preferenceFormResponse(form, true)
-	require.Equal(t, "Synthetic Student", adminResponse.StudentName)
+	response := preferenceFormResponse(form)
+	require.Equal(t, "student-1", response.StudentID)
+	require.Equal(t, "Synthetic Student", response.StudentName)
 }

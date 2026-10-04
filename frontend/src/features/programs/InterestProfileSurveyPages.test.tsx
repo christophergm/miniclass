@@ -41,7 +41,6 @@ function survey(state = mocks.state): InterestProfileSurvey {
       { id: "option-2", value: "interested", label: "Interested", ordinal: 2 },
     ],
     audience_snapshot: state === "draft" ? [] : ["student-1"],
-    active_codes: [],
     created_at: "2026-09-01T20:00:00Z",
     updated_at: "2026-09-01T20:00:00Z",
   };
@@ -224,7 +223,6 @@ describe("InterestProfileSurveysPage", () => {
           state: "open",
           closing_at: new Date("2026-10-10T10:00").toISOString(),
           reason: undefined,
-          regenerate_codes: false,
         },
       },
       expect.any(Object),
@@ -233,7 +231,7 @@ describe("InterestProfileSurveysPage", () => {
     expect(screen.getByText("Empty audience", { exact: false })).toBeInTheDocument();
   });
 
-  it("reopens a closed survey with a reason and optional code rotation", () => {
+  it("reopens a closed survey with a reason and new closing time", () => {
     mocks.state = "closed";
     renderPage();
 
@@ -244,7 +242,7 @@ describe("InterestProfileSurveysPage", () => {
     fireEvent.change(screen.getByLabelText("Reopen reason"), {
       target: { value: "Late response window" },
     });
-    fireEvent.click(screen.getByLabelText("Regenerate access codes"));
+    expect(screen.queryByLabelText("Regenerate access codes")).not.toBeInTheDocument();
     fireEvent.click(
       within(screen.getByRole("dialog")).getByRole("button", { name: "Reopen survey" }),
     );
@@ -256,7 +254,6 @@ describe("InterestProfileSurveysPage", () => {
           state: "open",
           closing_at: new Date("2026-11-10T10:00").toISOString(),
           reason: "Late response window",
-          regenerate_codes: true,
         },
       },
       expect.any(Object),
@@ -269,9 +266,10 @@ describe("InterestProfileSurveysPage", () => {
 
     expect(screen.queryByRole("button", { name: "Edit survey" })).not.toBeInTheDocument();
     expect(screen.getByText("Definition locked after opening")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Manage access codes" })).toHaveAttribute(
+    expect(screen.queryByRole("link", { name: "Manage access codes" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View response tracking" })).toHaveAttribute(
       "href",
-      "/y/year-1/programs/program-1/settings/access-codes",
+      "/y/year-1/programs/program-1/response-tracking/surveys/survey-1",
     );
   });
 

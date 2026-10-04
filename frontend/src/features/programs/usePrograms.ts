@@ -126,128 +126,6 @@ export function useGuardianPreferenceForms() {
   });
 }
 
-export function useStudentCodeInterestProfileForm(
-  schoolYearID: string | undefined,
-  programID: string | undefined,
-  surveyID: string | undefined,
-  organizationID: string | undefined,
-  code: string | undefined,
-) {
-  return useQuery({
-    enabled: Boolean(schoolYearID && programID && surveyID && organizationID && code),
-    queryKey: [
-      "student-code-interest-profile-form",
-      schoolYearID,
-      programID,
-      surveyID,
-      organizationID,
-      code,
-    ],
-    queryFn: () =>
-      resourceApi.getStudentCodeInterestProfileForm(
-        schoolYearID as string,
-        programID as string,
-        surveyID as string,
-        organizationID as string,
-        code as string,
-      ),
-    retry: false,
-  });
-}
-
-export function useStudentCodeRankedChoiceForm(
-  schoolYearID: string | undefined,
-  programID: string | undefined,
-  sessionID: string | undefined,
-  organizationID: string | undefined,
-  code: string | undefined,
-) {
-  return useQuery({
-    enabled: Boolean(schoolYearID && programID && sessionID && organizationID && code),
-    queryKey: [
-      "student-code-ranked-choice-form",
-      schoolYearID,
-      programID,
-      sessionID,
-      organizationID,
-      code,
-    ],
-    queryFn: () =>
-      resourceApi.getStudentCodeRankedChoiceForm(
-        schoolYearID as string,
-        programID as string,
-        sessionID as string,
-        organizationID as string,
-        code as string,
-      ),
-    retry: false,
-  });
-}
-
-export function useSubmitStudentCodeInterestProfile(
-  schoolYearID: string,
-  programID: string,
-  surveyID: string,
-  organizationID: string,
-  code: string,
-) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (answers: PreferenceInterestAnswerInput[]) =>
-      resourceApi.submitStudentCodeInterestProfile(
-        schoolYearID,
-        programID,
-        surveyID,
-        organizationID,
-        code,
-        answers,
-      ),
-    onSuccess: () =>
-      queryClient.invalidateQueries({
-        queryKey: [
-          "student-code-interest-profile-form",
-          schoolYearID,
-          programID,
-          surveyID,
-          organizationID,
-          code,
-        ],
-      }),
-  });
-}
-
-export function useSubmitStudentCodeRankedChoice(
-  schoolYearID: string,
-  programID: string,
-  sessionID: string,
-  organizationID: string,
-  code: string,
-) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (responses: PreferenceRankedAnswerInput[]) =>
-      resourceApi.submitStudentCodeRankedChoice(
-        schoolYearID,
-        programID,
-        sessionID,
-        organizationID,
-        code,
-        responses,
-      ),
-    onSuccess: () =>
-      queryClient.invalidateQueries({
-        queryKey: [
-          "student-code-ranked-choice-form",
-          schoolYearID,
-          programID,
-          sessionID,
-          organizationID,
-          code,
-        ],
-      }),
-  });
-}
-
 export function useSubmitGuardianInterestProfile() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -664,38 +542,6 @@ export function useTransitionInterestProfileSurvey(schoolYearID: string, program
   });
 }
 
-export function useRegenerateInterestProfileSurveyCodes(schoolYearID: string, programID: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ surveyID, reason }: { surveyID: string; reason: string }) =>
-      resourceApi.regenerateInterestProfileSurveyCodes(schoolYearID, programID, surveyID, reason),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: interestProfileSurveysKey(schoolYearID, programID),
-      });
-      queryClient.invalidateQueries({
-        queryKey: interestProfileSurveyKey(schoolYearID, programID, variables.surveyID),
-      });
-    },
-  });
-}
-
-export function useRevokeInterestProfileSurveyCodes(schoolYearID: string, programID: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ surveyID, reason }: { surveyID: string; reason: string }) =>
-      resourceApi.revokeInterestProfileSurveyCodes(schoolYearID, programID, surveyID, reason),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: interestProfileSurveysKey(schoolYearID, programID),
-      });
-      queryClient.invalidateQueries({
-        queryKey: interestProfileSurveyKey(schoolYearID, programID, variables.surveyID),
-      });
-    },
-  });
-}
-
 export function useReorderInterestAreas(schoolYearID: string, programID: string) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -966,28 +812,6 @@ export function useTransitionSession(schoolYearID: string, programID: string, se
         queryKey: [...sessionsKey(schoolYearID, programID), sessionID],
       });
     },
-  });
-}
-
-export function useRegenerateRankedChoiceAccessCodes(
-  schoolYearID: string,
-  programID: string,
-  sessionID: string,
-) {
-  return useMutation({
-    mutationFn: (reason: string) =>
-      resourceApi.regenerateRankedChoiceAccessCodes(schoolYearID, programID, sessionID, reason),
-  });
-}
-
-export function useRevokeRankedChoiceAccessCodes(
-  schoolYearID: string,
-  programID: string,
-  sessionID: string,
-) {
-  return useMutation({
-    mutationFn: (reason: string) =>
-      resourceApi.revokeRankedChoiceAccessCodes(schoolYearID, programID, sessionID, reason),
   });
 }
 

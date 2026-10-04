@@ -70,7 +70,7 @@ Four architectural forks were identified before Phase 1. Their resolutions are r
 | ID | Decision | Resolution | ADR |
 |---|---|---|---|
 | D1 | Assignment solver technology | **Python OR-Tools CP-SAT sidecar.** Validation deferred to Phase 5 rather than spiked up front. | [0003](./docs/adr/0003-assignment-solver-technology.md) |
-| D2 | Authentication | **Keep Supabase Auth** for administrative accounts; adult guardian access uses application-owned email OTP sessions, with step-up MFA for administration. Student survey access uses application-owned scoped codes. | [0002](./docs/adr/0002-authentication-and-access-mechanisms.md), [0013](./docs/adr/0013-guardian-and-volunteer-access.md) |
+| D2 | Authentication | **Keep Supabase Auth** for administrative accounts; adult guardian access uses application-owned email OTP sessions, with step-up MFA for administration. Family-facing preference access is guardian-only; audited administrator entry and the ranked-choice kiosk remain. | [0002](./docs/adr/0002-authentication-and-access-mechanisms.md), [0013](./docs/adr/0013-guardian-and-volunteer-access.md), [0019](./docs/adr/0019-retire-direct-student-access.md) |
 | D3 | API contract between Go and TypeScript | **Go is the source of truth**, via Huma v2 over chi. `openapi.json` committed and drift-checked; TypeScript generated at build time. | [0004](./docs/adr/0004-api-contract-and-type-generation.md) |
 | D4 | Published-artifact serving topology | **Served by the main API.** §22.3's independence SHOULD is knowingly relaxed for v1, with a named revisit trigger. Publishing still materialises a snapshot. | [0005](./docs/adr/0005-published-artifact-availability.md) |
 
@@ -164,7 +164,7 @@ graph TD
     P1 --> P2["Phase 2<br/>Development Ingest Tooling"]
     P2 --> P2R["Phase 2R<br/>Guardian Self-registration"]
     P2R --> P3["Phase 3<br/>Programs, Catalog, Sessions"]
-    P3 --> P4["Phase 4<br/>Preferences and Adult/Student Access"]
+    P3 --> P4["Phase 4<br/>Preferences and Guardian/Admin Access"]
     P4 --> P4B["Phase 4B<br/>Consent-first Guardian Data"]
     P4B --> P5["Phase 5<br/>Engine v0"]
     P5 --> P6["Phase 6<br/>Publishing and Artifacts"]
@@ -501,9 +501,10 @@ rather than landing as one large frontend bundle.
 
 ---
 
-### Phase 4 — Preferences and adult/student access
+### Phase 4 — Preferences and guardian/admin access
 
-*SPEC §13, §19.5; [ADR 0013](./docs/adr/0013-guardian-and-volunteer-access.md). Preference
+*SPEC §13, §19.5; [ADR 0013](./docs/adr/0013-guardian-and-volunteer-access.md),
+[ADR 0019](./docs/adr/0019-retire-direct-student-access.md). Preference
 history import is intentionally out of scope; all preference data is collected natively.*
 
 **Feature track**
@@ -512,26 +513,26 @@ history import is intentionally out of scope; all preference data is collected n
   overlay semantics. The latest valid rating for each area wins; omitted areas are not cleared.
 - Interest-profile surveys as separate entities from the vocabulary: ordered area subsets, configurable
   audience, configurable response window, and Draft/Open/Closed lifecycle. Opening freezes audience,
-  questions, scale version, and student codes; deadlines close access automatically; reopening warns and
+  questions, and scale version; deadlines close access automatically; reopening warns and
   is audited.
 - Ranked choices per session, with unique ranks enforced at entry, retained submissions, and latest-valid-
   complete-response replacement. Access opens with the session voting window and closes automatically at
   its deadline before assignment.
-- Student access codes: high-entropy, hashed, regenerable, revocable, and unique to one student and one
-  survey/session. Organizer-only code list grouped by homeroom, with print-friendly presentation; no
-  automated distribution in this phase.
+- Guardian login is the only family-facing preference access path, through "My students". No student
+  credentials, anonymous response pages, or code-distribution controls remain. Historical student-code
+  responses retain their attribution and effect; new writes are rejected in the data layer and database.
 - Unified adult identity: email OTP creates guardian access; linked administrators step up with mandatory
   MFA. Guardian mode shows only current guardian-scoped students; administration is a separate mode and
   requires reauthentication after survey mode. Explicit account-to-adult links and duplicate-email
   safeguards are required.
 - Administrator-on-behalf entry for students without guardians, without email, or otherwise needing
   assistance; every record remains bound to a student and records actor/channel/time.
-- Ranked-choice and interest-profile response rules, including guardian/student resubmission precedence,
+- Ranked-choice and interest-profile response rules, including shared-guardian and administrator resubmission precedence,
   Rated/Unrated/No response distinctions, and server-side authorization.
 - Student-centric response tracking with totals and percentages by grade/homeroom, named non-responders,
   unreachable students, and a separate outstanding-students-by-guardian view.
-- Transactional email for adult OTP only. Parent emailing of student codes, reminders, and other bulk or
-  workflow notifications remain deferred. Volunteer sign-up and availability remain in Konstella;
+- Transactional email for adult OTP only. Reminders and other bulk or workflow notifications remain
+  deferred. Volunteer sign-up and availability remain in Konstella;
   staffing data is organizer-managed.
 
 **Task breakdown**
@@ -540,13 +541,13 @@ history import is intentionally out of scope; all preference data is collected n
 |---|---|---|---|
 | **P4-0 — Access decision and security contract** | Update principal/capability model; explicit account-to-adult links; OTP/session assurance levels; mandatory admin MFA, recovery, revocation, duplicate-email and no-email behavior. | §6.2, §6.5–6.6, §9.3–9.4, §13.8, ADR 0013 | high |
 | **P4-1 — Preference data model and effective values** | Interest-profile submissions, per-area overlay, ranked-choice submissions, valid-response replacement, actor/channel attribution, and program/session scoping. | §8.3, §13.1–13.5, §13.7 | high |
-| **P4-2 — Interest-profile surveys** | Survey CRUD, audience filters, scale snapshot, open/close deadlines, frozen definition, auto-close, reopen warning/audit, code issuance, and retention. | §13.5–13.6 | xhigh |
-| **P4-3 — Ranked-choice response window** | Session voting configuration, per-student/session codes, unique-rank validation, response replacement, deadline enforcement, and lifecycle integration. | §13.3, §14.1, §14.3–14.5 | xhigh |
+| **P4-2 — Interest-profile surveys** | Survey CRUD, audience filters, scale snapshot, open/close deadlines, frozen definition, auto-close, reopen warning/audit, and retention. | §13.5–13.6 | xhigh |
+| **P4-3 — Ranked-choice response window** | Session voting configuration, guardian/admin access, unique-rank validation, response replacement, deadline enforcement, and lifecycle integration. | §13.3, §14.1, §14.3–14.5 | xhigh |
 | **P4-4 — Adult OTP and unified modes** | Transactional OTP delivery, bounded sessions, current guardian scope, linked admin identity, step-up MFA, recovery, privacy-mode navigation, and reauthentication. | §6.2, §6.6, §9.3–9.4, §13.8, §22.5, ADR 0013 | xhigh |
-| **P4-5 — Student code distribution** | Organizer-only code list scoped by survey/session, grouped by homeroom, print-friendly, regeneration/revocation, and no bulk email. | §13.8, §19.5, §22.4 | high |
-| **P4-6 — Submission surfaces** | Mobile guardian flow for all guardian-scoped students; student-code flow for one student; administrator-on-behalf flow; resubmission and actor attribution. | §6.2, §6.5, §13.7–13.8, §22.4 | xhigh |
+| **P4-5 — Retire direct student access** | Remove student credentials and distribution surfaces; preserve historical attribution; reject new student-code writes in application and database. | §13.7–13.8, ADR 0019 | high |
+| **P4-6 — Submission surfaces** | Mobile guardian flow for all guardian-scoped students; administrator-on-behalf flow and ranked-choice kiosk; resubmission and actor attribution. | §6.2, §6.5, §13.7–13.8, §22.4 | xhigh |
 | **P4-7 — Response tracking and follow-up views** | Student-level denominator and percentages; grade/homeroom breakdowns; unreachable/no-email states; separate guardian outstanding list. | §19.5 | high |
-| **P4-8 — Integration, accessibility, and security tests** | Tenant isolation and authorization tests; OTP/MFA and code lifecycle tests; lifecycle table tests; mobile Playwright coverage; accessibility CI baseline; generated API client wiring. | §5.2, §9.2–9.4, §13, §14.3, §19.5, §22.4 | xhigh |
+| **P4-8 — Integration, accessibility, and security tests** | Tenant isolation and authorization tests; OTP/MFA and retired-access rejection tests; lifecycle table tests; mobile Playwright coverage; accessibility CI baseline; generated API client wiring. | §5.2, §9.2–9.4, §13, §14.3, §19.5, §22.4 | xhigh |
 
 **Recommended dependency order**
 
@@ -557,30 +558,30 @@ history import is intentionally out of scope; all preference data is collected n
 
 **Platform track**
 
-- Playwright end-to-end coverage of guardian and student submission at a mobile viewport.
+- Playwright end-to-end coverage of guardian submission and administrator kiosk at a mobile viewport.
 - Accessibility baseline in CI.
-- Security-focused tests for tenant ordering, scope derivation, OTP/MFA assurance, code isolation,
-  regeneration, revocation, and duplicate-email handling.
+- Security-focused tests for tenant ordering, live guardian scope, OTP/MFA assurance, rejected legacy
+  access, historical response preservation, and duplicate-email handling.
 
 **Exit criteria**
 
 - A guardian can use email OTP and submit or revise responses for every guardian-scoped student on a
   phone in one sitting, producing per-student records.
-- A student can use a survey/session-specific code to submit and revise only their own response while the
-  relevant instrument is open.
+- Independent student access is unavailable; retired endpoints and new student-code submissions are
+  rejected while historical responses remain effective.
 - An administrator who is also a guardian can enter guardian mode easily, and administration requires
   step-up MFA after leaving survey mode.
 - An administrator can open a form for a selected student and submit on the student's behalf.
-- Administrators can view and print student codes grouped by homeroom; no automated code email is sent.
+- The administrator-authenticated ranked-choice kiosk remains available with administrator attribution.
 - A report provides accurate student-level completion totals and percentages, names every non-responder,
   identifies unreachable/no-email cases, and provides a separate outstanding-students-by-guardian view.
 - No preference import is implemented; a program with no placement history starts normally and reports
   fairness/variety history as unavailable until native completed sessions accumulate.
 
 **Phase 4 validation record:** The backend integration suite covers tenant isolation, authorization,
-OTP/MFA and access-code lifecycle boundaries, lifecycle windows, attribution, and student-centric
-tracking. The frontend test suite covers the generated API wrappers, mobile guardian/student
-submission flows, and the accessibility baseline at `frontend/e2e/accessibility.spec.ts`.
+OTP/MFA boundaries, retired access, historical response preservation, lifecycle windows, attribution,
+and student-centric tracking. The frontend test suite covers the generated API wrappers, mobile
+guardian submission and administrator kiosk flows, and the accessibility baseline at `frontend/e2e/accessibility.spec.ts`.
 
 ---
 

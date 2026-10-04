@@ -50,71 +50,6 @@ func (q *Queries) CreateInterestProfileResponse(ctx context.Context, arg CreateI
 	return i, err
 }
 
-const createInterestProfileSubmission = `-- name: CreateInterestProfileSubmission :one
-insert into interest_profile_submissions (organization_id, school_year_id, program_id, student_id, channel, actor_type, actor_user_id, actor_adult_id, actor_label)
-values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-returning id, organization_id, school_year_id, program_id, survey_id, student_id, channel, actor_type, actor_user_id, actor_adult_id, actor_label, submitted_at, created_at
-`
-
-type CreateInterestProfileSubmissionParams struct {
-	OrganizationID ids.XID                     `json:"organization_id"`
-	SchoolYearID   ids.XID                     `json:"school_year_id"`
-	ProgramID      ids.XID                     `json:"program_id"`
-	StudentID      ids.XID                     `json:"student_id"`
-	Channel        PreferenceSubmissionChannel `json:"channel"`
-	ActorType      AuditActorType              `json:"actor_type"`
-	ActorUserID    *ids.XID                    `json:"actor_user_id"`
-	ActorAdultID   *ids.XID                    `json:"actor_adult_id"`
-	ActorLabel     string                      `json:"actor_label"`
-}
-
-type CreateInterestProfileSubmissionRow struct {
-	ID             ids.XID                     `json:"id"`
-	OrganizationID ids.XID                     `json:"organization_id"`
-	SchoolYearID   ids.XID                     `json:"school_year_id"`
-	ProgramID      ids.XID                     `json:"program_id"`
-	SurveyID       *ids.XID                    `json:"survey_id"`
-	StudentID      ids.XID                     `json:"student_id"`
-	Channel        PreferenceSubmissionChannel `json:"channel"`
-	ActorType      AuditActorType              `json:"actor_type"`
-	ActorUserID    *ids.XID                    `json:"actor_user_id"`
-	ActorAdultID   *ids.XID                    `json:"actor_adult_id"`
-	ActorLabel     string                      `json:"actor_label"`
-	SubmittedAt    pgtype.Timestamptz          `json:"submitted_at"`
-	CreatedAt      pgtype.Timestamptz          `json:"created_at"`
-}
-
-func (q *Queries) CreateInterestProfileSubmission(ctx context.Context, arg CreateInterestProfileSubmissionParams) (CreateInterestProfileSubmissionRow, error) {
-	row := q.db.QueryRow(ctx, createInterestProfileSubmission,
-		arg.OrganizationID,
-		arg.SchoolYearID,
-		arg.ProgramID,
-		arg.StudentID,
-		arg.Channel,
-		arg.ActorType,
-		arg.ActorUserID,
-		arg.ActorAdultID,
-		arg.ActorLabel,
-	)
-	var i CreateInterestProfileSubmissionRow
-	err := row.Scan(
-		&i.ID,
-		&i.OrganizationID,
-		&i.SchoolYearID,
-		&i.ProgramID,
-		&i.SurveyID,
-		&i.StudentID,
-		&i.Channel,
-		&i.ActorType,
-		&i.ActorUserID,
-		&i.ActorAdultID,
-		&i.ActorLabel,
-		&i.SubmittedAt,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
 const createInterestProfileSurveySubmission = `-- name: CreateInterestProfileSurveySubmission :one
 insert into interest_profile_submissions (organization_id, school_year_id, program_id, survey_id, student_id, channel, actor_type, actor_user_id, actor_adult_id, actor_label)
 values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
@@ -178,55 +113,6 @@ func (q *Queries) CreateInterestProfileSurveySubmission(ctx context.Context, arg
 		&i.ActorLabel,
 		&i.SubmittedAt,
 		&i.CreatedAt,
-	)
-	return i, err
-}
-
-const createRankedChoiceAccessCode = `-- name: CreateRankedChoiceAccessCode :one
-insert into ranked_choice_access_codes (organization_id, school_year_id, program_id, session_id, student_id, code_hash)
-values ($1, $2, $3, $4, $5, $6)
-returning id, organization_id, school_year_id, program_id, session_id, student_id, issued_at, revoked_at
-`
-
-type CreateRankedChoiceAccessCodeParams struct {
-	OrganizationID ids.XID `json:"organization_id"`
-	SchoolYearID   ids.XID `json:"school_year_id"`
-	ProgramID      ids.XID `json:"program_id"`
-	SessionID      ids.XID `json:"session_id"`
-	StudentID      ids.XID `json:"student_id"`
-	CodeHash       string  `json:"code_hash"`
-}
-
-type CreateRankedChoiceAccessCodeRow struct {
-	ID             ids.XID            `json:"id"`
-	OrganizationID ids.XID            `json:"organization_id"`
-	SchoolYearID   ids.XID            `json:"school_year_id"`
-	ProgramID      ids.XID            `json:"program_id"`
-	SessionID      ids.XID            `json:"session_id"`
-	StudentID      ids.XID            `json:"student_id"`
-	IssuedAt       pgtype.Timestamptz `json:"issued_at"`
-	RevokedAt      pgtype.Timestamptz `json:"revoked_at"`
-}
-
-func (q *Queries) CreateRankedChoiceAccessCode(ctx context.Context, arg CreateRankedChoiceAccessCodeParams) (CreateRankedChoiceAccessCodeRow, error) {
-	row := q.db.QueryRow(ctx, createRankedChoiceAccessCode,
-		arg.OrganizationID,
-		arg.SchoolYearID,
-		arg.ProgramID,
-		arg.SessionID,
-		arg.StudentID,
-		arg.CodeHash,
-	)
-	var i CreateRankedChoiceAccessCodeRow
-	err := row.Scan(
-		&i.ID,
-		&i.OrganizationID,
-		&i.SchoolYearID,
-		&i.ProgramID,
-		&i.SessionID,
-		&i.StudentID,
-		&i.IssuedAt,
-		&i.RevokedAt,
 	)
 	return i, err
 }
@@ -326,33 +212,6 @@ func (q *Queries) CreateRankedChoiceSubmission(ctx context.Context, arg CreateRa
 	return i, err
 }
 
-const findActiveRankedChoiceAccessCode = `-- name: FindActiveRankedChoiceAccessCode :one
-select student_id
-from ranked_choice_access_codes
-where organization_id = $1 and school_year_id = $2 and program_id = $3 and session_id = $4 and code_hash = $5 and revoked_at is null
-`
-
-type FindActiveRankedChoiceAccessCodeParams struct {
-	OrganizationID ids.XID `json:"organization_id"`
-	SchoolYearID   ids.XID `json:"school_year_id"`
-	ProgramID      ids.XID `json:"program_id"`
-	SessionID      ids.XID `json:"session_id"`
-	CodeHash       string  `json:"code_hash"`
-}
-
-func (q *Queries) FindActiveRankedChoiceAccessCode(ctx context.Context, arg FindActiveRankedChoiceAccessCodeParams) (ids.XID, error) {
-	row := q.db.QueryRow(ctx, findActiveRankedChoiceAccessCode,
-		arg.OrganizationID,
-		arg.SchoolYearID,
-		arg.ProgramID,
-		arg.SessionID,
-		arg.CodeHash,
-	)
-	var student_id ids.XID
-	err := row.Scan(&student_id)
-	return student_id, err
-}
-
 const findInterestProfileResponseForRegistry = `-- name: FindInterestProfileResponseForRegistry :one
 select id, organization_id, school_year_id, program_id, submission_id, interest_area_id, response, created_at
 from interest_profile_responses
@@ -424,44 +283,6 @@ func (q *Queries) FindInterestProfileSubmissionForRegistry(ctx context.Context, 
 		&i.ActorLabel,
 		&i.SubmittedAt,
 		&i.CreatedAt,
-	)
-	return i, err
-}
-
-const findRankedChoiceAccessCodeForRegistry = `-- name: FindRankedChoiceAccessCodeForRegistry :one
-select id, organization_id, school_year_id, program_id, session_id, student_id, issued_at, revoked_at
-from ranked_choice_access_codes
-where id = $1 and organization_id = $2
-`
-
-type FindRankedChoiceAccessCodeForRegistryParams struct {
-	ID             ids.XID `json:"id"`
-	OrganizationID ids.XID `json:"organization_id"`
-}
-
-type FindRankedChoiceAccessCodeForRegistryRow struct {
-	ID             ids.XID            `json:"id"`
-	OrganizationID ids.XID            `json:"organization_id"`
-	SchoolYearID   ids.XID            `json:"school_year_id"`
-	ProgramID      ids.XID            `json:"program_id"`
-	SessionID      ids.XID            `json:"session_id"`
-	StudentID      ids.XID            `json:"student_id"`
-	IssuedAt       pgtype.Timestamptz `json:"issued_at"`
-	RevokedAt      pgtype.Timestamptz `json:"revoked_at"`
-}
-
-func (q *Queries) FindRankedChoiceAccessCodeForRegistry(ctx context.Context, arg FindRankedChoiceAccessCodeForRegistryParams) (FindRankedChoiceAccessCodeForRegistryRow, error) {
-	row := q.db.QueryRow(ctx, findRankedChoiceAccessCodeForRegistry, arg.ID, arg.OrganizationID)
-	var i FindRankedChoiceAccessCodeForRegistryRow
-	err := row.Scan(
-		&i.ID,
-		&i.OrganizationID,
-		&i.SchoolYearID,
-		&i.ProgramID,
-		&i.SessionID,
-		&i.StudentID,
-		&i.IssuedAt,
-		&i.RevokedAt,
 	)
 	return i, err
 }
@@ -627,65 +448,6 @@ func (q *Queries) GetLatestRankedChoiceSubmission(ctx context.Context, arg GetLa
 	return i, err
 }
 
-const listActiveRankedChoiceAccessCodes = `-- name: ListActiveRankedChoiceAccessCodes :many
-select id, organization_id, school_year_id, program_id, session_id, student_id, issued_at, revoked_at
-from ranked_choice_access_codes
-where organization_id = $1 and school_year_id = $2 and program_id = $3 and session_id = $4 and revoked_at is null
-order by student_id, id
-`
-
-type ListActiveRankedChoiceAccessCodesParams struct {
-	OrganizationID ids.XID `json:"organization_id"`
-	SchoolYearID   ids.XID `json:"school_year_id"`
-	ProgramID      ids.XID `json:"program_id"`
-	SessionID      ids.XID `json:"session_id"`
-}
-
-type ListActiveRankedChoiceAccessCodesRow struct {
-	ID             ids.XID            `json:"id"`
-	OrganizationID ids.XID            `json:"organization_id"`
-	SchoolYearID   ids.XID            `json:"school_year_id"`
-	ProgramID      ids.XID            `json:"program_id"`
-	SessionID      ids.XID            `json:"session_id"`
-	StudentID      ids.XID            `json:"student_id"`
-	IssuedAt       pgtype.Timestamptz `json:"issued_at"`
-	RevokedAt      pgtype.Timestamptz `json:"revoked_at"`
-}
-
-func (q *Queries) ListActiveRankedChoiceAccessCodes(ctx context.Context, arg ListActiveRankedChoiceAccessCodesParams) ([]ListActiveRankedChoiceAccessCodesRow, error) {
-	rows, err := q.db.Query(ctx, listActiveRankedChoiceAccessCodes,
-		arg.OrganizationID,
-		arg.SchoolYearID,
-		arg.ProgramID,
-		arg.SessionID,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListActiveRankedChoiceAccessCodesRow{}
-	for rows.Next() {
-		var i ListActiveRankedChoiceAccessCodesRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.OrganizationID,
-			&i.SchoolYearID,
-			&i.ProgramID,
-			&i.SessionID,
-			&i.StudentID,
-			&i.IssuedAt,
-			&i.RevokedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listAllInterestProfileResponsesForRegistry = `-- name: ListAllInterestProfileResponsesForRegistry :many
 select id, organization_id, school_year_id, program_id, submission_id, interest_area_id, response, created_at
 from interest_profile_responses
@@ -768,53 +530,6 @@ func (q *Queries) ListAllInterestProfileSubmissionsForRegistry(ctx context.Conte
 			&i.ActorLabel,
 			&i.SubmittedAt,
 			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listAllRankedChoiceAccessCodesForRegistry = `-- name: ListAllRankedChoiceAccessCodesForRegistry :many
-select id, organization_id, school_year_id, program_id, session_id, student_id, issued_at, revoked_at
-from ranked_choice_access_codes
-where organization_id = $1
-order by school_year_id, program_id, session_id, student_id, id
-`
-
-type ListAllRankedChoiceAccessCodesForRegistryRow struct {
-	ID             ids.XID            `json:"id"`
-	OrganizationID ids.XID            `json:"organization_id"`
-	SchoolYearID   ids.XID            `json:"school_year_id"`
-	ProgramID      ids.XID            `json:"program_id"`
-	SessionID      ids.XID            `json:"session_id"`
-	StudentID      ids.XID            `json:"student_id"`
-	IssuedAt       pgtype.Timestamptz `json:"issued_at"`
-	RevokedAt      pgtype.Timestamptz `json:"revoked_at"`
-}
-
-func (q *Queries) ListAllRankedChoiceAccessCodesForRegistry(ctx context.Context, organizationID ids.XID) ([]ListAllRankedChoiceAccessCodesForRegistryRow, error) {
-	rows, err := q.db.Query(ctx, listAllRankedChoiceAccessCodesForRegistry, organizationID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListAllRankedChoiceAccessCodesForRegistryRow{}
-	for rows.Next() {
-		var i ListAllRankedChoiceAccessCodesForRegistryRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.OrganizationID,
-			&i.SchoolYearID,
-			&i.ProgramID,
-			&i.SessionID,
-			&i.StudentID,
-			&i.IssuedAt,
-			&i.RevokedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1323,49 +1038,4 @@ func (q *Queries) ListRankedChoiceSubmissions(ctx context.Context, arg ListRanke
 		return nil, err
 	}
 	return items, nil
-}
-
-const revokeRankedChoiceAccessCodeForRegistry = `-- name: RevokeRankedChoiceAccessCodeForRegistry :execrows
-update ranked_choice_access_codes
-set revoked_at = coalesce(revoked_at, now())
-where id = $1 and organization_id = $2
-`
-
-type RevokeRankedChoiceAccessCodeForRegistryParams struct {
-	ID             ids.XID `json:"id"`
-	OrganizationID ids.XID `json:"organization_id"`
-}
-
-func (q *Queries) RevokeRankedChoiceAccessCodeForRegistry(ctx context.Context, arg RevokeRankedChoiceAccessCodeForRegistryParams) (int64, error) {
-	result, err := q.db.Exec(ctx, revokeRankedChoiceAccessCodeForRegistry, arg.ID, arg.OrganizationID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
-}
-
-const revokeRankedChoiceAccessCodes = `-- name: RevokeRankedChoiceAccessCodes :execrows
-update ranked_choice_access_codes
-set revoked_at = coalesce(revoked_at, now())
-where organization_id = $1 and school_year_id = $2 and program_id = $3 and session_id = $4 and revoked_at is null
-`
-
-type RevokeRankedChoiceAccessCodesParams struct {
-	OrganizationID ids.XID `json:"organization_id"`
-	SchoolYearID   ids.XID `json:"school_year_id"`
-	ProgramID      ids.XID `json:"program_id"`
-	SessionID      ids.XID `json:"session_id"`
-}
-
-func (q *Queries) RevokeRankedChoiceAccessCodes(ctx context.Context, arg RevokeRankedChoiceAccessCodesParams) (int64, error) {
-	result, err := q.db.Exec(ctx, revokeRankedChoiceAccessCodes,
-		arg.OrganizationID,
-		arg.SchoolYearID,
-		arg.ProgramID,
-		arg.SessionID,
-	)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
 }

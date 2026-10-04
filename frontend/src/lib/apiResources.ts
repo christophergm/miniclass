@@ -41,8 +41,6 @@ export type InterestProfileSurveyInput = Schemas["InterestProfileSurveyInputBody
 export type InterestProfileSurveyTransitionInput =
   Schemas["TransitionInterestProfileSurveyInputBody"];
 export type InterestProfileSurveyTransition = Schemas["InterestProfileSurveyTransitionResponse"];
-export type InterestProfileSurveyCodes = Schemas["InterestProfileSurveyCodeResponse"];
-export type RankedChoiceAccessCode = Schemas["RankedChoiceAccessCodeResponse"];
 export type PreferenceForm = Schemas["PreferenceFormResponse"];
 export type GuardianPreferenceForms = Schemas["GuardianPreferenceFormsResponse"];
 export type ResponseTracking = Schemas["ResponseTrackingResponse"];
@@ -456,91 +454,6 @@ export const resourceApi = {
         { params: { path: { schoolYearID, programID, surveyID } }, body: value },
       ),
     ),
-  regenerateInterestProfileSurveyCodes: (
-    schoolYearID: string,
-    programID: string,
-    surveyID: string,
-    reason: string,
-  ) =>
-    unwrapList(
-      api.POST(
-        "/api/school-years/{schoolYearID}/programs/{programID}/interest-profile-surveys/{surveyID}/regenerate-codes",
-        { params: { path: { schoolYearID, programID, surveyID } }, body: { reason } },
-      ),
-    ),
-  revokeInterestProfileSurveyCodes: (
-    schoolYearID: string,
-    programID: string,
-    surveyID: string,
-    reason: string,
-  ) =>
-    unwrapNoContent(
-      api.POST(
-        "/api/school-years/{schoolYearID}/programs/{programID}/interest-profile-surveys/{surveyID}/revoke-codes",
-        { params: { path: { schoolYearID, programID, surveyID } }, body: { reason } },
-      ),
-    ),
-
-  getStudentCodeInterestProfileForm: (
-    schoolYearID: string,
-    programID: string,
-    surveyID: string,
-    organizationID: string,
-    code: string,
-  ) =>
-    unwrap(
-      api.POST(
-        "/api/respondent/interest-profile-surveys/{schoolYearID}/{programID}/{surveyID}/form",
-        {
-          params: { path: { schoolYearID, programID, surveyID } },
-          body: { organization_id: organizationID, code },
-        },
-      ),
-    ),
-  submitStudentCodeInterestProfile: (
-    schoolYearID: string,
-    programID: string,
-    surveyID: string,
-    organizationID: string,
-    code: string,
-    answers: PreferenceInterestAnswerInput[],
-  ) =>
-    unwrap(
-      api.POST(
-        "/api/respondent/interest-profile-surveys/{schoolYearID}/{programID}/{surveyID}/submit",
-        {
-          params: { path: { schoolYearID, programID, surveyID } },
-          body: { organization_id: organizationID, code, answers: answers ?? [] },
-        },
-      ),
-    ),
-  getStudentCodeRankedChoiceForm: (
-    schoolYearID: string,
-    programID: string,
-    sessionID: string,
-    organizationID: string,
-    code: string,
-  ) =>
-    unwrap(
-      api.POST("/api/respondent/sessions/{schoolYearID}/{programID}/{sessionID}/form", {
-        params: { path: { schoolYearID, programID, sessionID } },
-        body: { organization_id: organizationID, code },
-      }),
-    ),
-  submitStudentCodeRankedChoice: (
-    schoolYearID: string,
-    programID: string,
-    sessionID: string,
-    organizationID: string,
-    code: string,
-    responses: PreferenceRankedAnswerInput[],
-  ) =>
-    unwrap(
-      api.POST("/api/respondent/sessions/{schoolYearID}/{programID}/{sessionID}/submit", {
-        params: { path: { schoolYearID, programID, sessionID } },
-        body: { organization_id: organizationID, code, responses: responses ?? [] },
-      }),
-    ),
   listGuardianPreferenceForms: () => unwrap(api.GET("/api/guardian/preference-forms")),
   submitGuardianInterestProfile: (
     schoolYearID: string,
@@ -732,30 +645,6 @@ export const resourceApi = {
       api.POST(
         "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/transition",
         { params: { path: { schoolYearID, programID, sessionID } }, body: value },
-      ),
-    ),
-  regenerateRankedChoiceAccessCodes: (
-    schoolYearID: string,
-    programID: string,
-    sessionID: string,
-    reason: string,
-  ) =>
-    unwrapList(
-      api.POST(
-        "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/regenerate-codes",
-        { params: { path: { schoolYearID, programID, sessionID } }, body: { reason } },
-      ),
-    ),
-  revokeRankedChoiceAccessCodes: (
-    schoolYearID: string,
-    programID: string,
-    sessionID: string,
-    reason: string,
-  ) =>
-    unwrapNoContent(
-      api.POST(
-        "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/revoke-codes",
-        { params: { path: { schoolYearID, programID, sessionID } }, body: { reason } },
       ),
     ),
   getCatalogFeasibility: (schoolYearID: string, programID: string, sessionID: string) =>

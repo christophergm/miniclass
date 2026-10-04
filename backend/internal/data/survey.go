@@ -102,17 +102,6 @@ type InterestProfileSurveyAudienceSnapshot struct {
 	CreatedAt      time.Time
 }
 
-type InterestProfileSurveyAccessCode struct {
-	ID             ids.XID
-	OrganizationID ids.XID
-	SchoolYearID   ids.XID
-	ProgramID      ids.XID
-	SurveyID       ids.XID
-	StudentID      ids.XID
-	IssuedAt       time.Time
-	RevokedAt      *time.Time
-}
-
 type InterestProfileSurveyAudienceStudent struct {
 	ID             ids.XID
 	OrganizationID ids.XID
@@ -353,46 +342,6 @@ func (tx *Tx) ListInterestProfileSurveyAudienceSnapshot(ctx context.Context, sch
 	return result, nil
 }
 
-func (tx *Tx) CreateInterestProfileSurveyAccessCode(ctx context.Context, schoolYearID, programID, surveyID, studentID ids.XID, codeHash string) (InterestProfileSurveyAccessCode, error) {
-	row, err := tx.queries.CreateInterestProfileSurveyAccessCode(ctx, db.CreateInterestProfileSurveyAccessCodeParams{OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID, SurveyID: surveyID, StudentID: studentID, CodeHash: codeHash})
-	if err != nil {
-		return InterestProfileSurveyAccessCode{}, fmt.Errorf("create interest profile survey access code: %w", err)
-	}
-	return interestProfileSurveyAccessCode(row)
-}
-
-func (tx *Tx) ListActiveInterestProfileSurveyAccessCodes(ctx context.Context, schoolYearID, programID, surveyID ids.XID) ([]InterestProfileSurveyAccessCode, error) {
-	rows, err := tx.queries.ListActiveInterestProfileSurveyAccessCodes(ctx, db.ListActiveInterestProfileSurveyAccessCodesParams{OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID, SurveyID: surveyID})
-	if err != nil {
-		return nil, fmt.Errorf("list active interest profile survey access codes: %w", err)
-	}
-	result := make([]InterestProfileSurveyAccessCode, 0, len(rows))
-	for _, row := range rows {
-		value, err := interestProfileSurveyAccessCode(row)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, value)
-	}
-	return result, nil
-}
-
-func (tx *Tx) RevokeInterestProfileSurveyAccessCodes(ctx context.Context, schoolYearID, programID, surveyID ids.XID) (int64, error) {
-	count, err := tx.queries.RevokeInterestProfileSurveyAccessCodes(ctx, db.RevokeInterestProfileSurveyAccessCodesParams{OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID, SurveyID: surveyID})
-	if err != nil {
-		return 0, fmt.Errorf("revoke interest profile survey access codes: %w", err)
-	}
-	return count, nil
-}
-
-func (tx *Tx) FindActiveInterestProfileSurveyAccessCode(ctx context.Context, schoolYearID, programID, surveyID ids.XID, codeHash string) (ids.XID, error) {
-	row, err := tx.queries.FindActiveInterestProfileSurveyAccessCode(ctx, db.FindActiveInterestProfileSurveyAccessCodeParams{OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID, SurveyID: surveyID, CodeHash: codeHash})
-	if err != nil {
-		return "", fmt.Errorf("find active interest profile survey access code: %w", err)
-	}
-	return row.StudentID, nil
-}
-
 func (tx *Tx) ListInterestProfileSurveyPriorResponders(ctx context.Context, schoolYearID, programID, surveyID ids.XID) ([]ids.XID, error) {
 	rows, err := tx.queries.ListInterestProfileSurveyPriorResponders(ctx, db.ListInterestProfileSurveyPriorRespondersParams{OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID, SurveyID: &surveyID})
 	if err != nil {
@@ -582,38 +531,6 @@ func (tx *Tx) FindInterestProfileSurveyAudienceSnapshotForRegistry(ctx context.C
 	return interestProfileSurveyAudienceSnapshot(row)
 }
 
-func (tx *Tx) ListAllInterestProfileSurveyAccessCodesForRegistry(ctx context.Context) ([]InterestProfileSurveyAccessCode, error) {
-	rows, err := tx.queries.ListAllInterestProfileSurveyAccessCodesForRegistry(ctx, tx.organizationID)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]InterestProfileSurveyAccessCode, 0, len(rows))
-	for _, row := range rows {
-		value, err := interestProfileSurveyAccessCode(row)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, value)
-	}
-	return result, nil
-}
-
-func (tx *Tx) FindInterestProfileSurveyAccessCodeForRegistry(ctx context.Context, id ids.XID) (InterestProfileSurveyAccessCode, error) {
-	row, err := tx.queries.FindInterestProfileSurveyAccessCodeForRegistry(ctx, db.FindInterestProfileSurveyAccessCodeForRegistryParams{ID: id, OrganizationID: tx.organizationID})
-	if errors.Is(err, pgx.ErrNoRows) {
-		return InterestProfileSurveyAccessCode{}, nil
-	}
-	if err != nil {
-		return InterestProfileSurveyAccessCode{}, err
-	}
-	return interestProfileSurveyAccessCode(row)
-}
-
-func (tx *Tx) RevokeInterestProfileSurveyAccessCodeForRegistry(ctx context.Context, id ids.XID) (bool, error) {
-	rows, err := tx.queries.RevokeInterestProfileSurveyAccessCodeForRegistry(ctx, db.RevokeInterestProfileSurveyAccessCodeForRegistryParams{ID: id, OrganizationID: tx.organizationID})
-	return rows == 1, err
-}
-
 const defaultSurveyScaleVersion = "interest-profile-3-point-v1"
 
 func nullableSurveyTime(value *time.Time) pgtype.Timestamptz {
@@ -694,12 +611,4 @@ func interestProfileSurveyAudienceSnapshot(row db.InterestProfileSurveyAudienceS
 		return InterestProfileSurveyAudienceSnapshot{}, err
 	}
 	return InterestProfileSurveyAudienceSnapshot{ID: row.ID, OrganizationID: row.OrganizationID, SchoolYearID: row.SchoolYearID, ProgramID: row.ProgramID, SurveyID: row.SurveyID, StudentID: row.StudentID, CreatedAt: created}, nil
-}
-
-func interestProfileSurveyAccessCode(row db.InterestProfileSurveyAccessCode) (InterestProfileSurveyAccessCode, error) {
-	issued, err := programTime(row.IssuedAt, "issued_at")
-	if err != nil {
-		return InterestProfileSurveyAccessCode{}, err
-	}
-	return InterestProfileSurveyAccessCode{ID: row.ID, OrganizationID: row.OrganizationID, SchoolYearID: row.SchoolYearID, ProgramID: row.ProgramID, SurveyID: row.SurveyID, StudentID: row.StudentID, IssuedAt: issued, RevokedAt: nullableTime(row.RevokedAt)}, nil
 }

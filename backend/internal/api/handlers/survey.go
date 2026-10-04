@@ -64,7 +64,6 @@ type InterestProfileSurveyResponse struct {
 	Questions             []InterestProfileSurveyQuestionResponse    `json:"questions"`
 	ScaleOptions          []InterestProfileSurveyScaleOptionResponse `json:"scale_options"`
 	AudienceSnapshot      []string                                   `json:"audience_snapshot" doc:"Opaque student identifiers frozen when the survey opened."`
-	ActiveCodes           []InterestProfileSurveyCodeResponse        `json:"active_codes"`
 	CreatedAt             time.Time                                  `json:"created_at"`
 	UpdatedAt             time.Time                                  `json:"updated_at"`
 }
@@ -81,15 +80,6 @@ type InterestProfileSurveyScaleOptionResponse struct {
 	Value   string `json:"value"`
 	Label   string `json:"label"`
 	Ordinal int    `json:"ordinal"`
-}
-
-type InterestProfileSurveyCodeResponse struct {
-	StudentID   string     `json:"student_id" doc:"Opaque student identifier."`
-	DisplayName string     `json:"display_name,omitempty" doc:"Student name for organizer distribution only."`
-	HomeroomID  string     `json:"homeroom_id,omitempty" doc:"Opaque homeroom identifier."`
-	Homeroom    string     `json:"homeroom,omitempty" doc:"Homeroom label for organizer distribution only."`
-	Code        string     `json:"code,omitempty" doc:"Plaintext code is returned only when newly issued."`
-	IssuedAt    *time.Time `json:"issued_at,omitempty" format:"date-time"`
 }
 
 type InterestProfileSurveyListOutput struct {
@@ -114,34 +104,17 @@ type DeleteInterestProfileSurveyInput struct{ InterestProfileSurveyPathInput }
 type TransitionInterestProfileSurveyInput struct {
 	InterestProfileSurveyPathInput
 	Body struct {
-		State           string     `json:"state" enum:"open,closed"`
-		ClosingAt       *time.Time `json:"closing_at,omitempty" format:"date-time"`
-		RegenerateCodes bool       `json:"regenerate_codes,omitempty"`
-		Reason          string     `json:"reason,omitempty"`
+		State     string     `json:"state" enum:"open,closed"`
+		ClosingAt *time.Time `json:"closing_at,omitempty" format:"date-time"`
+		Reason    string     `json:"reason,omitempty"`
 	}
 }
 type InterestProfileSurveyTransitionResponse struct {
-	Survey      InterestProfileSurveyResponse       `json:"survey"`
-	Warnings    []string                            `json:"warnings"`
-	AccessCodes []InterestProfileSurveyCodeResponse `json:"access_codes"`
+	Survey   InterestProfileSurveyResponse `json:"survey"`
+	Warnings []string                      `json:"warnings"`
 }
 type InterestProfileSurveyTransitionOutput struct {
 	Body InterestProfileSurveyTransitionResponse
-}
-type RegenerateInterestProfileSurveyCodesInput struct {
-	InterestProfileSurveyPathInput
-	Body struct {
-		Reason string `json:"reason,omitempty"`
-	}
-}
-type InterestProfileSurveyCodesOutput struct {
-	Body []InterestProfileSurveyCodeResponse
-}
-type InterestProfileSurveyCodeChangeInput struct {
-	InterestProfileSurveyPathInput
-	Body struct {
-		Reason string `json:"reason" minLength:"1"`
-	}
 }
 
 func (h *ProgramHandler) ListInterestProfileSurveys(ctx context.Context, input *ListInterestProfileSurveysInput) (*InterestProfileSurveyListOutput, error) {
@@ -230,48 +203,11 @@ func (h *ProgramHandler) TransitionInterestProfileSurvey(ctx context.Context, in
 	if h == nil || h.service == nil || input == nil {
 		return nil, surveyNotFound()
 	}
-	result, err := h.service.TransitionInterestProfileSurvey(ctx, string(account.OrganizationID), programActor(account), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), ids.XID(input.SurveyID), preference.InterestProfileSurveyTransitionInput{State: data.InterestProfileSurveyState(input.Body.State), ClosingAt: input.Body.ClosingAt, RegenerateCodes: input.Body.RegenerateCodes, Reason: input.Body.Reason})
+	result, err := h.service.TransitionInterestProfileSurvey(ctx, string(account.OrganizationID), programActor(account), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), ids.XID(input.SurveyID), preference.InterestProfileSurveyTransitionInput{State: data.InterestProfileSurveyState(input.Body.State), ClosingAt: input.Body.ClosingAt, Reason: input.Body.Reason})
 	if err != nil {
 		return nil, surveyProblem(err)
 	}
-	codes := make([]InterestProfileSurveyCodeResponse, 0, len(result.AccessCodes))
-	for _, code := range result.AccessCodes {
-		codes = append(codes, InterestProfileSurveyCodeResponse{StudentID: string(code.StudentID), DisplayName: code.DisplayName, HomeroomID: string(code.HomeroomID), Homeroom: code.Homeroom, Code: code.Code})
-	}
-	return &InterestProfileSurveyTransitionOutput{Body: InterestProfileSurveyTransitionResponse{Survey: surveyResponse(result.Survey), Warnings: result.Warnings, AccessCodes: codes}}, nil
-}
-
-func (h *ProgramHandler) RegenerateInterestProfileSurveyCodes(ctx context.Context, input *RegenerateInterestProfileSurveyCodesInput) (*InterestProfileSurveyCodesOutput, error) {
-	account, err := programAccount(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if h == nil || h.service == nil || input == nil {
-		return nil, surveyNotFound()
-	}
-	result, err := h.service.RegenerateInterestProfileSurveyCodes(ctx, string(account.OrganizationID), programActor(account), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), ids.XID(input.SurveyID), input.Body.Reason)
-	if err != nil {
-		return nil, surveyProblem(err)
-	}
-	codes := make([]InterestProfileSurveyCodeResponse, 0, len(result))
-	for _, code := range result {
-		codes = append(codes, InterestProfileSurveyCodeResponse{StudentID: string(code.StudentID), DisplayName: code.DisplayName, HomeroomID: string(code.HomeroomID), Homeroom: code.Homeroom, Code: code.Code})
-	}
-	return &InterestProfileSurveyCodesOutput{Body: codes}, nil
-}
-
-func (h *ProgramHandler) RevokeInterestProfileSurveyCodes(ctx context.Context, input *InterestProfileSurveyCodeChangeInput) (*ProgramDeleteOutput, error) {
-	account, err := programAccount(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if h == nil || h.service == nil || input == nil {
-		return nil, surveyNotFound()
-	}
-	if err := h.service.RevokeInterestProfileSurveyCodes(ctx, string(account.OrganizationID), programActor(account), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), ids.XID(input.SurveyID), input.Body.Reason); err != nil {
-		return nil, surveyProblem(err)
-	}
-	return &ProgramDeleteOutput{}, nil
+	return &InterestProfileSurveyTransitionOutput{Body: InterestProfileSurveyTransitionResponse{Survey: surveyResponse(result.Survey), Warnings: result.Warnings}}, nil
 }
 
 func surveyInput(input InterestProfileSurveyInputBody) preference.InterestProfileSurveyInput {
@@ -313,9 +249,6 @@ func surveyResponse(view preference.InterestProfileSurveyView) InterestProfileSu
 	for _, snapshot := range view.AudienceSnapshot {
 		response.AudienceSnapshot = append(response.AudienceSnapshot, string(snapshot.StudentID))
 	}
-	for _, code := range view.ActiveCodes {
-		response.ActiveCodes = append(response.ActiveCodes, InterestProfileSurveyCodeResponse{StudentID: string(code.StudentID), IssuedAt: &code.IssuedAt})
-	}
 	return response
 }
 
@@ -344,8 +277,6 @@ func surveyProblem(err error) error {
 	switch {
 	case errors.Is(err, pgx.ErrNoRows), strings.Contains(err.Error(), "interest profile survey not found"):
 		return surveyNotFound()
-	case errors.Is(err, preference.ErrAccessCodeReasonRequired):
-		return problems.New(http.StatusBadRequest, problems.ProgramConflict, err.Error())
 	case data.IsSchoolYearClosed(err):
 		return problems.New(http.StatusConflict, problems.SchoolYearClosed, "the school year is closed and cannot be changed")
 	case data.IsSchoolYearPurged(err):

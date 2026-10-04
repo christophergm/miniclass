@@ -125,7 +125,7 @@ export function GuardianAccessPage() {
     <div>
       <h1 className="text-lg font-black tracking-tight">Family access</h1>
       <p className="mt-1 text-sm font-medium text-stone-700">
-        Share your student&apos;s interests and class preferences.
+        Sign in as a guardian to share your student&apos;s interests and class preferences.
       </p>
     </div>
   );
