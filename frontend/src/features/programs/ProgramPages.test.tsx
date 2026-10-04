@@ -637,6 +637,10 @@ describe("program navigation", () => {
     renderProgram();
 
     expect(screen.getByRole("heading", { name: "Sessions" })).toBeInTheDocument();
+    const sessionLink = screen.getByRole("link", { name: "Autumn session" });
+    expect(sessionLink).toHaveAttribute("href", "/y/year-1/programs/program-1/sessions/session-1");
+    expect(sessionLink).toHaveClass("after:absolute", "after:inset-0");
+    expect(screen.queryByRole("button", { name: "Edit Autumn session" })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Students" })).toBeInTheDocument();
     expect(screen.getByText("1")).toBeInTheDocument();
     expect(screen.getByText("out of 2 in 2026–27")).toBeInTheDocument();
