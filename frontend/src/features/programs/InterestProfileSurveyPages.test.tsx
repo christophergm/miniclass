@@ -148,6 +148,34 @@ beforeEach(() => {
 });
 
 describe("InterestProfileSurveysPage", () => {
+  it("uses the full program settings breadcrumb instead of a standalone back link", () => {
+    renderPage();
+
+    const breadcrumb = screen.getByRole("navigation", { name: "Program breadcrumb" });
+    expect(
+      within(breadcrumb)
+        .getAllByRole("link")
+        .filter((link) => link.hasAttribute("href"))
+        .map((link) => link.textContent),
+    ).toEqual(["2026–27", "Enrichment", "Settings"]);
+    expect(within(breadcrumb).getByRole("link", { name: "2026–27" })).toHaveAttribute(
+      "href",
+      "/y/year-1",
+    );
+    expect(within(breadcrumb).getByRole("link", { name: "Enrichment" })).toHaveAttribute(
+      "href",
+      "/y/year-1/programs/program-1",
+    );
+    expect(within(breadcrumb).getByRole("link", { name: "Settings" })).toHaveAttribute(
+      "href",
+      "/y/year-1/programs/program-1/settings",
+    );
+    expect(breadcrumb.querySelector('[aria-current="page"]')).toHaveTextContent(
+      "Interest-profile surveys",
+    );
+    expect(screen.queryByRole("link", { name: /Back to/ })).not.toBeInTheDocument();
+  });
+
   it("authors an ordered survey with an explicit audience", () => {
     renderPage();
 

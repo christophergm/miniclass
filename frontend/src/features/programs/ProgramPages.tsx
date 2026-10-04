@@ -37,6 +37,7 @@ import { activeGradeLevels } from "@/lib/apiResources";
 import { usePeople } from "@/features/people/roster-queries";
 import { useVocabulary } from "@/lib/hooks/useVocabulary";
 import { OfferingSummary } from "./OfferingPages";
+import { ProgramSettingsBreadcrumb } from "./ProgramSettingsBreadcrumb";
 
 import {
   useAddProgramMembership,
@@ -47,6 +48,7 @@ import {
   useCreateSessionNonParticipation,
   useDeleteSessionNonParticipation,
   useProgramInterestAreas,
+  useInterestProfileSurveys,
   useProgramMemberships,
   useProgramObjectiveWeights,
   usePrograms,
@@ -396,6 +398,34 @@ export function ProgramListPage() {
       {year.state === "setup" && <SetupNotice />}
 
       <section className="mt-8">
+        <h2 className="text-2xl font-semibold tracking-tight">People</h2>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <Link
+            className="rounded-lg border bg-card p-5 shadow-sm hover:bg-accent/50"
+            to={`/y/${schoolYearId}/students`}
+          >
+            <h3 className="font-semibold">Students</h3>
+            <p className="mt-3 text-3xl font-semibold">{students.data?.length ?? 0}</p>
+            <span className="mt-4 block text-sm font-medium text-primary">View students →</span>
+          </Link>
+          <Link
+            className="rounded-lg border bg-card p-5 shadow-sm hover:bg-accent/50"
+            to={`/y/${schoolYearId}/adults`}
+          >
+            <h3 className="font-semibold">Adults</h3>
+            <p className="mt-3 text-3xl font-semibold">{adults.data?.length ?? 0}</p>
+            <span className="mt-4 block text-sm font-medium text-primary">View adults →</span>
+          </Link>
+        </div>
+        <Link
+          className="mt-4 inline-block text-sm font-medium text-primary hover:underline"
+          to={`/y/${schoolYearId}/imports`}
+        >
+          Import records →
+        </Link>
+      </section>
+
+      <section className="mt-10">
         <h2 className="text-2xl font-semibold tracking-tight">Programs</h2>
         <p className="mt-2 text-sm text-muted-foreground">
           Author membership, interest areas, sessions, and the catalog for this school year.
@@ -502,34 +532,6 @@ export function ProgramListPage() {
           Create program
         </Button>
       </div>
-
-      <section className="mt-10">
-        <h2 className="text-2xl font-semibold tracking-tight">People</h2>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <Link
-            className="rounded-lg border bg-card p-5 shadow-sm hover:bg-accent/50"
-            to={`/y/${schoolYearId}/students`}
-          >
-            <h3 className="font-semibold">Students</h3>
-            <p className="mt-3 text-3xl font-semibold">{students.data?.length ?? 0}</p>
-            <span className="mt-4 block text-sm font-medium text-primary">View students →</span>
-          </Link>
-          <Link
-            className="rounded-lg border bg-card p-5 shadow-sm hover:bg-accent/50"
-            to={`/y/${schoolYearId}/adults`}
-          >
-            <h3 className="font-semibold">Adults</h3>
-            <p className="mt-3 text-3xl font-semibold">{adults.data?.length ?? 0}</p>
-            <span className="mt-4 block text-sm font-medium text-primary">View adults →</span>
-          </Link>
-        </div>
-        <Link
-          className="mt-4 inline-block text-sm font-medium text-primary hover:underline"
-          to={`/y/${schoolYearId}/imports`}
-        >
-          Import records →
-        </Link>
-      </section>
     </PageFrame>
   );
 }
@@ -578,53 +580,6 @@ function ProgramBreadcrumb({
   );
 }
 
-function ProgramSettingsBreadcrumb({
-  schoolYearId,
-  programId,
-  programName,
-  current,
-}: {
-  schoolYearId: string;
-  programId: string;
-  programName: string;
-  current: string;
-}) {
-  const year = useOutletContext<SchoolYear>();
-
-  return (
-    <Breadcrumb aria-label="Program breadcrumb">
-      <BreadcrumbList>
-        <BreadcrumbItem>
-          <BreadcrumbLink asChild>
-            <Link to={`/y/${schoolYearId}`}>{year.label}</Link>
-          </BreadcrumbLink>
-        </BreadcrumbItem>
-        <BreadcrumbSeparator />
-        <BreadcrumbItem>
-          <BreadcrumbLink asChild>
-            <Link to={`/y/${schoolYearId}/programs/${programId}`}>{programName}</Link>
-          </BreadcrumbLink>
-        </BreadcrumbItem>
-        <BreadcrumbSeparator />
-        <BreadcrumbItem>
-          <BreadcrumbLink asChild>
-            <Link to={`/y/${schoolYearId}/programs/${programId}/settings`}>Settings</Link>
-          </BreadcrumbLink>
-        </BreadcrumbItem>
-        <BreadcrumbSeparator />
-        <BreadcrumbItem>
-          <BreadcrumbPage>{current}</BreadcrumbPage>
-        </BreadcrumbItem>
-      </BreadcrumbList>
-    </Breadcrumb>
-  );
-}
-
-function useProgramName(schoolYearId: string | undefined, programId: string | undefined) {
-  const programs = usePrograms(schoolYearId);
-  return programs.data?.find((program) => program.id === programId)?.name ?? "Program";
-}
-
 export function ProgramDetailPage() {
   const { schoolYearId, programId } = useParams<{ schoolYearId: string; programId: string }>();
   const year = useOutletContext<SchoolYear>();
@@ -632,8 +587,6 @@ export function ProgramDetailPage() {
   const programs = usePrograms(schoolYearId);
   const selected = programs.data?.find((program) => program.id === programId);
   const sessions = useSessions(schoolYearId, programId);
-  const memberships = useProgramMemberships(schoolYearId, programId);
-  const students = usePeople("student", schoolYearId);
   const responseTrackingSummaries = useResponseTrackingSummaries(schoolYearId, programId);
   const createSession = useCreateSession(schoolYearId ?? "", programId ?? "");
   const [createSessionOpen, setCreateSessionOpen] = useState(false);
@@ -760,62 +713,76 @@ export function ProgramDetailPage() {
           />
         </ModalForm>
       </Card>
-      <Card title="Students" description="Students included in this program.">
-        <Link
-          className="block rounded-md hover:bg-accent/50"
-          to={`/y/${schoolYearId}/programs/${programId}/settings/membership`}
-        >
-          <div className="mt-3 flex items-baseline gap-2">
-            <p className="text-3xl font-semibold">{memberships.data?.length ?? 0}</p>
-            <span className="text-sm text-muted-foreground">
-              out of {students.data?.length ?? 0} in {year.label}
-            </span>
-          </div>
-          <span className="mt-4 block text-sm font-medium text-primary">Membership →</span>
-        </Link>
-      </Card>
     </PageFrame>
   );
 }
 
+function SettingsCard({ title, to, children }: { title: string; to: string; children: ReactNode }) {
+  return (
+    <Link
+      aria-label={`Open ${title}`}
+      className="group block rounded-lg border bg-card p-4 shadow-sm transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      to={to}
+    >
+      <div className="flex items-center justify-between gap-4">
+        <h3 className="font-semibold">{title}</h3>
+        <span
+          aria-hidden="true"
+          className="shrink-0 text-sm font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+        >
+          Open →
+        </span>
+      </div>
+      <div className="mt-1 text-sm text-muted-foreground">{children}</div>
+    </Link>
+  );
+}
+
+function SettingsSummary({
+  loading,
+  error,
+  children,
+}: {
+  loading: boolean;
+  error: boolean;
+  children: ReactNode;
+}) {
+  if (error) return <p>Unable to load summary.</p>;
+  if (loading) return <p role="status">Loading summary…</p>;
+  return <>{children}</>;
+}
+
 export function ProgramSettingsPage() {
   const { schoolYearId, programId } = useParams<{ schoolYearId: string; programId: string }>();
-  const programName = useProgramName(schoolYearId, programId);
+  const year = useOutletContext<SchoolYear>();
+  const programs = usePrograms(schoolYearId);
+  const program = programs.data?.find((item) => item.id === programId);
+  const programName = program?.name ?? "Program";
+  const memberships = useProgramMemberships(schoolYearId, programId);
+  const students = usePeople("student", schoolYearId);
+  const areas = useProgramInterestAreas(schoolYearId, programId);
+  const surveys = useInterestProfileSurveys(schoolYearId, programId);
+  const vocabulary = useVocabulary(schoolYearId);
   if (!schoolYearId || !programId)
     return (
       <PageFrame>
         <p>Program is required.</p>
       </PageFrame>
     );
-  const destinations = [
-    {
-      title: "Auto assignment",
-      description:
-        "Automatically add newly registered students who match grade and homeroom criteria.",
-      path: "auto-assignment",
-    },
-    {
-      title: "Membership",
-      description: "Manage the annual students included in this programme.",
-      path: "membership",
-    },
-    {
-      title: "Interest areas",
-      description: "Manage the ordered vocabulary used by this programme.",
-      path: "interest-areas",
-    },
-    {
-      title: "Interest-profile surveys",
-      description: "Compose surveys, choose their audience, and manage response windows.",
-      path: "interest-profile-surveys",
-    },
-
-    {
-      title: "Assignment planner",
-      description: "Tune programme defaults for the automated assignment planner.",
-      path: "assignment-planner",
-    },
-  ] as const;
+  const basePath = `/y/${schoolYearId}/programs/${programId}/settings`;
+  const gradeIDs = program?.auto_assignment_grade_level_ids ?? [];
+  const homeroomIDs = program?.auto_assignment_homeroom_ids ?? [];
+  const gradeLabels = gradeIDs.map(
+    (id) =>
+      vocabulary.data?.grade_levels?.find((grade) => grade.id === id)?.label ?? "Unavailable grade",
+  );
+  const homeroomLabels = homeroomIDs.map(
+    (id) =>
+      vocabulary.data?.homerooms?.find((homeroom) => homeroom.id === id)?.name ??
+      "Unavailable homeroom",
+  );
+  const areaCount = (areas.data ?? []).filter((area) => !area.retired_at).length;
+  const surveyCount = (surveys.data ?? []).filter((survey) => survey.state === "open").length;
   return (
     <PageFrame>
       <ProgramBreadcrumb
@@ -830,20 +797,109 @@ export function ProgramSettingsPage() {
           Manage programme configuration separately from the session authoring workspace.
         </p>
       </div>
-      <div className="mt-8 grid gap-4 md:grid-cols-3">
-        {destinations.map((destination) => (
-          <Link
-            className="rounded-lg border bg-card p-5 shadow-sm hover:bg-accent/50"
-            key={destination.path}
-            to={`/y/${schoolYearId}/programs/${programId}/settings/${destination.path}`}
-          >
-            <h2 className="font-semibold">{destination.title}</h2>
-            <p className="mt-2 text-sm text-muted-foreground">{destination.description}</p>
-            <span className="mt-5 block text-sm font-medium text-primary">
-              Open {destination.title} →
-            </span>
-          </Link>
-        ))}
+      <div className="mt-8 space-y-8">
+        <section aria-labelledby="member-settings-heading">
+          <h2 className="text-xl font-semibold" id="member-settings-heading">
+            Members
+          </h2>
+          <div className="mt-4 space-y-4">
+            <SettingsCard title="Students" to={`${basePath}/membership`}>
+              <SettingsSummary
+                loading={memberships.isLoading || students.isLoading}
+                error={memberships.isError || students.isError}
+              >
+                <p>
+                  <strong className="text-lg font-semibold text-foreground">
+                    {memberships.data?.length ?? 0}
+                  </strong>{" "}
+                  {(memberships.data?.length ?? 0) === 1 ? "student" : "students"} in this program
+                  out of {students.data?.length ?? 0} in {year.label}
+                </p>
+              </SettingsSummary>
+            </SettingsCard>
+            <SettingsCard title="Auto assignment" to={`${basePath}/auto-assignment`}>
+              <SettingsSummary
+                loading={
+                  programs.isLoading ||
+                  (program?.auto_assignment_enabled === true && vocabulary.isLoading)
+                }
+                error={
+                  programs.isError ||
+                  (program?.auto_assignment_enabled === true && vocabulary.isError) ||
+                  (!programs.isLoading && !program)
+                }
+              >
+                <p className="flex items-baseline gap-2">
+                  <Badge variant={program?.auto_assignment_enabled ? "default" : "secondary"}>
+                    {program?.auto_assignment_enabled ? "Enabled" : "Disabled"}
+                  </Badge>
+                  <span>
+                    {program?.auto_assignment_enabled ? (
+                      gradeIDs.length === 0 && homeroomIDs.length === 0 ? (
+                        <>
+                          <strong className="font-semibold text-foreground">All students</strong>{" "}
+                          will be automatically added when they register.
+                        </>
+                      ) : (
+                        <>
+                          Students will be automatically added when they register (Grades:{" "}
+                          <strong className="font-semibold text-foreground">
+                            {gradeLabels.join(", ") || "All"}
+                          </strong>{" "}
+                          · Homerooms:{" "}
+                          <strong className="font-semibold text-foreground">
+                            {homeroomLabels.join(", ") || "All"}
+                          </strong>
+                          ).
+                        </>
+                      )
+                    ) : (
+                      "Students will not be automatically added when they register."
+                    )}
+                  </span>
+                </p>
+              </SettingsSummary>
+            </SettingsCard>
+          </div>
+        </section>
+        <section aria-labelledby="interest-settings-heading">
+          <h2 className="text-xl font-semibold" id="interest-settings-heading">
+            Interests
+          </h2>
+          <div className="mt-4 space-y-4">
+            <SettingsCard title="Interest areas" to={`${basePath}/interest-areas`}>
+              <SettingsSummary loading={areas.isLoading} error={areas.isError}>
+                <p>
+                  <strong className="text-lg font-semibold text-foreground">{areaCount}</strong>{" "}
+                  active interest {areaCount === 1 ? "area defines" : "areas define"} the vocabulary
+                  used by this program.
+                </p>
+              </SettingsSummary>
+            </SettingsCard>
+            <SettingsCard
+              title="Interest-profile surveys"
+              to={`${basePath}/interest-profile-surveys`}
+            >
+              <SettingsSummary loading={surveys.isLoading} error={surveys.isError}>
+                <p>
+                  <strong className="text-lg font-semibold text-foreground">{surveyCount}</strong>{" "}
+                  open {surveyCount === 1 ? "survey" : "surveys"} collecting interest profiles from
+                  this program’s students.
+                </p>
+              </SettingsSummary>
+            </SettingsCard>
+          </div>
+        </section>
+        <section aria-labelledby="assignment-settings-heading">
+          <h2 className="text-xl font-semibold" id="assignment-settings-heading">
+            Assignments
+          </h2>
+          <div className="mt-4">
+            <SettingsCard title="Assignment planner" to={`${basePath}/assignment-planner`}>
+              <p>Tune programme defaults for the automated assignment planner.</p>
+            </SettingsCard>
+          </div>
+        </section>
       </div>
     </PageFrame>
   );
@@ -874,6 +930,14 @@ export function ProgramAutoAssignmentPage() {
   const toggle = (values: string[], id: string) =>
     values.includes(id) ? values.filter((value) => value !== id) : [...values, id];
   const allStudents = grades.length === 0 && homerooms.length === 0;
+  const sameIDs = (current: string[], saved: string[]) =>
+    current.length === saved.length && current.every((id) => saved.includes(id));
+  const dirty = Boolean(
+    selected &&
+      (enabled !== selected.auto_assignment_enabled ||
+        !sameIDs(grades, selected.auto_assignment_grade_level_ids ?? []) ||
+        !sameIDs(homerooms, selected.auto_assignment_homeroom_ids ?? [])),
+  );
   return (
     <PageFrame>
       <ProgramSettingsBreadcrumb
@@ -905,7 +969,7 @@ export function ProgramAutoAssignmentPage() {
           </p>
         )}
         <div className="mt-5 grid gap-6 md:grid-cols-2">
-          <fieldset>
+          <fieldset disabled={!enabled || year.state === "closed"}>
             <legend className="font-medium">Grades</legend>
             <p className="mt-1 text-sm text-muted-foreground">Leave empty for every grade.</p>
             {(vocabulary.data?.grade_levels ?? [])
@@ -921,7 +985,7 @@ export function ProgramAutoAssignmentPage() {
                 </label>
               ))}
           </fieldset>
-          <fieldset>
+          <fieldset disabled={!enabled || year.state === "closed"}>
             <legend className="font-medium">Homerooms</legend>
             <p className="mt-1 text-sm text-muted-foreground">Leave empty for every homeroom.</p>
             {(vocabulary.data?.homerooms ?? [])
@@ -940,12 +1004,12 @@ export function ProgramAutoAssignmentPage() {
         </div>
         <Button
           className="mt-6"
-          disabled={year.state === "closed" || update.isPending}
+          disabled={year.state === "closed" || update.isPending || !dirty}
           onClick={() =>
             update.mutate({ enabled, grade_level_ids: grades, homeroom_ids: homerooms })
           }
         >
-          Save auto assignment
+          Save
         </Button>
         {update.isError && (
           <Problem error={update.error} fallback="Unable to save auto assignment." />
@@ -974,14 +1038,14 @@ export function ProgramMembershipPage() {
     );
   return (
     <PageFrame>
-      <ProgramBreadcrumb
-        current="Membership"
+      <ProgramSettingsBreadcrumb
+        current="Students"
         programId={programId}
         programName={selected?.name ?? "Program"}
         schoolYearId={schoolYearId}
       />
       <div className="mt-2">
-        <h1 className="text-3xl font-semibold tracking-tight">Membership</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Students</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Add the explicit annual set of students. A missing grade is flagged; it never silently
           removes membership.
@@ -1402,45 +1466,40 @@ export function ProgramObjectiveWeightsPage() {
         <p>Programme is required.</p>
       </PageFrame>
     );
+  const header = (
+    <>
+      <ProgramSettingsBreadcrumb
+        current="Assignment planner"
+        programId={programId}
+        programName={program?.name ?? "Program"}
+        schoolYearId={schoolYearId}
+      />
+      <div className="mt-2">
+        <h1 className="text-3xl font-semibold tracking-tight">Assignment planner</h1>
+        <p className="mt-2 max-w-3xl text-sm text-muted-foreground">{objectiveDescription}</p>
+      </div>
+    </>
+  );
   if (weights.isLoading)
     return (
       <PageFrame>
-        <p role="status">Loading assignment planner…</p>
+        {header}
+        <p className="mt-6" role="status">
+          Loading assignment planner…
+        </p>
       </PageFrame>
     );
   if (weights.isError || !weights.data)
     return (
       <PageFrame>
+        {header}
         <Problem error={weights.error} fallback="Unable to load assignment planner." />
       </PageFrame>
     );
   const values = draft ?? weights.data.defaults;
   return (
     <PageFrame>
-      <ObjectiveHeader
-        backLabel="Back to settings"
-        breadcrumb={
-          <>
-            <Link className="hover:underline" to={`/y/${schoolYearId}`}>
-              {year.label}
-            </Link>{" "}
-            /{" "}
-            <Link className="hover:underline" to={`/y/${schoolYearId}/programs/${programId}`}>
-              {program?.name ?? "Program"}
-            </Link>{" "}
-            /{" "}
-            <Link
-              className="hover:underline"
-              to={`/y/${schoolYearId}/programs/${programId}/settings`}
-            >
-              Settings
-            </Link>
-          </>
-        }
-        title="Assignment planner"
-        description={objectiveDescription}
-        backTo={`/y/${schoolYearId}/programs/${programId}/settings`}
-      />
+      {header}
       {readOnly && <ReadOnlyNotice />}
       <Card
         title="Programme defaults"
