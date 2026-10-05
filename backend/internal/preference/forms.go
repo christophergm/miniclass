@@ -333,6 +333,10 @@ func rankedChoiceForm(ctx context.Context, tx *data.Tx, session data.Session, pr
 	if len(offerings) == 0 {
 		return PreferenceForm{}, ErrPreferenceFormNotAvailable
 	}
+	eligible, err := rankedChoiceEligibleOfferings(ctx, tx, session.SchoolYearID, student, offerings)
+	if err != nil {
+		return PreferenceForm{}, err
+	}
 	dates, err := tx.ListMeetingDates(ctx, session.SchoolYearID, session.ProgramID, session.ID)
 	if err != nil {
 		return PreferenceForm{}, err
@@ -342,7 +346,7 @@ func rankedChoiceForm(ctx context.Context, tx *data.Tx, session data.Session, pr
 	for _, date := range dates {
 		meetingDates = append(meetingDates, date.Date)
 	}
-	for _, offering := range offerings {
+	for _, offering := range eligible {
 		form.Offerings = append(form.Offerings, PreferenceFormOffering{ID: offering.ID, Name: offering.Name, Description: offering.Description, MinGradeLevelID: offering.MinGradeLevelID, MaxGradeLevelID: offering.MaxGradeLevelID, Location: offering.Location, MeetingPoint: offering.MeetingPoint, MeetingInstructions: offering.MeetingInstructions, MeetingDates: meetingDates})
 	}
 	submission, responses, err := latestRankedChoiceIfPresent(ctx, tx, session, student.ID)

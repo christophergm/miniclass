@@ -102,10 +102,19 @@ func (s *Service) SubmitRankedChoices(ctx context.Context, organizationID string
 		if err != nil {
 			return err
 		}
-		if err := ValidateRankedChoiceResponseSetWithDepth(input.Responses, offerings, session.RankedChoice.RankDepth); err != nil {
+		student, err := tx.GetStudentByID(ctx, input.SchoolYearID, studentID)
+		if err != nil {
 			return err
 		}
-		created, _, err := tx.CreateRankedChoiceSubmission(ctx, input.SchoolYearID, input.ProgramID, input.SessionID, studentID, input.Channel, input.ActorAdultID, input.Responses)
+		eligible, err := rankedChoiceEligibleOfferings(ctx, tx, input.SchoolYearID, student, offerings)
+		if err != nil {
+			return err
+		}
+		responses := completeHiddenRankedChoiceResponses(input.Responses, offerings, eligible)
+		if err := ValidateRankedChoiceResponseSetWithDepth(responses, offerings, session.RankedChoice.RankDepth); err != nil {
+			return err
+		}
+		created, _, err := tx.CreateRankedChoiceSubmission(ctx, input.SchoolYearID, input.ProgramID, input.SessionID, studentID, input.Channel, input.ActorAdultID, responses)
 		if err != nil {
 			return err
 		}
@@ -113,7 +122,7 @@ func (s *Service) SubmitRankedChoices(ctx context.Context, organizationID string
 		id, year := created.ID, created.SchoolYearID
 		return tx.Record(ctx, audit.Entry{
 			Action: audit.ActionPreferenceSubmission, ObjectType: "ranked_choice_submission", ObjectID: &id, SchoolYearID: &year,
-			ChangeSummary: mustJSON(map[string]any{"student_id": created.StudentID, "program_id": created.ProgramID, "session_id": created.SessionID, "channel": created.Channel, "response_count": len(input.Responses)}),
+			ChangeSummary: mustJSON(map[string]any{"student_id": created.StudentID, "program_id": created.ProgramID, "session_id": created.SessionID, "channel": created.Channel, "response_count": len(responses)}),
 		})
 	})
 	if err != nil {
