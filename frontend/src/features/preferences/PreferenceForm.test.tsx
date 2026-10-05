@@ -159,6 +159,29 @@ describe("ranked choice drag projection", () => {
 });
 
 describe("ranked choice preference form", () => {
+  it("explains grade eligibility and ignores saved answers for classes absent from the form", () => {
+    const onSubmit = renderForm(vi.fn(), {
+      ...rankedForm,
+      session_name: "Spring Session",
+      offerings: [rankedForm.offerings![0]],
+      ranked_answers: [
+        { offering_id: "offering-1", answer: "interested" },
+        { offering_id: "offering-2", answer: "ranked", rank: 1 },
+      ],
+    } as PreferenceForm);
+
+    expect(
+      screen.getByText(
+        "Spring Session - classes that you're eligible for based on your grade are shown",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Art" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Robotics" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Submit my choices" }));
+    expect(screen.getByText("You haven't ranked anything as Very Interested.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Yes, save these preferences" }));
+    expect(onSubmit).toHaveBeenCalledWith([{ offering_id: "offering-1", answer: "interested" }]);
+  });
   it("serializes bucket choices and confirms unanswered offerings", () => {
     const onSubmit = renderForm();
     const art = screen.getByRole("heading", { name: "Art" }).closest("article");

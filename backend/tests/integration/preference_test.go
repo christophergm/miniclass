@@ -510,6 +510,10 @@ func TestPreferenceFormsRespectGuardianScopeAndSupportEverySubmissionMode(t *tes
 	require.NoError(t, err)
 	offeringB, err := factory.CreateOffering(ctx, fixture.year.ID, fixture.program.ID, session.ID, "Synthetic Course B", "Synthetic course B", nil, 10, fixture.grade.ID, fixture.grade.ID, "Room B", "", "", nil)
 	require.NoError(t, err)
+	olderGrade, err := factory.CreateGradeLevel(ctx, fixture.year.ID, "older", "Older grade")
+	require.NoError(t, err)
+	hiddenOffering, err := factory.CreateOffering(ctx, fixture.year.ID, fixture.program.ID, session.ID, "Synthetic Older Course", "Older students only", nil, 10, olderGrade.ID, olderGrade.ID, "Room C", "", "", nil)
+	require.NoError(t, err)
 	_, err = factory.ConfigureRankedChoice(ctx, fixture.year.ID, fixture.program.ID, session.ID, 1, time.Now().UTC().Add(time.Hour))
 	require.NoError(t, err)
 	_, err = factory.TransitionSession(ctx, fixture.year.ID, fixture.program.ID, session.ID, data.SessionCatalogPublished, false, "", nil)
@@ -519,6 +523,8 @@ func TestPreferenceFormsRespectGuardianScopeAndSupportEverySubmissionMode(t *tes
 	rankedForm, err := service.GetRankedChoiceForm(ctx, string(organizationID), fixture.year.ID, fixture.program.ID, session.ID, fixture.student.ID)
 	require.NoError(t, err)
 	require.Len(t, rankedForm.Offerings, 2)
+	require.Equal(t, offeringA.ID, rankedForm.Offerings[0].ID)
+	require.Equal(t, offeringB.ID, rankedForm.Offerings[1].ID)
 	position := 1
 	_, err = service.SubmitRankedChoices(ctx, string(organizationID), respondent, preference.RankedChoiceSubmissionInput{
 		SchoolYearID: fixture.year.ID, ProgramID: fixture.program.ID, SessionID: session.ID, StudentID: fixture.student.ID,
@@ -528,7 +534,14 @@ func TestPreferenceFormsRespectGuardianScopeAndSupportEverySubmissionMode(t *tes
 	require.NoError(t, err)
 	updatedRankedForm, err := service.GetRankedChoiceForm(ctx, string(organizationID), fixture.year.ID, fixture.program.ID, session.ID, fixture.student.ID)
 	require.NoError(t, err)
-	require.Len(t, updatedRankedForm.RankedAnswers, 2)
+	require.Len(t, updatedRankedForm.Offerings, 2)
+	require.Len(t, updatedRankedForm.RankedAnswers, 3)
+	for _, answer := range updatedRankedForm.RankedAnswers {
+		if answer.OfferingID == hiddenOffering.ID {
+			require.Equal(t, data.RankedChoiceNoResponse, answer.Answer)
+			require.Nil(t, answer.Rank)
+		}
+	}
 }
 
 func TestResponseTrackingUsesStudentDenominatorAndGuardianFollowUp(t *testing.T) {

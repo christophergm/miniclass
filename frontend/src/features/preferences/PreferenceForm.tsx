@@ -333,11 +333,10 @@ export function PreferenceFormEditor({
               {studentFirstName ? `Hi, ${studentFirstName} — ` : ""}move classes into the buckets to
               show how you feel.
             </h2>
-            {(form.session_name || form.name) && (
-              <p className="mt-5 inline-flex rounded-full border-2 border-stone-900 bg-[#ffcc2e] px-4 py-1.5 text-sm font-bold text-stone-950 shadow-[3px_3px_0_#1c1917]">
-                {form.session_name || form.name}
-              </p>
-            )}
+            <p className="mt-4 font-medium text-stone-800">
+              {form.session_name || form.name} - classes that you're eligible for based on your
+              grade are shown
+            </p>
           </div>
         </header>
       ) : (
