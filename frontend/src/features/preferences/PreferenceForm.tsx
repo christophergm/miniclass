@@ -333,10 +333,7 @@ export function PreferenceFormEditor({
               {studentFirstName ? `Hi, ${studentFirstName} — ` : ""}move classes into the buckets to
               show how you feel.
             </h2>
-            <p className="mt-4 font-medium text-stone-800">
-              {form.session_name || form.name} - classes that you're eligible for based on your
-              grade are shown
-            </p>
+            <p className="mt-4 font-medium text-stone-800">{form.session_name || form.name}</p>
           </div>
         </header>
       ) : (
@@ -825,9 +822,7 @@ function RankedChoiceEditor({
               style={{ color: rankedBucketTextColors[bucket] }}
             >
               {bucket === "ranked"
-                ? rankDepth >= offerings.length
-                  ? "Put favorites here, in order."
-                  : `Put up to ${rankDepth} favorites here, in order.`
+                ? `Put up to ${rankDepth} favorites here in order`
                 : rankedBucketNotes[bucket]}
             </p>
           </div>
@@ -977,6 +972,13 @@ function RankedChoiceEditor({
     <form className="space-y-5" onSubmit={submit} ref={formRef}>
       <p aria-atomic="true" aria-live="polite" className="sr-only">
         {announcement}
+      </p>
+
+      <p className="text-sm leading-relaxed text-stone-700 sm:text-base">
+        Rank up to <strong>{rankDepth}</strong> classes in <strong>Very interested</strong>, with
+        your favorite first. Mark the rest as either <strong>Interested</strong> or{" "}
+        <strong>Not interested</strong>. Only classes you’re eligible for based on your grade are
+        shown.
       </p>
 
       <div className="grid grid-cols-2 gap-2 md:hidden" aria-label="Choose a preference bucket">
