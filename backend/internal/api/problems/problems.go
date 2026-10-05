@@ -4,6 +4,7 @@ package problems
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"sort"
 
@@ -155,6 +156,42 @@ func New(status int, slug Slug, detail string) *huma.ErrorModel {
 		Status: status,
 		Detail: detail,
 	}
+}
+
+// WithCause retains an internal diagnostic without exposing it in the problem
+// response. Use it when mapping an unexpected service failure to a generic 500.
+// Causes are operational diagnostics: they must not embed personal data, request
+// bodies, credentials, or tokens.
+func WithCause(problem *huma.ErrorModel, cause error) error {
+	return &causedProblem{ErrorModel: problem, cause: cause}
+}
+
+type causedProblem struct {
+	*huma.ErrorModel
+	cause error
+}
+
+func (p *causedProblem) Unwrap() error { return p.cause }
+
+func (p *causedProblem) As(target any) bool {
+	if model, ok := target.(**huma.ErrorModel); ok {
+		*model = p.ErrorModel
+		return true
+	}
+	return false
+}
+
+func (p *causedProblem) MarshalJSON() ([]byte, error) {
+	return json.Marshal(p.ErrorModel)
+}
+
+// Cause returns a retained diagnostic, if one was attached by WithCause.
+func Cause(err error) error {
+	var problem *causedProblem
+	if errors.As(err, &problem) {
+		return problem.cause
+	}
+	return nil
 }
 
 // Write writes a problem response for middleware and router-level failures

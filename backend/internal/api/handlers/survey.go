@@ -288,6 +288,6 @@ func surveyProblem(err error) error {
 	case errors.As(err, &pgErr) && pgErr.Code == "23505":
 		return problems.New(http.StatusConflict, problems.ProgramConflict, "the survey definition conflicts with existing data")
 	default:
-		return problems.New(http.StatusInternalServerError, problems.InternalError, "unable to change interest profile survey data")
+		return problems.WithCause(problems.New(http.StatusInternalServerError, problems.InternalError, "unable to change interest profile survey data"), err)
 	}
 }

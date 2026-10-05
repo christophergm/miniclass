@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 
@@ -97,6 +98,7 @@ func newRouter(options RouterOptions) (chi.Router, huma.API) {
 	}
 	options.Version = version
 	api := humachi.New(router, humaConfig(version))
+	api.UseMiddleware(operationContext)
 	api.UseMiddleware(auth.MiddlewareWithSessions(options.Verifier, options.Identity, options.Sessions, writeAuthError))
 	registerOperations(api, options)
 	addProblemTypesToContract(api.OpenAPI())
@@ -790,7 +792,18 @@ func registerOperation[I, O any](api huma.API, operation huma.Operation, capabil
 	} else {
 		operation.Security = []map[string][]string{{"bearerAuth": {}}}
 	}
-	huma.Register(api, operation, handler)
+	huma.Register(api, operation, func(ctx context.Context, input *I) (*O, error) {
+		output, err := handler(ctx, input)
+		if err != nil {
+			captureHandlerError(ctx, err)
+			var statusError huma.StatusError
+			if !errors.As(err, &statusError) {
+				// Huma otherwise includes the raw error in its public response.
+				err = problems.New(http.StatusInternalServerError, problems.InternalError, "internal server error")
+			}
+		}
+		return output, err
+	})
 }
 
 type apiRootOutput struct {

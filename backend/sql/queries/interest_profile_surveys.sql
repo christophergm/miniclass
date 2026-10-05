@@ -61,6 +61,7 @@ join students s on s.id = pm.student_id
     and s.school_year_id = pm.school_year_id
 where pm.organization_id = $1 and pm.school_year_id = $2 and pm.program_id = $3
     and s.deleted_at is null
+    and not s.is_placeholder
 order by pm.student_id;
 
 -- name: ListInterestProfileSurveyDefinitionStudents :many

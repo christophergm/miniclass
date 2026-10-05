@@ -343,7 +343,7 @@ describe("preference pages", () => {
     expect(screen.getByText("Back at my students")).toBeInTheDocument();
   });
 
-  it("disables saving until a partially completed form is ready to save", () => {
+  it("allows saving a partially completed survey from the unsaved-changes dialog", () => {
     mocks.guardianForms = {
       school_year_id: "year-1",
       students: [
@@ -379,7 +379,18 @@ describe("preference pages", () => {
     fireEvent.click(screen.getAllByRole("button", { name: /^Interested$/ })[0]);
     fireEvent.click(screen.getByRole("button", { name: "← Go back" }));
 
-    expect(screen.getByText("Finish the form before you can save.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Save and go back" })).toBeDisabled();
+    const dialog = within(screen.getByRole("dialog", { name: "Your changes aren’t saved yet" }));
+    expect(dialog.queryByText("Finish the form before you can save.")).not.toBeInTheDocument();
+    expect(dialog.getByRole("button", { name: "Save and go back" })).toBeEnabled();
+    fireEvent.click(dialog.getByRole("button", { name: "Save and go back" }));
+    expect(mocks.guardianMutation.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        answers: [
+          { interest_area_id: "area-1", rating: "interested" },
+          { interest_area_id: "area-2", rating: "unrated" },
+        ],
+      }),
+      expect.anything(),
+    );
   });
 });

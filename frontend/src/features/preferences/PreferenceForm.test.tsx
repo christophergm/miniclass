@@ -48,6 +48,81 @@ function renderForm(onSubmit = vi.fn(), form = rankedForm) {
   return onSubmit;
 }
 
+const interestForm = {
+  ...rankedForm,
+  type: "interest_profile",
+  questions: [
+    { interest_area_id: "area-1", label: "Making", ordinal: 1 },
+    { interest_area_id: "area-2", label: "Gardening", ordinal: 2 },
+  ],
+  scale_options: [
+    { value: "very_interested", label: "Really excited", ordinal: 1 },
+    { value: "interested", label: "Interested", ordinal: 2 },
+    { value: "not_interested", label: "Not interested", ordinal: 3 },
+  ],
+  interest_answers: [],
+} as PreferenceForm;
+
+describe("interest profile preference form", () => {
+  it("submits an entirely unanswered survey as unrated without an unrated button", () => {
+    const onSubmit = renderForm(vi.fn(), interestForm);
+    expect(screen.queryByRole("button", { name: "Leave unrated" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { pressed: false })).toHaveLength(6);
+    expect(screen.getByRole("button", { name: "Submit my choices" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Submit my choices" }));
+    expect(onSubmit).toHaveBeenCalledWith([
+      { interest_area_id: "area-1", rating: "unrated" },
+      { interest_area_id: "area-2", rating: "unrated" },
+    ]);
+  });
+
+  it("preserves rating semantics and cannot clear a selected rating", () => {
+    const onSubmit = renderForm(vi.fn(), interestForm);
+    const topic = screen.getByRole("group", { name: "Making" });
+    const excited = within(topic).getByRole("button", { name: "Really excited" });
+    fireEvent.click(excited);
+    fireEvent.click(excited);
+    expect(excited).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Submit my choices" }));
+    expect(onSubmit).toHaveBeenLastCalledWith([
+      { interest_area_id: "area-1", rating: "very_interested" },
+      { interest_area_id: "area-2", rating: "unrated" },
+    ]);
+    fireEvent.click(within(topic).getByRole("button", { name: "Interested" }));
+    expect(excited).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(screen.getByRole("button", { name: "Submit my choices" }));
+    expect(onSubmit).toHaveBeenLastCalledWith([
+      { interest_area_id: "area-1", rating: "interested" },
+      { interest_area_id: "area-2", rating: "unrated" },
+    ]);
+  });
+
+  it("loads saved ratings while leaving saved unrated topics unselected", () => {
+    const onSubmit = renderForm(vi.fn(), {
+      ...interestForm,
+      interest_answers: [
+        { interest_area_id: "area-1", rating: "not_interested" },
+        { interest_area_id: "area-2", rating: "unrated" },
+      ],
+    });
+    expect(
+      within(screen.getByRole("group", { name: "Making" })).getByRole("button", {
+        name: "Not interested",
+      }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      within(screen.getByRole("group", { name: "Gardening" })).queryByRole("button", {
+        pressed: true,
+      }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Submit my choices" }));
+    expect(onSubmit).toHaveBeenCalledWith([
+      { interest_area_id: "area-1", rating: "not_interested" },
+      { interest_area_id: "area-2", rating: "unrated" },
+    ]);
+  });
+});
+
 describe("ranked choice drag projection", () => {
   const origin = {
     no_response: ["outside"],
