@@ -628,12 +628,12 @@ function RankedChoiceEditor({
           (answers.get(left.id)?.rank ?? Number.MAX_SAFE_INTEGER) -
           (answers.get(right.id)?.rank ?? Number.MAX_SAFE_INTEGER),
       );
-    const rankedIDs = new Set(ranked.slice(0, rankDepth).map((offering) => offering.id));
+    initial.ranked = ranked.slice(0, rankDepth).map((offering) => offering.id);
 
     for (const offering of offerings) {
       const answer = answers.get(offering.id)?.answer ?? "no_response";
-      if (answer === "ranked" && rankedIDs.has(offering.id)) initial.ranked.push(offering.id);
-      else if (answer === "interested" || answer === "not_interested") {
+      if (answer === "ranked") continue;
+      if (answer === "interested" || answer === "not_interested") {
         initial[answer].push(offering.id);
       } else initial.no_response.push(offering.id);
     }

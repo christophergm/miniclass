@@ -208,6 +208,44 @@ describe("ranked choice preference form", () => {
     ]);
   });
 
+  it("restores saved rank order and preserves it when resubmitted and reopened", () => {
+    const form = {
+      ...rankedForm,
+      rank_depth: 2,
+      ranked_answers: [
+        { offering_id: "offering-1", answer: "ranked", rank: 2 },
+        { offering_id: "offering-2", answer: "ranked", rank: 1 },
+      ],
+    } as PreferenceForm;
+    const onSubmit = vi.fn();
+    const editor = render(
+      <PreferenceFormEditor form={form} onSubmit={onSubmit} submitLabel="Submit my choices" />,
+    );
+
+    function expectSavedOrder() {
+      const favorites = screen.getByRole("region", { name: "Very interested" });
+      expect(
+        within(favorites)
+          .getAllByRole("heading", { level: 4 })
+          .map((heading) => heading.textContent),
+      ).toEqual(["Robotics", "Art"]);
+      const robotics = within(favorites)
+        .getByRole("heading", { name: "Robotics" })
+        .closest("article");
+      const art = within(favorites).getByRole("heading", { name: "Art" }).closest("article");
+      expect(within(robotics as HTMLElement).getByLabelText("Rank 1")).toBeInTheDocument();
+      expect(within(art as HTMLElement).getByLabelText("Rank 2")).toBeInTheDocument();
+    }
+
+    expectSavedOrder();
+    fireEvent.click(screen.getByRole("button", { name: "Submit my choices" }));
+    expect(onSubmit).toHaveBeenCalledWith(form.ranked_answers);
+
+    editor.unmount();
+    renderForm(vi.fn(), { ...form, ranked_answers: onSubmit.mock.calls[0][0] });
+    expectSavedOrder();
+  });
+
   it("makes ranked favorites sortable while preserving keyboard move controls", () => {
     const form = {
       ...rankedForm,
