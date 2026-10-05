@@ -155,6 +155,13 @@ describe("GuardianStudentsPage", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Add a student" })[0]);
 
     const dialog = screen.getByRole("dialog", { name: "Tell us about your student" });
+    expect(
+      within(dialog).getByText(
+        "Start with their name. We’ll check whether another guardian has already added them before creating a new record.",
+      ),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("First name")).toBeVisible();
+    expect(within(dialog).getByLabelText("Last name")).toBeVisible();
     const preferredName = within(dialog).getByLabelText("Preferred name (optional)");
     expect(within(dialog).getByRole("combobox", { name: "Grade" })).toBeDisabled();
     expect(within(dialog).getByRole("combobox", { name: "Homeroom/classroom" })).toBeDisabled();
@@ -174,14 +181,14 @@ describe("GuardianStudentsPage", () => {
 
     fireEvent.click(screen.getAllByRole("button", { name: "Add a student" })[0]);
     const dialog = screen.getByRole("dialog", { name: "Tell us about your student" });
-    fireEvent.change(within(dialog).getByLabelText("Given name"), { target: { value: "Sam" } });
-    fireEvent.change(within(dialog).getByLabelText("Family name"), { target: { value: "Lee" } });
+    fireEvent.change(within(dialog).getByLabelText("First name"), { target: { value: "Sam" } });
+    fireEvent.change(within(dialog).getByLabelText("Last name"), { target: { value: "Lee" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Find possible matches" }));
 
     const [result] = screen.getAllByText(/Do any of these look like your student/i);
     expect(result).toHaveClass("border-[#287d96]", "bg-[#d8f2f8]");
     expect(dialog).not.toHaveClass("border-[#287d96]");
-    fireEvent.change(within(dialog).getByLabelText("Given name"), { target: { value: "Samuel" } });
+    fireEvent.change(within(dialog).getByLabelText("First name"), { target: { value: "Samuel" } });
     expect(screen.queryAllByText(/Do any of these look like your student/i)).toHaveLength(0);
   });
 
@@ -194,8 +201,8 @@ describe("GuardianStudentsPage", () => {
 
     fireEvent.click(screen.getAllByRole("button", { name: "Add a student" })[0]);
     const dialog = screen.getByRole("dialog", { name: "Tell us about your student" });
-    fireEvent.change(within(dialog).getByLabelText("Given name"), { target: { value: "Sam" } });
-    fireEvent.change(within(dialog).getByLabelText("Family name"), { target: { value: "Lee" } });
+    fireEvent.change(within(dialog).getByLabelText("First name"), { target: { value: "Sam" } });
+    fireEvent.change(within(dialog).getByLabelText("Last name"), { target: { value: "Lee" } });
     expect(within(dialog).getByRole("radio", { name: "Parent" })).toBeDisabled();
     fireEvent.click(within(dialog).getByRole("button", { name: "Find possible matches" }));
 
@@ -204,14 +211,14 @@ describe("GuardianStudentsPage", () => {
       within(dialog).queryByRole("button", { name: "Find possible matches" }),
     ).not.toBeInTheDocument();
     expect(within(dialog).getByRole("radio", { name: "Parent" })).toBeEnabled();
-    fireEvent.change(within(dialog).getByLabelText("Given name"), { target: { value: "Samuel" } });
+    fireEvent.change(within(dialog).getByLabelText("First name"), { target: { value: "Samuel" } });
     expect(screen.queryByText(/We couldn’t find a match/i)).not.toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "Find possible matches" })).toBeVisible();
     expect(within(dialog).getByRole("radio", { name: "Parent" })).toBeDisabled();
 
     fireEvent.click(within(dialog).getByRole("button", { name: "Find possible matches" }));
     expect(screen.getByText(/We couldn’t find a match/i)).toBeInTheDocument();
-    fireEvent.change(within(dialog).getByLabelText("Family name"), { target: { value: "Leigh" } });
+    fireEvent.change(within(dialog).getByLabelText("Last name"), { target: { value: "Leigh" } });
     expect(screen.queryByText(/We couldn’t find a match/i)).not.toBeInTheDocument();
     expect(within(dialog).getByRole("radio", { name: "Parent" })).toBeDisabled();
   });
@@ -248,7 +255,8 @@ describe("GuardianStudentsPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     const dialog = screen.getByRole("dialog");
-    fireEvent.change(within(dialog).getByLabelText("Given name"), { target: { value: "Samuel" } });
+    expect(within(dialog).getByLabelText("Last name")).toHaveValue("Lee");
+    fireEvent.change(within(dialog).getByLabelText("First name"), { target: { value: "Samuel" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Save changes" }));
 
     expect(mocks.updateMutate).toHaveBeenCalledWith(
