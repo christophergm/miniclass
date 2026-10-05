@@ -72,6 +72,7 @@ vi.mock("./usePrograms", () => {
       { id: "area-1", label: "Making", ordinal: 1, retired_at: null },
       { id: "area-2", label: "Gardening", ordinal: 2, retired_at: null },
       { id: "area-3", label: "Music", ordinal: 3, retired_at: null },
+      { id: "area-4", label: "Retired area", ordinal: 4, retired_at: "2026-09-01T00:00:00Z" },
     ]),
     useCreateInterestProfileSurvey: mutation(mocks.create),
     useUpdateInterestProfileSurvey: mutation(mocks.update),
@@ -176,6 +177,46 @@ describe("InterestProfileSurveysPage", () => {
     expect(screen.queryByRole("link", { name: /Back to/ })).not.toBeInTheDocument();
   });
 
+  it("customizes labels without changing the fixed optimizer meanings", () => {
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "Create survey" }));
+    const dialog = within(screen.getByRole("dialog"));
+    fireEvent.change(dialog.getByLabelText("Survey name"), { target: { value: "Label survey" } });
+
+    expect(dialog.queryByRole("button", { name: "Add rating option" })).not.toBeInTheDocument();
+    expect(dialog.queryByRole("button", { name: /Remove rating option/ })).not.toBeInTheDocument();
+    expect(dialog.queryByLabelText(/Rating value/)).not.toBeInTheDocument();
+    for (const quality of ["High", "Acceptable", "Unwanted"]) {
+      expect(dialog.getByText(quality)).toBeInTheDocument();
+    }
+    expect(dialog.getByText(/changing a label does not change its meaning/)).toBeInTheDocument();
+    fireEvent.change(dialog.getByLabelText("Rating label 1"), {
+      target: { value: " Really excited " },
+    });
+    fireEvent.click(dialog.getByRole("button", { name: "Create survey" }));
+    expect(mocks.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scale_options: [
+          { value: "very_interested", label: "Really excited" },
+          { value: "interested", label: "Interested" },
+          { value: "not_interested", label: "Not interested" },
+        ],
+      }),
+      expect.any(Object),
+    );
+  });
+
+  it("requires a nonblank label for each fixed rating", () => {
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "Create survey" }));
+    const input = screen.getByLabelText("Rating label 1") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "" } });
+    expect(input).toBeRequired();
+    expect(input.checkValidity()).toBe(false);
+    fireEvent.change(input, { target: { value: "   " } });
+    expect(input.checkValidity()).toBe(false);
+  });
+
   it("authors an ordered survey with an explicit audience", () => {
     renderPage();
 
@@ -201,6 +242,58 @@ describe("InterestProfileSurveysPage", () => {
         name: "Refresh",
         audience: { type: "explicit_students", student_ids: ["student-2"] },
         questions: [{ interest_area_id: "area-2" }, { interest_area_id: "area-1" }],
+      }),
+      expect.any(Object),
+    );
+  });
+
+  it("adds all active interest areas to a new survey in vocabulary order", () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Create survey" }));
+    const dialog = within(screen.getByRole("dialog"));
+    fireEvent.change(dialog.getByLabelText("Survey name"), { target: { value: "All interests" } });
+    fireEvent.click(dialog.getByRole("button", { name: "Add all" }));
+
+    expect(dialog.getByRole("button", { name: "Add all" })).toBeDisabled();
+    expect(dialog.getByRole("combobox", { name: "Available interest areas" })).toBeDisabled();
+    expect(mocks.create).not.toHaveBeenCalled();
+    fireEvent.click(dialog.getByRole("button", { name: "Create survey" }));
+
+    expect(mocks.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        questions: [
+          { interest_area_id: "area-1" },
+          { interest_area_id: "area-2" },
+          { interest_area_id: "area-3" },
+        ],
+      }),
+      expect.any(Object),
+    );
+  });
+
+  it("appends only remaining areas while preserving the selected order", () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Create survey" }));
+    const dialog = within(screen.getByRole("dialog"));
+    fireEvent.change(dialog.getByLabelText("Survey name"), { target: { value: "Custom order" } });
+    fireEvent.change(dialog.getByRole("combobox", { name: "Available interest areas" }), {
+      target: { value: "area-3" },
+    });
+    fireEvent.click(dialog.getByRole("button", { name: "Add all" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Remove Making" }));
+    expect(dialog.getByRole("button", { name: "Add all" })).toBeEnabled();
+    fireEvent.click(dialog.getByRole("button", { name: "Add all" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Create survey" }));
+
+    expect(mocks.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        questions: [
+          { interest_area_id: "area-3" },
+          { interest_area_id: "area-2" },
+          { interest_area_id: "area-1" },
+        ],
       }),
       expect.any(Object),
     );

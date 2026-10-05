@@ -218,6 +218,62 @@ func TestRankedChoiceWindowFollowsSessionLifecycle(t *testing.T) {
 	require.WithinDuration(t, newDeadline, *reopened.Session.RankedChoice.Deadline, time.Second)
 }
 
+// SPEC §11.7 permits placeholder membership but prohibits preferences; §13.6.4
+// snapshots only eligible respondents when a survey opens.
+func TestInterestProfileSurveyExcludesPlaceholderMembers(t *testing.T) {
+	harness := testharness.Open(t)
+	ctx := harness.Context
+	organizationID := harness.MintOrganization(t)
+	actor := audit.Actor{Type: audit.ActorTypeSystem, Label: "placeholder survey audience test"}
+	factory := factories.New(harness.Database, string(organizationID), actor)
+	fixture := createPreferenceFixture(t, harness, factory, "placeholder audience")
+	peopleService := people.New(harness.Database)
+	placeholder, err := peopleService.CreatePlaceholderStudent(ctx, string(organizationID), fixture.year.ID, actor, people.PlaceholderStudentInput{
+		LegalGivenName: "Unknown", LegalFamilyName: "Synthetic", GradeLevelID: fixture.grade.ID, HomeroomID: fixture.student.HomeroomID, Reason: "synthetic unregistered member",
+	})
+	require.NoError(t, err)
+	_, err = factory.AddProgramMembership(ctx, fixture.year.ID, fixture.program.ID, placeholder.ID)
+	require.NoError(t, err)
+	service := preference.New(harness.Database)
+	prior, err := service.CreateInterestProfileSurvey(ctx, string(organizationID), actor, fixture.year.ID, fixture.program.ID, preference.InterestProfileSurveyInput{
+		Name: "Synthetic prior survey", Questions: []preference.InterestProfileSurveyQuestionInput{{InterestAreaID: fixture.area.ID}},
+	})
+	require.NoError(t, err)
+	notResponded := data.SurveyNotResponded
+	for _, audience := range []preference.InterestProfileSurveyAudienceInput{
+		{Type: data.SurveyAudienceAllMembers},
+		{Type: data.SurveyAudienceGradeLevel, GradeLevelID: &fixture.grade.ID},
+		{Type: data.SurveyAudienceResponseState, PriorSurveyID: &prior.Survey.ID, ResponseState: &notResponded},
+	} {
+		t.Run(string(audience.Type), func(t *testing.T) {
+			survey, err := service.CreateInterestProfileSurvey(ctx, string(organizationID), actor, fixture.year.ID, fixture.program.ID, preference.InterestProfileSurveyInput{
+				Name: "Synthetic audience survey", Audience: audience, Questions: []preference.InterestProfileSurveyQuestionInput{{InterestAreaID: fixture.area.ID}},
+			})
+			require.NoError(t, err)
+			closingAt := time.Now().UTC().Add(time.Hour)
+			opened, err := service.TransitionInterestProfileSurvey(ctx, string(organizationID), actor, fixture.year.ID, fixture.program.ID, survey.Survey.ID, preference.InterestProfileSurveyTransitionInput{State: data.InterestProfileSurveyOpen, ClosingAt: &closingAt})
+			require.NoError(t, err)
+			require.Equal(t, data.InterestProfileSurveyOpen, opened.Survey.Survey.State)
+			require.Len(t, opened.Survey.AudienceSnapshot, 1)
+			require.Equal(t, fixture.student.ID, opened.Survey.AudienceSnapshot[0].StudentID)
+		})
+	}
+	latePlaceholder, err := peopleService.CreatePlaceholderStudent(ctx, string(organizationID), fixture.year.ID, actor, people.PlaceholderStudentInput{
+		LegalGivenName: "Unknown", LegalFamilyName: "Late Synthetic", GradeLevelID: fixture.grade.ID, HomeroomID: fixture.student.HomeroomID, Reason: "synthetic late member",
+	})
+	require.NoError(t, err)
+	_, err = factory.AddProgramMembership(ctx, fixture.year.ID, fixture.program.ID, latePlaceholder.ID)
+	require.NoError(t, err, "placeholder membership must not attempt late survey audience insertion")
+	surveys, err := service.ListInterestProfileSurveys(ctx, string(organizationID), fixture.year.ID, fixture.program.ID)
+	require.NoError(t, err)
+	for _, survey := range surveys {
+		if survey.Survey.State == data.InterestProfileSurveyOpen {
+			require.Len(t, survey.AudienceSnapshot, 1)
+			require.Equal(t, fixture.student.ID, survey.AudienceSnapshot[0].StudentID)
+		}
+	}
+}
+
 func TestInterestProfileSurveyLifecycleFreezesAudienceAndRetainsScale(t *testing.T) {
 	harness := testharness.Open(t)
 	ctx := harness.Context

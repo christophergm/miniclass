@@ -44,9 +44,9 @@ type SurveyFormValues = {
 };
 
 const defaultScaleOptions = [
-  { value: "very_interested", label: "Very interested" },
-  { value: "interested", label: "Interested" },
-  { value: "not_interested", label: "Not interested" },
+  { value: "very_interested", label: "Very interested", quality: "High" },
+  { value: "interested", label: "Interested", quality: "Acceptable" },
+  { value: "not_interested", label: "Not interested", quality: "Unwanted" },
 ];
 
 const emptyForm: SurveyFormValues = {
@@ -111,12 +111,11 @@ function formValues(survey?: InterestProfileSurvey): SurveyFormValues {
       .slice()
       .sort((a, b) => a.ordinal - b.ordinal)
       .map((question) => question.interest_area_id),
-    scaleOptions: (survey.scale_options ?? []).length
-      ? (survey.scale_options ?? [])
-          .slice()
-          .sort((a, b) => a.ordinal - b.ordinal)
-          .map((option) => ({ value: option.value, label: option.label }))
-      : defaultScaleOptions.map((option) => ({ ...option })),
+    scaleOptions: defaultScaleOptions.map((option) => ({
+      value: option.value,
+      label:
+        survey.scale_options?.find((item) => item.value === option.value)?.label ?? option.label,
+    })),
     scaleVersion: survey.scale_version || "v1",
   };
 }
@@ -137,9 +136,10 @@ function inputFor(values: SurveyFormValues): InterestProfileSurveyInput {
     audience,
     scale_version: values.scaleVersion.trim() || "v1",
     questions: values.questionIDs.map((interest_area_id) => ({ interest_area_id })),
-    scale_options: values.scaleOptions
-      .filter((option) => option.value.trim() && option.label.trim())
-      .map((option) => ({ value: option.value.trim(), label: option.label.trim() })),
+    scale_options: values.scaleOptions.map((option) => ({
+      value: option.value,
+      label: option.label.trim(),
+    })),
   };
 }
 
@@ -242,6 +242,19 @@ function SurveyForm({
               </option>
             ))}
           </select>
+          <Button
+            disabled={readOnly || availableAreas.length === 0}
+            onClick={() =>
+              onChange({
+                ...value,
+                questionIDs: [...value.questionIDs, ...availableAreas.map((area) => area.id)],
+              })
+            }
+            type="button"
+            variant="outline"
+          >
+            Add all
+          </Button>
           <span className="self-center text-xs text-muted-foreground">Adding places it last</span>
         </div>
         {selectedAreas.length === 0 && (
@@ -440,28 +453,16 @@ function SurveyForm({
       <fieldset className="space-y-3">
         <legend className="text-sm font-medium">Rating scale</legend>
         <p className="text-sm text-muted-foreground">
-          These labels are frozen when the survey opens. Add or remove rows to match the question.
+          Customize the labels shown to students. The three ratings and their optimizer meanings are
+          fixed; changing a label does not change its meaning. Labels are frozen when the survey
+          opens.
         </p>
         <div className="space-y-2">
           {value.scaleOptions.map((option, index) => (
-            <div
-              className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]"
-              key={`${index}-${option.value}`}
-            >
-              <Input
-                aria-label={`Rating value ${index + 1}`}
-                disabled={readOnly}
-                onChange={(event) =>
-                  onChange({
-                    ...value,
-                    scaleOptions: value.scaleOptions.map((item, itemIndex) =>
-                      itemIndex === index ? { ...item, value: event.target.value } : item,
-                    ),
-                  })
-                }
-                placeholder="Internal value"
-                value={option.value}
-              />
+            <div className="grid gap-2 sm:grid-cols-[1fr_1fr] sm:items-center" key={option.value}>
+              <span className="text-sm">
+                Optimizer meaning: <strong>{defaultScaleOptions[index].quality}</strong>
+              </span>
               <Input
                 aria-label={`Rating label ${index + 1}`}
                 disabled={readOnly}
@@ -474,39 +475,14 @@ function SurveyForm({
                   })
                 }
                 placeholder="Label shown to students"
+                required
+                pattern={".*\\S.*"}
+                title="Enter a label containing at least one non-whitespace character."
                 value={option.label}
               />
-              <Button
-                aria-label={`Remove rating option ${index + 1}`}
-                disabled={readOnly || value.scaleOptions.length <= 1}
-                onClick={() =>
-                  onChange({
-                    ...value,
-                    scaleOptions: value.scaleOptions.filter((_, itemIndex) => itemIndex !== index),
-                  })
-                }
-                size="sm"
-                type="button"
-                variant="outline"
-              >
-                Remove
-              </Button>
             </div>
           ))}
         </div>
-        <Button
-          disabled={readOnly}
-          onClick={() =>
-            onChange({
-              ...value,
-              scaleOptions: [...value.scaleOptions, { value: "", label: "" }],
-            })
-          }
-          type="button"
-          variant="outline"
-        >
-          Add rating option
-        </Button>
       </fieldset>
 
       <div className="flex flex-wrap gap-2">

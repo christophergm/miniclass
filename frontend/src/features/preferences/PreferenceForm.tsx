@@ -460,16 +460,6 @@ function InterestProfileEditor({
       hoverStyle:
         "hover:-translate-y-0.5 hover:border-[#ed9a82] hover:bg-[#f5c5b6] hover:text-[#ad4429] hover:shadow-[4px_4px_0_#ad4429]",
     },
-    {
-      value: "unrated",
-      label: "Leave unrated",
-      icon: "?",
-      style: "border-[#78c5d9] bg-[#d5eef4] text-[#287d96] shadow-[2px_2px_0_#78c5d9]",
-      activeStyle:
-        "-translate-y-0.5 border-[#78c5d9] bg-[#b9e5f0] text-[#287d96] shadow-[4px_4px_0_#287d96]",
-      hoverStyle:
-        "hover:-translate-y-0.5 hover:border-[#78c5d9] hover:bg-[#b9e5f0] hover:text-[#287d96] hover:shadow-[4px_4px_0_#287d96]",
-    },
   ] as const;
   const [ratings, setRatings] = useState<Record<string, string>>({});
 
@@ -481,34 +471,34 @@ function InterestProfileEditor({
     setRatings(initial);
   }, [form]);
 
-  const missing = questions.some((question) => !ratings[question.interest_area_id]);
-  const canSubmit = !missing && !isSubmitting && questions.length > 0;
+  const canSubmit = !isSubmitting && questions.length > 0;
   useEffect(() => onCanSubmitChange?.(canSubmit), [canSubmit, onCanSubmitChange]);
   const values = useMemo<PreferenceInterestAnswerInput[]>(
     () =>
       questions.map((question) => ({
         interest_area_id: question.interest_area_id,
-        rating: ratings[question.interest_area_id] as PreferenceInterestAnswerInput["rating"],
+        rating: (ratings[question.interest_area_id] ??
+          "unrated") as PreferenceInterestAnswerInput["rating"],
       })),
     [questions, ratings],
   );
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!missing) onSubmit(values);
+    if (canSubmit) onSubmit(values);
   }
 
   return (
     <form className="space-y-6 px-5 py-6 sm:px-8 sm:py-8" onSubmit={submit} ref={formRef}>
       <div className="overflow-hidden rounded-2xl border-4 border-[#ddd6bf] bg-[#fffaf0] shadow-[5px_5px_0_#d8c7b5]">
         <div className="border-b-2 border-[#ddd6bf] bg-[#fffaf0] px-4 py-3 text-sm font-black text-stone-950 sm:px-5">
-          Pick one answer for each topic
+          Choose a rating for each topic you want to answer. Unanswered topics stay unrated.
         </div>
         <div className="divide-y-2 divide-[#ddd6bf]">
           {questions.map((question) => (
             <fieldset className="p-4 sm:p-5" key={question.interest_area_id}>
               <legend className="sr-only">{question.label}</legend>
-              <div className="grid gap-3 lg:grid-cols-[minmax(13rem,1fr)_repeat(4,minmax(0,1fr))] lg:items-center">
+              <div className="grid gap-3 lg:grid-cols-[minmax(13rem,1fr)_repeat(3,minmax(0,1fr))] lg:items-center">
                 <p className="text-lg font-black text-stone-950">{question.label}</p>
                 {choices.map((choice) => {
                   const selected = ratings[question.interest_area_id] === choice.value;
@@ -547,9 +537,6 @@ function InterestProfileEditor({
           ))}
         </div>
       </div>
-      {missing && (
-        <p className="text-sm text-muted-foreground">Choose one response for each area.</p>
-      )}
       {error && (
         <p className="text-sm text-destructive" role="alert">
           {error}
