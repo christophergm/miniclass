@@ -148,11 +148,11 @@ export function GuardianStudentsPage() {
         open={addOpen}
         tone="guardian"
         title="Tell us about your student"
-        description="Start with their name. We’ll check for an existing Mini Class record before creating anything new."
+        description="Start with their name. We’ll check whether another guardian has already added them before creating a new record."
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="text-sm font-medium" htmlFor="guardian-student-given-name">
-            Given name
+            First name
             <Input
               className={`mt-2 ${guardianFieldClass}`}
               id="guardian-student-given-name"
@@ -164,7 +164,7 @@ export function GuardianStudentsPage() {
             />
           </label>
           <label className="text-sm font-medium" htmlFor="guardian-student-family-name">
-            Family name
+            Last name
             <Input
               className={`mt-2 ${guardianFieldClass}`}
               id="guardian-student-family-name"
@@ -649,7 +649,7 @@ function StudentEditor({
       }}
     >
       <label className="block text-sm font-medium" htmlFor="guardian-student-edit-given-name">
-        Given name
+        First name
         <Input
           className={`mt-2 ${guardianFieldClass}`}
           id="guardian-student-edit-given-name"
@@ -659,7 +659,7 @@ function StudentEditor({
         />
       </label>
       <label className="block text-sm font-medium" htmlFor="guardian-student-edit-family-name">
-        Family name
+        Last name
         <Input
           className={`mt-2 ${guardianFieldClass}`}
           id="guardian-student-edit-family-name"
