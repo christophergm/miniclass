@@ -159,6 +159,20 @@ describe("ranked choice drag projection", () => {
 });
 
 describe("ranked choice preference form", () => {
+  it.each([1, 2, 4])("explains the configured ranking limit of %i", (rankDepth) => {
+    renderForm(vi.fn(), { ...rankedForm, rank_depth: rankDepth });
+
+    const instructions = screen.getByText(/Rank up to/);
+    expect(instructions).toHaveTextContent(
+      `Rank up to ${rankDepth} classes in Very interested, with your favorite first. Mark the rest as either Interested or Not interested. Only classes you’re eligible for based on your grade are shown.`,
+    );
+    expect(
+      within(screen.getByRole("region", { name: "Very interested" })).getByText(
+        `Put up to ${rankDepth} favorites here in order`,
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("explains grade eligibility and ignores saved answers for classes absent from the form", () => {
     const onSubmit = renderForm(vi.fn(), {
       ...rankedForm,
@@ -170,11 +184,7 @@ describe("ranked choice preference form", () => {
       ],
     } as PreferenceForm);
 
-    expect(
-      screen.getByText(
-        "Spring Session - classes that you're eligible for based on your grade are shown",
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Spring Session")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Art" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Robotics" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Submit my choices" }));
