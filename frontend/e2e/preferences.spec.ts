@@ -65,6 +65,68 @@ async function mockSession(page: Page, token: string) {
   }, token);
 }
 
+test("student vocabulary dropdowns expose a scrollbar and allow selecting off-screen options", async ({
+  page,
+}) => {
+  await mockSession(page, "guardian-token");
+  await mockGuardianContext(page);
+  await page.route("**/api/guardian/vocabulary", (route) =>
+    route.fulfill({
+      json: {
+        school_year_id: "year-1",
+        grade_levels: Array.from({ length: 20 }, (_, index) => ({
+          id: `grade-${index + 1}`,
+          label: `Grade ${index + 1}`,
+        })),
+        homerooms: Array.from({ length: 20 }, (_, index) => ({
+          id: `room-${index + 1}`,
+          label: `Room ${index + 1}`,
+        })),
+      },
+    }),
+  );
+  await page.route("**/api/guardian/students", (route) => route.fulfill({ json: [] }));
+  await page.route("**/api/guardian/students/candidates?**", (route) =>
+    route.fulfill({ json: [] }),
+  );
+  await page.route("**/api/guardian/preference-forms", (route) =>
+    route.fulfill({ json: { school_year_id: "year-1", students: [] } }),
+  );
+
+  await page.goto("/guardian/students");
+  await page.getByRole("button", { name: "Add a student" }).first().click();
+  await page.getByLabel("First name", { exact: true }).fill("Synthetic");
+  await page.getByLabel("Last name", { exact: true }).fill("Student");
+  await page.getByRole("button", { name: "Find possible matches" }).click();
+
+  for (const [label, lastOption] of [
+    ["Grade", "Grade 20"],
+    ["Homeroom/classroom", "Room 20"],
+  ]) {
+    const trigger = page.getByRole("combobox", { name: label, exact: true });
+    await expect(trigger).toBeEnabled();
+    await trigger.click();
+    const viewport = page.locator("[data-radix-select-viewport]");
+    await expect(viewport).toBeVisible();
+    await expect
+      .poll(() => viewport.evaluate((element) => element.scrollHeight > element.clientHeight))
+      .toBe(true);
+    const scrollbar = await viewport.evaluate((element) => ({
+      width: getComputedStyle(element).scrollbarWidth,
+      display: getComputedStyle(element, "::-webkit-scrollbar").display,
+      thumb: getComputedStyle(element, "::-webkit-scrollbar-thumb").backgroundColor,
+    }));
+    expect(scrollbar.width).toBe("auto");
+    expect(scrollbar.display).toBe("block");
+    expect(scrollbar.thumb).not.toBe("rgba(0, 0, 0, 0)");
+    await viewport.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    await page.getByRole("option", { name: lastOption, exact: true }).click();
+    await expect(trigger).toHaveText(lastOption);
+  }
+});
+
 test("a guardian signs in and submits for each scoped student on a phone", async ({ page }) => {
   const forms = [
     interestForm("student-1", "Synthetic One"),
