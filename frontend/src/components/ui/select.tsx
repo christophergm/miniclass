@@ -34,7 +34,7 @@ const SelectContent = React.forwardRef<
   <SelectPrimitive.Portal>
     <SelectPrimitive.Content
       className={cn(
-        "relative z-50 max-h-72 min-w-32 overflow-hidden rounded-xl border-2 border-stone-950 bg-[#fffaf0] text-stone-950 shadow-[4px_4px_0_#1c1917] data-[state=closed]:animate-out data-[state=open]:animate-in",
+        "relative z-50 flex max-h-[min(18rem,var(--radix-select-content-available-height,18rem))] min-w-32 flex-col overflow-hidden rounded-xl border-2 border-stone-950 bg-[#fffaf0] text-stone-950 shadow-[4px_4px_0_#1c1917] data-[state=closed]:animate-out data-[state=open]:animate-in",
         position === "popper" && "translate-y-1",
         className,
       )}
@@ -42,7 +42,12 @@ const SelectContent = React.forwardRef<
       ref={ref}
       {...props}
     >
-      <SelectPrimitive.Viewport className="p-1">{children}</SelectPrimitive.Viewport>
+      <SelectPrimitive.Viewport
+        className="min-h-0 flex-1 p-1 [&::-webkit-scrollbar]:block! [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-stone-500 [&::-webkit-scrollbar-track]:bg-stone-200"
+        style={{ scrollbarWidth: "auto" }}
+      >
+        {children}
+      </SelectPrimitive.Viewport>
     </SelectPrimitive.Content>
   </SelectPrimitive.Portal>
 ));
