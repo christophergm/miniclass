@@ -70,6 +70,25 @@ class PinnedPlacement:
     offering_id: str
 
 
+@dataclass(frozen=True)
+class Placement:
+    participant_id: str
+    offering_id: str
+
+
+@dataclass(frozen=True)
+class AuthorizedPinnedException:
+    participant_id: str
+    offering_id: str
+    rule: str
+
+
+EXCEPTION_RULE_CAPACITY = "capacity"
+EXCEPTION_RULE_GRADE = "grade"
+EXCEPTION_RULE_EXCLUSION = "exclusion"
+EXCEPTION_RULES = (EXCEPTION_RULE_CAPACITY, EXCEPTION_RULE_GRADE, EXCEPTION_RULE_EXCLUSION)
+
+
 def _required_string(document: dict[str, Any], key: str) -> str:
     value = document.get(key)
     if not isinstance(value, str) or not value:
@@ -77,7 +96,17 @@ def _required_string(document: dict[str, Any], key: str) -> str:
     return value
 
 
-def parse_request(document: Any) -> tuple[int, float, int, tuple[Participant, ...], tuple[Offering, ...], tuple[PinnedPlacement, ...]]:
+def parse_request(document: Any) -> tuple[
+    int,
+    float,
+    int,
+    tuple[Participant, ...],
+    tuple[Offering, ...],
+    tuple[PinnedPlacement, ...],
+    tuple[Placement, ...],
+    tuple[AuthorizedPinnedException, ...],
+    tuple[Placement, ...],
+]:
     if not isinstance(document, dict):
         raise ContractError("request must be an object")
     if document.get("version") != CONTRACT_VERSION:
@@ -157,7 +186,39 @@ def parse_request(document: Any) -> tuple[int, float, int, tuple[Participant, ..
             key=lambda pin: (pin.participant_id, pin.offering_id),
         )
     )
-    return seed, float(limit), high_rank_max, participants, offerings, pins
+    exclusions = _parse_placements(document, "exclusions")
+    raw_exceptions = document.get("authorized_pinned_exceptions", [])
+    if not isinstance(raw_exceptions, list) or any(not isinstance(exception, dict) for exception in raw_exceptions):
+        raise ContractError("authorized_pinned_exceptions must be an array of objects")
+    exceptions = tuple(
+        sorted(
+            (
+                AuthorizedPinnedException(
+                    _required_string(exception, "participant_id"),
+                    _required_string(exception, "offering_id"),
+                    _required_string(exception, "rule"),
+                )
+                for exception in raw_exceptions
+            ),
+            key=lambda exception: (exception.participant_id, exception.offering_id, exception.rule),
+        )
+    )
+    if any(exception.rule not in EXCEPTION_RULES for exception in exceptions):
+        raise ContractError("authorized pinned exception rule must be capacity, grade, or exclusion")
+    prior_placements = _parse_placements(document, "prior_placements")
+    return seed, float(limit), high_rank_max, participants, offerings, pins, exclusions, exceptions, prior_placements
+
+
+def _parse_placements(document: dict[str, Any], key: str) -> tuple[Placement, ...]:
+    raw_placements = document.get(key, [])
+    if not isinstance(raw_placements, list) or any(not isinstance(placement, dict) for placement in raw_placements):
+        raise ContractError(f"{key} must be an array of objects")
+    return tuple(
+        sorted(
+            (Placement(_required_string(placement, "participant_id"), _required_string(placement, "offering_id")) for placement in raw_placements),
+            key=lambda placement: (placement.participant_id, placement.offering_id),
+        )
+    )
 
 
 def _parse_ranked_choices(item: dict[str, Any], offering_ids: set[str]) -> RankedChoices | None:

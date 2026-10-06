@@ -158,3 +158,24 @@
 - Focused tests cover cross-program references, rollback of a failed CAS operation, repeats, removal, and conflict visibility. Passed focused Go tests, `make format`, `make lint-backend`, and `git diff --check`; full gate remains to run.
 - `make check` reaches Backend tests but cannot start because external container `/miniclass-mailpit` owns the fixed Compose name. Removed only the failed attempt's empty worktree volume/network; do not remove that container.
 - CI initially caught missing `NoAuditRequired` declarations on idempotent no-op mutations; amended `a75ad23` adds them. Recheck the replacement PR head's Backend tests before handoff.
+
+## Issue #294 — solver exclusions and authorised pinned exceptions
+
+- In progress. The merged #293 implementation provides the persisted exclusion and
+  placement-override concepts; this issue is limited to their canonical solver
+  contract, feasibility semantics, and synthetic scenarios (SPEC §§16.3, 16.7,
+  17.3, 17.8–17.10).
+- Predecessor #293 is closed and `origin/main` is the current worktree base.
+- Added canonical exclusions, placement-bound `capacity`, `grade`, and
+  `exclusion` exceptions, and inactive prior-placement baselines to both
+  contracts. The Python feasibility model permits an exception only on its
+  matching pin, reserves capacity excess without spare capacity, and reports
+  stale/invalid constraints.
+- Passed local solver pytest (51), `go test ./...` in `backend/`, `make
+  format`, `make lint-backend`, `make generate`, and `git diff --check`.
+  `make check` remains unable to start because the externally owned healthy
+  `/miniclass-mailpit` container holds the fixed Compose name; this run removed
+  only its own empty network and volume afterward.
+- PR #310 is open, ready, and green on all 13 current-head CI checks. The
+  slowest were generated-code drift (1m51) and backend tests (1m50); no review
+  or inline comments were present at handoff.

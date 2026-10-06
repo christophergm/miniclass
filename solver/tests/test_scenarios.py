@@ -16,6 +16,7 @@ from scenario_harness import SCENARIOS, compile_request, expected_result
         ("interest-preferences", 14),
         ("lexicographic", 15),
         ("pins", 16),
+        ("exclusions-exceptions", 20),
         ("infeasible", 17),
         ("determinism", 18),
         ("expected-scale", 19),
@@ -97,12 +98,21 @@ def _assert_complete_eligible_capacity_respecting_result(request: dict[str, obje
     assignments = result["assignments"]
     participants = {participant["id"]: participant for participant in request["participants"]}  # type: ignore[index]
     offerings = {offering["id"]: offering for offering in request["offerings"]}  # type: ignore[index]
+    pins = {(pin["participant_id"], pin["offering_id"]) for pin in request["pins"]}  # type: ignore[index]
+    exceptions = {(exception["participant_id"], exception["offering_id"], exception["rule"]) for exception in request["authorized_pinned_exceptions"]}  # type: ignore[index]
+    exclusions = {(exclusion["participant_id"], exclusion["offering_id"]) for exclusion in request["exclusions"]}  # type: ignore[index]
 
     assert {assignment["participant_id"] for assignment in assignments} == set(participants)  # type: ignore[index]
     used_capacity: dict[str, int] = {}
     for assignment in assignments:  # type: ignore[union-attr]
         participant = participants[assignment["participant_id"]]
         offering = offerings[assignment["offering_id"]]
-        assert offering["min_grade_ordinal"] <= participant["grade_ordinal"] <= offering["max_grade_ordinal"]
+        pair = (assignment["participant_id"], assignment["offering_id"])
+        assert offering["min_grade_ordinal"] <= participant["grade_ordinal"] <= offering["max_grade_ordinal"] or (*pair, "grade") in exceptions
+        assert pair not in exclusions or (*pair, "exclusion") in exceptions
         used_capacity[assignment["offering_id"]] = used_capacity.get(assignment["offering_id"], 0) + 1
-    assert all(used_capacity[offering_id] <= offerings[offering_id]["capacity"] for offering_id in used_capacity)
+    for offering_id, used in used_capacity.items():
+        pinned = sum(1 for pin in pins if pin[1] == offering_id)
+        capacity_exceptions = sum(1 for participant_id, candidate_offering_id, rule in exceptions if candidate_offering_id == offering_id and rule == "capacity" and (participant_id, candidate_offering_id) in pins)
+        allowed = max(offerings[offering_id]["capacity"], pinned) if capacity_exceptions else offerings[offering_id]["capacity"]
+        assert used <= allowed

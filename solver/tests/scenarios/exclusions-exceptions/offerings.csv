@@ -1,0 +1,4 @@
+id,capacity,min_grade_ordinal,max_grade_ordinal,interest_area_id
+offering-exception-full,0,1,1,
+offering-exception-senior,1,2,2,
+offering-exception-fallback,1,1,1,

@@ -1,0 +1,4 @@
+status,participant_id,offering_id,realized_quality
+optimal,student-exception-001,offering-exception-full,top
+optimal,student-exception-002,offering-exception-senior,top
+optimal,student-exception-003,offering-exception-fallback,neutral

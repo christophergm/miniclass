@@ -47,6 +47,9 @@ def compile_request(
     interest_ratings = _rows(directories, "interest-ratings.csv", ("participant_id", "interest_area_id", "rating"))
     ranked_choices = _rows(directories, "ranked-choices.csv", ("participant_id", "offering_id", "response", "rank"))
     pins = _rows(directories, "pins.csv", ("participant_id", "offering_id"), required=False)
+    exclusions = _rows(directories, "exclusions.csv", ("participant_id", "offering_id"), required=False)
+    exceptions = _rows(directories, "authorized-pinned-exceptions.csv", ("participant_id", "offering_id", "rule"), required=False)
+    prior_placements = _rows(directories, "prior-placements.csv", ("participant_id", "offering_id"), required=False)
 
     ratings_by_participant: dict[str, list[dict[str, str]]] = defaultdict(list)
     for rating in interest_ratings:
@@ -88,6 +91,11 @@ def compile_request(
             for offering in offerings
         ],
         "pins": [{"participant_id": pin["participant_id"], "offering_id": pin["offering_id"]} for pin in pins],
+        "exclusions": [{"participant_id": exclusion["participant_id"], "offering_id": exclusion["offering_id"]} for exclusion in exclusions],
+        "authorized_pinned_exceptions": [
+            {"participant_id": exception["participant_id"], "offering_id": exception["offering_id"], "rule": exception["rule"]} for exception in exceptions
+        ],
+        "prior_placements": [{"participant_id": placement["participant_id"], "offering_id": placement["offering_id"]} for placement in prior_placements],
     }
 
 

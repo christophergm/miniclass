@@ -1,0 +1,4 @@
+participant_id,offering_id,response,rank
+student-exception-001,offering-exception-full,ranked,1
+student-exception-002,offering-exception-senior,ranked,1
+student-exception-003,offering-exception-full,ranked,1

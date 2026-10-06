@@ -26,13 +26,16 @@ const (
 )
 
 type Request struct {
-	Version              string            `json:"version"`
-	Seed                 int64             `json:"seed"`
-	MaxDeterministicTime float64           `json:"max_deterministic_time"`
-	QualityConfig        QualityConfig     `json:"quality_config"`
-	Participants         []Participant     `json:"participants"`
-	Offerings            []Offering        `json:"offerings"`
-	Pins                 []PinnedPlacement `json:"pins"`
+	Version              string                      `json:"version"`
+	Seed                 int64                       `json:"seed"`
+	MaxDeterministicTime float64                     `json:"max_deterministic_time"`
+	QualityConfig        QualityConfig               `json:"quality_config"`
+	Participants         []Participant               `json:"participants"`
+	Offerings            []Offering                  `json:"offerings"`
+	Pins                 []PinnedPlacement           `json:"pins"`
+	Exclusions           []Placement                 `json:"exclusions"`
+	AuthorizedExceptions []AuthorizedPinnedException `json:"authorized_pinned_exceptions"`
+	PriorPlacements      []Placement                 `json:"prior_placements"`
 }
 
 // QualityConfig holds the program's v0 ranked-choice boundary from SPEC
@@ -79,6 +82,28 @@ type Offering struct {
 type PinnedPlacement struct {
 	ParticipantID string `json:"participant_id"`
 	OfferingID    string `json:"offering_id"`
+}
+
+// Placement identifies one participant-offering pair. Exclusions are solver
+// hard rules; prior placements are the canonical baseline for later stability
+// optimization (SPEC §§17.3, 17.9).
+type Placement struct {
+	ParticipantID string `json:"participant_id"`
+	OfferingID    string `json:"offering_id"`
+}
+
+const (
+	ExceptionRuleCapacity  = "capacity"
+	ExceptionRuleGrade     = "grade"
+	ExceptionRuleExclusion = "exclusion"
+)
+
+// AuthorizedPinnedException is a deliberately recorded exception for exactly
+// one pin. It never grants a general relaxation to another decision.
+type AuthorizedPinnedException struct {
+	ParticipantID string `json:"participant_id"`
+	OfferingID    string `json:"offering_id"`
+	Rule          string `json:"rule"`
 }
 
 type Response struct {
@@ -178,6 +203,32 @@ func (r *Request) Canonicalize() error {
 			return errors.New("solver pins require a participant_id and offering_id")
 		}
 	}
+	if r.Exclusions == nil {
+		r.Exclusions = []Placement{}
+	}
+	if r.PriorPlacements == nil {
+		r.PriorPlacements = []Placement{}
+	}
+	for _, placements := range [][]Placement{r.Exclusions, r.PriorPlacements} {
+		for _, placement := range placements {
+			if placement.ParticipantID == "" || placement.OfferingID == "" {
+				return errors.New("solver placements require a participant_id and offering_id")
+			}
+		}
+	}
+	if r.AuthorizedExceptions == nil {
+		r.AuthorizedExceptions = []AuthorizedPinnedException{}
+	}
+	for _, exception := range r.AuthorizedExceptions {
+		if exception.ParticipantID == "" || exception.OfferingID == "" {
+			return errors.New("authorized pinned exceptions require a participant_id and offering_id")
+		}
+		switch exception.Rule {
+		case ExceptionRuleCapacity, ExceptionRuleGrade, ExceptionRuleExclusion:
+		default:
+			return errors.New("authorized pinned exception rule must be capacity, grade, or exclusion")
+		}
+	}
 	sort.Slice(r.Offerings, func(i, j int) bool { return r.Offerings[i].ID < r.Offerings[j].ID })
 	sort.Slice(r.Participants, func(i, j int) bool { return r.Participants[i].ID < r.Participants[j].ID })
 	sort.Slice(r.Pins, func(i, j int) bool {
@@ -186,7 +237,28 @@ func (r *Request) Canonicalize() error {
 		}
 		return r.Pins[i].ParticipantID < r.Pins[j].ParticipantID
 	})
+	sortPlacements(r.Exclusions)
+	sortPlacements(r.PriorPlacements)
+	sort.Slice(r.AuthorizedExceptions, func(i, j int) bool {
+		left, right := r.AuthorizedExceptions[i], r.AuthorizedExceptions[j]
+		if left.ParticipantID != right.ParticipantID {
+			return left.ParticipantID < right.ParticipantID
+		}
+		if left.OfferingID != right.OfferingID {
+			return left.OfferingID < right.OfferingID
+		}
+		return left.Rule < right.Rule
+	})
 	return nil
+}
+
+func sortPlacements(placements []Placement) {
+	sort.Slice(placements, func(i, j int) bool {
+		if placements[i].ParticipantID == placements[j].ParticipantID {
+			return placements[i].OfferingID < placements[j].OfferingID
+		}
+		return placements[i].ParticipantID < placements[j].ParticipantID
+	})
 }
 
 func (p *Participant) canonicalizePreferences(offeringIDs map[string]struct{}) error {

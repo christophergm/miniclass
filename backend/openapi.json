@@ -725,6 +725,26 @@
         ],
         "type": "object"
       },
+      "AuthorizedPinnedException": {
+        "additionalProperties": false,
+        "properties": {
+          "offering_id": {
+            "type": "string"
+          },
+          "participant_id": {
+            "type": "string"
+          },
+          "rule": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "participant_id",
+          "offering_id",
+          "rule"
+        ],
+        "type": "object"
+      },
       "CatalogAreaGapResponse": {
         "additionalProperties": false,
         "properties": {
@@ -4792,6 +4812,22 @@
         ],
         "type": "object"
       },
+      "Placement": {
+        "additionalProperties": false,
+        "properties": {
+          "offering_id": {
+            "type": "string"
+          },
+          "participant_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "participant_id",
+          "offering_id"
+        ],
+        "type": "object"
+      },
       "PreferenceFormInterestAnswerResponse": {
         "additionalProperties": false,
         "properties": {
@@ -5993,6 +6029,24 @@
       "Request": {
         "additionalProperties": false,
         "properties": {
+          "authorized_pinned_exceptions": {
+            "items": {
+              "$ref": "#/components/schemas/AuthorizedPinnedException"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "exclusions": {
+            "items": {
+              "$ref": "#/components/schemas/Placement"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "max_deterministic_time": {
             "format": "double",
             "type": "number"
@@ -6024,6 +6078,15 @@
               "null"
             ]
           },
+          "prior_placements": {
+            "items": {
+              "$ref": "#/components/schemas/Placement"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "quality_config": {
             "$ref": "#/components/schemas/QualityConfig"
           },
@@ -6042,7 +6105,10 @@
           "quality_config",
           "participants",
           "offerings",
-          "pins"
+          "pins",
+          "exclusions",
+          "authorized_pinned_exceptions",
+          "prior_placements"
         ],
         "type": "object"
       },
