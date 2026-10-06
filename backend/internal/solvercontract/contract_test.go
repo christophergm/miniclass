@@ -98,11 +98,27 @@ func TestCanonicalJSONValidatesAndOrdersPreferenceInputs(t *testing.T) {
 			{ParticipantID: "student-a", OfferingID: "offering-b"},
 			{ParticipantID: "student-a", OfferingID: "offering-a"},
 		},
+		Exclusions: []Placement{{ParticipantID: "student-a", OfferingID: "offering-b"}, {ParticipantID: "student-a", OfferingID: "offering-a"}},
+		AuthorizedExceptions: []AuthorizedPinnedException{
+			{ParticipantID: "student-a", OfferingID: "offering-b", Rule: ExceptionRuleExclusion},
+			{ParticipantID: "student-a", OfferingID: "offering-a", Rule: ExceptionRuleGrade},
+		},
+		PriorPlacements: []Placement{{ParticipantID: "student-a", OfferingID: "offering-b"}, {ParticipantID: "student-a", OfferingID: "offering-a"}},
 	}
 
 	encoded, err := CanonicalJSON(request)
 	require.NoError(t, err)
-	require.JSONEq(t, `{"version":"v1","seed":1,"max_deterministic_time":1,"quality_config":{"high_rank_max":3},"participants":[{"id":"student-a","grade_ordinal":1,"ranked_choices":{"choices":[{"offering_id":"offering-a","response":"ranked","rank":1},{"offering_id":"offering-b","response":"interested"}]},"interest_profile":[{"interest_area_id":"area-a","rating":"very_interested"},{"interest_area_id":"area-b","rating":"interested"}]}],"offerings":[{"id":"offering-a","capacity":1,"min_grade_ordinal":1,"max_grade_ordinal":1,"interest_area_id":"area-a"},{"id":"offering-b","capacity":1,"min_grade_ordinal":1,"max_grade_ordinal":1}],"pins":[{"participant_id":"student-a","offering_id":"offering-a"},{"participant_id":"student-a","offering_id":"offering-b"}]}`, string(encoded))
+	require.JSONEq(t, `{"version":"v1","seed":1,"max_deterministic_time":1,"quality_config":{"high_rank_max":3},"participants":[{"id":"student-a","grade_ordinal":1,"ranked_choices":{"choices":[{"offering_id":"offering-a","response":"ranked","rank":1},{"offering_id":"offering-b","response":"interested"}]},"interest_profile":[{"interest_area_id":"area-a","rating":"very_interested"},{"interest_area_id":"area-b","rating":"interested"}]}],"offerings":[{"id":"offering-a","capacity":1,"min_grade_ordinal":1,"max_grade_ordinal":1,"interest_area_id":"area-a"},{"id":"offering-b","capacity":1,"min_grade_ordinal":1,"max_grade_ordinal":1}],"pins":[{"participant_id":"student-a","offering_id":"offering-a"},{"participant_id":"student-a","offering_id":"offering-b"}],"exclusions":[{"participant_id":"student-a","offering_id":"offering-a"},{"participant_id":"student-a","offering_id":"offering-b"}],"authorized_pinned_exceptions":[{"participant_id":"student-a","offering_id":"offering-a","rule":"grade"},{"participant_id":"student-a","offering_id":"offering-b","rule":"exclusion"}],"prior_placements":[{"participant_id":"student-a","offering_id":"offering-a"},{"participant_id":"student-a","offering_id":"offering-b"}]}`, string(encoded))
+}
+
+func TestCanonicalJSONRejectsUnknownAuthorizedPinnedExceptionRule(t *testing.T) {
+	_, err := CanonicalJSON(Request{
+		Version: Version, Seed: 1, MaxDeterministicTime: 1, QualityConfig: QualityConfig{HighRankMax: 3},
+		Offerings:            []Offering{{ID: "offering-a", Capacity: 1, MinGradeOrdinal: 1, MaxGradeOrdinal: 1}},
+		Participants:         []Participant{{ID: "student-a", GradeOrdinal: 1}},
+		AuthorizedExceptions: []AuthorizedPinnedException{{ParticipantID: "student-a", OfferingID: "offering-a", Rule: "all-rules"}},
+	})
+	require.Error(t, err)
 }
 
 func TestCanonicalJSONRetainsStalePinsForSolverDiagnostics(t *testing.T) {

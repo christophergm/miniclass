@@ -1,0 +1,4 @@
+participant_id,offering_id,rule
+student-exception-001,offering-exception-full,capacity
+student-exception-002,offering-exception-senior,grade
+student-exception-002,offering-exception-senior,exclusion

@@ -7,9 +7,11 @@ request, allowing rule interactions without a database or a production export.
 Required inputs are `students.csv` (`id,grade_ordinal`), `offerings.csv`
 (`id,capacity,min_grade_ordinal,max_grade_ordinal,interest_area_id`),
 `interest-ratings.csv` (`participant_id,interest_area_id,rating`), and
-`ranked-choices.csv` (`participant_id,offering_id,response,rank`). `pins.csv`
-is optional and has `participant_id,offering_id`. Empty optional fields are
-encoded as empty CSV cells. `expected.csv` has
+`ranked-choices.csv` (`participant_id,offering_id,response,rank`). Optional
+`pins.csv`, `exclusions.csv`, and `prior-placements.csv` each have
+`participant_id,offering_id`; `authorized-pinned-exceptions.csv` has
+`participant_id,offering_id,rule`. Empty optional fields are encoded as empty
+CSV cells. `expected.csv` has
 `status,participant_id,offering_id,realized_quality`; an assignment may be
 omitted when the scenario asserts only a status and general solver invariants.
 

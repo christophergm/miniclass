@@ -143,6 +143,53 @@ def test_pins_are_fixed_before_optimization_and_consume_capacity() -> None:
     assert assignment_qualities(result) == {"pinned": "unwanted", "unlocked": "acceptable"}
 
 
+def test_exclusions_remain_hard_rules_for_unpinned_decisions() -> None:
+    result = solve(
+        request(
+            offerings=[
+                {"id": "excluded", "capacity": 1, "min_grade_ordinal": 1, "max_grade_ordinal": 1},
+                {"id": "fallback", "capacity": 1, "min_grade_ordinal": 1, "max_grade_ordinal": 1},
+            ],
+            participants=[ranked_participant("student", [("excluded", "ranked", 1), ("fallback", "interested", None)])],
+            exclusions=[{"participant_id": "student", "offering_id": "excluded"}],
+        )
+    )
+
+    assert assignment_offerings(result) == {"student": "fallback"}
+
+
+def test_authorized_exceptions_apply_only_to_the_matching_pin() -> None:
+    result = solve(
+        request(
+            offerings=[
+                {"id": "senior", "capacity": 1, "min_grade_ordinal": 2, "max_grade_ordinal": 2},
+                {"id": "fallback", "capacity": 1, "min_grade_ordinal": 1, "max_grade_ordinal": 1},
+            ],
+            participants=[{"id": "pinned", "grade_ordinal": 1}, {"id": "other", "grade_ordinal": 1}],
+            pins=[{"participant_id": "pinned", "offering_id": "senior"}],
+            exceptions=[{"participant_id": "pinned", "offering_id": "senior", "rule": "grade"}],
+        )
+    )
+
+    assert assignment_offerings(result) == {"pinned": "senior", "other": "fallback"}
+
+
+def test_capacity_exception_reserves_the_pinned_excess_without_a_spare_seat() -> None:
+    result = solve(
+        request(
+            offerings=[
+                {"id": "full", "capacity": 1, "min_grade_ordinal": 1, "max_grade_ordinal": 1},
+                {"id": "fallback", "capacity": 1, "min_grade_ordinal": 1, "max_grade_ordinal": 1},
+            ],
+            participants=[{"id": "pinned-a", "grade_ordinal": 1}, {"id": "pinned-b", "grade_ordinal": 1}, {"id": "other", "grade_ordinal": 1}],
+            pins=[{"participant_id": "pinned-a", "offering_id": "full"}, {"participant_id": "pinned-b", "offering_id": "full"}],
+            exceptions=[{"participant_id": "pinned-b", "offering_id": "full", "rule": "capacity"}],
+        )
+    )
+
+    assert assignment_offerings(result) == {"pinned-a": "full", "pinned-b": "full", "other": "fallback"}
+
+
 def test_pin_survives_unrelated_preference_change() -> None:
     base = request(
         offerings=[
@@ -195,6 +242,28 @@ def test_impossible_pins_are_reported_without_partial_assignments(pins: list[dic
     assert result["status"] == "infeasible"
     assert result["assignments"] == []
     assert expected_diagnostic in result["conflict_diagnostics"]
+
+
+@pytest.mark.parametrize(
+    ("exceptions", "expected_code"),
+    [
+        ([{"participant_id": "student", "offering_id": "art", "rule": "exclusion"}], "pinned-exception-exclusion-not-needed"),
+        ([{"participant_id": "student", "offering_id": "art", "rule": "grade"}], "pinned-exception-grade-not-needed"),
+    ],
+)
+def test_stale_authorized_exceptions_are_reported(exceptions: list[dict[str, str]], expected_code: str) -> None:
+    result = solve(
+        request(
+            offerings=[{"id": "art", "capacity": 1, "min_grade_ordinal": 1, "max_grade_ordinal": 1}],
+            participants=[{"id": "student", "grade_ordinal": 1}],
+            pins=[{"participant_id": "student", "offering_id": "art"}],
+            exceptions=exceptions,
+        )
+    )
+
+    assert result["status"] == "infeasible"
+    assert result["assignments"] == []
+    assert expected_code in {diagnostic["code"] for diagnostic in result["conflict_diagnostics"]}
 
 
 def test_lexicographic_objective_protects_unwanted_before_aggregate_satisfaction() -> None:
@@ -269,7 +338,14 @@ def test_input_order_does_not_change_seeded_result() -> None:
 
 
 def request(
-    *, offerings: list[dict[str, object]], participants: list[dict[str, object]], seed: int = 7, pins: list[dict[str, str]] | None = None
+    *,
+    offerings: list[dict[str, object]],
+    participants: list[dict[str, object]],
+    seed: int = 7,
+    pins: list[dict[str, str]] | None = None,
+    exclusions: list[dict[str, str]] | None = None,
+    exceptions: list[dict[str, str]] | None = None,
+    prior_placements: list[dict[str, str]] | None = None,
 ) -> dict[str, object]:
     return {
         "version": CONTRACT_VERSION,
@@ -279,6 +355,9 @@ def request(
         "offerings": offerings,
         "participants": participants,
         "pins": pins or [],
+        "exclusions": exclusions or [],
+        "authorized_pinned_exceptions": exceptions or [],
+        "prior_placements": prior_placements or [],
     }
 
 
