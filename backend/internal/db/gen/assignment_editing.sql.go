@@ -160,6 +160,34 @@ func (q *Queries) DeleteAssignmentOverrideForRegistry(ctx context.Context, arg D
 	return result.RowsAffected(), nil
 }
 
+const deleteAssignmentOverrides = `-- name: DeleteAssignmentOverrides :execrows
+delete from assignment_overrides
+where organization_id = $1 and school_year_id = $2 and program_id = $3
+  and session_id = $4 and assignment_id = $5
+`
+
+type DeleteAssignmentOverridesParams struct {
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+	ProgramID      ids.XID `json:"program_id"`
+	SessionID      ids.XID `json:"session_id"`
+	AssignmentID   ids.XID `json:"assignment_id"`
+}
+
+func (q *Queries) DeleteAssignmentOverrides(ctx context.Context, arg DeleteAssignmentOverridesParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteAssignmentOverrides,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+		arg.ProgramID,
+		arg.SessionID,
+		arg.AssignmentID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const deleteChangedDraftAssignment = `-- name: DeleteChangedDraftAssignment :execrows
 delete from assignments
 where organization_id = $1 and school_year_id = $2 and program_id = $3 and session_id = $4
@@ -478,6 +506,52 @@ func (q *Queries) TouchAssignmentOverrideForRegistry(ctx context.Context, arg To
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const updateAssignmentPin = `-- name: UpdateAssignmentPin :one
+update assignments
+set pinned = $1
+where id = $2 and organization_id = $3 and school_year_id = $4
+  and program_id = $5 and session_id = $6
+returning id, organization_id, school_year_id, program_id, session_id, student_id,
+    offering_id, solve_run_id, origin, pinned, realized_quality, created_at, updated_at
+`
+
+type UpdateAssignmentPinParams struct {
+	Pinned         bool    `json:"pinned"`
+	ID             ids.XID `json:"id"`
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+	ProgramID      ids.XID `json:"program_id"`
+	SessionID      ids.XID `json:"session_id"`
+}
+
+func (q *Queries) UpdateAssignmentPin(ctx context.Context, arg UpdateAssignmentPinParams) (Assignment, error) {
+	row := q.db.QueryRow(ctx, updateAssignmentPin,
+		arg.Pinned,
+		arg.ID,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+		arg.ProgramID,
+		arg.SessionID,
+	)
+	var i Assignment
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.SchoolYearID,
+		&i.ProgramID,
+		&i.SessionID,
+		&i.StudentID,
+		&i.OfferingID,
+		&i.SolveRunID,
+		&i.Origin,
+		&i.Pinned,
+		&i.RealizedQuality,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const upsertAssignment = `-- name: UpsertAssignment :one

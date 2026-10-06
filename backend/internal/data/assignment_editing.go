@@ -35,14 +35,31 @@ func (tx *Tx) CreateAssignmentExclusion(ctx context.Context, schoolYearID, progr
 
 func (tx *Tx) CreateAssignmentOverride(ctx context.Context, schoolYearID, programID, sessionID, assignmentID ids.XID, rule, reason, recordedBy string) (AssignmentOverride, error) {
 	rule, reason, recordedBy = strings.TrimSpace(rule), strings.TrimSpace(reason), strings.TrimSpace(recordedBy)
-	if rule == "" || reason == "" || recordedBy == "" {
-		return AssignmentOverride{}, errors.New("create assignment override: rule, reason, and recorder are required")
+	if rule == "" || recordedBy == "" {
+		return AssignmentOverride{}, errors.New("create assignment override: rule and recorder are required")
 	}
 	row, err := tx.queries.CreateAssignmentOverride(ctx, db.CreateAssignmentOverrideParams{OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID, SessionID: sessionID, AssignmentID: assignmentID, Rule: rule, Reason: reason, RecordedBy: recordedBy})
 	if err != nil {
 		return AssignmentOverride{}, fmt.Errorf("create assignment override: %w", err)
 	}
 	return assignmentOverride(row)
+}
+
+func (tx *Tx) UpdateAssignmentPin(ctx context.Context, assignment Assignment, pinned bool) (Assignment, error) {
+	row, err := tx.queries.UpdateAssignmentPin(ctx, db.UpdateAssignmentPinParams{Pinned: pinned, ID: assignment.ID,
+		OrganizationID: tx.organizationID, SchoolYearID: assignment.SchoolYearID, ProgramID: assignment.ProgramID, SessionID: assignment.SessionID})
+	if err != nil {
+		return Assignment{}, fmt.Errorf("update assignment pin: %w", err)
+	}
+	return assignmentFromRow(row)
+}
+
+func (tx *Tx) DeleteAssignmentOverrides(ctx context.Context, assignment Assignment) error {
+	if _, err := tx.queries.DeleteAssignmentOverrides(ctx, db.DeleteAssignmentOverridesParams{OrganizationID: tx.organizationID,
+		SchoolYearID: assignment.SchoolYearID, ProgramID: assignment.ProgramID, SessionID: assignment.SessionID, AssignmentID: assignment.ID}); err != nil {
+		return fmt.Errorf("delete assignment overrides: %w", err)
+	}
+	return nil
 }
 
 func (tx *Tx) ListAssignmentExclusions(ctx context.Context, schoolYearID, programID, sessionID ids.XID) ([]AssignmentExclusion, error) {
