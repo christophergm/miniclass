@@ -137,6 +137,7 @@ agents:
     routes:
         - name: default
           backend: codex
+          model: gpt-5.6-terra
           default: true
 
 # Optional per-stage model routing. Unrouted roles fall back to the default code route.
