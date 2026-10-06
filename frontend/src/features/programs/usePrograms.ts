@@ -382,6 +382,60 @@ export function useSession(
   });
 }
 
+export const assignmentWorkspaceKey = (
+  schoolYearID: string | undefined,
+  programID: string | undefined,
+  sessionID: string | undefined,
+) => [...sessionsKey(schoolYearID, programID), sessionID, "assignment-workspace"] as const;
+
+export function useAssignmentWorkspace(
+  schoolYearID: string | undefined,
+  programID: string | undefined,
+  sessionID: string | undefined,
+) {
+  return useQuery({
+    enabled: Boolean(schoolYearID && programID && sessionID),
+    queryKey: assignmentWorkspaceKey(schoolYearID, programID, sessionID),
+    queryFn: () =>
+      resourceApi.getAssignmentWorkspace(
+        schoolYearID as string,
+        programID as string,
+        sessionID as string,
+      ),
+    retry: false,
+  });
+}
+
+export function useAssignmentQuality(
+  schoolYearID: string | undefined,
+  programID: string | undefined,
+  sessionID: string | undefined,
+) {
+  return useQuery({
+    enabled: Boolean(schoolYearID && programID && sessionID),
+    queryKey: [...assignmentWorkspaceKey(schoolYearID, programID, sessionID), "quality"],
+    queryFn: () =>
+      resourceApi.getAssignmentQuality(
+        schoolYearID as string,
+        programID as string,
+        sessionID as string,
+      ),
+    retry: false,
+  });
+}
+
+export function useStartSolveRun(schoolYearID: string, programID: string, sessionID: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => resourceApi.startSolveRun(schoolYearID, programID, sessionID),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: assignmentWorkspaceKey(schoolYearID, programID, sessionID),
+      });
+    },
+  });
+}
+
 export function useRankedChoiceResponseTracking(
   schoolYearID: string | undefined,
   programID: string | undefined,

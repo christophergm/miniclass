@@ -1917,6 +1917,12 @@ export function SessionPage() {
           >
             Assignment planner
           </Link>
+          <Link
+            className="text-sm font-medium text-primary hover:underline"
+            to={`/y/${schoolYearId}/programs/${programId}/sessions/${sessionId}/assignments`}
+          >
+            Assignment board
+          </Link>
           {current.ranked_choice && (
             <Link
               className="text-sm font-medium text-primary hover:underline"

@@ -42,6 +42,7 @@ import {
 import { AuditLog } from "@/features/audit/AuditLog";
 import { ImportPage } from "@/features/imports/ImportPage";
 import { OfferingPage } from "@/features/programs/OfferingPages";
+import { AssignmentBoardPage } from "@/features/programs/AssignmentBoardPage";
 import {
   ProgramAutoAssignmentPage,
   ProgramDetailPage,
@@ -188,6 +189,10 @@ function AppRoutes() {
                 element={<ProgramObjectiveWeightsPage />}
               />
               <Route path="programs/:programId/sessions/:sessionId" element={<SessionPage />} />
+              <Route
+                path="programs/:programId/sessions/:sessionId/assignments"
+                element={<AssignmentBoardPage />}
+              />
               <Route
                 path="programs/:programId/sessions/:sessionId/offerings/new"
                 element={<OfferingPage />}
