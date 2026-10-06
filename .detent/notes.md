@@ -291,3 +291,47 @@ Output tail:
 ```text
 I’ll pick up #299 from the live tracker and worktree state, update its persistent Workpad, then implement and validate the issue’s scoped behavior. Since this changes tenant-scoped persistence, I’ll use the tenant-isolation guidance before editing it.The workspace is clean and already includes #298’s merged predecessor on `main`; #299 has no pull request yet. I found the repository-local tenant-isolation and entity guidance, so I’ll apply those patterns to the required migration and tests.I’ve confirmed the scope is a read-only assignment-quality dashboard—not a new persistence model. I’m adding it as a single tenant-scoped snapshot projection, so warnings are recomputed from current draft context while each assignment’s stored realized quality remains historical.The implementation is in place with a focused pure evaluator test, but local Go validation is presently blocked before compilation: the configured Go 1.26.4 toolchain download cannot update the host module checksum cache under this sandbox. I’ll still inspect and tighten the generated/API wiring, then run all checks that are available.The focused backend tests now pass. The endpoint and OpenAPI are generated; the report includes named unplaced/unwanted/no-signal/overridden placements, stored quality alongside current preference context, occupancy, and the required assignment, offering, and catalog/staleness warning IDs.Formatting completed. Backend lint reached the linter but its default host-local cache is read-only in this Detent sandbox; I’ll rerun it with its cache redirected into the Detent temporary directory.The backend test gate, formatting, lint/depguard, generation, and whitespace checks are green; migration round-trip is the only local gate unavailable because its required database URL is unset. I’ve committed the scoped implementation and will now push it and open the ready-for-review PR.PR [#315](https://github.com/christophergm/miniclass/pull/315) is open and ready (not draft), references #299, and currently has no reviews, inline comments, or CI runs yet. I’m recording the evidence and the remaining CI/migration wait in the Workpad; the issue stays in progress until current-head required checks complete.CI is now running on the PR’s current head. The first completed checks are green (`Solver contract tests`, `Frontend lint`, and `Repository formatting`); the remaining project gates are in progress, including backend tests, migration round-trip, generation, and frontend build.All 13 current-head CI checks are now successful, including backend tests, migration round-trip, generated-code drift, frontend test/build, and developer tooling. The PR is clean, ready, and has no actionable review feedback.
 ```
+
+## Issue #301 — assignment board and solve workflow
+
+- Frontend-only route: `programs/:programId/sessions/:sessionId/assignments` reads the persisted
+  workspace, quality projection, and immutable solve-run endpoint.
+- It makes unplaced students prominent, shows offering occupancy, placements and pins, filters by
+  student, supports an empty/manual-first draft, and preserves the board through infeasible,
+  superseded, unavailable, and access-error outcomes. Placement mutations remain deferred.
+- Added component coverage for persisted placements, the unplaced area, and re-solve initiation.
+- Changed-file Biome formatting and `git diff --check` pass. `make test-frontend` cannot start:
+  `openapi-typescript` is missing from the uninstalled dependency tree. `make lint-frontend` reaches
+  formatting but reports pre-existing drift in six unrelated frontend test files.
+
+## 2026-10-06T16:38:37Z - Failed run output tail
+
+- final_state: failed
+- error: stream turn: context canceled
+close codex app-server transport: context canceled: stderr: [2m2026-10-06T15:50:03.203641Z[0m [31mERROR[0m [2mcodex_core::tools::router[0m[2m:[0m [3merror[0m[2m=[0mapply_patch verification failed: Failed to find expected lines in /Users/chrismott/dev/personal/miniclass-worktrees/miniclass-christophergm_miniclass_301-d396a4f47529/frontend/src/lib/apiResources.ts:
+export type ResponseTracking = Schemas["ResponseTrackingResponse"];
+export type InterestProfileResults = Schemas["InterestProfileResultsResponse"];
+export type RankedChoiceResults = Schemas["RankedChoiceResultsResponse"];
+[2m2026-10-06T15:55:50.977092Z[0m [31mERROR[0m [2mcodex_core::tools::router[0m[2m:[0m [3merror[0m[2m=[0mapply_patch verification failed: invalid patch: multiple operations target /Users/chrismott/dev/personal/miniclass-worktrees/miniclass-christophergm_miniclass_301-d396a4f47529/frontend/src/features/programs/AssignmentBoardPage.tsx
+[2m2026-10-06T15:59:21.665559Z[0m [31mERROR[0m [2mcodex_core::tools::router[0m[2m:[0m [3merror[0m[2m=[0mapply_patch verification failed: Failed to find expected lines in /Users/chrismott/dev/personal/miniclass-worktrees/miniclass-christophergm_miniclass_301-d396a4f47529/.detent/notes.md:
+# Issue #300 — attributable placement workspace notes
+worker github REST budget monitor failed: Get "https://api.github.com/rate_limit": dial tcp: lookup api.github.com: no such host
+
+Output tail:
+
+```text
+I’ll resume #301 from its live issue, pull request, Workpad, and repository state, then carry the assignment-board workflow through the configured review gate.#300 is merged and #301 has no existing Workpad or pull request. I’m recording the scoped plan now, then I’ll map the existing workspace and solve APIs into the frontend rather than introducing new backend state.The backend already exposes all required persisted projections and solve-run endpoints, so this remains a frontend-only change. I’ll add an `/assignments` session route, typed resource wrappers, and a focused board that refreshes the persisted draft after each solve outcome.The board is now wired to persisted workspace/quality reads and the existing immutable solve-run API. It deliberately leaves placement controls out of scope, while surfacing no-draft, infeasible, superseded, and unavailable outcomes without clearing the draft.Local frontend gates are constrained by an unprepared dependency tree: the generated-client command is absent, and the repository-wide lint additionally reports six pre-existing formatting files. I found cached tool binaries, so I’m using those read-only caches to generate and type-check this change without installing anything.The focused UI test and changed-file formatting are in place. Full frontend execution still cannot bootstrap because this worktree has no installed frontend package tree; I’ve recorded that separately from the unrelated repository-wide formatter drift.PR #317 is open, ready for review, and references #301. All required checks have started; I’ve captured the initial state in the Workpad and will monitor the current head rather than treating local dependency setup as a delivery blocker.CI has identified one failure: `Frontend lint`. I’m checking its log now to distinguish our changed files from the known repository-wide formatter drift before deciding whether a scoped correction is needed.
+```
+
+## Issue #301 — lint follow-up
+
+- PR #317's only failed current-head check was Frontend lint: three
+  `react-hooks/exhaustive-deps` warnings in `AssignmentBoardPage.tsx` from unstable empty fallback
+  arrays. The collections are now memoized before dependent maps and sets.
+- Changed-file Biome formatting and `git diff --check` pass. The worktree has no frontend dependency
+  tree, so the full frontend test/lint/build gate remains CI-backed.
+
+- Final amended-head CI passed all 13 checks: Frontend lint, tests, and build; Backend tests, lint,
+  and format; generated-code drift; migration round-trip; repository formatting; developer tooling;
+  and solver/image smoke checks. The rerun took about two minutes; backend tests and generated-code
+  drift were the slowest checks. PR #317 is ready, with no review or inline comments.

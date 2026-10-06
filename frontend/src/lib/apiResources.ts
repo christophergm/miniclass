@@ -47,6 +47,9 @@ export type ResponseTracking = Schemas["ResponseTrackingResponse"];
 export type ResponseTrackingSummary = Schemas["ResponseTrackingSummaryResponse"];
 export type InterestProfileResults = Schemas["InterestProfileResultsResponse"];
 export type RankedChoiceResults = Schemas["RankedChoiceResultsResponse"];
+export type AssignmentWorkspace = Schemas["AssignmentWorkspaceResponse"];
+export type AssignmentQuality = Schemas["AssignmentQualityResponse"];
+export type SolveRun = Schemas["SolveRunResponse"];
 export type ResponseReportFilters = { grade_level_ids: string[]; homeroom_ids: string[] };
 
 export function canonicalResponseReportFilters(
@@ -928,6 +931,31 @@ export const resourceApi = {
       api.DELETE(
         "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/objective-weights",
         { params: { path: { schoolYearID, programID, sessionID } } },
+      ),
+    ),
+
+  getAssignmentWorkspace: (schoolYearID: string, programID: string, sessionID: string) =>
+    unwrap(
+      api.GET(
+        "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/assignment-workspace",
+        { params: { path: { schoolYearID, programID, sessionID } } },
+      ),
+    ),
+  getAssignmentQuality: (schoolYearID: string, programID: string, sessionID: string) =>
+    unwrap(
+      api.GET(
+        "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/assignment-quality",
+        { params: { path: { schoolYearID, programID, sessionID } } },
+      ),
+    ),
+  startSolveRun: (schoolYearID: string, programID: string, sessionID: string) =>
+    unwrap(
+      api.POST(
+        "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/solve-runs",
+        {
+          params: { path: { schoolYearID, programID, sessionID } },
+          body: {},
+        },
       ),
     ),
 
