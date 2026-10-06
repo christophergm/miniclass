@@ -33,6 +33,14 @@ func (tx *Tx) CreateAssignmentExclusion(ctx context.Context, schoolYearID, progr
 	return assignmentExclusion(row)
 }
 
+func (tx *Tx) DeleteAssignmentExclusion(ctx context.Context, exclusion AssignmentExclusion) (bool, error) {
+	n, err := tx.queries.DeleteAssignmentExclusion(ctx, db.DeleteAssignmentExclusionParams{ID: exclusion.ID, OrganizationID: tx.organizationID, SchoolYearID: exclusion.SchoolYearID, ProgramID: exclusion.ProgramID, SessionID: exclusion.SessionID})
+	if err != nil {
+		return false, fmt.Errorf("delete assignment exclusion: %w", err)
+	}
+	return n > 0, nil
+}
+
 func (tx *Tx) CreateAssignmentOverride(ctx context.Context, schoolYearID, programID, sessionID, assignmentID ids.XID, rule, reason, recordedBy string) (AssignmentOverride, error) {
 	rule, reason, recordedBy = strings.TrimSpace(rule), strings.TrimSpace(reason), strings.TrimSpace(recordedBy)
 	if rule == "" || recordedBy == "" {
@@ -58,6 +66,15 @@ func (tx *Tx) DeleteAssignmentOverrides(ctx context.Context, assignment Assignme
 	if _, err := tx.queries.DeleteAssignmentOverrides(ctx, db.DeleteAssignmentOverridesParams{OrganizationID: tx.organizationID,
 		SchoolYearID: assignment.SchoolYearID, ProgramID: assignment.ProgramID, SessionID: assignment.SessionID, AssignmentID: assignment.ID}); err != nil {
 		return fmt.Errorf("delete assignment overrides: %w", err)
+	}
+	return nil
+}
+
+// DeleteAssignmentOverrideRule re-evaluates one rule without discarding
+// independent capacity or grade-window approvals on the same placement.
+func (tx *Tx) DeleteAssignmentOverrideRule(ctx context.Context, assignment Assignment, rule string) error {
+	if _, err := tx.queries.DeleteAssignmentOverrideRule(ctx, db.DeleteAssignmentOverrideRuleParams{OrganizationID: tx.organizationID, SchoolYearID: assignment.SchoolYearID, ProgramID: assignment.ProgramID, SessionID: assignment.SessionID, AssignmentID: assignment.ID, Rule: rule}); err != nil {
+		return fmt.Errorf("delete assignment override rule: %w", err)
 	}
 	return nil
 }

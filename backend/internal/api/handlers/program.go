@@ -59,6 +59,8 @@ type ProgramService interface {
 	MoveAssignment(context.Context, string, audit.Actor, programservice.AssignmentOperationInput, ids.XID, ids.XID) (programservice.AssignmentOperationResult, error)
 	SwapAssignments(context.Context, string, audit.Actor, programservice.AssignmentOperationInput, ids.XID, ids.XID) (programservice.AssignmentOperationResult, error)
 	SetAssignmentPin(context.Context, string, audit.Actor, programservice.AssignmentOperationInput, ids.XID, bool) (programservice.AssignmentOperationResult, error)
+	AddAssignmentExclusion(context.Context, string, audit.Actor, programservice.AssignmentOperationInput, ids.XID, ids.XID) (programservice.AssignmentExclusionResult, error)
+	RemoveAssignmentExclusion(context.Context, string, audit.Actor, programservice.AssignmentOperationInput, ids.XID) (programservice.AssignmentExclusionResult, error)
 	GetProgramObjectiveWeights(context.Context, string, ids.XID, ids.XID) (data.ObjectiveWeightsView, error)
 	UpdateProgramObjectiveWeights(context.Context, string, audit.Actor, ids.XID, ids.XID, data.ObjectiveWeights) (data.ObjectiveWeightsView, error)
 	GetSessionObjectiveWeights(context.Context, string, ids.XID, ids.XID, ids.XID) (data.ObjectiveWeightsView, error)
@@ -174,6 +176,14 @@ type AssignmentOperationResponse struct {
 	Assignments   []AssignmentResponse `json:"assignments"`
 }
 type AssignmentOperationOutput struct{ Body AssignmentOperationResponse }
+type AssignmentExclusionOperationResponse struct {
+	DraftRevision          int64                         `json:"draft_revision"`
+	Exclusions             []AssignmentExclusionResponse `json:"exclusions"`
+	ConflictingAssignments []AssignmentResponse          `json:"conflicting_assignments"`
+}
+type AssignmentExclusionOperationOutput struct {
+	Body AssignmentExclusionOperationResponse
+}
 type ProgramYearPathInput struct {
 	SchoolYearID string `path:"schoolYearID" minLength:"1"`
 }
@@ -244,6 +254,23 @@ type AssignmentPinInput struct {
 	SessionPathInput
 	StudentID string `path:"studentID" minLength:"1"`
 	Body      struct {
+		ExpectedRevision int64  `json:"expected_revision" minimum:"0"`
+		Reason           string `json:"reason"`
+	}
+}
+type CreateAssignmentExclusionInput struct {
+	SessionPathInput
+	Body struct {
+		StudentID        string `json:"student_id" minLength:"1"`
+		OfferingID       string `json:"offering_id" minLength:"1"`
+		ExpectedRevision int64  `json:"expected_revision" minimum:"0"`
+		Reason           string `json:"reason"`
+	}
+}
+type DeleteAssignmentExclusionInput struct {
+	SessionPathInput
+	ExclusionID string `path:"exclusionID" minLength:"1"`
+	Body        struct {
 		ExpectedRevision int64  `json:"expected_revision" minimum:"0"`
 		Reason           string `json:"reason"`
 	}
@@ -659,6 +686,34 @@ func (h *ProgramHandler) PinAssignment(ctx context.Context, input *AssignmentPin
 func (h *ProgramHandler) UnpinAssignment(ctx context.Context, input *AssignmentPinInput) (*AssignmentOperationOutput, error) {
 	return h.setAssignmentPin(ctx, input, false)
 }
+func (h *ProgramHandler) CreateAssignmentExclusion(ctx context.Context, input *CreateAssignmentExclusionInput) (*AssignmentExclusionOperationOutput, error) {
+	account, err := programAccount(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if h == nil || h.service == nil || input == nil {
+		return nil, sessionNotFound()
+	}
+	result, err := h.service.AddAssignmentExclusion(ctx, string(account.OrganizationID), programActor(account), assignmentOperationInput(input.SchoolYearID, input.ProgramID, input.SessionID, input.Body.ExpectedRevision, false, input.Body.Reason), ids.XID(input.Body.StudentID), ids.XID(input.Body.OfferingID))
+	if err != nil {
+		return nil, assignmentOperationProblem(err)
+	}
+	return &AssignmentExclusionOperationOutput{Body: assignmentExclusionOperationResponse(result)}, nil
+}
+func (h *ProgramHandler) DeleteAssignmentExclusion(ctx context.Context, input *DeleteAssignmentExclusionInput) (*AssignmentExclusionOperationOutput, error) {
+	account, err := programAccount(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if h == nil || h.service == nil || input == nil {
+		return nil, sessionNotFound()
+	}
+	result, err := h.service.RemoveAssignmentExclusion(ctx, string(account.OrganizationID), programActor(account), assignmentOperationInput(input.SchoolYearID, input.ProgramID, input.SessionID, input.Body.ExpectedRevision, false, input.Body.Reason), ids.XID(input.ExclusionID))
+	if err != nil {
+		return nil, assignmentOperationProblem(err)
+	}
+	return &AssignmentExclusionOperationOutput{Body: assignmentExclusionOperationResponse(result)}, nil
+}
 func (h *ProgramHandler) setAssignmentPin(ctx context.Context, input *AssignmentPinInput, pinned bool) (*AssignmentOperationOutput, error) {
 	account, err := programAccount(ctx)
 	if err != nil {
@@ -685,6 +740,16 @@ func assignmentOperationResponse(result programservice.AssignmentOperationResult
 			run = &value
 		}
 		response.Assignments = append(response.Assignments, AssignmentResponse{ID: string(row.ID), StudentID: string(row.StudentID), OfferingID: string(row.OfferingID), SolveRunID: run, Origin: row.Origin, Pinned: row.Pinned, RealizedQuality: row.RealizedQuality})
+	}
+	return response
+}
+func assignmentExclusionOperationResponse(result programservice.AssignmentExclusionResult) AssignmentExclusionOperationResponse {
+	response := AssignmentExclusionOperationResponse{DraftRevision: result.DraftRevision, Exclusions: make([]AssignmentExclusionResponse, 0, len(result.Exclusions)), ConflictingAssignments: make([]AssignmentResponse, 0, len(result.ConflictingAssignments))}
+	for _, exclusion := range result.Exclusions {
+		response.Exclusions = append(response.Exclusions, AssignmentExclusionResponse{ID: string(exclusion.ID), StudentID: string(exclusion.StudentID), OfferingID: string(exclusion.OfferingID)})
+	}
+	for _, assignment := range result.ConflictingAssignments {
+		response.ConflictingAssignments = append(response.ConflictingAssignments, assignmentOperationResponse(programservice.AssignmentOperationResult{Assignments: []data.Assignment{assignment}}).Assignments[0])
 	}
 	return response
 }

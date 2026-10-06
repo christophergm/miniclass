@@ -57,6 +57,10 @@ func TestAssignmentWorkspaceRouteScopesEmptyDraftAndRequiresAssignmentsCapabilit
 	document := NewOpenAPI(RouterOptions{})
 	operation := document.Paths["/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/assignment-workspace"].Get
 	require.Equal(t, string(auth.CapabilityManageAssignments), operation.Extensions[auth.RequiredCapabilityExtension])
+	createExclusion := document.Paths["/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/assignment-exclusions"].Post
+	require.Equal(t, string(auth.CapabilityManageAssignments), createExclusion.Extensions[auth.RequiredCapabilityExtension])
+	deleteExclusion := document.Paths["/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/assignment-exclusions/{exclusionID}"].Delete
+	require.Equal(t, string(auth.CapabilityManageAssignments), deleteExclusion.Extensions[auth.RequiredCapabilityExtension])
 
 	guardianRouter := NewRouter(RouterOptions{Programs: service, Verifier: verifier, Identity: resolver, Sessions: fixedPreferenceSession{principal: auth.GuardianPrincipal{OrganizationID: "org-test", SchoolYearID: "year-a", AdultID: "guardian-a"}}})
 	guardianRequest := httptest.NewRequest(http.MethodGet, path, nil)

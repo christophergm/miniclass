@@ -126,6 +126,33 @@ func (q *Queries) CreateAssignmentOverride(ctx context.Context, arg CreateAssign
 	return i, err
 }
 
+const deleteAssignmentExclusion = `-- name: DeleteAssignmentExclusion :execrows
+delete from assignment_exclusions
+where id = $1 and organization_id = $2 and school_year_id = $3 and program_id = $4 and session_id = $5
+`
+
+type DeleteAssignmentExclusionParams struct {
+	ID             ids.XID `json:"id"`
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+	ProgramID      ids.XID `json:"program_id"`
+	SessionID      ids.XID `json:"session_id"`
+}
+
+func (q *Queries) DeleteAssignmentExclusion(ctx context.Context, arg DeleteAssignmentExclusionParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteAssignmentExclusion,
+		arg.ID,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+		arg.ProgramID,
+		arg.SessionID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const deleteAssignmentExclusionForRegistry = `-- name: DeleteAssignmentExclusionForRegistry :execrows
 delete from assignment_exclusions where id = $1 and organization_id = $2
 `
@@ -154,6 +181,36 @@ type DeleteAssignmentOverrideForRegistryParams struct {
 
 func (q *Queries) DeleteAssignmentOverrideForRegistry(ctx context.Context, arg DeleteAssignmentOverrideForRegistryParams) (int64, error) {
 	result, err := q.db.Exec(ctx, deleteAssignmentOverrideForRegistry, arg.ID, arg.OrganizationID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const deleteAssignmentOverrideRule = `-- name: DeleteAssignmentOverrideRule :execrows
+delete from assignment_overrides
+where organization_id = $1 and school_year_id = $2 and program_id = $3
+  and session_id = $4 and assignment_id = $5 and rule = $6
+`
+
+type DeleteAssignmentOverrideRuleParams struct {
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+	ProgramID      ids.XID `json:"program_id"`
+	SessionID      ids.XID `json:"session_id"`
+	AssignmentID   ids.XID `json:"assignment_id"`
+	Rule           string  `json:"rule"`
+}
+
+func (q *Queries) DeleteAssignmentOverrideRule(ctx context.Context, arg DeleteAssignmentOverrideRuleParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteAssignmentOverrideRule,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+		arg.ProgramID,
+		arg.SessionID,
+		arg.AssignmentID,
+		arg.Rule,
+	)
 	if err != nil {
 		return 0, err
 	}
