@@ -1,6 +1,6 @@
 # Mini Class Planner — Delivery Plan
 
-**Status:** Phase 0 in progress
+**Status:** Phase 5 complete; Phase 5A — Student placement workspace is next
 **Source of truth for behaviour:** [`SPEC.md`](./SPEC.md). This document says *when* and *in what
 order*; the spec says *what*. Where the two disagree, the spec wins and this document is wrong.
 **Architecture decisions:** [`docs/adr/`](./docs/adr/)
@@ -42,24 +42,16 @@ Every phase lists **exit criteria**. A phase is not complete until they hold.
 
 ## Current state
 
-Scaffolding is complete and a health check runs end to end.
+Phase 5 is complete. The v0 engine provides capacity and grade-window feasibility, the shared
+placement-quality scale and worst-outcome-first objective, deterministic seeded solving, pins,
+immutable solve runs, and a persisted current draft. Infeasible results do not replace that draft.
+Synthetic CSV scenarios cover behavior and expected-scale performance through the sidecar boundary.
 
-| Area | State |
-|---|---|
-| Backend | Go 1.26, chi, pgx, sqlc, Goose. Config, DB pool, health handler, graceful shutdown. |
-| Frontend | React 18, TypeScript, Vite, TanStack Query, React Router. Health page, app shell. |
-| Database | PostgreSQL 18 in Docker Compose. One migration: `health_checks`. **No domain model.** |
-| CI | Twelve checks: backend tests; solver contract and image tests; backend lint, format, generated-code drift and migration round-trip; frontend tests, build and lint; repository formatting; developer tooling. |
-| Orchestration | Detent with isolated worktrees, two concurrent agents, GitHub Projects tracker. |
-| Tooling | proto pins Go / Node / Bun. Air for hot reload. Smoke test script. The Python solver sidecar is containerised and covered by contract and image CI checks. |
-
-The backend encodes no domain assumption. The **frontend does**: the scaffolded shell is a generic
-teacher-dashboard mock with fabricated figures and placeholder routes for `/classes`,
-`/assignments`, `/students` and `/settings`, and its vocabulary collides with the specification's —
-*assignment* here means a student's placement in an offering (§8.6), not homework, and §6.6 has no
-password-holding "teacher account" persona. Fabricated data that resembles real data is a liability
-in an agent-driven repository, because it gives a plausible-looking target to build toward. It is
-deleted in Phase 0.
+The next delivery is **Phase 5A — Student placement workspace**: connect that engine to an
+administrator-only solve/review/edit/re-solve workflow, drawing a narrow subset forward from Phases
+7–9. The endpoint is a complete saved draft, not publication or a new session lifecycle state.
+Publishing and artifacts remain in Phase 6; the broader rules, engine and dashboard work remains in
+Phases 7–9.
 
 ---
 
@@ -167,7 +159,8 @@ graph TD
     P3 --> P4["Phase 4<br/>Preferences and Guardian/Admin Access"]
     P4 --> P4B["Phase 4B<br/>Consent-first Guardian Data"]
     P4B --> P5["Phase 5<br/>Engine v0"]
-    P5 --> P6["Phase 6<br/>Publishing and Artifacts"]
+    P5 --> P5A["Phase 5A<br/>Student Placement Workspace"]
+    P5A --> P6["Phase 6<br/>Publishing and Artifacts"]
     P6 --> R1{{"R1 — Usable"}}
     R1 --> P7["Phase 7<br/>Rules Layer and Staffing"]
     P7 --> P8["Phase 8<br/>Engine v1"]
@@ -178,10 +171,12 @@ graph TD
 ```
 
 The dependency chain is genuinely close to linear: the solver needs preferences, preferences need a
-catalog, a catalog needs a programme, and a programme needs people. `Phase 2R` and `Phase 4B` use
-suffixes rather than renumbering later phases because those phase numbers are already cited by accepted
-ADRs and landed work. Phase 4B is a retrofit for new consent/privacy requirements after Phase 4; Phase
-5 and beyond remain structurally unchanged.
+catalog, a catalog needs a programme, and a programme needs people. `Phase 2R`, `Phase 4B` and
+`Phase 5A` use suffixes rather than renumbering later phases because those phase numbers are already
+cited by accepted ADRs and landed work. Phase 4B is a consent/privacy retrofit after Phase 4. Phase
+5A draws essential placement rules, engine support and editing surfaces from Phases 7–9 forward to
+the Phase 5 boundary; their remaining scope stays after Phase 6. Phase 5A alone achieves neither R1
+nor R2.
 
 ---
 
@@ -649,7 +644,7 @@ after the prior-year-link deprecation decision is explicit in schema/API work.
 
 ---
 
-### Phase 5 — Engine v0
+### Phase 5 — Engine v0 — **Complete**
 
 *SPEC §17.1–17.4, §17.8, §17.9 (pins only), §20.2. Narrow in rules, complete in structure.*
 
@@ -697,6 +692,117 @@ it is not a hardening pass.
 
 ---
 
+### Phase 5A — Student placement workspace
+
+*SPEC §§5.1–5.4, 8.6, 9.2, 14.5, 16.2–16.7 (in-scope rules only), 17.9–17.13
+(explainability limited below), 18.1, 19.1–19.2 (focused review only), 20.1–20.4, 22.2.*
+
+**Outcome:** an organiser can solve, review, constrain, manually edit and re-solve student placements
+entirely in the application, finishing with a complete, persisted, administrator-only draft. This
+is a narrow capability cut, not delivery of all of Phases 7–9 and not a claim of R1 or R2.
+
+**Feature track — placement controls and board**
+
+- An assignment board showing real offerings, occupancy and unplaced participating students, with
+  search and filters. Draft placements are visible only to authorised administrators (§18.1).
+- Pin, unpin, move, swap, add/remove a student–offering exclusion, and re-solve (§17.12). Moves
+  implicitly pin; swaps implicitly pin both. Exclusions are explicit solver-hard rules, not tags.
+- Drag a student into a different offering to move and pin; drag an unplaced student into an
+  offering to place and pin. A same-offering drop is a no-op. Pin/unpin and swap are explicit
+  controls; dropping onto another student does not implicitly swap. Provide a keyboard-accessible
+  move control as an alternative to dragging.
+- Persist edits across navigation and reopening. Enforce at most one assignment per student/session
+  in the data model, and no assignment for a non-participating student (§16.2). An incomplete draft
+  is valid; there is no synthetic catch-all offering.
+
+**Feature track — human judgement and solver integration**
+
+- Capacity, grade-window and explicit-exclusion violations are permitted deliberately by manual
+  move/swap, never silently. Before applying a rule-breaking operation, obtain explicit override
+  confirmation and prompt for an optional reason; warning-producing actions remain available.
+- Each hard-rule override records the specific rule and values, actor, timestamp and optional
+  reason, appears in the audit log, and raises a persistent warning (§16.7). It applies only to
+  that placement; placement or relevant rule changes require re-evaluation, not inherited permission.
+- Re-solve preserves pins and their specific authorised exceptions. Grade/exclusion exceptions
+  authorise only the named pinned placement. A capacity exception preserves the explicitly
+  authorised excess, never additional seats freely available to the solver. The solver never
+  invents or broadens an exception; other placements remain subject to the hard rules. Unpinning
+  returns that student's solver decision to normal rules rather than carrying permission forward.
+- Re-solve first optimises the existing preference-quality objective, then minimises movement of
+  unpinned students among equally good solutions, then resolves remaining ties deterministically
+  (§17.9). Stability never costs a better preference outcome. Record the effective inputs,
+  including exclusions, authorised exceptions and stability baseline, for reproducibility.
+- Solves remain all-or-nothing. Infeasible results preserve the current draft and identify a minimal
+  or near-minimal conflicting set, naming students, offerings, pins and exclusions in organiser
+  vocabulary (§17.10). Never automatically relax a rule or apply a partial solver result.
+- Permit manual recovery from empty or incomplete drafts. Show unplaced students by name with
+  in-scope per-offering obstacles (§17.13), distinguishing current local obstacles from a global
+  infeasibility diagnosis; a full offering alone does not prove that rearrangement is impossible.
+- Apply a solve result only if its starting input snapshot and draft revision still match. Retain
+  a superseded run but do not overwrite newer work; explain why another solve is needed. Manual
+  edits use revision checks to prevent silent lost updates. Changed solve inputs produce a
+  persistent `stale-draft` warning. This is consistency protection, not real-time collaboration.
+
+**Feature track — focused review and comments**
+
+- Named lists before aggregates (§19.1): unplaced students first, then `Unwanted` placements and
+  students with no preference signal, clearly distinguished, plus hard-rule overrides and warnings.
+- Show occupancy, capacity, below-minimum enrollment warnings, and the stored
+  Top / High / Acceptable / Neutral / Unwanted distribution. Placement details show expressed
+  preference, recorded realized quality, pin status and any override reason; manually created
+  placements also record quality at assignment time (§8.6).
+- Implement the applicable warning subset: `capacity-exceeded`, `grade-out-of-range`,
+  `exclusion-overridden`, `non-preferred-placement`, `no-preference-signal`,
+  `below-minimum-enrollment`, `catalog-capacity-short`, `catalog-grade-gap`, `catalog-area-gap`,
+  and `stale-draft`. Show warnings on their hosts and make them countable/filterable; never dismiss,
+  suppress or snooze them (§16.5–16.6). Tag, pairing and historical-repeat warnings remain deferred.
+- Basic administrative comments on placements, offerings and sessions, recording author and
+  timestamp. Follow §20.3's author-only editing, audited prior text, soft deletion and sensitivity
+  handling; acknowledgement never clears a warning (§20.4). No threads, mentions, notifications or
+  attachments. Session-hosted comments are a human-approved scope extension: align §20.3's host
+  list, which currently lists assignments, offerings, students and adults, before implementation.
+
+**Explicit deferrals**
+
+- Tags and tag dispositions; all pairings, including co-placement and avoidance; adult staffing.
+- Cross-session fairness, variety, the remaining soft terms and tunable weights; full
+  counterfactual per-placement explainability (§17.11); the complete dashboard/metric set, demand
+  analysis and run comparison.
+- Revert/run restoration (§§17.12, 20.2), general undo/redo, branching drafts and real-time
+  collaboration. Immutable solve history remains; a successful but disliked re-solve is corrected
+  through manual edits or another solve, not restoration in this phase.
+- Publishing, artifacts, exports, print views and guardian placement views. No finalise/approve
+  action or new lifecycle state; finishing a draft does not transition a session to `Complete`.
+
+**Platform track**
+
+- Tenant-isolation coverage for every new tenant-scoped table and capability checks for every new
+  endpoint; audited transactional edits, invariants and administrator-only draft/comment rendering.
+- Extend the synthetic scenario harness for exclusions, authorised pinned exceptions, capacity
+  consumption, conflict diagnostics, and stability that cannot degrade preference quality. Preserve
+  deterministic reproduction and the expected-scale full/re-solve budgets (§22.2).
+- Test manual move/swap atomicity, override creation and re-evaluation, persistence, exclusion
+  removal, warning acknowledgement, stale inputs/results and concurrent-edit conflicts.
+- End-to-end tests for solve → review → drag/manual edit → pin/exclude → re-solve, including
+  keyboard alternatives, infeasible recovery and reopening without lost edits. Use synthetic data only.
+
+**Exit criteria**
+
+- An organiser reaches a complete saved draft without a spreadsheet, using both solver-produced and
+  manually created placements; all participating students have exactly one assignment.
+- Pins and precisely authorised exceptions survive re-solve; unrelated students remain constrained,
+  and equally good results avoid unnecessary movement without sacrificing preference quality.
+- Infeasibility names the responsible constraints, does not replace the draft, and is recoverable
+  through catalogue/constraint adjustments or explicit manual decisions.
+- Warnings, override records and comments remain attributable and visible without preventing draft
+  completion; unplaced and unwanted outcomes are reviewable by student name.
+- Reopening preserves work, concurrent edits cannot silently overwrite it, and outdated solve
+  results cannot replace a newer draft. Drafts and comments never become guardian/public content.
+- Isolation, solver regression/performance and workspace interaction tests pass. Publishing is not
+  required to demonstrate any exit criterion.
+
+---
+
 ### Phase 6 — Publishing and artifacts → **R1**
 
 *SPEC §18, §22.3.*
@@ -736,6 +842,10 @@ it is not a hardening pass.
 ### Phase 7 — Rules layer and staffing
 
 *SPEC §10, §15, §16.2–16.3.*
+
+Phase 5A delivers the capacity/grade/exclusion enforcement boundary and attributable manual
+placement overrides. This phase adds the reusable rules layer and staffing; it does not rebuild
+those placement controls.
 
 These two subjects are grouped because adult pairings resolve through staffing assignments (§10.7),
 and because both are inputs the engine consumes in Phase 8. Staffing could have landed earlier;
@@ -779,6 +889,10 @@ it is here because §15.1 makes it advisory and non-blocking, so nothing before 
 
 *SPEC §16.4–16.7, §17.5–17.7, §17.10–17.13.*
 
+Phase 5A delivers explicit exclusions, authorised pinned exceptions, stability tie-breaking,
+in-scope warnings/overrides and conflict diagnostics. Extend those mechanisms to the additional
+rules here rather than implementing parallel versions.
+
 **Feature track**
 
 - Tag and pairing constraints in the model, hard and soft.
@@ -788,15 +902,16 @@ it is here because §15.1 makes it advisory and non-blocking, so nothing before 
 - **Variety**: separately weighted same-offering and same-interest-area penalties.
 - The full soft-term set and tunable weights, defaulting on the programme and overridable per
   session, visible before solve and recorded on the run.
-- The eighteen-identifier warning catalogue. Warnings are never dismissible, suppressible or
-  snoozable, and are acknowledged by comment without being cleared.
-- Override records bound to one specific placement, **discarded and re-evaluated from scratch when
-  the placement changes**, with a prompted but not mandatory reason.
-- Infeasibility diagnosis returning a minimal conflicting subset in organiser vocabulary — never a
-  bare "infeasible", and never an automatic relaxation of a hard rule.
+- Complete the eighteen-identifier warning catalogue beyond Phase 5A's subset. Warnings are never
+  dismissible, suppressible or snoozable, and are acknowledged by comment without being cleared.
+- Extend Phase 5A's placement-bound override records to tag and pairing hard rules, still discarded
+  and re-evaluated when the placement changes, with a prompted but optional reason.
+- Extend Phase 5A's minimal/near-minimal conflict diagnostics to tags and pairings, in organiser
+  vocabulary, without automatic relaxation.
 - Per-placement explainability: expressed preference, resulting quality, fairness weight, and every
   offering the student would have preferred **each with its binding reason**.
-- Incremental re-solve with placement stability as a tie-break that never costs a better solution.
+- Preserve and extend Phase 5A's incremental re-solve and no-quality-cost stability tie-break as
+  fairness and the additional soft terms enter the objective.
 
 **Platform track**
 
@@ -817,15 +932,19 @@ it is here because §15.1 makes it advisory and non-blocking, so nothing before 
 
 **Feature track**
 
-- The assignment board: pin, unpin, move, swap, exclude, re-solve, revert. No operation is blocked
-  for producing warnings; every hard-rule violation creates an override record.
+- Extend the Phase 5A assignment board for the full rules and historical-quality model; its pin,
+  unpin, move, swap, exclusion and re-solve operations already exist. Add revert/run restoration
+  (§§17.12, 20.2), including reconciliation with current inputs and placement-bound overrides.
+  No operation is blocked for producing warnings; hard-rule violations remain attributable.
 - The quality dashboard, ordered as §19.1 requires — **named lists before aggregates**. Unplaced
   students first; then every student placed against a stated non-preference, **each shown with their
   cumulative deficit**, so a first occurrence is distinguishable from a pattern.
-- All §19.2 metrics, computable for a **draft** and not only a published session.
+- Complete all §19.2 metrics beyond Phase 5A's occupancy and quality distribution, computable for
+  a **draft** and not only a published session.
 - Draft comparison between two runs of the same session — the mechanism by which the §17.7 default
   weights are actually tuned.
-- Demand analysis, participation reporting, comments.
+- Demand analysis, participation reporting, and student/adult comments beyond Phase 5A's
+  placement/offering/session comments.
 
 **Exit criteria — R2**
 
@@ -879,7 +998,8 @@ The same plan, viewed as a tooling roadmap.
 | 3 | — | State-machine tables | — | — |
 | 4 | Playwright, a11y | Mobile E2E | — | — |
 | 4B | — | Consent-before-write, match disclosure, deletion/de-identification, artifact regeneration, purge completeness | Consent/privacy retrofit captured before Phase 5 | Purge shell, deleted labels, invitation token lifecycle |
-| 5 | Performance budget | **Historical replay harness**, determinism | Solver-change protocol | Solve-run reproducibility |
+| 5 | Performance budget | **Synthetic CSV scenario harness**, determinism | Solver-change protocol | Solve-run reproducibility |
+| 5A | Existing performance gates | Isolation, exception/stability scenarios, drafting E2E and accessibility | Narrow placement scope and explicit deferrals | Audited edits, stale-result and concurrent-write protection |
 | 6 | Preview deploys | Snapshot and print tests | — | Independent artifact serving |
 | 7 | — | Sensitivity leak sweep | — | — |
 | 8 | Quality regression gate | Warning catalogue coverage | — | — |
@@ -916,6 +1036,8 @@ These become part of `AGENTS.md` in Phase 0 and apply to every subsequent phase.
 | CP-SAT cannot meet the §22.2 latency budget through a sidecar hop | 5 | Budget test in CI from the first solve. At ~1,700 variables the model is small; the hop, not the solve, is the likely cost. |
 | Lexicographic objective implemented by weight separation leaks between levels | 5 | §17.3 requires demonstrating non-interference by test. Prefer sequential optimisation unless measurement forces otherwise. |
 | Determinism treated as a later hardening pass | 5 | It gates re-solve, comparison and reproducibility. Built in Phase 5 or not at all. |
+| Manual override becomes blanket solver permission | 5A | Placement-bound exceptions only; test capacity consumption and enforcement for unrelated students. |
+| Solve or concurrent edit overwrites newer draft work | 5A | Input snapshot and draft revision checks; preserve superseded runs without applying them. |
 | Sensitivity leak through an export or print path | 7 | Central enforcement plus a surface-enumerating test. §21.5 names this the most probable regression. |
 | Delete/de-identify misses published snapshots | 4B, 10 | §21.3 names this the most likely silent failure. Test asserts regenerated artifacts, not just table changes. |
 | Adult OTP/MFA and guardian-mode separation are under-specified | 4 | ADR 0013 and P4-0 define assurance levels, explicit identity links, recovery, and privacy-mode transitions before implementation. |
