@@ -33,10 +33,11 @@ def solve(document: object) -> dict[str, object]:
 
     Hard rules remain exactly-one assignment, offering capacity, and grade
     windows (SPEC §17.1). Quality objectives are optimized worst-outcome first
-    and fixed at each optimum (SPEC §17.4.2); the seeded decision strategy then
-    breaks only genuine objective ties (SPEC §17.8).
+    and fixed at each optimum (SPEC §17.4.2). Among those optima, the solver
+    preserves unpinned prior placements where it can (SPEC §17.9); the seeded
+    decision strategy then breaks only genuine remaining ties (SPEC §17.8).
     """
-    seed, deterministic_limit, high_rank_max, participants, offerings, pins, exclusions, exceptions, _prior_placements = parse_request(document)
+    seed, deterministic_limit, high_rank_max, participants, offerings, pins, exclusions, exceptions, prior_placements = parse_request(document)
     diagnostics = _constraint_diagnostics(pins, exclusions, exceptions, participants, offerings)
     if diagnostics:
         # Failed re-solves deliberately yield no candidate assignments. The
@@ -103,6 +104,23 @@ def solve(document: object) -> dict[str, object]:
         # Equality is the lexicographic guard: a later level can never buy a
         # better result by making any preceding quality level worse.
         model.Add(objective == int(solver.ObjectiveValue()))
+
+    if status == cp_model.OPTIMAL:
+        pinned_participants = {pin.participant_id for pin in pins}
+        retained_placements = sum(
+            decision
+            for placement in prior_placements
+            if placement.participant_id not in pinned_participants
+            if (decision := decisions.get((placement.participant_id, placement.offering_id))) is not None
+        )
+        # Stability is deliberately below every quality level: it cannot retain
+        # a placement by buying even one worse preference outcome. Pins are
+        # excluded because they are fixed input constraints, not a choice to
+        # preserve. Baseline rows that are no longer eligible are inert.
+        model.Maximize(retained_placements)
+        status = solver.Solve(model)
+        if status == cp_model.OPTIMAL:
+            model.Add(retained_placements == int(solver.ObjectiveValue()))
 
     if status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
         assignments = [

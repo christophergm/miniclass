@@ -321,6 +321,89 @@ def test_lexicographic_objective_protects_acceptable_before_high_without_maximiz
     assert assignment_qualities(result) == {"high": "high", "top": "high"}
 
 
+def test_stability_retains_unpinned_prior_placements_after_quality_optima() -> None:
+    request_document = request(
+        offerings=[
+            {"id": "art", "capacity": 1, "min_grade_ordinal": 1, "max_grade_ordinal": 1},
+            {"id": "music", "capacity": 1, "min_grade_ordinal": 1, "max_grade_ordinal": 1},
+        ],
+        participants=[{"id": "alex", "grade_ordinal": 1}, {"id": "blair", "grade_ordinal": 1}],
+        prior_placements=[
+            {"participant_id": "alex", "offering_id": "music"},
+            {"participant_id": "blair", "offering_id": "art"},
+        ],
+    )
+    result = solve(request_document)
+
+    assert assignment_offerings(result) == {"alex": "music", "blair": "art"}
+    assert result == solve(request_document)
+
+
+def test_stability_never_trades_a_better_quality_outcome_for_a_prior_placement() -> None:
+    result = solve(
+        request(
+            offerings=[
+                {"id": "popular", "capacity": 1, "min_grade_ordinal": 1, "max_grade_ordinal": 1},
+                {"id": "fallback", "capacity": 1, "min_grade_ordinal": 1, "max_grade_ordinal": 1},
+            ],
+            participants=[
+                ranked_participant("avoid-unwanted", [("popular", "ranked", 1), ("fallback", "not_interested", None)]),
+                ranked_participant("acceptable", [("popular", "ranked", 1), ("fallback", "interested", None)]),
+            ],
+            prior_placements=[
+                {"participant_id": "avoid-unwanted", "offering_id": "fallback"},
+                {"participant_id": "acceptable", "offering_id": "popular"},
+            ],
+        )
+    )
+
+    assert assignment_offerings(result) == {"avoid-unwanted": "popular", "acceptable": "fallback"}
+    assert assignment_qualities(result) == {"avoid-unwanted": "top", "acceptable": "acceptable"}
+
+
+def test_stability_preserves_unaffected_placements_after_a_small_constraint_edit() -> None:
+    result = solve(
+        request(
+            offerings=[
+                {"id": "art", "capacity": 1, "min_grade_ordinal": 1, "max_grade_ordinal": 1},
+                {"id": "music", "capacity": 1, "min_grade_ordinal": 1, "max_grade_ordinal": 1},
+                {"id": "science", "capacity": 1, "min_grade_ordinal": 1, "max_grade_ordinal": 1},
+            ],
+            participants=[{"id": "alex", "grade_ordinal": 1}, {"id": "blair", "grade_ordinal": 1}, {"id": "casey", "grade_ordinal": 1}],
+            exclusions=[{"participant_id": "alex", "offering_id": "art"}],
+            prior_placements=[
+                {"participant_id": "alex", "offering_id": "art"},
+                {"participant_id": "blair", "offering_id": "music"},
+                {"participant_id": "casey", "offering_id": "science"},
+            ],
+        )
+    )
+
+    assert assignment_offerings(result) == {"alex": "music", "blair": "art", "casey": "science"}
+
+
+def test_stability_ignores_incomplete_baselines_and_pinned_exception_placements() -> None:
+    result = solve(
+        request(
+            offerings=[
+                {"id": "senior", "capacity": 1, "min_grade_ordinal": 2, "max_grade_ordinal": 2},
+                {"id": "art", "capacity": 1, "min_grade_ordinal": 1, "max_grade_ordinal": 1},
+                {"id": "music", "capacity": 1, "min_grade_ordinal": 1, "max_grade_ordinal": 1},
+            ],
+            participants=[{"id": "pinned", "grade_ordinal": 1}, {"id": "unlocked", "grade_ordinal": 1}],
+            pins=[{"participant_id": "pinned", "offering_id": "senior"}],
+            exceptions=[{"participant_id": "pinned", "offering_id": "senior", "rule": "grade"}],
+            prior_placements=[
+                {"participant_id": "pinned", "offering_id": "senior"},
+                {"participant_id": "unlocked", "offering_id": "music"},
+                {"participant_id": "departed", "offering_id": "deleted"},
+            ],
+        )
+    )
+
+    assert assignment_offerings(result) == {"pinned": "senior", "unlocked": "music"}
+
+
 def test_input_order_does_not_change_seeded_result() -> None:
     original = request(
         offerings=[
