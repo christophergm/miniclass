@@ -143,3 +143,10 @@
 - Adds `GET /api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/assignment-workspace`, protected by `manage_assignments`. It returns the persisted draft revision, participating memberships, offerings, assignments, exclusions, overrides, and current ranked-choice answers; empty drafts serialize each collection as `[]`.
 - `internal/program/assignment_workspace.go` assembles the projection in one `InTenantRead` transaction and verifies the full year/program/session scope via `GetSession` before reading related rows. The endpoint implements SPEC §§8.6, 16.2, 17.13, 18.1.
 - Passed: `go test ./...` in `backend/`, `make generate`, `make format`, `make lint-backend` (including depguard), and `git diff --check`. `make test-backend`/migration tests cannot start because an externally owned `/miniclass-mailpit` holds the fixed Compose name; created worktree network/volume were removed. Frontend test/build lack `openapi-typescript`; frontend lint reports pre-existing formatting drift in six test files.
+
+## Issue #292 — atomic moves, swaps, and pin controls
+
+- Adds assignment mutation endpoints with optimistic `draft_revision` checking. The revision CAS is the first write in the audited tenant transaction, serializing final-state capacity/grade/exclusion evaluation and rolling back stale or unconfirmed mutations.
+- Moves and swaps create manual pinned placements; pin/unpin is persisted. Changed or unpinned placements discard their placement-bound overrides. A new migration permits the SPEC §16.7 optional override reason.
+- Focused integration coverage exercises empty-draft placement, swap, pin/unpin, prompted exclusion confirmation, and stale revision rejection. Passed `go test ./...`, `make generate`, `make format`, `make lint-backend`, and `git diff --check`.
+- `make check` cannot start because an externally owned `/miniclass-mailpit` holds the fixed Compose container name. The attempted run's worktree-specific Docker volume and network were removed without touching that container.
