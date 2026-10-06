@@ -43,12 +43,12 @@ func (s *Service) SubmitInterestProfileSurvey(ctx context.Context, organizationI
 	return preference.New(s.database).SubmitInterestProfileSurvey(ctx, organizationID, actor, input)
 }
 
-func (s *Service) GetInterestProfileResponseTracking(ctx context.Context, organizationID string, schoolYearID, programID, surveyID ids.XID) (preference.ResponseTracking, error) {
-	return preference.New(s.database).GetInterestProfileResponseTracking(ctx, organizationID, schoolYearID, programID, surveyID)
+func (s *Service) GetInterestProfileResponseTracking(ctx context.Context, organizationID string, schoolYearID, programID, surveyID ids.XID, filters ...data.PreferenceResultsFilter) (preference.ResponseTracking, error) {
+	return preference.New(s.database).GetInterestProfileResponseTracking(ctx, organizationID, schoolYearID, programID, surveyID, filters...)
 }
 
-func (s *Service) ListResponseTrackingSummaries(ctx context.Context, organizationID string, schoolYearID, programID ids.XID) ([]preference.ResponseTrackingSummary, error) {
-	return preference.New(s.database).ListResponseTrackingSummaries(ctx, organizationID, schoolYearID, programID)
+func (s *Service) ListResponseTrackingSummaries(ctx context.Context, organizationID string, schoolYearID, programID ids.XID, filters ...data.PreferenceResultsFilter) ([]preference.ResponseTrackingSummary, error) {
+	return preference.New(s.database).ListResponseTrackingSummaries(ctx, organizationID, schoolYearID, programID, filters...)
 }
 
 func (s *Service) ListGuardianPreferenceForms(ctx context.Context, organizationID string, schoolYearID, adultID ids.XID) (preference.GuardianPreferenceForms, error) {
@@ -63,6 +63,14 @@ func (s *Service) SubmitRankedChoices(ctx context.Context, organizationID string
 	return preference.New(s.database).SubmitRankedChoices(ctx, organizationID, actor, input)
 }
 
-func (s *Service) GetRankedChoiceResponseTracking(ctx context.Context, organizationID string, schoolYearID, programID, sessionID ids.XID) (preference.ResponseTracking, error) {
-	return preference.New(s.database).GetRankedChoiceResponseTracking(ctx, organizationID, schoolYearID, programID, sessionID)
+func (s *Service) GetRankedChoiceResponseTracking(ctx context.Context, organizationID string, schoolYearID, programID, sessionID ids.XID, filters ...data.PreferenceResultsFilter) (preference.ResponseTracking, error) {
+	return preference.New(s.database).GetRankedChoiceResponseTracking(ctx, organizationID, schoolYearID, programID, sessionID, filters...)
+}
+
+func (s *Service) GetInterestProfileResults(ctx context.Context, organizationID string, year, program, survey ids.XID, filter data.PreferenceResultsFilter) (preference.InterestProfileResults, error) {
+	return preference.New(s.database).GetInterestProfileResults(ctx, organizationID, year, program, survey, filter)
+}
+
+func (s *Service) GetRankedChoiceResults(ctx context.Context, organizationID string, year, program, session ids.XID, filter data.PreferenceResultsFilter) (preference.RankedChoiceResults, error) {
+	return preference.New(s.database).GetRankedChoiceResults(ctx, organizationID, year, program, session, filter)
 }

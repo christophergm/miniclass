@@ -68,12 +68,14 @@ type ProgramService interface {
 	TransitionInterestProfileSurvey(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, preference.InterestProfileSurveyTransitionInput) (preference.InterestProfileSurveyTransitionResult, error)
 	GetInterestProfileForm(context.Context, string, ids.XID, ids.XID, ids.XID, ids.XID) (preference.PreferenceForm, error)
 	SubmitInterestProfileSurvey(context.Context, string, audit.Actor, preference.InterestProfileSurveySubmissionInput) (data.InterestProfileSubmission, error)
-	GetInterestProfileResponseTracking(context.Context, string, ids.XID, ids.XID, ids.XID) (preference.ResponseTracking, error)
-	ListResponseTrackingSummaries(context.Context, string, ids.XID, ids.XID) ([]preference.ResponseTrackingSummary, error)
+	GetInterestProfileResponseTracking(context.Context, string, ids.XID, ids.XID, ids.XID, ...data.PreferenceResultsFilter) (preference.ResponseTracking, error)
+	ListResponseTrackingSummaries(context.Context, string, ids.XID, ids.XID, ...data.PreferenceResultsFilter) ([]preference.ResponseTrackingSummary, error)
 	ListGuardianPreferenceForms(context.Context, string, ids.XID, ids.XID) (preference.GuardianPreferenceForms, error)
 	GetRankedChoiceForm(context.Context, string, ids.XID, ids.XID, ids.XID, ids.XID) (preference.PreferenceForm, error)
 	SubmitRankedChoices(context.Context, string, audit.Actor, preference.RankedChoiceSubmissionInput) (data.RankedChoiceSubmission, error)
-	GetRankedChoiceResponseTracking(context.Context, string, ids.XID, ids.XID, ids.XID) (preference.ResponseTracking, error)
+	GetRankedChoiceResponseTracking(context.Context, string, ids.XID, ids.XID, ids.XID, ...data.PreferenceResultsFilter) (preference.ResponseTracking, error)
+	GetInterestProfileResults(context.Context, string, ids.XID, ids.XID, ids.XID, data.PreferenceResultsFilter) (preference.InterestProfileResults, error)
+	GetRankedChoiceResults(context.Context, string, ids.XID, ids.XID, ids.XID, data.PreferenceResultsFilter) (preference.RankedChoiceResults, error)
 }
 
 type ProgramResponse struct {

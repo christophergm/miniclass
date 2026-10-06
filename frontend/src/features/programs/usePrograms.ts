@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   resourceApi,
+  canonicalResponseReportFilters,
+  type ResponseReportFilters,
   type PreferenceInterestAnswerInput,
   type PreferenceRankedAnswerInput,
   type InterestProfileSurveyInput,
@@ -102,15 +104,48 @@ export function useInterestProfileResponseTracking(
   schoolYearID: string | undefined,
   programID: string | undefined,
   surveyID: string | undefined,
+  filters?: ResponseReportFilters,
 ) {
+  const canonicalFilters = canonicalResponseReportFilters(filters);
   return useQuery({
     enabled: Boolean(schoolYearID && programID && surveyID),
-    queryKey: [...interestProfileSurveyKey(schoolYearID, programID, surveyID), "response-tracking"],
+    queryKey: [
+      ...interestProfileSurveyKey(schoolYearID, programID, surveyID),
+      "response-tracking",
+      canonicalFilters,
+    ],
     queryFn: () =>
       resourceApi.getInterestProfileResponseTracking(
         schoolYearID as string,
         programID as string,
         surveyID as string,
+        canonicalFilters,
+      ),
+    retry: false,
+  });
+}
+
+export function useInterestProfileResults(
+  schoolYearID: string | undefined,
+  programID: string | undefined,
+  surveyID: string | undefined,
+  filters?: ResponseReportFilters,
+  enabled = true,
+) {
+  const canonicalFilters = canonicalResponseReportFilters(filters);
+  return useQuery({
+    enabled: enabled && Boolean(schoolYearID && programID && surveyID),
+    queryKey: [
+      ...interestProfileSurveyKey(schoolYearID, programID, surveyID),
+      "results",
+      canonicalFilters,
+    ],
+    queryFn: () =>
+      resourceApi.getInterestProfileResults(
+        schoolYearID as string,
+        programID as string,
+        surveyID as string,
+        canonicalFilters,
       ),
     retry: false,
   });
@@ -220,7 +255,33 @@ export function useSubmitAdministratorInterestProfile() {
         studentID,
         answers,
       ),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["administrator-preference-form"] }),
+    onSuccess: (_data, variables) =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["administrator-preference-form"] }),
+        queryClient.invalidateQueries({
+          queryKey: [
+            ...interestProfileSurveyKey(
+              variables.schoolYearID,
+              variables.programID,
+              variables.surveyID,
+            ),
+            "response-tracking",
+          ],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: [
+            ...interestProfileSurveyKey(
+              variables.schoolYearID,
+              variables.programID,
+              variables.surveyID,
+            ),
+            "results",
+          ],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: responseTrackingSummariesKey(variables.schoolYearID, variables.programID),
+        }),
+      ]),
   });
 }
 
@@ -247,16 +308,27 @@ export function useSubmitAdministratorRankedChoice() {
         studentID,
         responses,
       ),
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["administrator-preference-form"] });
-      queryClient.invalidateQueries({
-        queryKey: [
-          ...sessionsKey(variables.schoolYearID, variables.programID),
-          variables.sessionID,
-          "response-tracking",
-        ],
-      });
-    },
+    onSuccess: (_data, variables) =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["administrator-preference-form"] }),
+        queryClient.invalidateQueries({
+          queryKey: [
+            ...sessionsKey(variables.schoolYearID, variables.programID),
+            variables.sessionID,
+            "response-tracking",
+          ],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: [
+            ...sessionsKey(variables.schoolYearID, variables.programID),
+            variables.sessionID,
+            "results",
+          ],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: responseTrackingSummariesKey(variables.schoolYearID, variables.programID),
+        }),
+      ]),
   });
 }
 
@@ -268,12 +340,18 @@ export const responseTrackingSummariesKey = (
 export function useResponseTrackingSummaries(
   schoolYearID: string | undefined,
   programID: string | undefined,
+  filters?: ResponseReportFilters,
 ) {
+  const canonicalFilters = canonicalResponseReportFilters(filters);
   return useQuery({
     enabled: Boolean(schoolYearID && programID),
-    queryKey: responseTrackingSummariesKey(schoolYearID, programID),
+    queryKey: [...responseTrackingSummariesKey(schoolYearID, programID), canonicalFilters],
     queryFn: () =>
-      resourceApi.listResponseTrackingSummaries(schoolYearID as string, programID as string),
+      resourceApi.listResponseTrackingSummaries(
+        schoolYearID as string,
+        programID as string,
+        canonicalFilters,
+      ),
     retry: false,
   });
 }
@@ -308,15 +386,45 @@ export function useRankedChoiceResponseTracking(
   schoolYearID: string | undefined,
   programID: string | undefined,
   sessionID: string | undefined,
+  filters?: ResponseReportFilters,
 ) {
+  const canonicalFilters = canonicalResponseReportFilters(filters);
   return useQuery({
     enabled: Boolean(schoolYearID && programID && sessionID),
-    queryKey: [...sessionsKey(schoolYearID, programID), sessionID, "response-tracking"],
+    queryKey: [
+      ...sessionsKey(schoolYearID, programID),
+      sessionID,
+      "response-tracking",
+      canonicalFilters,
+    ],
     queryFn: () =>
       resourceApi.getRankedChoiceResponseTracking(
         schoolYearID as string,
         programID as string,
         sessionID as string,
+        canonicalFilters,
+      ),
+    retry: false,
+  });
+}
+
+export function useRankedChoiceResults(
+  schoolYearID: string | undefined,
+  programID: string | undefined,
+  sessionID: string | undefined,
+  filters?: ResponseReportFilters,
+  enabled = true,
+) {
+  const canonicalFilters = canonicalResponseReportFilters(filters);
+  return useQuery({
+    enabled: enabled && Boolean(schoolYearID && programID && sessionID),
+    queryKey: [...sessionsKey(schoolYearID, programID), sessionID, "results", canonicalFilters],
+    queryFn: () =>
+      resourceApi.getRankedChoiceResults(
+        schoolYearID as string,
+        programID as string,
+        sessionID as string,
+        canonicalFilters,
       ),
     retry: false,
   });

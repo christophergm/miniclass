@@ -5,6 +5,7 @@ import {
   activeHomerooms,
   resourceApi,
   type VocabularyResponse,
+  type ResponseReportFilters,
 } from "./apiResources";
 
 const vocabulary: VocabularyResponse = {
@@ -199,6 +200,66 @@ describe("phase 4 generated resources", () => {
       "/api/school-years/year-1/programs/program-1/sessions/session-1/response-tracking",
     );
   });
+});
+
+describe("response report resources", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const resources = [
+    {
+      call: resourceApi.getInterestProfileResults,
+      path: "interest-profile-surveys/instrument-1/results",
+    },
+    { call: resourceApi.getRankedChoiceResults, path: "sessions/instrument-1/results" },
+    {
+      call: resourceApi.getInterestProfileResponseTracking,
+      path: "interest-profile-surveys/instrument-1/response-tracking",
+    },
+    {
+      call: resourceApi.getRankedChoiceResponseTracking,
+      path: "sessions/instrument-1/response-tracking",
+    },
+    {
+      call: (year: string, program: string, _instrument: string, filters?: ResponseReportFilters) =>
+        resourceApi.listResponseTrackingSummaries(year, program, filters),
+      path: "response-tracking/summary",
+    },
+  ];
+
+  it.each(resources)(
+    "encodes comma-separated canonical filters for $path",
+    async ({ call, path }) => {
+      const requests: Request[] = [];
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+          requests.push(input instanceof Request ? input : new Request(input, init));
+          return new Response(JSON.stringify({}), {
+            headers: { "Content-Type": "application/json" },
+          });
+        }),
+      );
+      const filters = {
+        grade_level_ids: ["grade-2", " grade-1 ", "grade-2", ""],
+        homeroom_ids: ["room-2", "room-1"],
+      };
+      await call("year-1", "program-1", "instrument-1", filters);
+      await call("year-1", "program-1", "instrument-1");
+      await call("year-1", "program-1", "instrument-1", { grade_level_ids: [], homeroom_ids: [] });
+      const url = new URL(requests[0].url);
+      expect(requests[0].method).toBe("GET");
+      expect(url.pathname).toBe(`/api/school-years/year-1/programs/program-1/${path}`);
+      expect(url.searchParams.get("grade_level_ids")).toBe("grade-1,grade-2");
+      expect(url.searchParams.get("homeroom_ids")).toBe("room-1,room-2");
+      expect([...url.searchParams.keys()].sort()).toEqual(["grade_level_ids", "homeroom_ids"]);
+      expect(new URL(requests[1].url).search).toBe("");
+      expect(new URL(requests[2].url).search).toBe("");
+      expect(filters.grade_level_ids).toEqual(["grade-2", " grade-1 ", "grade-2", ""]);
+      expect(filters.homeroom_ids).toEqual(["room-2", "room-1"]);
+    },
+  );
 });
 
 describe("guardian onboarding administration resources", () => {
