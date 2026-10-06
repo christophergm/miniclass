@@ -19,6 +19,7 @@ type AssignmentWorkspace struct {
 	Assignments         []data.Assignment
 	Exclusions          []data.AssignmentExclusion
 	Overrides           []data.AssignmentOverride
+	Comments            []data.PlacementComment
 	RankedChoiceAnswers []data.SessionResultAnswer
 }
 
@@ -71,11 +72,15 @@ func (s *Service) GetAssignmentWorkspace(ctx context.Context, organizationID str
 		if err != nil {
 			return err
 		}
+		comments, err := tx.ListPlacementComments(ctx, schoolYearID, programID, sessionID)
+		if err != nil {
+			return err
+		}
 		answers, err := tx.ListCurrentSessionResultAnswers(ctx, schoolYearID, programID, sessionID)
 		if err != nil {
 			return err
 		}
-		result = AssignmentWorkspace{Session: session, Participants: participants, Offerings: offerings, Assignments: assignments, Exclusions: exclusions, Overrides: overrides, RankedChoiceAnswers: answers}
+		result = AssignmentWorkspace{Session: session, Participants: participants, Offerings: offerings, Assignments: assignments, Exclusions: exclusions, Overrides: overrides, Comments: comments, RankedChoiceAnswers: answers}
 		return nil
 	})
 	if err != nil {

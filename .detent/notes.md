@@ -229,6 +229,20 @@ Output tail:
 I’ll resume issue #298 from its tracker and repository state, update the persistent Workpad, then implement and validate the narrowly scoped stale-draft protection.The current service detects a changed draft revision, but rolls back the entire transaction—so the stale solve run is lost. I’ll change that boundary so the run persists with a distinct non-applied outcome while draft mutation remains guarded and atomic.This change needs a tenant-scoped schema migration and its isolation proof, so I’m applying the repository’s tenant-isolation-harness guidance before editing the data layer.The referenced isolation-harness skill file is unavailable at its declared path, so I’ll follow the repository’s existing tenant-entity registry and integration-test patterns directly instead.
 ```
 
+## Issue #300 — attributable placement workspace notes
+
+- Adds tenant-scoped `placement_comments` for assignment, offering, and session hosts. The host
+  identifier is intentionally retained after a replaced assignment is deleted, so a comment stays
+  attributable to its prior placement and can never transfer to a replacement (SPEC §20.3).
+- Comments are administrator-only `manage_assignments` API resources. Writes use audited tenant
+  transactions; only the author can edit or soft-delete, and edit audit summaries retain prior
+  text. Workspace responses include active comments only and are protected at the response route
+  by the administrator capability (SPEC §§10.5, 16.6, 20.3–20.4).
+- Passed `go test ./...` in `backend/`, `make format`, `make lint-backend` including depguard,
+  `make generate`, and `git diff --check`. Migration round-trip and compose-backed backend test
+  gates still need their configured database/container environment. Current-head PR #316 CI later
+  passed all 13 checks, including backend tests and migration round-trip.
+
 ## 2026-10-06T13:10:41Z - Failed run output tail
 
 - final_state: failed

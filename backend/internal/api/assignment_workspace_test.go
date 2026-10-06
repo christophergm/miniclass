@@ -25,7 +25,7 @@ type assignmentWorkspaceService struct {
 func (s *assignmentWorkspaceService) GetAssignmentWorkspace(_ context.Context, organizationID string, schoolYearID, programID, sessionID ids.XID) (program.AssignmentWorkspace, error) {
 	s.organizationID, s.schoolYearID, s.programID, s.sessionID = organizationID, schoolYearID, programID, sessionID
 	s.called = true
-	return program.AssignmentWorkspace{Session: data.Session{ID: sessionID, OrganizationID: ids.XID(organizationID), SchoolYearID: schoolYearID, ProgramID: programID, Name: "Empty draft", State: data.SessionAssigning}, Participants: []data.ProgramMembership{}, Offerings: []data.Offering{}, Assignments: []data.Assignment{}, Exclusions: []data.AssignmentExclusion{}, Overrides: []data.AssignmentOverride{}, RankedChoiceAnswers: []data.SessionResultAnswer{}}, nil
+	return program.AssignmentWorkspace{Session: data.Session{ID: sessionID, OrganizationID: ids.XID(organizationID), SchoolYearID: schoolYearID, ProgramID: programID, Name: "Empty draft", State: data.SessionAssigning}, Participants: []data.ProgramMembership{}, Offerings: []data.Offering{}, Assignments: []data.Assignment{}, Exclusions: []data.AssignmentExclusion{}, Overrides: []data.AssignmentOverride{}, Comments: []data.PlacementComment{}, RankedChoiceAnswers: []data.SessionResultAnswer{}}, nil
 }
 
 func TestAssignmentWorkspaceRouteScopesEmptyDraftAndRequiresAssignmentsCapability(t *testing.T) {
@@ -52,6 +52,7 @@ func TestAssignmentWorkspaceRouteScopesEmptyDraftAndRequiresAssignmentsCapabilit
 	require.NotNil(t, body.Assignments)
 	require.NotNil(t, body.Exclusions)
 	require.NotNil(t, body.Overrides)
+	require.NotNil(t, body.Comments)
 	require.NotNil(t, body.RankedChoiceAnswers)
 
 	document := NewOpenAPI(RouterOptions{})
@@ -61,6 +62,8 @@ func TestAssignmentWorkspaceRouteScopesEmptyDraftAndRequiresAssignmentsCapabilit
 	require.Equal(t, string(auth.CapabilityManageAssignments), createExclusion.Extensions[auth.RequiredCapabilityExtension])
 	deleteExclusion := document.Paths["/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/assignment-exclusions/{exclusionID}"].Delete
 	require.Equal(t, string(auth.CapabilityManageAssignments), deleteExclusion.Extensions[auth.RequiredCapabilityExtension])
+	createComment := document.Paths["/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/placement-comments"].Post
+	require.Equal(t, string(auth.CapabilityManageAssignments), createComment.Extensions[auth.RequiredCapabilityExtension])
 
 	guardianRouter := NewRouter(RouterOptions{Programs: service, Verifier: verifier, Identity: resolver, Sessions: fixedPreferenceSession{principal: auth.GuardianPrincipal{OrganizationID: "org-test", SchoolYearID: "year-a", AdultID: "guardian-a"}}})
 	guardianRequest := httptest.NewRequest(http.MethodGet, path, nil)
