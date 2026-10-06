@@ -346,6 +346,106 @@ func (q *Queries) ListAllAssignmentOverridesForRegistry(ctx context.Context, org
 	return items, nil
 }
 
+const listAssignmentExclusions = `-- name: ListAssignmentExclusions :many
+select id, organization_id, school_year_id, program_id, session_id, student_id, offering_id, created_at, updated_at
+from assignment_exclusions
+where organization_id = $1 and school_year_id = $2 and program_id = $3 and session_id = $4
+order by student_id, offering_id
+`
+
+type ListAssignmentExclusionsParams struct {
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+	ProgramID      ids.XID `json:"program_id"`
+	SessionID      ids.XID `json:"session_id"`
+}
+
+func (q *Queries) ListAssignmentExclusions(ctx context.Context, arg ListAssignmentExclusionsParams) ([]AssignmentExclusion, error) {
+	rows, err := q.db.Query(ctx, listAssignmentExclusions,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+		arg.ProgramID,
+		arg.SessionID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AssignmentExclusion{}
+	for rows.Next() {
+		var i AssignmentExclusion
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrganizationID,
+			&i.SchoolYearID,
+			&i.ProgramID,
+			&i.SessionID,
+			&i.StudentID,
+			&i.OfferingID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAssignmentOverrides = `-- name: ListAssignmentOverrides :many
+select id, organization_id, school_year_id, program_id, session_id, assignment_id, rule, reason, recorded_by, created_at, updated_at
+from assignment_overrides
+where organization_id = $1 and school_year_id = $2 and program_id = $3 and session_id = $4
+order by assignment_id, id
+`
+
+type ListAssignmentOverridesParams struct {
+	OrganizationID ids.XID `json:"organization_id"`
+	SchoolYearID   ids.XID `json:"school_year_id"`
+	ProgramID      ids.XID `json:"program_id"`
+	SessionID      ids.XID `json:"session_id"`
+}
+
+func (q *Queries) ListAssignmentOverrides(ctx context.Context, arg ListAssignmentOverridesParams) ([]AssignmentOverride, error) {
+	rows, err := q.db.Query(ctx, listAssignmentOverrides,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+		arg.ProgramID,
+		arg.SessionID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AssignmentOverride{}
+	for rows.Next() {
+		var i AssignmentOverride
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrganizationID,
+			&i.SchoolYearID,
+			&i.ProgramID,
+			&i.SessionID,
+			&i.AssignmentID,
+			&i.Rule,
+			&i.Reason,
+			&i.RecordedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const touchAssignmentExclusionForRegistry = `-- name: TouchAssignmentExclusionForRegistry :execrows
 update assignment_exclusions set student_id = student_id where id = $1 and organization_id = $2
 `

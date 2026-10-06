@@ -55,6 +55,7 @@ type ProgramService interface {
 	UpdateSessionNonParticipation(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, ids.XID, programservice.SessionNonParticipationUpdate) (data.SessionNonParticipation, error)
 	DeleteSessionNonParticipation(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, ids.XID) error
 	ListParticipatingMemberships(context.Context, string, ids.XID, ids.XID, ids.XID) ([]data.ProgramMembership, error)
+	GetAssignmentWorkspace(context.Context, string, ids.XID, ids.XID, ids.XID) (programservice.AssignmentWorkspace, error)
 	GetProgramObjectiveWeights(context.Context, string, ids.XID, ids.XID) (data.ObjectiveWeightsView, error)
 	UpdateProgramObjectiveWeights(context.Context, string, audit.Actor, ids.XID, ids.XID, data.ObjectiveWeights) (data.ObjectiveWeightsView, error)
 	GetSessionObjectiveWeights(context.Context, string, ids.XID, ids.XID, ids.XID) (data.ObjectiveWeightsView, error)
@@ -119,6 +120,43 @@ type InterestAreaResponse struct {
 type ProgramRosterSummaryResponse struct {
 	MissingGradeCount int64 `json:"missing_grade_count"`
 }
+type AssignmentResponse struct {
+	ID              string  `json:"id"`
+	StudentID       string  `json:"student_id"`
+	OfferingID      string  `json:"offering_id"`
+	SolveRunID      *string `json:"solve_run_id,omitempty"`
+	Origin          string  `json:"origin"`
+	Pinned          bool    `json:"pinned"`
+	RealizedQuality string  `json:"realized_quality"`
+}
+type AssignmentExclusionResponse struct {
+	ID         string `json:"id"`
+	StudentID  string `json:"student_id"`
+	OfferingID string `json:"offering_id"`
+}
+type AssignmentOverrideResponse struct {
+	ID           string `json:"id"`
+	AssignmentID string `json:"assignment_id"`
+	Rule         string `json:"rule"`
+	Reason       string `json:"reason"`
+	RecordedBy   string `json:"recorded_by"`
+}
+type RankedChoiceAnswerResponse struct {
+	StudentID  string `json:"student_id"`
+	OfferingID string `json:"offering_id"`
+	Answer     string `json:"answer"`
+	Rank       *int   `json:"rank,omitempty"`
+}
+type AssignmentWorkspaceResponse struct {
+	Session             SessionResponse               `json:"session"`
+	DraftRevision       int64                         `json:"draft_revision"`
+	Participants        []ProgramMembershipResponse   `json:"participants"`
+	Offerings           []OfferingResponse            `json:"offerings"`
+	Assignments         []AssignmentResponse          `json:"assignments"`
+	Exclusions          []AssignmentExclusionResponse `json:"exclusions"`
+	Overrides           []AssignmentOverrideResponse  `json:"overrides"`
+	RankedChoiceAnswers []RankedChoiceAnswerResponse  `json:"ranked_choice_answers"`
+}
 type ProgramListOutput struct{ Body []ProgramResponse }
 type ProgramOutput struct{ Body ProgramResponse }
 type InterestAreaListOutput struct{ Body []InterestAreaResponse }
@@ -127,6 +165,7 @@ type ReorderInterestAreasOutput struct{ Body []InterestAreaResponse }
 type ProgramMembershipListOutput struct{ Body []ProgramMembershipResponse }
 type ProgramMembershipOutput struct{ Body ProgramMembershipResponse }
 type ProgramRosterSummaryOutput struct{ Body ProgramRosterSummaryResponse }
+type AssignmentWorkspaceOutput struct{ Body AssignmentWorkspaceResponse }
 type ProgramYearPathInput struct {
 	SchoolYearID string `path:"schoolYearID" minLength:"1"`
 }
@@ -172,6 +211,7 @@ type ProgramMembershipPathInput struct {
 	MembershipID string `path:"membershipID" minLength:"1"`
 }
 type ListProgramsInput struct{ ProgramYearPathInput }
+type AssignmentWorkspaceInput struct{ SessionPathInput }
 type CreateProgramInput struct {
 	ProgramYearPathInput
 	Body struct {
@@ -497,6 +537,56 @@ func (h *ProgramHandler) MissingGradeSummary(ctx context.Context, input *Missing
 		return nil, programProblem(err)
 	}
 	return &ProgramRosterSummaryOutput{Body: ProgramRosterSummaryResponse{MissingGradeCount: count}}, nil
+}
+
+// GetAssignmentWorkspace returns the administrator-only persisted draft and
+// its editing context. It is a read model, so an incomplete draft is valid.
+func (h *ProgramHandler) GetAssignmentWorkspace(ctx context.Context, input *AssignmentWorkspaceInput) (*AssignmentWorkspaceOutput, error) {
+	account, err := programAccount(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if h == nil || h.service == nil || input == nil {
+		return nil, sessionNotFound()
+	}
+	workspace, err := h.service.GetAssignmentWorkspace(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), ids.XID(input.SessionID))
+	if err != nil {
+		return nil, sessionProblem(err)
+	}
+	response := sessionResponse(workspace.Session)
+	result := AssignmentWorkspaceResponse{
+		Session: response, DraftRevision: workspace.Session.DraftRevision,
+		Participants:        make([]ProgramMembershipResponse, 0, len(workspace.Participants)),
+		Offerings:           make([]OfferingResponse, 0, len(workspace.Offerings)),
+		Assignments:         make([]AssignmentResponse, 0, len(workspace.Assignments)),
+		Exclusions:          make([]AssignmentExclusionResponse, 0, len(workspace.Exclusions)),
+		Overrides:           make([]AssignmentOverrideResponse, 0, len(workspace.Overrides)),
+		RankedChoiceAnswers: make([]RankedChoiceAnswerResponse, 0, len(workspace.RankedChoiceAnswers)),
+	}
+	for _, row := range workspace.Participants {
+		result.Participants = append(result.Participants, programMembershipResponse(row))
+	}
+	for _, row := range workspace.Offerings {
+		result.Offerings = append(result.Offerings, offeringResponse(row))
+	}
+	for _, row := range workspace.Assignments {
+		var solveRunID *string
+		if row.SolveRunID != nil {
+			value := string(*row.SolveRunID)
+			solveRunID = &value
+		}
+		result.Assignments = append(result.Assignments, AssignmentResponse{ID: string(row.ID), StudentID: string(row.StudentID), OfferingID: string(row.OfferingID), SolveRunID: solveRunID, Origin: row.Origin, Pinned: row.Pinned, RealizedQuality: row.RealizedQuality})
+	}
+	for _, row := range workspace.Exclusions {
+		result.Exclusions = append(result.Exclusions, AssignmentExclusionResponse{ID: string(row.ID), StudentID: string(row.StudentID), OfferingID: string(row.OfferingID)})
+	}
+	for _, row := range workspace.Overrides {
+		result.Overrides = append(result.Overrides, AssignmentOverrideResponse{ID: string(row.ID), AssignmentID: string(row.AssignmentID), Rule: row.Rule, Reason: row.Reason, RecordedBy: row.RecordedBy})
+	}
+	for _, row := range workspace.RankedChoiceAnswers {
+		result.RankedChoiceAnswers = append(result.RankedChoiceAnswers, RankedChoiceAnswerResponse{StudentID: string(row.StudentID), OfferingID: string(row.OfferingID), Answer: string(row.Answer), Rank: row.Rank})
+	}
+	return &AssignmentWorkspaceOutput{Body: result}, nil
 }
 
 func programAccount(ctx context.Context) (auth.AccountPrincipal, error) {
