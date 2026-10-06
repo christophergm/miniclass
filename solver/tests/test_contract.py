@@ -119,7 +119,16 @@ def test_infeasible_model_returns_no_partial_assignment() -> None:
         "seed": 7,
         "status": "infeasible",
         "assignments": [],
-        "conflict_diagnostics": [],
+        "conflict_diagnostics": [
+            {
+                "code": "capacity-shortage",
+                "scope": "global_conflict",
+                "participant_ids": ["alex", "blair"],
+                "offering_ids": ["art"],
+                "required_capacity": 2,
+                "available_capacity": 1,
+            }
+        ],
     }
 
 
@@ -217,15 +226,15 @@ def test_pin_survives_unrelated_preference_change() -> None:
 @pytest.mark.parametrize(
     ("pins", "expected_diagnostic"),
     [
-        ([{"participant_id": "departed", "offering_id": "art"}], {"code": "pin-participant-not-participating", "participant_ids": ["departed"], "offering_ids": ["art"]}),
-        ([{"participant_id": "student", "offering_id": "deleted"}], {"code": "pin-offering-not-found", "participant_ids": ["student"], "offering_ids": ["deleted"]}),
-        ([{"participant_id": "student", "offering_id": "senior"}], {"code": "pin-grade-out-of-range", "participant_ids": ["student"], "offering_ids": ["senior"]}),
+        ([{"participant_id": "departed", "offering_id": "art"}], {"code": "pin-participant-not-participating", "scope": "global_conflict", "participant_ids": ["departed"], "offering_ids": ["art"]}),
+        ([{"participant_id": "student", "offering_id": "deleted"}], {"code": "pin-offering-not-found", "scope": "global_conflict", "participant_ids": ["student"], "offering_ids": ["deleted"]}),
+        ([{"participant_id": "student", "offering_id": "senior"}], {"code": "pin-grade-out-of-range", "scope": "global_conflict", "participant_ids": ["student"], "offering_ids": ["senior"]}),
         (
             [
                 {"participant_id": "student", "offering_id": "art"},
                 {"participant_id": "other", "offering_id": "art"},
             ],
-            {"code": "pin-capacity-exceeded", "participant_ids": ["other", "student"], "offering_ids": ["art"]},
+                {"code": "pin-capacity-exceeded", "scope": "global_conflict", "participant_ids": ["other", "student"], "offering_ids": ["art"], "required_capacity": 2, "available_capacity": 1},
         ),
     ],
 )
@@ -264,6 +273,70 @@ def test_stale_authorized_exceptions_are_reported(exceptions: list[dict[str, str
     assert result["status"] == "infeasible"
     assert result["assignments"] == []
     assert expected_code in {diagnostic["code"] for diagnostic in result["conflict_diagnostics"]}
+
+
+def test_infeasibility_reports_local_grade_and_exclusion_obstacles() -> None:
+    result = solve(
+        request(
+            offerings=[
+                {"id": "junior", "capacity": 1, "min_grade_ordinal": 1, "max_grade_ordinal": 1},
+                {"id": "senior", "capacity": 1, "min_grade_ordinal": 2, "max_grade_ordinal": 2},
+            ],
+            participants=[{"id": "student", "grade_ordinal": 1}],
+            exclusions=[{"participant_id": "student", "offering_id": "junior"}],
+        )
+    )
+
+    assert result["status"] == "infeasible"
+    assert result["assignments"] == []
+    assert result["conflict_diagnostics"] == [
+        {"code": "exclusion-obstacle", "scope": "offering_obstacle", "participant_ids": ["student"], "offering_ids": ["junior"]},
+        {"code": "grade-eligibility-obstacle", "scope": "offering_obstacle", "participant_ids": ["student"], "offering_ids": ["senior"]},
+        {"code": "no-eligible-offering", "scope": "offering_obstacle", "participant_ids": ["student"], "offering_ids": ["junior", "senior"]},
+    ]
+
+
+def test_authorized_exception_removes_its_local_obstacle() -> None:
+    result = solve(
+        request(
+            offerings=[{"id": "senior", "capacity": 1, "min_grade_ordinal": 2, "max_grade_ordinal": 2}],
+            participants=[{"id": "pinned", "grade_ordinal": 1}, {"id": "unplaced", "grade_ordinal": 1}],
+            pins=[{"participant_id": "pinned", "offering_id": "senior"}],
+            exceptions=[{"participant_id": "pinned", "offering_id": "senior", "rule": "grade"}],
+        )
+    )
+
+    assert result["status"] == "infeasible"
+    assert result["assignments"] == []
+    assert {diagnostic["code"] for diagnostic in result["conflict_diagnostics"]} == {"grade-eligibility-obstacle", "no-eligible-offering"}
+    assert all("pinned" not in diagnostic["participant_ids"] for diagnostic in result["conflict_diagnostics"])
+
+
+def test_capacity_shortage_reports_only_the_conflicting_eligibility_component() -> None:
+    result = solve(
+        request(
+            offerings=[
+                {"id": "contested", "capacity": 1, "min_grade_ordinal": 1, "max_grade_ordinal": 1},
+                {"id": "separate", "capacity": 1, "min_grade_ordinal": 2, "max_grade_ordinal": 2},
+            ],
+            participants=[
+                {"id": "a", "grade_ordinal": 1},
+                {"id": "b", "grade_ordinal": 1},
+                {"id": "c", "grade_ordinal": 2},
+            ],
+        )
+    )
+
+    assert result["conflict_diagnostics"] == [
+        {
+            "code": "capacity-shortage",
+            "scope": "global_conflict",
+            "participant_ids": ["a", "b"],
+            "offering_ids": ["contested"],
+            "required_capacity": 2,
+            "available_capacity": 1,
+        }
+    ]
 
 
 def test_lexicographic_objective_protects_unwanted_before_aggregate_satisfaction() -> None:

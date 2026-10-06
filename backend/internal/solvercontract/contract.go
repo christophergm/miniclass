@@ -98,6 +98,11 @@ const (
 	ExceptionRuleExclusion = "exclusion"
 )
 
+const (
+	DiagnosticScopeGlobalConflict   = "global_conflict"
+	DiagnosticScopeOfferingObstacle = "offering_obstacle"
+)
+
 // AuthorizedPinnedException is a deliberately recorded exception for exactly
 // one pin. It never grants a general relaxation to another decision.
 type AuthorizedPinnedException struct {
@@ -120,13 +125,16 @@ type Assignment struct {
 	RealizedQuality string `json:"realized_quality"`
 }
 
-// ConflictDiagnostic reserves the v1 boundary for a future minimal or
-// near-minimal infeasibility explanation (SPEC §17.10). The v0 model returns
-// an empty list rather than attempting general conflict-set extraction.
+// ConflictDiagnostic is a minimal or near-minimal infeasibility explanation.
+// Scope distinguishes a global conflicting set from an offering-level
+// eligibility obstacle (SPEC §17.10).
 type ConflictDiagnostic struct {
-	Code           string   `json:"code"`
-	ParticipantIDs []string `json:"participant_ids"`
-	OfferingIDs    []string `json:"offering_ids"`
+	Code              string   `json:"code"`
+	Scope             string   `json:"scope"`
+	ParticipantIDs    []string `json:"participant_ids"`
+	OfferingIDs       []string `json:"offering_ids"`
+	RequiredCapacity  *int     `json:"required_capacity,omitempty"`
+	AvailableCapacity *int     `json:"available_capacity,omitempty"`
 }
 
 // CanonicalJSON validates and stably orders every contract collection before encoding.
@@ -348,18 +356,34 @@ func (r *Response) Canonicalize() error {
 	}
 	for index := range r.ConflictDiagnostics {
 		diagnostic := &r.ConflictDiagnostics[index]
-		if diagnostic.Code == "" {
-			return errors.New("solver conflict diagnostics require a code")
+		if diagnostic.Code == "" || !validDiagnosticScope(diagnostic.Scope) {
+			return errors.New("solver conflict diagnostics require a code and valid scope")
+		}
+		if (diagnostic.RequiredCapacity == nil) != (diagnostic.AvailableCapacity == nil) {
+			return errors.New("solver conflict diagnostic capacity values must be paired")
+		}
+		if diagnostic.RequiredCapacity != nil && (*diagnostic.RequiredCapacity < 0 || *diagnostic.AvailableCapacity < 0) {
+			return errors.New("solver conflict diagnostic capacity values must be non-negative")
 		}
 		sort.Strings(diagnostic.ParticipantIDs)
 		sort.Strings(diagnostic.OfferingIDs)
 	}
 	sort.Slice(r.Assignments, func(i, j int) bool { return r.Assignments[i].ParticipantID < r.Assignments[j].ParticipantID })
-	sort.Slice(r.ConflictDiagnostics, func(i, j int) bool { return r.ConflictDiagnostics[i].Code < r.ConflictDiagnostics[j].Code })
+	sort.Slice(r.ConflictDiagnostics, func(i, j int) bool {
+		left, right := r.ConflictDiagnostics[i], r.ConflictDiagnostics[j]
+		if left.Scope != right.Scope {
+			return left.Scope < right.Scope
+		}
+		return left.Code < right.Code
+	})
 	if r.ConflictDiagnostics == nil {
 		r.ConflictDiagnostics = []ConflictDiagnostic{}
 	}
 	return nil
+}
+
+func validDiagnosticScope(scope string) bool {
+	return scope == DiagnosticScopeGlobalConflict || scope == DiagnosticScopeOfferingObstacle
 }
 
 func validQuality(quality string) bool {

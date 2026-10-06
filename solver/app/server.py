@@ -12,6 +12,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from ortools.sat.python import cp_model
 
 from .contract import (
+    DIAGNOSTIC_SCOPE_GLOBAL_CONFLICT,
+    DIAGNOSTIC_SCOPE_OFFERING_OBSTACLE,
     EXCEPTION_RULE_CAPACITY,
     EXCEPTION_RULE_EXCLUSION,
     EXCEPTION_RULE_GRADE,
@@ -130,7 +132,16 @@ def solve(document: object) -> dict[str, object]:
         ]
         return canonical_response(seed=seed, status="optimal" if status == cp_model.OPTIMAL else "feasible", assignments=assignments)
     if status == cp_model.INFEASIBLE:
-        return canonical_response(seed=seed, status="infeasible", assignments=[])
+        # The feasibility model has no rules beyond the graph represented
+        # below. Reporting the deficient eligibility/capacity set therefore
+        # keeps this path actionable instead of returning a bare infeasibility
+        # (SPEC §17.10).
+        return canonical_response(
+            seed=seed,
+            status="infeasible",
+            assignments=[],
+            conflict_diagnostics=_infeasibility_diagnostics(participants, offerings, pins, exclusions, exceptions),
+        )
     if status == cp_model.MODEL_INVALID:
         return canonical_response(seed=seed, status="model_invalid", assignments=[])
     return canonical_response(seed=seed, status="unknown", assignments=[])
@@ -211,11 +222,12 @@ def _constraint_diagnostics(
     for participant_id, participant_pins in pins_by_participant.items():
         if len(participant_pins) > 1:
             diagnostics.append(
-                {
-                    "code": "pin-conflicting-placement",
-                    "participant_ids": [participant_id],
-                    "offering_ids": sorted({pin.offering_id for pin in participant_pins}),
-                }
+                _diagnostic(
+                    "pin-conflicting-placement",
+                    DIAGNOSTIC_SCOPE_GLOBAL_CONFLICT,
+                    [participant_id],
+                    [pin.offering_id for pin in participant_pins],
+                )
             )
 
     pins_by_offering: dict[str, list[PinnedPlacement]] = defaultdict(list)
@@ -231,11 +243,14 @@ def _constraint_diagnostics(
         ]
         if len(capacity_exceptions) < required:
             diagnostics.append(
-                {
-                    "code": "pin-capacity-exceeded",
-                    "participant_ids": sorted(pin.participant_id for pin in offering_pins),
-                    "offering_ids": [offering_id],
-                }
+                _diagnostic(
+                    "pin-capacity-exceeded",
+                    DIAGNOSTIC_SCOPE_GLOBAL_CONFLICT,
+                    [pin.participant_id for pin in offering_pins],
+                    [offering_id],
+                    required_capacity=len(offering_pins),
+                    available_capacity=offerings_by_id[offering_id].capacity + len(capacity_exceptions),
+                )
             )
         elif len(capacity_exceptions) > required:
             for exception in capacity_exceptions[required:]:
@@ -244,11 +259,159 @@ def _constraint_diagnostics(
 
 
 def _pin_diagnostic(code: str, pin: PinnedPlacement) -> dict[str, object]:
-    return {"code": code, "participant_ids": [pin.participant_id], "offering_ids": [pin.offering_id]}
+    return _diagnostic(code, DIAGNOSTIC_SCOPE_GLOBAL_CONFLICT, [pin.participant_id], [pin.offering_id])
 
 
 def _placement_diagnostic(code: str, placement: Placement) -> dict[str, object]:
-    return {"code": code, "participant_ids": [placement.participant_id], "offering_ids": [placement.offering_id]}
+    return _diagnostic(code, DIAGNOSTIC_SCOPE_GLOBAL_CONFLICT, [placement.participant_id], [placement.offering_id])
+
+
+def _diagnostic(
+    code: str,
+    scope: str,
+    participant_ids: list[str],
+    offering_ids: list[str],
+    *,
+    required_capacity: int | None = None,
+    available_capacity: int | None = None,
+) -> dict[str, object]:
+    diagnostic: dict[str, object] = {
+        "code": code,
+        "scope": scope,
+        "participant_ids": sorted(set(participant_ids)),
+        "offering_ids": sorted(set(offering_ids)),
+    }
+    if required_capacity is not None:
+        diagnostic["required_capacity"] = required_capacity
+    if available_capacity is not None:
+        diagnostic["available_capacity"] = available_capacity
+    return diagnostic
+
+
+def _infeasibility_diagnostics(
+    participants: tuple[Participant, ...],
+    offerings: tuple[Offering, ...],
+    pins: tuple[PinnedPlacement, ...],
+    exclusions: tuple[Placement, ...],
+    exceptions: tuple[AuthorizedPinnedException, ...],
+) -> list[dict[str, object]]:
+    """Return local eligibility obstacles and near-minimal capacity conflicts.
+
+    Pins were already validated before this function is reached. They consume
+    their seats first, while a capacity exception consumes only its authorised
+    excess and never creates an ordinary spare seat (SPEC §§16.3, 17.9).
+    """
+    offering_by_id = {offering.id: offering for offering in offerings}
+    pinned_by_participant = {pin.participant_id: pin.offering_id for pin in pins}
+    pinned_by_offering: dict[str, int] = defaultdict(int)
+    for pin in pins:
+        pinned_by_offering[pin.offering_id] += 1
+    exception_rules = {(exception.participant_id, exception.offering_id, exception.rule) for exception in exceptions}
+    exclusion_pairs = {(exclusion.participant_id, exclusion.offering_id) for exclusion in exclusions}
+
+    remaining_capacity = {
+        offering.id: max(0, offering.capacity - pinned_by_offering[offering.id])
+        for offering in offerings
+    }
+    eligible: dict[str, list[str]] = {}
+    diagnostics: list[dict[str, object]] = []
+    for participant in participants:
+        if participant.id in pinned_by_participant:
+            continue
+        eligible_offerings = []
+        grade_obstacles = []
+        exclusion_obstacles = []
+        for offering in offerings:
+            pair = (participant.id, offering.id)
+            grade_allowed = offering.min_grade_ordinal <= participant.grade_ordinal <= offering.max_grade_ordinal
+            excluded = pair in exclusion_pairs
+            if not grade_allowed:
+                grade_obstacles.append(offering.id)
+            if excluded:
+                exclusion_obstacles.append(offering.id)
+            if (not grade_allowed and (participant.id, offering.id, EXCEPTION_RULE_GRADE) not in exception_rules) or (
+                excluded and (participant.id, offering.id, EXCEPTION_RULE_EXCLUSION) not in exception_rules
+            ):
+                continue
+            eligible_offerings.append(offering.id)
+        if not eligible_offerings:
+            if grade_obstacles:
+                diagnostics.append(_diagnostic("grade-eligibility-obstacle", DIAGNOSTIC_SCOPE_OFFERING_OBSTACLE, [participant.id], grade_obstacles))
+            if exclusion_obstacles:
+                diagnostics.append(_diagnostic("exclusion-obstacle", DIAGNOSTIC_SCOPE_OFFERING_OBSTACLE, [participant.id], exclusion_obstacles))
+            diagnostics.append(_diagnostic("no-eligible-offering", DIAGNOSTIC_SCOPE_OFFERING_OBSTACLE, [participant.id], list(offering_by_id)))
+            continue
+        eligible[participant.id] = eligible_offerings
+
+    match, slot_owner, slots_by_offering = _maximum_capacity_matching(eligible, remaining_capacity)
+    unmatched = sorted(participant_id for participant_id in eligible if participant_id not in match)
+    if not unmatched:
+        return diagnostics
+
+    # Alternating reachability from each unmatched participant identifies a
+    # Hall-deficient component. Each is a focused, near-minimal global conflict
+    # rather than a misleading report about every offering in the session.
+    seen_conflicts: set[tuple[tuple[str, ...], tuple[str, ...]]] = set()
+    for start in unmatched:
+        reachable_participants = {start}
+        reachable_slots: set[tuple[str, int]] = set()
+        pending = [start]
+        while pending:
+            participant_id = pending.pop()
+            for offering_id in eligible[participant_id]:
+                for slot in slots_by_offering[offering_id]:
+                    if slot in reachable_slots:
+                        continue
+                    reachable_slots.add(slot)
+                    owner = slot_owner.get(slot)
+                    if owner is not None and owner not in reachable_participants:
+                        reachable_participants.add(owner)
+                        pending.append(owner)
+        involved_offerings = sorted({offering_id for offering_id, _ in reachable_slots})
+        signature = (tuple(sorted(reachable_participants)), tuple(involved_offerings))
+        if signature in seen_conflicts:
+            continue
+        seen_conflicts.add(signature)
+        diagnostics.append(
+            _diagnostic(
+                "capacity-shortage",
+                DIAGNOSTIC_SCOPE_GLOBAL_CONFLICT,
+                list(signature[0]),
+                list(signature[1]),
+                required_capacity=len(signature[0]),
+                available_capacity=len(reachable_slots),
+            )
+        )
+    return diagnostics
+
+
+def _maximum_capacity_matching(
+    eligible: dict[str, list[str]], remaining_capacity: dict[str, int]
+) -> tuple[dict[str, tuple[str, int]], dict[tuple[str, int], str], dict[str, list[tuple[str, int]]]]:
+    """Find a deterministic maximum bipartite matching after pins consume seats."""
+    slots_by_offering = {
+        offering_id: [(offering_id, index) for index in range(capacity)]
+        for offering_id, capacity in remaining_capacity.items()
+    }
+    slot_owner: dict[tuple[str, int], str] = {}
+    match: dict[str, tuple[str, int]] = {}
+
+    def assign(participant_id: str, visited: set[tuple[str, int]]) -> bool:
+        for offering_id in eligible[participant_id]:
+            for slot in slots_by_offering[offering_id]:
+                if slot in visited:
+                    continue
+                visited.add(slot)
+                owner = slot_owner.get(slot)
+                if owner is None or assign(owner, visited):
+                    slot_owner[slot] = participant_id
+                    match[participant_id] = slot
+                    return True
+        return False
+
+    for participant_id in sorted(eligible):
+        assign(participant_id, set())
+    return match, slot_owner, slots_by_offering
 
 
 def _new_solver(seed: int, deterministic_limit: float) -> cp_model.CpSolver:

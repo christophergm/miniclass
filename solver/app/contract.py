@@ -88,6 +88,10 @@ EXCEPTION_RULE_GRADE = "grade"
 EXCEPTION_RULE_EXCLUSION = "exclusion"
 EXCEPTION_RULES = (EXCEPTION_RULE_CAPACITY, EXCEPTION_RULE_GRADE, EXCEPTION_RULE_EXCLUSION)
 
+DIAGNOSTIC_SCOPE_GLOBAL_CONFLICT = "global_conflict"
+DIAGNOSTIC_SCOPE_OFFERING_OBSTACLE = "offering_obstacle"
+DIAGNOSTIC_SCOPES = (DIAGNOSTIC_SCOPE_GLOBAL_CONFLICT, DIAGNOSTIC_SCOPE_OFFERING_OBSTACLE)
+
 
 def _required_string(document: dict[str, Any], key: str) -> str:
     value = document.get(key)
@@ -316,9 +320,12 @@ def canonical_response(*, seed: int, status: str, assignments: list[dict[str, st
         "conflict_diagnostics": sorted(
             conflict_diagnostics or [],
             key=lambda diagnostic: (
+                diagnostic["scope"],
                 diagnostic["code"],
                 diagnostic["participant_ids"],
                 diagnostic["offering_ids"],
+                diagnostic.get("required_capacity", 0),
+                diagnostic.get("available_capacity", 0),
             ),
         ),
     }
