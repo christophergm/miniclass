@@ -40,10 +40,19 @@ delete from assignment_overrides
 where organization_id = $1 and school_year_id = $2 and program_id = $3
   and session_id = $4 and assignment_id = $5;
 
+-- name: DeleteAssignmentOverrideRule :execrows
+delete from assignment_overrides
+where organization_id = $1 and school_year_id = $2 and program_id = $3
+  and session_id = $4 and assignment_id = $5 and rule = $6;
+
 -- name: CreateAssignmentExclusion :one
 insert into assignment_exclusions (organization_id, school_year_id, program_id, session_id, student_id, offering_id)
 values ($1, $2, $3, $4, $5, $6)
 returning id, organization_id, school_year_id, program_id, session_id, student_id, offering_id, created_at, updated_at;
+
+-- name: DeleteAssignmentExclusion :execrows
+delete from assignment_exclusions
+where id = $1 and organization_id = $2 and school_year_id = $3 and program_id = $4 and session_id = $5;
 
 -- name: CreateAssignmentOverride :one
 insert into assignment_overrides (

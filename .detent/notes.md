@@ -150,3 +150,11 @@
 - Moves and swaps create manual pinned placements; pin/unpin is persisted. Changed or unpinned placements discard their placement-bound overrides. A new migration permits the SPEC §16.7 optional override reason.
 - Focused integration coverage exercises empty-draft placement, swap, pin/unpin, prompted exclusion confirmation, and stale revision rejection. Passed `go test ./...`, `make generate`, `make format`, `make lint-backend`, and `git diff --check`.
 - `make check` cannot start because an externally owned `/miniclass-mailpit` holds the fixed Compose container name. The attempted run's worktree-specific Docker volume and network were removed without touching that container.
+
+## Issue #293 — student offering exclusions
+
+- Adds audited, revision-CAS `POST`/`DELETE` assignment-exclusion operations under the assignment-management capability. Add/remove are idempotent no-ops when already in the requested state.
+- Adding an exclusion retains any conflicting current assignment and returns it as an explicit conflict; it never moves or unplaces a student. Removing an exclusion clears only that placement's now-obsolete `exclusion` override, retaining independent approvals.
+- Focused tests cover cross-program references, rollback of a failed CAS operation, repeats, removal, and conflict visibility. Passed focused Go tests, `make format`, `make lint-backend`, and `git diff --check`; full gate remains to run.
+- `make check` reaches Backend tests but cannot start because external container `/miniclass-mailpit` owns the fixed Compose name. Removed only the failed attempt's empty worktree volume/network; do not remove that container.
+- CI initially caught missing `NoAuditRequired` declarations on idempotent no-op mutations; amended `a75ad23` adds them. Recheck the replacement PR head's Backend tests before handoff.

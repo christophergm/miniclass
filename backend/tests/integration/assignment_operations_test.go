@@ -8,6 +8,7 @@ import (
 
 	"github.com/chrismott/miniclass/internal/audit"
 	"github.com/chrismott/miniclass/internal/data"
+	"github.com/chrismott/miniclass/internal/ids"
 	"github.com/chrismott/miniclass/internal/people"
 	"github.com/chrismott/miniclass/internal/program"
 	testharness "github.com/chrismott/miniclass/internal/testing"
@@ -37,6 +38,12 @@ func TestAssignmentOperationsMoveSwapPinAndRevision(t *testing.T) {
 	_, err = factory.AddProgramMembership(ctx, year.ID, programRow.ID, first.ID)
 	require.NoError(t, err)
 	_, err = factory.AddProgramMembership(ctx, year.ID, programRow.ID, second.ID)
+	require.NoError(t, err)
+	foreignProgram, err := factory.CreateProgram(ctx, year.ID, "Synthetic foreign assignment program")
+	require.NoError(t, err)
+	foreign, err := factory.CreateStudent(ctx, year.ID, people.StudentCreateInput{LegalGivenName: "Foreign", LegalFamilyName: "Synthetic", GradeLevelID: &grade.ID, HomeroomID: homeroom.ID})
+	require.NoError(t, err)
+	_, err = factory.AddProgramMembership(ctx, year.ID, foreignProgram.ID, foreign.ID)
 	require.NoError(t, err)
 	left, err := factory.CreateOffering(ctx, year.ID, programRow.ID, session.ID, "Synthetic left", "", nil, 2, grade.ID, grade.ID, "", "", "", nil)
 	require.NoError(t, err)
@@ -74,6 +81,32 @@ func TestAssignmentOperationsMoveSwapPinAndRevision(t *testing.T) {
 	confirmed, err := service.MoveAssignment(ctx, string(organizationID), actor, program.AssignmentOperationInput{SchoolYearID: year.ID, ProgramID: programRow.ID, SessionID: session.ID, ExpectedRevision: unpinned.DraftRevision, ConfirmViolations: true}, first.ID, left.ID)
 	require.NoError(t, err)
 	require.Equal(t, int64(5), confirmed.DraftRevision)
+	// An invalid cross-scope reference rolls back the revision CAS, so the next
+	// valid exclusion can still use revision 5.
+	_, err = service.AddAssignmentExclusion(ctx, string(organizationID), actor, program.AssignmentOperationInput{SchoolYearID: year.ID, ProgramID: programRow.ID, SessionID: session.ID, ExpectedRevision: confirmed.DraftRevision}, foreign.ID, left.ID)
+	require.Error(t, err)
+	added, err := service.AddAssignmentExclusion(ctx, string(organizationID), actor, program.AssignmentOperationInput{SchoolYearID: year.ID, ProgramID: programRow.ID, SessionID: session.ID, ExpectedRevision: confirmed.DraftRevision}, second.ID, left.ID)
+	require.NoError(t, err)
+	require.Equal(t, int64(6), added.DraftRevision)
+	require.Len(t, added.Exclusions, 2)
+	// The duplicate request is idempotent and does not advance the draft.
+	repeated, err := service.AddAssignmentExclusion(ctx, string(organizationID), actor, program.AssignmentOperationInput{SchoolYearID: year.ID, ProgramID: programRow.ID, SessionID: session.ID, ExpectedRevision: added.DraftRevision}, second.ID, left.ID)
+	require.NoError(t, err)
+	require.Equal(t, added.DraftRevision, repeated.DraftRevision)
+	var addedID string
+	for _, exclusion := range added.Exclusions {
+		if exclusion.StudentID == second.ID && exclusion.OfferingID == left.ID {
+			addedID = string(exclusion.ID)
+		}
+	}
+	require.NotEmpty(t, addedID)
+	removed, err := service.RemoveAssignmentExclusion(ctx, string(organizationID), actor, program.AssignmentOperationInput{SchoolYearID: year.ID, ProgramID: programRow.ID, SessionID: session.ID, ExpectedRevision: added.DraftRevision}, ids.XID(addedID))
+	require.NoError(t, err)
+	require.Equal(t, int64(7), removed.DraftRevision)
+	conflicting, err := service.AddAssignmentExclusion(ctx, string(organizationID), actor, program.AssignmentOperationInput{SchoolYearID: year.ID, ProgramID: programRow.ID, SessionID: session.ID, ExpectedRevision: removed.DraftRevision}, first.ID, left.ID)
+	require.NoError(t, err)
+	require.Len(t, conflicting.ConflictingAssignments, 1)
+	require.Equal(t, first.ID, conflicting.ConflictingAssignments[0].StudentID)
 	_, err = service.MoveAssignment(context.Background(), string(organizationID), actor, program.AssignmentOperationInput{SchoolYearID: year.ID, ProgramID: programRow.ID, SessionID: session.ID, ExpectedRevision: unpinned.DraftRevision}, second.ID, left.ID)
 	require.Error(t, err)
 	require.True(t, errors.Is(err, program.ErrDraftRevisionConflict))
