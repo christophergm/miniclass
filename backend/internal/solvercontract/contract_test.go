@@ -139,10 +139,20 @@ func TestCanonicalJSONRetainsStalePinsForSolverDiagnostics(t *testing.T) {
 	require.Equal(t, []PinnedPlacement{{ParticipantID: "departed-student", OfferingID: "deleted-offering"}}, canonical.Pins)
 }
 
-func TestCanonicalResponsePreservesFutureConflictDiagnosticField(t *testing.T) {
-	encoded, err := CanonicalResponseJSON(Response{Version: Version, Seed: 1, Status: "infeasible", Assignments: []Assignment{}, ConflictDiagnostics: []ConflictDiagnostic{}})
+func TestCanonicalResponsePreservesConflictDiagnostics(t *testing.T) {
+	required, available := 2, 1
+	encoded, err := CanonicalResponseJSON(Response{Version: Version, Seed: 1, Status: "infeasible", Assignments: []Assignment{}, ConflictDiagnostics: []ConflictDiagnostic{{
+		Code: "capacity-shortage", Scope: DiagnosticScopeGlobalConflict,
+		ParticipantIDs: []string{"student-b", "student-a"}, OfferingIDs: []string{"offering-a"},
+		RequiredCapacity: &required, AvailableCapacity: &available,
+	}}})
 	require.NoError(t, err)
-	require.JSONEq(t, `{"version":"v1","seed":1,"status":"infeasible","assignments":[],"conflict_diagnostics":[]}`, string(encoded))
+	require.JSONEq(t, `{"version":"v1","seed":1,"status":"infeasible","assignments":[],"conflict_diagnostics":[{"code":"capacity-shortage","scope":"global_conflict","participant_ids":["student-a","student-b"],"offering_ids":["offering-a"],"required_capacity":2,"available_capacity":1}]}`, string(encoded))
+}
+
+func TestCanonicalResponseRejectsInvalidConflictDiagnosticScope(t *testing.T) {
+	_, err := CanonicalResponseJSON(Response{Version: Version, Seed: 1, Status: "infeasible", Assignments: []Assignment{}, ConflictDiagnostics: []ConflictDiagnostic{{Code: "capacity-shortage", Scope: "unknown"}}})
+	require.Error(t, err)
 }
 
 func TestCanonicalResponseRequiresRealizedQuality(t *testing.T) {
