@@ -57,7 +57,7 @@ func createAssignment(ctx context.Context, harness *testharness.Harness, organiz
 	err = harness.Database.InTenant(ctx, string(organizationID), actor, func(ctx context.Context, tx *data.Tx) error {
 		run, err := tx.CreateSolveRun(ctx, data.CreateSolveRunInput{SchoolYearID: year.ID, ProgramID: programRow.ID, SessionID: session.ID, ContractVersion: "v1", Seed: 1,
 			InputFingerprint: "0000000000000000000000000000000000000000000000000000000000000000", RequestDocument: []byte(`{"version":"v1"}`), ResponseDocument: []byte(`{"version":"v1","status":"optimal"}`),
-			EffectiveWeightsDocument: []byte(`{}`), MetricsDocument: []byte(`{}`), SolverStatus: "optimal", DeterministicDuration: 0})
+			EffectiveWeightsDocument: []byte(`{}`), MetricsDocument: []byte(`{}`), SolverStatus: "optimal", ApplicationStatus: "applied", DeterministicDuration: 0})
 		if err != nil {
 			return err
 		}

@@ -1075,6 +1075,7 @@ type SolveRun struct {
 	CreatedAt                pgtype.Timestamptz `json:"created_at"`
 	EffectiveWeightsDocument []byte             `json:"effective_weights_document"`
 	MetricsDocument          []byte             `json:"metrics_document"`
+	ApplicationStatus        string             `json:"application_status"`
 }
 
 type Student struct {

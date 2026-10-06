@@ -43,7 +43,7 @@ func createSolveRun(ctx context.Context, harness *testharness.Harness, organizat
 			InputFingerprint: "0000000000000000000000000000000000000000000000000000000000000000",
 			RequestDocument:  []byte(`{"version":"v1"}`), ResponseDocument: []byte(`{"version":"v1","status":"optimal"}`),
 			EffectiveWeightsDocument: []byte(`{}`), MetricsDocument: []byte(`{}`),
-			SolverStatus: "optimal", DeterministicDuration: 0,
+			SolverStatus: "optimal", ApplicationStatus: "applied", DeterministicDuration: 0,
 		})
 		if err != nil {
 			return err
@@ -97,7 +97,7 @@ func insertSolveRunWithForeignParent(ctx context.Context, harness *testharness.H
 	if _, err := tx.Exec(ctx, "select set_config('app.organization_id', $1, true)", string(tenantID)); err != nil {
 		return err
 	}
-	_, err = tx.Exec(ctx, `insert into solve_runs (organization_id, school_year_id, program_id, session_id, contract_version, seed, input_fingerprint, request_document, response_document, solver_status, deterministic_duration)
-        values ($1, $2, $3, $4, 'v1', 1, '0000000000000000000000000000000000000000000000000000000000000000', '{"version":"v1"}', '{"version":"v1","status":"optimal"}', 'optimal', 0)`, string(foreignOrganizationID), string(year.ID), string(programRow.ID), string(session.ID))
+	_, err = tx.Exec(ctx, `insert into solve_runs (organization_id, school_year_id, program_id, session_id, contract_version, seed, input_fingerprint, request_document, response_document, solver_status, application_status, deterministic_duration)
+        values ($1, $2, $3, $4, 'v1', 1, '0000000000000000000000000000000000000000000000000000000000000000', '{"version":"v1"}', '{"version":"v1","status":"optimal"}', 'optimal', 'applied', 0)`, string(foreignOrganizationID), string(year.ID), string(programRow.ID), string(session.ID))
 	return err
 }

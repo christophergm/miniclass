@@ -29,6 +29,7 @@ type SolveRunResponse struct {
 	EffectiveWeightsDocument json.RawMessage `json:"effective_weights_document"`
 	MetricsDocument          json.RawMessage `json:"metrics_document"`
 	SolverStatus             string          `json:"solver_status"`
+	ApplicationStatus        string          `json:"application_status"`
 	DeterministicDuration    float64         `json:"deterministic_duration"`
 	CreatedAt                time.Time       `json:"created_at"`
 }
@@ -102,7 +103,7 @@ func solveRunResponse(row data.SolveRun) SolveRunResponse {
 		value := string(*row.RerunOfSolveRunID)
 		source = &value
 	}
-	return SolveRunResponse{ID: string(row.ID), SchoolYearID: string(row.SchoolYearID), ProgramID: string(row.ProgramID), SessionID: string(row.SessionID), RerunOfSolveRunID: source, ContractVersion: row.ContractVersion, Seed: row.Seed, InputFingerprint: row.InputFingerprint, RequestDocument: row.RequestDocument, ResponseDocument: row.ResponseDocument, EffectiveWeightsDocument: row.EffectiveWeightsDocument, MetricsDocument: row.MetricsDocument, SolverStatus: row.SolverStatus, DeterministicDuration: row.DeterministicDuration, CreatedAt: row.CreatedAt}
+	return SolveRunResponse{ID: string(row.ID), SchoolYearID: string(row.SchoolYearID), ProgramID: string(row.ProgramID), SessionID: string(row.SessionID), RerunOfSolveRunID: source, ContractVersion: row.ContractVersion, Seed: row.Seed, InputFingerprint: row.InputFingerprint, RequestDocument: row.RequestDocument, ResponseDocument: row.ResponseDocument, EffectiveWeightsDocument: row.EffectiveWeightsDocument, MetricsDocument: row.MetricsDocument, SolverStatus: row.SolverStatus, ApplicationStatus: row.ApplicationStatus, DeterministicDuration: row.DeterministicDuration, CreatedAt: row.CreatedAt}
 }
 func solveRunProblem(err error) error {
 	if errors.Is(err, solverclient.ErrUnavailable) {

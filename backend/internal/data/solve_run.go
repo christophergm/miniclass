@@ -28,6 +28,7 @@ type SolveRun struct {
 	EffectiveWeightsDocument json.RawMessage `json:"effective_weights_document"`
 	MetricsDocument          json.RawMessage `json:"metrics_document"`
 	SolverStatus             string          `json:"solver_status"`
+	ApplicationStatus        string          `json:"application_status"`
 	DeterministicDuration    float64         `json:"deterministic_duration"`
 	CreatedAt                time.Time       `json:"created_at"`
 }
@@ -45,6 +46,7 @@ type CreateSolveRunInput struct {
 	EffectiveWeightsDocument json.RawMessage
 	MetricsDocument          json.RawMessage
 	SolverStatus             string
+	ApplicationStatus        string
 	DeterministicDuration    float64
 }
 
@@ -52,7 +54,7 @@ func (tx *Tx) CreateSolveRun(ctx context.Context, input CreateSolveRunInput) (So
 	if tx == nil || tx.queries == nil {
 		return SolveRun{}, errors.New("create solve run: transaction is nil")
 	}
-	if input.SchoolYearID == "" || input.ProgramID == "" || input.SessionID == "" || input.ContractVersion == "" || input.InputFingerprint == "" || input.SolverStatus == "" || input.DeterministicDuration < 0 {
+	if input.SchoolYearID == "" || input.ProgramID == "" || input.SessionID == "" || input.ContractVersion == "" || input.InputFingerprint == "" || input.SolverStatus == "" || input.ApplicationStatus == "" || input.DeterministicDuration < 0 {
 		return SolveRun{}, errors.New("create solve run: required solve-run fields are missing or invalid")
 	}
 	if !json.Valid(input.RequestDocument) || !json.Valid(input.ResponseDocument) || !json.Valid(input.EffectiveWeightsDocument) || !json.Valid(input.MetricsDocument) {
@@ -63,7 +65,7 @@ func (tx *Tx) CreateSolveRun(ctx context.Context, input CreateSolveRunInput) (So
 		RerunOfSolveRunID: input.RerunOfSolveRunID, ContractVersion: input.ContractVersion, Seed: input.Seed,
 		InputFingerprint: input.InputFingerprint, RequestDocument: input.RequestDocument, ResponseDocument: input.ResponseDocument,
 		EffectiveWeightsDocument: input.EffectiveWeightsDocument, MetricsDocument: input.MetricsDocument,
-		SolverStatus: input.SolverStatus, DeterministicDuration: input.DeterministicDuration,
+		SolverStatus: input.SolverStatus, ApplicationStatus: input.ApplicationStatus, DeterministicDuration: input.DeterministicDuration,
 	})
 	if err != nil {
 		return SolveRun{}, fmt.Errorf("create solve run: %w", err)
@@ -135,5 +137,5 @@ func solveRun(row db.SolveRun) (SolveRun, error) {
 	return SolveRun{ID: row.ID, OrganizationID: row.OrganizationID, SchoolYearID: row.SchoolYearID, ProgramID: row.ProgramID, SessionID: row.SessionID,
 		RerunOfSolveRunID: row.RerunOfSolveRunID, ContractVersion: row.ContractVersion, Seed: row.Seed, InputFingerprint: row.InputFingerprint,
 		RequestDocument: json.RawMessage(row.RequestDocument), ResponseDocument: json.RawMessage(row.ResponseDocument), EffectiveWeightsDocument: json.RawMessage(row.EffectiveWeightsDocument), MetricsDocument: json.RawMessage(row.MetricsDocument), SolverStatus: row.SolverStatus,
-		DeterministicDuration: row.DeterministicDuration, CreatedAt: createdAt}, nil
+		ApplicationStatus: row.ApplicationStatus, DeterministicDuration: row.DeterministicDuration, CreatedAt: createdAt}, nil
 }
