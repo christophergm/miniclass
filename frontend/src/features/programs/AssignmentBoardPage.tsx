@@ -106,6 +106,7 @@ function OfferingCard({
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <Button
+                    aria-label={`Move ${name}`}
                     onClick={() => onMove(assignment.student_id, offering.id)}
                     size="sm"
                     type="button"
@@ -114,6 +115,7 @@ function OfferingCard({
                     Move
                   </Button>
                   <Button
+                    aria-label={`Swap ${name}`}
                     onClick={() => onSwap(assignment.student_id)}
                     size="sm"
                     type="button"
@@ -122,6 +124,7 @@ function OfferingCard({
                     Swap
                   </Button>
                   <Button
+                    aria-label={`${assignment.pinned ? "Unpin" : "Pin"} ${name}`}
                     onClick={() => onPin(assignment.student_id, !assignment.pinned)}
                     size="sm"
                     type="button"
@@ -130,6 +133,7 @@ function OfferingCard({
                     {assignment.pinned ? "Unpin" : "Pin"}
                   </Button>
                   <Button
+                    aria-label={`Manage exclusions for ${name}`}
                     onClick={() => onExclusions(assignment.student_id, offering.id)}
                     size="sm"
                     type="button"

@@ -106,7 +106,7 @@ describe("AssignmentBoardPage", () => {
   it("offers keyboard-accessible move, swap, pin, and exclusion operations", async () => {
     renderBoard();
 
-    fireEvent.click(screen.getAllByRole("button", { name: "Move" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Move Ada Synthesis" }));
     fireEvent.change(screen.getByRole("combobox", { name: "Offering" }), {
       target: { value: "art" },
     });
@@ -121,7 +121,7 @@ describe("AssignmentBoardPage", () => {
       }),
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Unpin" }));
+    fireEvent.click(screen.getByRole("button", { name: "Unpin Ada Synthesis" }));
     await waitFor(() =>
       expect(setPin).toHaveBeenCalledWith({
         studentID: "ada",
@@ -130,7 +130,7 @@ describe("AssignmentBoardPage", () => {
       }),
     );
 
-    fireEvent.click(screen.getAllByRole("button", { name: "Swap" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Swap Ada Synthesis" }));
     fireEvent.click(screen.getByRole("button", { name: "Swap placements" }));
     await waitFor(() =>
       expect(swapAssignments).toHaveBeenCalledWith({
@@ -142,7 +142,7 @@ describe("AssignmentBoardPage", () => {
       }),
     );
 
-    fireEvent.click(screen.getAllByRole("button", { name: "Exclusions" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Manage exclusions for Ada Synthesis" }));
     fireEvent.click(screen.getByRole("button", { name: "Add exclusion" }));
     await waitFor(() =>
       expect(addExclusion).toHaveBeenCalledWith({
@@ -160,7 +160,7 @@ describe("AssignmentBoardPage", () => {
     );
     renderBoard();
 
-    fireEvent.click(screen.getAllByRole("button", { name: "Move" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Move Ada Synthesis" }));
     fireEvent.change(screen.getByRole("combobox", { name: "Offering" }), {
       target: { value: "art" },
     });
