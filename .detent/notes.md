@@ -249,3 +249,31 @@ I’m resuming #298 from the existing worktree. I’ll first inspect the issue, 
   replacing assignments or advancing the revision. SPEC §§17.9–17.10, 20.1–20.2.
 - Passed `go test ./...` in `backend/`, format, lint/depguard, generation, and
   `git diff --check`. Migration round-trip needs CI because its database URL is unset.
+
+## Issue #299 — draft warnings and placement quality
+
+- Adds the administrator-only `GET .../assignment-quality` read model. It computes
+  non-blocking assignment/offering/session warnings and named draft review lists
+  from one tenant-scoped snapshot; stored realized quality stays historical while
+  current preference context is shown separately. Implements SPEC §§16.5–16.6,
+  17.13, 19.1–19.2.
+- Focused Go tests, `make format`, `make lint-backend` (including depguard),
+  `make generate`, and `git diff --check` pass when Go and golangci caches are
+  redirected to the Detent temporary directory.
+
+## 2026-10-06T14:23:19Z - Failed run output tail
+
+- final_state: failed
+- error: stream turn: context canceled
+close codex app-server transport: context canceled: stderr: [2m2026-10-06T14:12:01.759585Z[0m [31mERROR[0m [2mcodex_core::tools::router[0m[2m:[0m [3merror[0m[2m=[0mapply_patch verification failed: Failed to find expected lines in /Users/chrismott/dev/personal/miniclass-worktrees/miniclass-christophergm_miniclass_299-395621e32924/backend/internal/program/assignment_quality_test.go:
+		Offerings: []data.Offering{{ID: "offering", Capacity: 1, MinimumViableEnrollment: &minimum, MinGradeLevelID: "grade-1", MaxGradeLevelID: "grade-1"}},
+[2m2026-10-06T14:14:40.651555Z[0m [31mERROR[0m [2mcodex_core::tools::router[0m[2m:[0m [3merror[0m[2m=[0mapply_patch verification failed: Failed to find expected lines in /Users/chrismott/dev/personal/miniclass-worktrees/miniclass-christophergm_miniclass_299-395621e32924/backend/internal/program/assignment_quality.go:
+	Answers     []data.SessionResultAnswer
+[2m2026-10-06T14:23:12.712733Z[0m [31mERROR[0m [2mcodex_core::tools::router[0m[2m:[0m [3merror[0m[2m=[0mexec_command failed: UnknownProcessId { process_id: 11417 }
+worker github REST budget monitor failed: Get "https://api.github.com/rate_limit": dial tcp: lookup api.github.com: no such host
+
+Output tail:
+
+```text
+I’ll pick up #299 from the live tracker and worktree state, update its persistent Workpad, then implement and validate the issue’s scoped behavior. Since this changes tenant-scoped persistence, I’ll use the tenant-isolation guidance before editing it.The workspace is clean and already includes #298’s merged predecessor on `main`; #299 has no pull request yet. I found the repository-local tenant-isolation and entity guidance, so I’ll apply those patterns to the required migration and tests.I’ve confirmed the scope is a read-only assignment-quality dashboard—not a new persistence model. I’m adding it as a single tenant-scoped snapshot projection, so warnings are recomputed from current draft context while each assignment’s stored realized quality remains historical.The implementation is in place with a focused pure evaluator test, but local Go validation is presently blocked before compilation: the configured Go 1.26.4 toolchain download cannot update the host module checksum cache under this sandbox. I’ll still inspect and tighten the generated/API wiring, then run all checks that are available.The focused backend tests now pass. The endpoint and OpenAPI are generated; the report includes named unplaced/unwanted/no-signal/overridden placements, stored quality alongside current preference context, occupancy, and the required assignment, offering, and catalog/staleness warning IDs.Formatting completed. Backend lint reached the linter but its default host-local cache is read-only in this Detent sandbox; I’ll rerun it with its cache redirected into the Detent temporary directory.The backend test gate, formatting, lint/depguard, generation, and whitespace checks are green; migration round-trip is the only local gate unavailable because its required database URL is unset. I’ve committed the scoped implementation and will now push it and open the ready-for-review PR.PR [#315](https://github.com/christophergm/miniclass/pull/315) is open and ready (not draft), references #299, and currently has no reviews, inline comments, or CI runs yet. I’m recording the evidence and the remaining CI/migration wait in the Workpad; the issue stays in progress until current-head required checks complete.CI is now running on the PR’s current head. The first completed checks are green (`Solver contract tests`, `Frontend lint`, and `Repository formatting`); the remaining project gates are in progress, including backend tests, migration round-trip, generation, and frontend build.All 13 current-head CI checks are now successful, including backend tests, migration round-trip, generated-code drift, frontend test/build, and developer tooling. The PR is clean, ready, and has no actionable review feedback.
+```

@@ -445,6 +445,101 @@
         ],
         "type": "object"
       },
+      "AssignmentQualityResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/AssignmentQualityResponse.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "no_signal": {
+            "items": {
+              "$ref": "#/components/schemas/DraftPlacementResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "offerings": {
+            "items": {
+              "$ref": "#/components/schemas/OfferingOccupancyResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "overridden": {
+            "items": {
+              "$ref": "#/components/schemas/DraftPlacementResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "placements": {
+            "items": {
+              "$ref": "#/components/schemas/DraftPlacementResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "quality_distribution": {
+            "additionalProperties": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "unplaced": {
+            "items": {
+              "$ref": "#/components/schemas/DraftPlacementResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "unwanted": {
+            "items": {
+              "$ref": "#/components/schemas/DraftPlacementResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/DraftWarningResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "unplaced",
+          "unwanted",
+          "no_signal",
+          "overridden",
+          "placements",
+          "offerings",
+          "quality_distribution",
+          "warnings"
+        ],
+        "type": "object"
+      },
       "AssignmentResponse": {
         "additionalProperties": false,
         "properties": {
@@ -1550,6 +1645,77 @@
         "required": [
           "expected_revision",
           "reason"
+        ],
+        "type": "object"
+      },
+      "DraftPlacementResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "assignment": {
+            "$ref": "#/components/schemas/AssignmentResponse"
+          },
+          "current_preference": {
+            "type": "string"
+          },
+          "student_name": {
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/DraftWarningResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "assignment",
+          "student_name",
+          "warnings"
+        ],
+        "type": "object"
+      },
+      "DraftWarningResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "assignment_id": {
+            "type": "string"
+          },
+          "host_id": {
+            "type": "string"
+          },
+          "host_type": {
+            "enum": [
+              "assignment",
+              "offering",
+              "session"
+            ],
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "offering_id": {
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "warning",
+              "info"
+            ],
+            "type": "string"
+          },
+          "student_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "severity",
+          "host_type",
+          "host_id"
         ],
         "type": "object"
       },
@@ -4563,6 +4729,42 @@
           "pairing_discourages_weight",
           "below_minimum_enrollment_penalty",
           "tag_balance_penalty"
+        ],
+        "type": "object"
+      },
+      "OfferingOccupancyResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "capacity": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "enrolled": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "minimum_viable_enrollment": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "offering_id": {
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/DraftWarningResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "offering_id",
+          "enrolled",
+          "capacity",
+          "warnings"
         ],
         "type": "object"
       },
@@ -17686,6 +17888,95 @@
           }
         ],
         "summary": "Remove one student-offering exclusion",
+        "x-required-capability": "manage_assignments"
+      }
+    },
+    "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/assignment-quality": {
+      "get": {
+        "operationId": "get-assignment-quality",
+        "parameters": [
+          {
+            "description": "Opaque school-year identifier.",
+            "in": "path",
+            "name": "schoolYearID",
+            "required": true,
+            "schema": {
+              "description": "Opaque school-year identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque program identifier.",
+            "in": "path",
+            "name": "programID",
+            "required": true,
+            "schema": {
+              "description": "Opaque program identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque session identifier.",
+            "in": "path",
+            "name": "sessionID",
+            "required": true,
+            "schema": {
+              "description": "Opaque session identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentQualityResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Read non-blocking draft warnings and placement quality",
         "x-required-capability": "manage_assignments"
       }
     },
