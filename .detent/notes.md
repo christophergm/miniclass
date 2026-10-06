@@ -335,3 +335,15 @@ I’ll resume #301 from its live issue, pull request, Workpad, and repository st
   and format; generated-code drift; migration round-trip; repository formatting; developer tooling;
   and solver/image smoke checks. The rerun took about two minutes; backend tests and generated-code
   drift were the slowest checks. PR #317 is ready, with no review or inline comments.
+
+## Issue #302 — accessible placement editing controls
+
+- The frontend board now uses persisted revision-CAS operations for moves, swaps, pin/unpin, and
+  assignment exclusions. Offering drops open the same explicit move action as keyboard controls;
+  same-offering drops are no-ops and student drops never imply a swap.
+- Hard-rule conflicts prompt for deliberate confirmation with an optional reason. Draft revision
+  conflicts refresh the persisted board and explain that no retry occurred.
+- Component coverage includes keyboard move, swap, pin, exclusion, and override cancellation.
+  Changed-file Biome lint/format and `git diff --check` pass. `make test-frontend` cannot run here
+  because `openapi-typescript` is absent from the uninstalled dependency tree; CI must run generated
+  types and the full frontend gates.

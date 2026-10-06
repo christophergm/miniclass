@@ -436,6 +436,97 @@ export function useStartSolveRun(schoolYearID: string, programID: string, sessio
   });
 }
 
+function useAssignmentEditMutation<T>(
+  schoolYearID: string,
+  programID: string,
+  sessionID: string,
+  mutationFn: (value: T) => Promise<unknown>,
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn,
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: assignmentWorkspaceKey(schoolYearID, programID, sessionID),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: [...assignmentWorkspaceKey(schoolYearID, programID, sessionID), "quality"],
+        }),
+      ]);
+    },
+  });
+}
+
+export function useMoveAssignment(schoolYearID: string, programID: string, sessionID: string) {
+  return useAssignmentEditMutation<Parameters<typeof resourceApi.moveAssignment>[3]>(
+    schoolYearID,
+    programID,
+    sessionID,
+    (value) => resourceApi.moveAssignment(schoolYearID, programID, sessionID, value),
+  );
+}
+
+export function useSwapAssignments(schoolYearID: string, programID: string, sessionID: string) {
+  return useAssignmentEditMutation<Parameters<typeof resourceApi.swapAssignments>[3]>(
+    schoolYearID,
+    programID,
+    sessionID,
+    (value) => resourceApi.swapAssignments(schoolYearID, programID, sessionID, value),
+  );
+}
+
+export function useSetAssignmentPin(schoolYearID: string, programID: string, sessionID: string) {
+  return useAssignmentEditMutation(
+    schoolYearID,
+    programID,
+    sessionID,
+    ({
+      studentID,
+      pinned,
+      value,
+    }: {
+      studentID: string;
+      pinned: boolean;
+      value: { expected_revision: number; reason: string };
+    }) =>
+      resourceApi.setAssignmentPin(schoolYearID, programID, sessionID, studentID, pinned, value),
+  );
+}
+
+export function useCreateAssignmentExclusion(
+  schoolYearID: string,
+  programID: string,
+  sessionID: string,
+) {
+  return useAssignmentEditMutation<Parameters<typeof resourceApi.createAssignmentExclusion>[3]>(
+    schoolYearID,
+    programID,
+    sessionID,
+    (value) => resourceApi.createAssignmentExclusion(schoolYearID, programID, sessionID, value),
+  );
+}
+
+export function useDeleteAssignmentExclusion(
+  schoolYearID: string,
+  programID: string,
+  sessionID: string,
+) {
+  return useAssignmentEditMutation(
+    schoolYearID,
+    programID,
+    sessionID,
+    ({
+      exclusionID,
+      value,
+    }: {
+      exclusionID: string;
+      value: { expected_revision: number; reason: string };
+    }) =>
+      resourceApi.deleteAssignmentExclusion(schoolYearID, programID, sessionID, exclusionID, value),
+  );
+}
+
 export function useRankedChoiceResponseTracking(
   schoolYearID: string | undefined,
   programID: string | undefined,

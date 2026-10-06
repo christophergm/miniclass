@@ -1,12 +1,18 @@
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { renderWithQueryClient } from "@/test/queryClient";
+import { ApiError } from "@/lib/api";
 
 import { AssignmentBoardPage } from "./AssignmentBoardPage";
 
 const startSolve = vi.fn();
+const moveAssignment = vi.fn();
+const swapAssignments = vi.fn();
+const setPin = vi.fn();
+const addExclusion = vi.fn();
+const removeExclusion = vi.fn();
 
 vi.mock("./usePrograms", () => ({
   usePrograms: () => ({ data: [{ id: "program-1", name: "Clubs" }] }),
@@ -17,8 +23,12 @@ vi.mock("./usePrograms", () => ({
       participants: [
         { student_id: "ada", legal_given_name: "Ada", legal_family_name: "Synthesis" },
         { student_id: "bea", legal_given_name: "Bea", legal_family_name: "Example" },
+        { student_id: "cy", legal_given_name: "Cy", legal_family_name: "Sample" },
       ],
-      offerings: [{ id: "robots", name: "Robotics", capacity: 2 }],
+      offerings: [
+        { id: "robots", name: "Robotics", capacity: 2 },
+        { id: "art", name: "Art", capacity: 2 },
+      ],
       assignments: [
         {
           id: "assignment-ada",
@@ -26,6 +36,13 @@ vi.mock("./usePrograms", () => ({
           offering_id: "robots",
           pinned: true,
           realized_quality: "top",
+        },
+        {
+          id: "assignment-cy",
+          student_id: "cy",
+          offering_id: "art",
+          pinned: false,
+          realized_quality: "acceptable",
         },
       ],
     },
@@ -40,6 +57,11 @@ vi.mock("./usePrograms", () => ({
     refetch: vi.fn(),
   }),
   useStartSolveRun: () => ({ isPending: false, mutate: startSolve }),
+  useMoveAssignment: () => ({ mutateAsync: moveAssignment }),
+  useSwapAssignments: () => ({ mutateAsync: swapAssignments }),
+  useSetAssignmentPin: () => ({ mutateAsync: setPin }),
+  useCreateAssignmentExclusion: () => ({ mutateAsync: addExclusion }),
+  useDeleteAssignmentExclusion: () => ({ mutateAsync: removeExclusion }),
 }));
 
 function renderBoard() {
@@ -61,6 +83,14 @@ function YearRoute() {
 }
 
 describe("AssignmentBoardPage", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    moveAssignment.mockResolvedValue({});
+    swapAssignments.mockResolvedValue({});
+    setPin.mockResolvedValue({});
+    addExclusion.mockResolvedValue({});
+    removeExclusion.mockResolvedValue({});
+  });
   it("shows persisted placements, a prominent unplaced student, and starts a re-solve", () => {
     renderBoard();
 
@@ -71,5 +101,74 @@ describe("AssignmentBoardPage", () => {
     expect(screen.getByText("Pinned")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Re-solve draft" }));
     expect(startSolve).toHaveBeenCalledOnce();
+  });
+
+  it("offers keyboard-accessible move, swap, pin, and exclusion operations", async () => {
+    renderBoard();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Move" })[0]);
+    fireEvent.change(screen.getByRole("combobox", { name: "Offering" }), {
+      target: { value: "art" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Move and pin" }));
+    await waitFor(() =>
+      expect(moveAssignment).toHaveBeenCalledWith({
+        student_id: "ada",
+        offering_id: "art",
+        expected_revision: 4,
+        confirm_violations: false,
+        reason: "",
+      }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Unpin" }));
+    await waitFor(() =>
+      expect(setPin).toHaveBeenCalledWith({
+        studentID: "ada",
+        pinned: false,
+        value: { expected_revision: 4, reason: "" },
+      }),
+    );
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Swap" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Swap placements" }));
+    await waitFor(() =>
+      expect(swapAssignments).toHaveBeenCalledWith({
+        first_student_id: "ada",
+        second_student_id: "cy",
+        expected_revision: 4,
+        confirm_violations: false,
+        reason: "",
+      }),
+    );
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Exclusions" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Add exclusion" }));
+    await waitFor(() =>
+      expect(addExclusion).toHaveBeenCalledWith({
+        student_id: "ada",
+        offering_id: "robots",
+        expected_revision: 4,
+        reason: "",
+      }),
+    );
+  });
+
+  it("requires an explicit override confirmation and leaves the draft alone on cancellation", async () => {
+    moveAssignment.mockRejectedValueOnce(
+      new ApiError("http", "capacity would be exceeded", 409, "program-conflict"),
+    );
+    renderBoard();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Move" })[0]);
+    fireEvent.change(screen.getByRole("combobox", { name: "Offering" }), {
+      target: { value: "art" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Move and pin" }));
+    expect(
+      await screen.findByRole("dialog", { name: "Confirm rule override" }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(moveAssignment).toHaveBeenCalledOnce();
   });
 });
