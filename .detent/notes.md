@@ -14,6 +14,18 @@
   developer tooling. Generated-code drift (2m) and backend tests (1m41) were
   the slowest checks; no review or inline comments are present.
 
+# Issue #304 — Phase 5A placement workflow proof
+
+- Added `frontend/e2e/assignment-workspace.spec.ts`, a synthetic administrator
+  browser workflow covering empty/manual-first placement via keyboard controls,
+  drag placement, pin state, exclusion, re-solve, and reopen without publish.
+- `docs/testing/phase-5a-placement-workflow.md` records the complete-draft
+  demonstration and maps production-boundary acceptance evidence to existing
+  solver, operation, authorisation, comment, and stale-run integration tests.
+- Passed changed-file Biome and `git diff --check`. Playwright cannot start
+  locally: Bun is denied access to its temporary execution directory before it
+  launches; run the complete frontend/browser and project gates in CI.
+
 # Issue #237 — v0 solver feasibility model
 
 - Rework reason: PR #255 conflicted solely because `main` advanced its shared
