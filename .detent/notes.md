@@ -196,3 +196,18 @@
   test-backend` cannot start because external `/miniclass-mailpit` owns the
   fixed Compose container name; this worktree's empty network and volume were
   removed without touching it.
+
+## Issue #296 — stable re-solves below preference quality
+
+- `solver/app/server.py` now fixes every SPEC §17.4.2 quality optimum before
+  maximizing retained, unpinned placements from the authoritative
+  `prior_placements` baseline (SPEC §17.9). Missing or now-ineligible baseline
+  rows are inert; pins and their authorised exceptions are fixed constraints,
+  not stability choices.
+- Focused sidecar tests cover unchanged/incomplete baselines, a small exclusion
+  edit, strict quality non-interference, seeded replay, and a grade-exception
+  pin. Passed in `miniclass-solver:latest`: `python -m pytest` (55).
+- Passed `go test ./internal/solvercontract ./internal/solverclient
+  ./internal/solver`, `make format`, `make lint-backend` (including depguard),
+  and `make generate` without generated drift. Run `make check` before handoff;
+  it may encounter the existing fixed-name Compose container limitation.
