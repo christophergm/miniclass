@@ -26,6 +26,8 @@ from (
      and student.organization_id = audience.organization_id
      and student.school_year_id = audience.school_year_id
      and student.deleted_at is null
+     and (cardinality(sqlc.arg(grade_level_ids)::text[]) = 0 or student.grade_level_id::text = any(sqlc.arg(grade_level_ids)::text[]))
+     and (cardinality(sqlc.arg(homeroom_ids)::text[]) = 0 or student.homeroom_id::text = any(sqlc.arg(homeroom_ids)::text[]))
     where survey.organization_id = $1
       and survey.school_year_id = $2
       and survey.program_id = $3
@@ -62,6 +64,8 @@ from (
       on student.id = membership.student_id
      and student.organization_id = membership.organization_id
      and student.school_year_id = membership.school_year_id
+     and (cardinality(sqlc.arg(grade_level_ids)::text[]) = 0 or student.grade_level_id::text = any(sqlc.arg(grade_level_ids)::text[]))
+     and (cardinality(sqlc.arg(homeroom_ids)::text[]) = 0 or student.homeroom_id::text = any(sqlc.arg(homeroom_ids)::text[]))
     where session.organization_id = $1
       and session.school_year_id = $2
       and session.program_id = $3

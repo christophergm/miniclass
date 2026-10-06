@@ -31,8 +31,8 @@ export function AppShell() {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
-        <div className="mx-auto flex min-h-16 w-full max-w-6xl items-center justify-between gap-4 px-6">
-          <div className="flex items-center gap-4">
+        <div className="mx-auto flex min-h-16 w-full max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
             <Link className="font-semibold tracking-tight text-foreground" to="/years">
               MiniClass
             </Link>
@@ -48,7 +48,7 @@ export function AppShell() {
               </Link>
             )}
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex w-full min-w-0 flex-wrap items-center gap-x-4 gap-y-2 sm:w-auto">
             <Link
               className="text-sm font-medium text-muted-foreground hover:text-foreground"
               to="/settings"
@@ -67,11 +67,11 @@ export function AppShell() {
             >
               Security
             </Link>
-            <details className="relative">
-              <summary className="cursor-pointer list-none rounded-md border px-3 py-2 text-sm font-medium hover:bg-accent">
+            <details className="relative w-full min-w-0 sm:w-auto">
+              <summary className="max-w-64 cursor-pointer list-none truncate rounded-md border px-3 py-2 text-sm font-medium hover:bg-accent">
                 {email}
               </summary>
-              <div className="absolute right-0 z-10 mt-2 w-64 rounded-lg border bg-card p-3 shadow-lg">
+              <div className="absolute left-0 z-10 mt-2 w-64 max-w-full rounded-lg border bg-card p-3 shadow-lg sm:right-0 sm:left-auto sm:max-w-none">
                 <p className="truncate text-sm font-medium">{email}</p>
                 {account && (
                   <p className="mt-1 text-xs text-muted-foreground">

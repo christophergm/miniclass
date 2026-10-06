@@ -81,13 +81,13 @@ type ResponseTrackingGuardianFollowUp struct {
 	ContactStatus string
 }
 
-func (s *Service) ListResponseTrackingSummaries(ctx context.Context, organizationID string, schoolYearID, programID ids.XID) ([]ResponseTrackingSummary, error) {
+func (s *Service) ListResponseTrackingSummaries(ctx context.Context, organizationID string, schoolYearID, programID ids.XID, filters ...data.PreferenceResultsFilter) ([]ResponseTrackingSummary, error) {
 	if s == nil || s.database == nil {
 		return nil, ErrPreferenceServiceNil
 	}
 	var result []ResponseTrackingSummary
 	err := s.database.InTenantRead(ctx, organizationID, func(ctx context.Context, tx *data.Tx) error {
-		rows, err := tx.ListResponseTrackingSummaries(ctx, schoolYearID, programID)
+		rows, err := tx.ListResponseTrackingSummaries(ctx, schoolYearID, programID, filters...)
 		if err != nil {
 			return err
 		}
@@ -108,7 +108,7 @@ func (s *Service) ListResponseTrackingSummaries(ctx context.Context, organizatio
 	return result, nil
 }
 
-func (s *Service) GetInterestProfileResponseTracking(ctx context.Context, organizationID string, schoolYearID, programID, surveyID ids.XID) (ResponseTracking, error) {
+func (s *Service) GetInterestProfileResponseTracking(ctx context.Context, organizationID string, schoolYearID, programID, surveyID ids.XID, filters ...data.PreferenceResultsFilter) (ResponseTracking, error) {
 	if s == nil || s.database == nil {
 		return ResponseTracking{}, ErrPreferenceServiceNil
 	}
@@ -126,7 +126,7 @@ func (s *Service) GetInterestProfileResponseTracking(ctx context.Context, organi
 		if err != nil {
 			return err
 		}
-		result = buildResponseTracking(ResponseTrackingInterestProfile, survey.ID, survey.Name, schoolYearID, programID, students, relationships, adults)
+		result = buildResponseTracking(ResponseTrackingInterestProfile, survey.ID, survey.Name, schoolYearID, programID, filteredReportStudents(students, filters), relationships, adults)
 		return nil
 	})
 	if err != nil {
@@ -135,7 +135,7 @@ func (s *Service) GetInterestProfileResponseTracking(ctx context.Context, organi
 	return result, nil
 }
 
-func (s *Service) GetRankedChoiceResponseTracking(ctx context.Context, organizationID string, schoolYearID, programID, sessionID ids.XID) (ResponseTracking, error) {
+func (s *Service) GetRankedChoiceResponseTracking(ctx context.Context, organizationID string, schoolYearID, programID, sessionID ids.XID, filters ...data.PreferenceResultsFilter) (ResponseTracking, error) {
 	if s == nil || s.database == nil {
 		return ResponseTracking{}, ErrPreferenceServiceNil
 	}
@@ -156,7 +156,7 @@ func (s *Service) GetRankedChoiceResponseTracking(ctx context.Context, organizat
 		if err != nil {
 			return err
 		}
-		result = buildResponseTracking(ResponseTrackingRankedChoice, session.ID, session.Name, schoolYearID, programID, students, relationships, adults)
+		result = buildResponseTracking(ResponseTrackingRankedChoice, session.ID, session.Name, schoolYearID, programID, filteredReportStudents(students, filters), relationships, adults)
 		return nil
 	})
 	if err != nil {
@@ -297,6 +297,13 @@ func breakdownValues(values map[string]*ResponseTrackingBreakdown) []ResponseTra
 		return result[i].ID < result[j].ID
 	})
 	return result
+}
+
+func filteredReportStudents(students []data.ResponseTrackingStudentRow, filters []data.PreferenceResultsFilter) []data.ResponseTrackingStudentRow {
+	if len(filters) == 0 {
+		return students
+	}
+	return filters[0].Students(students)
 }
 
 func completionPercentage(responded, total int) float64 {

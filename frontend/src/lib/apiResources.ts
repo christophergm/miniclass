@@ -45,6 +45,28 @@ export type PreferenceForm = Schemas["PreferenceFormResponse"];
 export type GuardianPreferenceForms = Schemas["GuardianPreferenceFormsResponse"];
 export type ResponseTracking = Schemas["ResponseTrackingResponse"];
 export type ResponseTrackingSummary = Schemas["ResponseTrackingSummaryResponse"];
+export type InterestProfileResults = Schemas["InterestProfileResultsResponse"];
+export type RankedChoiceResults = Schemas["RankedChoiceResultsResponse"];
+export type ResponseReportFilters = { grade_level_ids: string[]; homeroom_ids: string[] };
+
+export function canonicalResponseReportFilters(
+  filters: ResponseReportFilters = { grade_level_ids: [], homeroom_ids: [] },
+): ResponseReportFilters {
+  const canonicalIDs = (ids: string[]) =>
+    [...new Set(ids.map((id) => id.trim()).filter(Boolean))].sort();
+  return {
+    grade_level_ids: canonicalIDs(filters.grade_level_ids),
+    homeroom_ids: canonicalIDs(filters.homeroom_ids),
+  };
+}
+
+function responseReportQuery(filters?: ResponseReportFilters) {
+  const canonical = canonicalResponseReportFilters(filters);
+  return {
+    grade_level_ids: canonical.grade_level_ids.join(",") || undefined,
+    homeroom_ids: canonical.homeroom_ids.join(",") || undefined,
+  };
+}
 export type PreferenceInterestAnswerInput = Schemas["InterestProfileAnswerInput"];
 export type PreferenceRankedAnswerInput = Schemas["RankedChoiceAnswerInput"];
 export type AdultOTPRequest = Schemas["RequestAdultOTPOutputBody"];
@@ -521,24 +543,82 @@ export const resourceApi = {
         },
       ),
     ),
-  listResponseTrackingSummaries: (schoolYearID: string, programID: string) =>
+  listResponseTrackingSummaries: (
+    schoolYearID: string,
+    programID: string,
+    filters?: ResponseReportFilters,
+  ) =>
     unwrapList(
       api.GET("/api/school-years/{schoolYearID}/programs/{programID}/response-tracking/summary", {
-        params: { path: { schoolYearID, programID } },
+        params: { path: { schoolYearID, programID }, query: responseReportQuery(filters) },
       }),
     ),
-  getInterestProfileResponseTracking: (schoolYearID: string, programID: string, surveyID: string) =>
+  getInterestProfileResponseTracking: (
+    schoolYearID: string,
+    programID: string,
+    surveyID: string,
+    filters?: ResponseReportFilters,
+  ) =>
     unwrap(
       api.GET(
         "/api/school-years/{schoolYearID}/programs/{programID}/interest-profile-surveys/{surveyID}/response-tracking",
-        { params: { path: { schoolYearID, programID, surveyID } } },
+        {
+          params: {
+            path: { schoolYearID, programID, surveyID },
+            query: responseReportQuery(filters),
+          },
+        },
       ),
     ),
-  getRankedChoiceResponseTracking: (schoolYearID: string, programID: string, sessionID: string) =>
+  getRankedChoiceResponseTracking: (
+    schoolYearID: string,
+    programID: string,
+    sessionID: string,
+    filters?: ResponseReportFilters,
+  ) =>
     unwrap(
       api.GET(
         "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/response-tracking",
-        { params: { path: { schoolYearID, programID, sessionID } } },
+        {
+          params: {
+            path: { schoolYearID, programID, sessionID },
+            query: responseReportQuery(filters),
+          },
+        },
+      ),
+    ),
+  getInterestProfileResults: (
+    schoolYearID: string,
+    programID: string,
+    surveyID: string,
+    filters?: ResponseReportFilters,
+  ) =>
+    unwrap(
+      api.GET(
+        "/api/school-years/{schoolYearID}/programs/{programID}/interest-profile-surveys/{surveyID}/results",
+        {
+          params: {
+            path: { schoolYearID, programID, surveyID },
+            query: responseReportQuery(filters),
+          },
+        },
+      ),
+    ),
+  getRankedChoiceResults: (
+    schoolYearID: string,
+    programID: string,
+    sessionID: string,
+    filters?: ResponseReportFilters,
+  ) =>
+    unwrap(
+      api.GET(
+        "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/results",
+        {
+          params: {
+            path: { schoolYearID, programID, sessionID },
+            query: responseReportQuery(filters),
+          },
+        },
       ),
     ),
   createInterestArea: (schoolYearID: string, programID: string, label: string) =>

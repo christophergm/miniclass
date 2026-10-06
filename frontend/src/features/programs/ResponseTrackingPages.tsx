@@ -18,11 +18,21 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { ResponseTracking, SchoolYear } from "@/lib/apiResources";
+import type {
+  InterestProfileResults,
+  RankedChoiceResults,
+  ResponseTracking,
+  SchoolYear,
+} from "@/lib/apiResources";
 import { useProgramName } from "./useProgramName";
+import { ResponseReportControls } from "./ResponseReportControls";
+import { ResponseResults } from "./ResponseResults";
+import { useResponseReportState } from "./useResponseReportState";
 import {
   useInterestProfileResponseTracking,
+  useInterestProfileResults,
   useRankedChoiceResponseTracking,
+  useRankedChoiceResults,
   useResponseTrackingSummaries,
 } from "./usePrograms";
 
@@ -286,6 +296,47 @@ function ResponseTrackingDetail({ tracking }: { tracking: ResponseTracking }) {
   );
 }
 
+function ReportPanel({
+  report,
+  tracking,
+  results,
+}: {
+  report: ReturnType<typeof useResponseReportState>;
+  tracking: { data?: ResponseTracking | null; isLoading: boolean; isError: boolean };
+  results: {
+    data?: InterestProfileResults | RankedChoiceResults | null;
+    isLoading: boolean;
+    isError: boolean;
+  };
+}) {
+  const active = report.tab === "completion" ? tracking : results;
+  return (
+    <div
+      role="tabpanel"
+      id={`report-panel-${report.tab}`}
+      aria-labelledby={`report-tab-${report.tab}`}
+      tabIndex={0}
+    >
+      {active.isLoading && (
+        <p className="mt-6" role="status">
+          Loading {report.tab === "completion" ? "response tracking" : "results"}…
+        </p>
+      )}
+      {active.isError && (
+        <p className="mt-4 text-sm text-destructive" role="alert">
+          Unable to load {report.tab === "completion" ? "response tracking" : "results"}.
+        </p>
+      )}
+      {report.tab === "completion" && tracking.data && (
+        <ResponseTrackingDetail tracking={tracking.data} />
+      )}
+      {report.tab === "results" && results.data && (
+        <ResponseResults data={results.data} mode={report.mode} setMode={report.setMode} />
+      )}
+    </div>
+  );
+}
+
 export function InterestProfileResponseTrackingPage() {
   const { schoolYearId, programId, surveyId } = useParams<{
     schoolYearId: string;
@@ -293,7 +344,20 @@ export function InterestProfileResponseTrackingPage() {
     surveyId: string;
   }>();
   const programName = useProgramName(schoolYearId, programId);
-  const query = useInterestProfileResponseTracking(schoolYearId, programId, surveyId);
+  const report = useResponseReportState();
+  const query = useInterestProfileResponseTracking(
+    schoolYearId,
+    programId,
+    surveyId,
+    report.filters,
+  );
+  const results = useInterestProfileResults(
+    schoolYearId,
+    programId,
+    surveyId,
+    report.filters,
+    report.tab === "results",
+  );
   if (!schoolYearId || !programId || !surveyId) return <PageFrame>Survey is required.</PageFrame>;
   return (
     <PageFrame>
@@ -304,16 +368,11 @@ export function InterestProfileResponseTrackingPage() {
         ← Back to response tracking
       </Link>
       <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-        {query.data?.instrument_name ?? "Interest-profile survey"}
+        {query.data?.instrument_name ?? results.data?.instrument_name ?? "Interest-profile survey"}
       </h1>
-      <p className="mt-2 text-sm text-muted-foreground">{programName} · student completion</p>
-      {query.isLoading && (
-        <p className="mt-6" role="status">
-          Loading response tracking…
-        </p>
-      )}
-      {query.isError && <ErrorMessage />}
-      {query.data && <ResponseTrackingDetail tracking={query.data} />}
+      <p className="mt-2 text-sm text-muted-foreground">{programName} · response reporting</p>
+      <ResponseReportControls schoolYearId={schoolYearId} report={report} />
+      <ReportPanel report={report} tracking={query} results={results} />
     </PageFrame>
   );
 }
@@ -326,7 +385,15 @@ export function RankedChoiceResponseTrackingPage() {
     sessionId: string;
   }>();
   const programName = useProgramName(schoolYearId, programId);
-  const query = useRankedChoiceResponseTracking(schoolYearId, programId, sessionId);
+  const report = useResponseReportState();
+  const query = useRankedChoiceResponseTracking(schoolYearId, programId, sessionId, report.filters);
+  const results = useRankedChoiceResults(
+    schoolYearId,
+    programId,
+    sessionId,
+    report.filters,
+    report.tab === "results",
+  );
   if (!schoolYearId || !programId || !sessionId) return <PageFrame>Session is required.</PageFrame>;
   return (
     <PageFrame>
@@ -354,22 +421,19 @@ export function RankedChoiceResponseTrackingPage() {
           <BreadcrumbSeparator />
           <BreadcrumbItem>
             <BreadcrumbPage>
-              {query.data?.instrument_name ?? "Ranked-choice session"}
+              {query.data?.instrument_name ??
+                results.data?.instrument_name ??
+                "Ranked-choice session"}
             </BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
       <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-        {query.data?.instrument_name ?? "Ranked-choice session"}
+        {query.data?.instrument_name ?? results.data?.instrument_name ?? "Ranked-choice session"}
       </h1>
-      <p className="mt-2 text-sm text-muted-foreground">{programName} · student completion</p>
-      {query.isLoading && (
-        <p className="mt-6" role="status">
-          Loading response tracking…
-        </p>
-      )}
-      {query.isError && <ErrorMessage />}
-      {query.data && <ResponseTrackingDetail tracking={query.data} />}
+      <p className="mt-2 text-sm text-muted-foreground">{programName} · response reporting</p>
+      <ResponseReportControls schoolYearId={schoolYearId} report={report} />
+      <ReportPanel report={report} tracking={query} results={results} />
     </PageFrame>
   );
 }

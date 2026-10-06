@@ -21,6 +21,67 @@ func NewPreferenceHandler(service ProgramService) *PreferenceHandler {
 	return &PreferenceHandler{service: service}
 }
 
+// Results implement SPEC §§13.3, 13.5–13.7 and 19.4–19.5. Only explicit
+// answers enter item denominators; unanswered counts include submitters only.
+type PreferenceResultsFilterInput struct {
+	GradeLevelIDs string `query:"grade_level_ids" doc:"Comma-separated grade-level IDs; empty means all. OR within this filter, AND with homeroom_ids."`
+	HomeroomIDs   string `query:"homeroom_ids" doc:"Comma-separated homeroom IDs; empty means all."`
+}
+
+type PreferenceRatingCountResponse struct {
+	Value   string `json:"value"`
+	Label   string `json:"label"`
+	Ordinal int    `json:"ordinal"`
+	Count   int    `json:"count"`
+}
+
+type PreferenceRankCountResponse struct {
+	Rank  int `json:"rank"`
+	Count int `json:"count"`
+}
+
+type InterestProfileResultItemResponse struct {
+	ID              string                          `json:"id" doc:"Interest-area ID."`
+	Label           string                          `json:"label"`
+	Ordinal         int                             `json:"ordinal"`
+	ExplicitAnswers int                             `json:"explicit_answers" doc:"Number of explicit ratings, including negative ratings."`
+	Unanswered      int                             `json:"unanswered" doc:"Submitters without an answer to this item; excludes non-submitters."`
+	RatingCounts    []PreferenceRatingCountResponse `json:"rating_counts" doc:"All instrument scale values in ordinal order, including zero counts."`
+}
+
+type RankedChoiceResultItemResponse struct {
+	ID              string                        `json:"id" doc:"Offering ID."`
+	Label           string                        `json:"label"`
+	ExplicitAnswers int                           `json:"explicit_answers" doc:"Ranked, interested and not-interested answers combined."`
+	Unanswered      int                           `json:"unanswered" doc:"Submitters without an answer to this offering; excludes non-submitters."`
+	RankCounts      []PreferenceRankCountResponse `json:"rank_counts" doc:"Ranks 1 through rank_depth in ascending order, including zero counts."`
+	Interested      int                           `json:"interested"`
+	NotInterested   int                           `json:"not_interested"`
+}
+
+type InterestProfileResultsResponse struct {
+	ResponseTrackingSummaryResponse
+	ScaleVersion string                              `json:"scale_version"`
+	ScaleOptions []PreferenceFormScaleOptionResponse `json:"scale_options"`
+	Items        []InterestProfileResultItemResponse `json:"items"`
+}
+
+type RankedChoiceResultsResponse struct {
+	ResponseTrackingSummaryResponse
+	RankDepth int                              `json:"rank_depth"`
+	Items     []RankedChoiceResultItemResponse `json:"items"`
+}
+
+type InterestProfileResultsOutput struct {
+	Body InterestProfileResultsResponse
+}
+type RankedChoiceResultsOutput struct{ Body RankedChoiceResultsResponse }
+
+type ResponseTrackingSummariesInput struct {
+	PreferenceFormPathInput
+	PreferenceResultsFilterInput
+}
+
 type PreferenceFormQuestionResponse struct {
 	InterestAreaID string `json:"interest_area_id" doc:"Opaque interest-area identifier."`
 	Label          string `json:"label"`
@@ -230,10 +291,12 @@ type RankedChoiceAdministratorSubmitInput struct {
 
 type InterestProfileResponseTrackingInput struct {
 	InterestProfilePreferenceFormPathInput
+	PreferenceResultsFilterInput
 }
 
 type RankedChoiceResponseTrackingInput struct {
 	RankedChoicePreferenceFormPathInput
+	PreferenceResultsFilterInput
 }
 
 func (h *PreferenceHandler) GuardianForms(ctx context.Context, _ *struct{}) (*GuardianPreferenceFormsOutput, error) {
@@ -362,7 +425,7 @@ func (h *PreferenceHandler) AdministratorRankedSubmit(ctx context.Context, input
 	return &PreferenceFormOutput{Body: preferenceFormResponse(form)}, nil
 }
 
-func (h *PreferenceHandler) ResponseTrackingSummaries(ctx context.Context, input *PreferenceFormPathInput) (*ResponseTrackingSummaryOutput, error) {
+func (h *PreferenceHandler) ResponseTrackingSummaries(ctx context.Context, input *ResponseTrackingSummariesInput) (*ResponseTrackingSummaryOutput, error) {
 	account, err := programAccount(ctx)
 	if err != nil {
 		return nil, err
@@ -370,7 +433,7 @@ func (h *PreferenceHandler) ResponseTrackingSummaries(ctx context.Context, input
 	if h == nil || h.service == nil || input == nil {
 		return nil, preferenceServiceUnavailable()
 	}
-	summaries, err := h.service.ListResponseTrackingSummaries(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID))
+	summaries, err := h.service.ListResponseTrackingSummaries(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), input.PreferenceResultsFilterInput.filter())
 	if err != nil {
 		return nil, preferenceProblem(err)
 	}
@@ -394,7 +457,7 @@ func (h *PreferenceHandler) InterestProfileResponseTracking(ctx context.Context,
 	if h == nil || h.service == nil || input == nil {
 		return nil, preferenceServiceUnavailable()
 	}
-	tracking, err := h.service.GetInterestProfileResponseTracking(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), ids.XID(input.SurveyID))
+	tracking, err := h.service.GetInterestProfileResponseTracking(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), ids.XID(input.SurveyID), input.PreferenceResultsFilterInput.filter())
 	if err != nil {
 		return nil, preferenceProblem(err)
 	}
@@ -409,11 +472,78 @@ func (h *PreferenceHandler) RankedChoiceResponseTracking(ctx context.Context, in
 	if h == nil || h.service == nil || input == nil {
 		return nil, preferenceServiceUnavailable()
 	}
-	tracking, err := h.service.GetRankedChoiceResponseTracking(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), ids.XID(input.SessionID))
+	tracking, err := h.service.GetRankedChoiceResponseTracking(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), ids.XID(input.SessionID), input.PreferenceResultsFilterInput.filter())
 	if err != nil {
 		return nil, preferenceProblem(err)
 	}
 	return &ResponseTrackingOutput{Body: responseTrackingResponse(tracking)}, nil
+}
+
+func (input PreferenceResultsFilterInput) filter() data.PreferenceResultsFilter {
+	return data.PreferenceResultsFilter{GradeLevelIDs: splitReportIDs(input.GradeLevelIDs), HomeroomIDs: splitReportIDs(input.HomeroomIDs)}
+}
+
+func splitReportIDs(value string) []string {
+	result := []string{}
+	for _, part := range strings.Split(value, ",") {
+		if id := strings.TrimSpace(part); id != "" {
+			result = append(result, id)
+		}
+	}
+	return result
+}
+
+func (h *PreferenceHandler) InterestProfileResults(ctx context.Context, input *InterestProfileResponseTrackingInput) (*InterestProfileResultsOutput, error) {
+	account, err := programAccount(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if h == nil || h.service == nil || input == nil {
+		return nil, preferenceServiceUnavailable()
+	}
+	value, err := h.service.GetInterestProfileResults(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), ids.XID(input.SurveyID), input.PreferenceResultsFilterInput.filter())
+	if err != nil {
+		return nil, preferenceProblem(err)
+	}
+	result := InterestProfileResultsResponse{ResponseTrackingSummaryResponse: resultsSummaryResponse(value.ResponseTrackingSummary), ScaleVersion: value.ScaleVersion, ScaleOptions: []PreferenceFormScaleOptionResponse{}, Items: []InterestProfileResultItemResponse{}}
+	for _, option := range value.ScaleOptions {
+		result.ScaleOptions = append(result.ScaleOptions, PreferenceFormScaleOptionResponse{Value: option.Value, Label: option.Label, Ordinal: option.Ordinal})
+	}
+	for _, item := range value.Items {
+		row := InterestProfileResultItemResponse{ID: string(item.ID), Label: item.Label, Ordinal: item.Ordinal, ExplicitAnswers: item.ExplicitAnswers, Unanswered: item.Unanswered, RatingCounts: []PreferenceRatingCountResponse{}}
+		for _, count := range item.RatingCounts {
+			row.RatingCounts = append(row.RatingCounts, PreferenceRatingCountResponse{Value: count.Value, Label: count.Label, Ordinal: count.Ordinal, Count: count.Count})
+		}
+		result.Items = append(result.Items, row)
+	}
+	return &InterestProfileResultsOutput{Body: result}, nil
+}
+
+func (h *PreferenceHandler) RankedChoiceResults(ctx context.Context, input *RankedChoiceResponseTrackingInput) (*RankedChoiceResultsOutput, error) {
+	account, err := programAccount(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if h == nil || h.service == nil || input == nil {
+		return nil, preferenceServiceUnavailable()
+	}
+	value, err := h.service.GetRankedChoiceResults(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), ids.XID(input.SessionID), input.PreferenceResultsFilterInput.filter())
+	if err != nil {
+		return nil, preferenceProblem(err)
+	}
+	result := RankedChoiceResultsResponse{ResponseTrackingSummaryResponse: resultsSummaryResponse(value.ResponseTrackingSummary), RankDepth: value.RankDepth, Items: []RankedChoiceResultItemResponse{}}
+	for _, item := range value.Items {
+		row := RankedChoiceResultItemResponse{ID: string(item.ID), Label: item.Label, ExplicitAnswers: item.ExplicitAnswers, Unanswered: item.Unanswered, Interested: item.Interested, NotInterested: item.NotInterested, RankCounts: []PreferenceRankCountResponse{}}
+		for _, count := range item.RankCounts {
+			row.RankCounts = append(row.RankCounts, PreferenceRankCountResponse{Rank: count.Rank, Count: count.Count})
+		}
+		result.Items = append(result.Items, row)
+	}
+	return &RankedChoiceResultsOutput{Body: result}, nil
+}
+
+func resultsSummaryResponse(value preference.ResponseTrackingSummary) ResponseTrackingSummaryResponse {
+	return ResponseTrackingSummaryResponse{InstrumentType: string(value.InstrumentType), InstrumentID: string(value.InstrumentID), InstrumentName: value.InstrumentName, State: value.State, SchoolYearID: string(value.SchoolYearID), ProgramID: string(value.ProgramID), TotalStudents: value.TotalStudents, RespondedStudents: value.RespondedStudents, CompletionPercentage: value.CompletionPercentage}
 }
 
 func preferenceFormResponse(form preference.PreferenceForm) PreferenceFormResponse {

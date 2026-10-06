@@ -37,11 +37,20 @@ type ResponseTrackingStudentRow struct {
 	Responded          bool
 }
 
-func (tx *Tx) ListResponseTrackingSummaries(ctx context.Context, schoolYearID, programID ids.XID) ([]ResponseTrackingSummary, error) {
+func (tx *Tx) ListResponseTrackingSummaries(ctx context.Context, schoolYearID, programID ids.XID, filters ...PreferenceResultsFilter) ([]ResponseTrackingSummary, error) {
+	filter := reportFilter(filters)
+	if filter.GradeLevelIDs == nil {
+		filter.GradeLevelIDs = []string{}
+	}
+	if filter.HomeroomIDs == nil {
+		filter.HomeroomIDs = []string{}
+	}
 	rows, err := tx.queries.ListResponseTrackingSummaries(ctx, db.ListResponseTrackingSummariesParams{
 		OrganizationID: tx.organizationID,
 		SchoolYearID:   schoolYearID,
 		ProgramID:      programID,
+		GradeLevelIds:  filter.GradeLevelIDs,
+		HomeroomIds:    filter.HomeroomIDs,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list response tracking summaries: %w", err)

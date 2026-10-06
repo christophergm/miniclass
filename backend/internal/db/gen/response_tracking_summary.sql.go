@@ -39,6 +39,8 @@ from (
      and student.organization_id = audience.organization_id
      and student.school_year_id = audience.school_year_id
      and student.deleted_at is null
+     and (cardinality($4::text[]) = 0 or student.grade_level_id::text = any($4::text[]))
+     and (cardinality($5::text[]) = 0 or student.homeroom_id::text = any($5::text[]))
     where survey.organization_id = $1
       and survey.school_year_id = $2
       and survey.program_id = $3
@@ -75,6 +77,8 @@ from (
       on student.id = membership.student_id
      and student.organization_id = membership.organization_id
      and student.school_year_id = membership.school_year_id
+     and (cardinality($4::text[]) = 0 or student.grade_level_id::text = any($4::text[]))
+     and (cardinality($5::text[]) = 0 or student.homeroom_id::text = any($5::text[]))
     where session.organization_id = $1
       and session.school_year_id = $2
       and session.program_id = $3
@@ -88,9 +92,11 @@ order by lower(instrument_name), instrument_id
 `
 
 type ListResponseTrackingSummariesParams struct {
-	OrganizationID ids.XID `json:"organization_id"`
-	SchoolYearID   ids.XID `json:"school_year_id"`
-	ProgramID      ids.XID `json:"program_id"`
+	OrganizationID ids.XID  `json:"organization_id"`
+	SchoolYearID   ids.XID  `json:"school_year_id"`
+	ProgramID      ids.XID  `json:"program_id"`
+	GradeLevelIds  []string `json:"grade_level_ids"`
+	HomeroomIds    []string `json:"homeroom_ids"`
 }
 
 type ListResponseTrackingSummariesRow struct {
@@ -105,7 +111,13 @@ type ListResponseTrackingSummariesRow struct {
 }
 
 func (q *Queries) ListResponseTrackingSummaries(ctx context.Context, arg ListResponseTrackingSummariesParams) ([]ListResponseTrackingSummariesRow, error) {
-	rows, err := q.db.Query(ctx, listResponseTrackingSummaries, arg.OrganizationID, arg.SchoolYearID, arg.ProgramID)
+	rows, err := q.db.Query(ctx, listResponseTrackingSummaries,
+		arg.OrganizationID,
+		arg.SchoolYearID,
+		arg.ProgramID,
+		arg.GradeLevelIds,
+		arg.HomeroomIds,
+	)
 	if err != nil {
 		return nil, err
 	}

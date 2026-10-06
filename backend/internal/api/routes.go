@@ -321,6 +321,18 @@ func registerOperations(api huma.API, options RouterOptions) {
 		Errors:  []int{http.StatusBadRequest, http.StatusConflict, http.StatusNotFound},
 	}, auth.CapabilityManageRoster, false, preferenceHandler.AdministratorRankedSubmit)
 	registerOperation(api, huma.Operation{
+		OperationID: "get-interest-profile-results", Method: http.MethodGet,
+		Path:    apiBasePath + "/school-years/{schoolYearID}/programs/{programID}/interest-profile-surveys/{surveyID}/results",
+		Summary: "Read aggregate survey results (SPEC §§13.5–13.7, 19.4–19.5)",
+		Errors:  []int{http.StatusNotFound},
+	}, auth.CapabilityManageRoster, false, preferenceHandler.InterestProfileResults)
+	registerOperation(api, huma.Operation{
+		OperationID: "get-ranked-choice-results", Method: http.MethodGet,
+		Path:    apiBasePath + "/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/results",
+		Summary: "Read aggregate ranked-choice results (SPEC §§13.3, 13.5, 13.7, 19.4–19.5)",
+		Errors:  []int{http.StatusConflict, http.StatusNotFound},
+	}, auth.CapabilityManageCatalog, false, preferenceHandler.RankedChoiceResults)
+	registerOperation(api, huma.Operation{
 		OperationID: "get-response-tracking-summaries", Method: http.MethodGet,
 		Path:    apiBasePath + "/school-years/{schoolYearID}/programs/{programID}/response-tracking/summary",
 		Summary: "Read response tracking summaries for programme instruments",
