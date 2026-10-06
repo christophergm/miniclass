@@ -55,6 +55,9 @@ export type AssignmentSwapInput = Schemas["SwapAssignmentsInputBody"];
 export type AssignmentPinInput = Schemas["AssignmentPinInputBody"];
 export type AssignmentExclusionInput = Schemas["CreateAssignmentExclusionInputBody"];
 export type AssignmentExclusionDeleteInput = Schemas["DeleteAssignmentExclusionInputBody"];
+export type PlacementComment = Schemas["PlacementCommentResponse"];
+export type PlacementCommentInput = Schemas["CreatePlacementCommentInputBody"];
+export type PlacementCommentUpdateInput = Schemas["UpdatePlacementCommentInputBody"];
 export type ResponseReportFilters = { grade_level_ids: string[]; homeroom_ids: string[] };
 
 export function canonicalResponseReportFilters(
@@ -1031,6 +1034,44 @@ export const resourceApi = {
       api.DELETE(
         "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/assignment-exclusions/{exclusionID}",
         { params: { path: { schoolYearID, programID, sessionID, exclusionID } }, body: value },
+      ),
+    ),
+
+  createPlacementComment: (
+    schoolYearID: string,
+    programID: string,
+    sessionID: string,
+    value: PlacementCommentInput,
+  ) =>
+    unwrap(
+      api.POST(
+        "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/placement-comments",
+        { params: { path: { schoolYearID, programID, sessionID } }, body: value },
+      ),
+    ),
+  updatePlacementComment: (
+    schoolYearID: string,
+    programID: string,
+    sessionID: string,
+    commentID: string,
+    value: PlacementCommentUpdateInput,
+  ) =>
+    unwrap(
+      api.PATCH(
+        "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/placement-comments/{commentID}",
+        { params: { path: { schoolYearID, programID, sessionID, commentID } }, body: value },
+      ),
+    ),
+  deletePlacementComment: (
+    schoolYearID: string,
+    programID: string,
+    sessionID: string,
+    commentID: string,
+  ) =>
+    unwrapNoContent(
+      api.DELETE(
+        "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/placement-comments/{commentID}",
+        { params: { path: { schoolYearID, programID, sessionID, commentID } } },
       ),
     ),
 

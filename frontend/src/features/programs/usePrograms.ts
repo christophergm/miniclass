@@ -1,13 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
-  resourceApi,
   canonicalResponseReportFilters,
-  type ResponseReportFilters,
-  type PreferenceInterestAnswerInput,
-  type PreferenceRankedAnswerInput,
   type InterestProfileSurveyInput,
   type InterestProfileSurveyTransitionInput,
+  type PreferenceInterestAnswerInput,
+  type PreferenceRankedAnswerInput,
+  type ResponseReportFilters,
+  resourceApi,
 } from "@/lib/apiResources";
 
 export const programsKey = (schoolYearID: string | undefined) =>
@@ -524,6 +524,48 @@ export function useDeleteAssignmentExclusion(
       value: { expected_revision: number; reason: string };
     }) =>
       resourceApi.deleteAssignmentExclusion(schoolYearID, programID, sessionID, exclusionID, value),
+  );
+}
+
+export function useCreatePlacementComment(
+  schoolYearID: string,
+  programID: string,
+  sessionID: string,
+) {
+  return useAssignmentEditMutation<Parameters<typeof resourceApi.createPlacementComment>[3]>(
+    schoolYearID,
+    programID,
+    sessionID,
+    (value) => resourceApi.createPlacementComment(schoolYearID, programID, sessionID, value),
+  );
+}
+
+export function useUpdatePlacementComment(
+  schoolYearID: string,
+  programID: string,
+  sessionID: string,
+) {
+  return useAssignmentEditMutation(
+    schoolYearID,
+    programID,
+    sessionID,
+    ({
+      commentID,
+      value,
+    }: {
+      commentID: string;
+      value: Parameters<typeof resourceApi.updatePlacementComment>[4];
+    }) => resourceApi.updatePlacementComment(schoolYearID, programID, sessionID, commentID, value),
+  );
+}
+
+export function useDeletePlacementComment(
+  schoolYearID: string,
+  programID: string,
+  sessionID: string,
+) {
+  return useAssignmentEditMutation(schoolYearID, programID, sessionID, (commentID: string) =>
+    resourceApi.deletePlacementComment(schoolYearID, programID, sessionID, commentID),
   );
 }
 

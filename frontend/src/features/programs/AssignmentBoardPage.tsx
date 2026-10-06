@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { ModalForm } from "@/components/ui/modal-form";
 import { ApiError } from "@/lib/api";
 import type { AssignmentQuality, AssignmentWorkspace, SchoolYear } from "@/lib/apiResources";
-
+import { AssignmentReviewPanel } from "./AssignmentReviewPanel";
 import {
   useAssignmentQuality,
   useAssignmentWorkspace,
@@ -70,6 +70,7 @@ function OfferingCard({
     <section
       aria-label={`${offering.name} placements`}
       className="rounded-lg border bg-card p-4"
+      id={`offering-${offering.id}`}
       onDragOver={(event) => event.preventDefault()}
       onDrop={() => onDrop(offering.id)}
     >
@@ -92,6 +93,7 @@ function OfferingCard({
               <li
                 className="rounded border px-3 py-2 text-sm"
                 draggable
+                id={`assignment-${assignment.id}`}
                 key={assignment.id}
                 onDragStart={() => onDragStart(assignment.student_id)}
               >
@@ -481,6 +483,15 @@ export function AssignmentBoardPage() {
           <p className="mt-3 text-sm">Every participating student is placed.</p>
         )}
       </section>
+      {workspace.data && quality.data && programId && sessionId && (
+        <AssignmentReviewPanel
+          programID={programId}
+          quality={quality.data}
+          schoolYearID={year.id}
+          sessionID={sessionId}
+          workspace={workspace.data}
+        />
+      )}
       <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 className="font-semibold text-xl">Offering board</h2>
