@@ -164,6 +164,10 @@ func (tx *Tx) DeleteAssignmentForRegistry(ctx context.Context, id ids.XID) (bool
 }
 
 func assignment(row db.Assignment) (Assignment, error) {
+	return assignmentFromRow(row)
+}
+
+func assignmentFromRow(row db.Assignment) (Assignment, error) {
 	createdAt, err := programTime(row.CreatedAt, "created_at")
 	if err != nil {
 		return Assignment{}, err

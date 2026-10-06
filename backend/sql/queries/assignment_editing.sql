@@ -27,6 +27,19 @@ where id = $1 and organization_id = $2 and school_year_id = $3 and program_id = 
   and draft_revision = $5
 returning draft_revision;
 
+-- name: UpdateAssignmentPin :one
+update assignments
+set pinned = $1
+where id = $2 and organization_id = $3 and school_year_id = $4
+  and program_id = $5 and session_id = $6
+returning id, organization_id, school_year_id, program_id, session_id, student_id,
+    offering_id, solve_run_id, origin, pinned, realized_quality, created_at, updated_at;
+
+-- name: DeleteAssignmentOverrides :execrows
+delete from assignment_overrides
+where organization_id = $1 and school_year_id = $2 and program_id = $3
+  and session_id = $4 and assignment_id = $5;
+
 -- name: CreateAssignmentExclusion :one
 insert into assignment_exclusions (organization_id, school_year_id, program_id, session_id, student_id, offering_id)
 values ($1, $2, $3, $4, $5, $6)

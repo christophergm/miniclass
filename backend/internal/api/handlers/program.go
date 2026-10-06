@@ -56,6 +56,9 @@ type ProgramService interface {
 	DeleteSessionNonParticipation(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, ids.XID) error
 	ListParticipatingMemberships(context.Context, string, ids.XID, ids.XID, ids.XID) ([]data.ProgramMembership, error)
 	GetAssignmentWorkspace(context.Context, string, ids.XID, ids.XID, ids.XID) (programservice.AssignmentWorkspace, error)
+	MoveAssignment(context.Context, string, audit.Actor, programservice.AssignmentOperationInput, ids.XID, ids.XID) (programservice.AssignmentOperationResult, error)
+	SwapAssignments(context.Context, string, audit.Actor, programservice.AssignmentOperationInput, ids.XID, ids.XID) (programservice.AssignmentOperationResult, error)
+	SetAssignmentPin(context.Context, string, audit.Actor, programservice.AssignmentOperationInput, ids.XID, bool) (programservice.AssignmentOperationResult, error)
 	GetProgramObjectiveWeights(context.Context, string, ids.XID, ids.XID) (data.ObjectiveWeightsView, error)
 	UpdateProgramObjectiveWeights(context.Context, string, audit.Actor, ids.XID, ids.XID, data.ObjectiveWeights) (data.ObjectiveWeightsView, error)
 	GetSessionObjectiveWeights(context.Context, string, ids.XID, ids.XID, ids.XID) (data.ObjectiveWeightsView, error)
@@ -166,6 +169,11 @@ type ProgramMembershipListOutput struct{ Body []ProgramMembershipResponse }
 type ProgramMembershipOutput struct{ Body ProgramMembershipResponse }
 type ProgramRosterSummaryOutput struct{ Body ProgramRosterSummaryResponse }
 type AssignmentWorkspaceOutput struct{ Body AssignmentWorkspaceResponse }
+type AssignmentOperationResponse struct {
+	DraftRevision int64                `json:"draft_revision"`
+	Assignments   []AssignmentResponse `json:"assignments"`
+}
+type AssignmentOperationOutput struct{ Body AssignmentOperationResponse }
 type ProgramYearPathInput struct {
 	SchoolYearID string `path:"schoolYearID" minLength:"1"`
 }
@@ -212,6 +220,34 @@ type ProgramMembershipPathInput struct {
 }
 type ListProgramsInput struct{ ProgramYearPathInput }
 type AssignmentWorkspaceInput struct{ SessionPathInput }
+type MoveAssignmentInput struct {
+	SessionPathInput
+	Body struct {
+		StudentID         string `json:"student_id" minLength:"1"`
+		OfferingID        string `json:"offering_id" minLength:"1"`
+		ExpectedRevision  int64  `json:"expected_revision" minimum:"0"`
+		ConfirmViolations bool   `json:"confirm_violations"`
+		Reason            string `json:"reason"`
+	}
+}
+type SwapAssignmentsInput struct {
+	SessionPathInput
+	Body struct {
+		FirstStudentID    string `json:"first_student_id" minLength:"1"`
+		SecondStudentID   string `json:"second_student_id" minLength:"1"`
+		ExpectedRevision  int64  `json:"expected_revision" minimum:"0"`
+		ConfirmViolations bool   `json:"confirm_violations"`
+		Reason            string `json:"reason"`
+	}
+}
+type AssignmentPinInput struct {
+	SessionPathInput
+	StudentID string `path:"studentID" minLength:"1"`
+	Body      struct {
+		ExpectedRevision int64  `json:"expected_revision" minimum:"0"`
+		Reason           string `json:"reason"`
+	}
+}
 type CreateProgramInput struct {
 	ProgramYearPathInput
 	Body struct {
@@ -587,6 +623,81 @@ func (h *ProgramHandler) GetAssignmentWorkspace(ctx context.Context, input *Assi
 		result.RankedChoiceAnswers = append(result.RankedChoiceAnswers, RankedChoiceAnswerResponse{StudentID: string(row.StudentID), OfferingID: string(row.OfferingID), Answer: string(row.Answer), Rank: row.Rank})
 	}
 	return &AssignmentWorkspaceOutput{Body: result}, nil
+}
+
+func (h *ProgramHandler) MoveAssignment(ctx context.Context, input *MoveAssignmentInput) (*AssignmentOperationOutput, error) {
+	account, err := programAccount(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if h == nil || h.service == nil || input == nil {
+		return nil, sessionNotFound()
+	}
+	result, err := h.service.MoveAssignment(ctx, string(account.OrganizationID), programActor(account), assignmentOperationInput(input.SchoolYearID, input.ProgramID, input.SessionID, input.Body.ExpectedRevision, input.Body.ConfirmViolations, input.Body.Reason), ids.XID(input.Body.StudentID), ids.XID(input.Body.OfferingID))
+	if err != nil {
+		return nil, assignmentOperationProblem(err)
+	}
+	return &AssignmentOperationOutput{Body: assignmentOperationResponse(result)}, nil
+}
+func (h *ProgramHandler) SwapAssignments(ctx context.Context, input *SwapAssignmentsInput) (*AssignmentOperationOutput, error) {
+	account, err := programAccount(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if h == nil || h.service == nil || input == nil {
+		return nil, sessionNotFound()
+	}
+	result, err := h.service.SwapAssignments(ctx, string(account.OrganizationID), programActor(account), assignmentOperationInput(input.SchoolYearID, input.ProgramID, input.SessionID, input.Body.ExpectedRevision, input.Body.ConfirmViolations, input.Body.Reason), ids.XID(input.Body.FirstStudentID), ids.XID(input.Body.SecondStudentID))
+	if err != nil {
+		return nil, assignmentOperationProblem(err)
+	}
+	return &AssignmentOperationOutput{Body: assignmentOperationResponse(result)}, nil
+}
+func (h *ProgramHandler) PinAssignment(ctx context.Context, input *AssignmentPinInput) (*AssignmentOperationOutput, error) {
+	return h.setAssignmentPin(ctx, input, true)
+}
+func (h *ProgramHandler) UnpinAssignment(ctx context.Context, input *AssignmentPinInput) (*AssignmentOperationOutput, error) {
+	return h.setAssignmentPin(ctx, input, false)
+}
+func (h *ProgramHandler) setAssignmentPin(ctx context.Context, input *AssignmentPinInput, pinned bool) (*AssignmentOperationOutput, error) {
+	account, err := programAccount(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if h == nil || h.service == nil || input == nil {
+		return nil, sessionNotFound()
+	}
+	result, err := h.service.SetAssignmentPin(ctx, string(account.OrganizationID), programActor(account), assignmentOperationInput(input.SchoolYearID, input.ProgramID, input.SessionID, input.Body.ExpectedRevision, false, input.Body.Reason), ids.XID(input.StudentID), pinned)
+	if err != nil {
+		return nil, assignmentOperationProblem(err)
+	}
+	return &AssignmentOperationOutput{Body: assignmentOperationResponse(result)}, nil
+}
+func assignmentOperationInput(year, program, session string, revision int64, confirmed bool, reason string) programservice.AssignmentOperationInput {
+	return programservice.AssignmentOperationInput{SchoolYearID: ids.XID(year), ProgramID: ids.XID(program), SessionID: ids.XID(session), ExpectedRevision: revision, ConfirmViolations: confirmed, Reason: reason}
+}
+func assignmentOperationResponse(result programservice.AssignmentOperationResult) AssignmentOperationResponse {
+	response := AssignmentOperationResponse{DraftRevision: result.DraftRevision, Assignments: make([]AssignmentResponse, 0, len(result.Assignments))}
+	for _, row := range result.Assignments {
+		var run *string
+		if row.SolveRunID != nil {
+			value := string(*row.SolveRunID)
+			run = &value
+		}
+		response.Assignments = append(response.Assignments, AssignmentResponse{ID: string(row.ID), StudentID: string(row.StudentID), OfferingID: string(row.OfferingID), SolveRunID: run, Origin: row.Origin, Pinned: row.Pinned, RealizedQuality: row.RealizedQuality})
+	}
+	return response
+}
+func assignmentOperationProblem(err error) error {
+	var warning *programservice.HardRuleViolation
+	switch {
+	case errors.As(err, &warning):
+		return problems.New(http.StatusConflict, problems.ProgramConflict, err.Error())
+	case errors.Is(err, programservice.ErrDraftRevisionConflict):
+		return problems.New(http.StatusConflict, problems.ProgramConflict, err.Error())
+	default:
+		return sessionProblem(err)
+	}
 }
 
 func programAccount(ctx context.Context) (auth.AccountPrincipal, error) {
