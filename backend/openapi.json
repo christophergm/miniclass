@@ -296,6 +296,175 @@
         ],
         "type": "object"
       },
+      "AssignmentExclusionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "offering_id": {
+            "type": "string"
+          },
+          "student_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "student_id",
+          "offering_id"
+        ],
+        "type": "object"
+      },
+      "AssignmentOverrideResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "assignment_id": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "recorded_by": {
+            "type": "string"
+          },
+          "rule": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "assignment_id",
+          "rule",
+          "reason",
+          "recorded_by"
+        ],
+        "type": "object"
+      },
+      "AssignmentResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "offering_id": {
+            "type": "string"
+          },
+          "origin": {
+            "type": "string"
+          },
+          "pinned": {
+            "type": "boolean"
+          },
+          "realized_quality": {
+            "type": "string"
+          },
+          "solve_run_id": {
+            "type": "string"
+          },
+          "student_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "student_id",
+          "offering_id",
+          "origin",
+          "pinned",
+          "realized_quality"
+        ],
+        "type": "object"
+      },
+      "AssignmentWorkspaceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/AssignmentWorkspaceResponse.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "assignments": {
+            "items": {
+              "$ref": "#/components/schemas/AssignmentResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "draft_revision": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "exclusions": {
+            "items": {
+              "$ref": "#/components/schemas/AssignmentExclusionResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "offerings": {
+            "items": {
+              "$ref": "#/components/schemas/OfferingResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "overrides": {
+            "items": {
+              "$ref": "#/components/schemas/AssignmentOverrideResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "participants": {
+            "items": {
+              "$ref": "#/components/schemas/ProgramMembershipResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "ranked_choice_answers": {
+            "items": {
+              "$ref": "#/components/schemas/RankedChoiceAnswerResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "session": {
+            "$ref": "#/components/schemas/SessionResponse"
+          }
+        },
+        "required": [
+          "session",
+          "draft_revision",
+          "participants",
+          "offerings",
+          "assignments",
+          "exclusions",
+          "overrides",
+          "ranked_choice_answers"
+        ],
+        "type": "object"
+      },
       "AuditLogActor": {
         "additionalProperties": false,
         "properties": {
@@ -5190,6 +5359,30 @@
           }
         },
         "required": [
+          "offering_id",
+          "answer"
+        ],
+        "type": "object"
+      },
+      "RankedChoiceAnswerResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "type": "string"
+          },
+          "offering_id": {
+            "type": "string"
+          },
+          "rank": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "student_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "student_id",
           "offering_id",
           "answer"
         ],
@@ -17242,6 +17435,95 @@
         ],
         "summary": "Edit a programme session",
         "x-required-capability": "manage_catalog"
+      }
+    },
+    "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/assignment-workspace": {
+      "get": {
+        "operationId": "get-assignment-workspace",
+        "parameters": [
+          {
+            "description": "Opaque school-year identifier.",
+            "in": "path",
+            "name": "schoolYearID",
+            "required": true,
+            "schema": {
+              "description": "Opaque school-year identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque program identifier.",
+            "in": "path",
+            "name": "programID",
+            "required": true,
+            "schema": {
+              "description": "Opaque program identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque session identifier.",
+            "in": "path",
+            "name": "sessionID",
+            "required": true,
+            "schema": {
+              "description": "Opaque session identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentWorkspaceResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Read the administrator placement workspace",
+        "x-required-capability": "manage_assignments"
       }
     },
     "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/catalog-feasibility": {

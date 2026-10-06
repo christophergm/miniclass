@@ -45,6 +45,38 @@ func (tx *Tx) CreateAssignmentOverride(ctx context.Context, schoolYearID, progra
 	return assignmentOverride(row)
 }
 
+func (tx *Tx) ListAssignmentExclusions(ctx context.Context, schoolYearID, programID, sessionID ids.XID) ([]AssignmentExclusion, error) {
+	rows, err := tx.queries.ListAssignmentExclusions(ctx, db.ListAssignmentExclusionsParams{OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID, SessionID: sessionID})
+	if err != nil {
+		return nil, fmt.Errorf("list assignment exclusions: %w", err)
+	}
+	result := make([]AssignmentExclusion, 0, len(rows))
+	for _, row := range rows {
+		value, err := assignmentExclusion(row)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, value)
+	}
+	return result, nil
+}
+
+func (tx *Tx) ListAssignmentOverrides(ctx context.Context, schoolYearID, programID, sessionID ids.XID) ([]AssignmentOverride, error) {
+	rows, err := tx.queries.ListAssignmentOverrides(ctx, db.ListAssignmentOverridesParams{OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID, SessionID: sessionID})
+	if err != nil {
+		return nil, fmt.Errorf("list assignment overrides: %w", err)
+	}
+	result := make([]AssignmentOverride, 0, len(rows))
+	for _, row := range rows {
+		value, err := assignmentOverride(row)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, value)
+	}
+	return result, nil
+}
+
 // AdvanceDraftRevision is a compare-and-swap primitive for future editing
 // operations. It returns pgx.ErrNoRows when the caller's revision is stale.
 func (tx *Tx) AdvanceDraftRevision(ctx context.Context, schoolYearID, programID, sessionID ids.XID, expected int64) (int64, error) {

@@ -39,6 +39,18 @@ insert into assignment_overrides (
 values ($1, $2, $3, $4, $5, $6, $7, $8)
 returning id, organization_id, school_year_id, program_id, session_id, assignment_id, rule, reason, recorded_by, created_at, updated_at;
 
+-- name: ListAssignmentExclusions :many
+select id, organization_id, school_year_id, program_id, session_id, student_id, offering_id, created_at, updated_at
+from assignment_exclusions
+where organization_id = $1 and school_year_id = $2 and program_id = $3 and session_id = $4
+order by student_id, offering_id;
+
+-- name: ListAssignmentOverrides :many
+select id, organization_id, school_year_id, program_id, session_id, assignment_id, rule, reason, recorded_by, created_at, updated_at
+from assignment_overrides
+where organization_id = $1 and school_year_id = $2 and program_id = $3 and session_id = $4
+order by assignment_id, id;
+
 -- name: ListAllAssignmentExclusionsForRegistry :many
 select id, organization_id, school_year_id, program_id, session_id, student_id, offering_id, created_at, updated_at
 from assignment_exclusions where organization_id = $1 order by id;
