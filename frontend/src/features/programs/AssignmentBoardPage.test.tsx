@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api";
@@ -145,8 +145,8 @@ describe("AssignmentBoardPage", () => {
     expect(screen.getByRole("heading", { name: "Assignments" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Unplaced students" })).toBeInTheDocument();
     expect(screen.getByText("Bea Example")).toBeInTheDocument();
-    expect(screen.getByText("Ada Synthesis")).toBeInTheDocument();
-    expect(screen.getByText("Pinned")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Move Ada Synthesis" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Unpin Ada Synthesis" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Re-solve draft" }));
     expect(startSolve).toHaveBeenCalledOnce();
   });
@@ -229,8 +229,9 @@ describe("AssignmentBoardPage", () => {
     expect(
       await screen.findByRole("dialog", { name: "Ada Synthesis details" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Recorded quality")).toBeInTheDocument();
-    expect(screen.getByText("Pinned")).toBeInTheDocument();
+    const details = screen.getByRole("dialog", { name: "Ada Synthesis details" });
+    expect(within(details).getByText("Recorded quality")).toBeInTheDocument();
+    expect(within(details).getByText("Pinned")).toBeInTheDocument();
     fireEvent.change(screen.getByRole("textbox", { name: "Add comment" }), {
       target: { value: "Reviewed with the organiser." },
     });

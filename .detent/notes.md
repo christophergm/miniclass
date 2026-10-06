@@ -3,9 +3,16 @@
 - Frontend review panel is in progress: named unwanted/no-signal/override lists,
   warning acknowledgement indicators, occupancy/distribution, placement details,
   and administrator comment create/edit/delete wrappers use the existing APIs.
-- `git diff --check` passes. The worktree has no frontend dependencies or cached
-  Biome binary, so local frontend test/lint/build cannot run without violating the
-  no-ad-hoc-install policy; CI must run the generated contract and frontend gates.
+- Rework on PR #319 fixes the current-head CI findings: test assertions use
+  unique controls or scope duplicated detail text to its modal, and the panel
+  avoids ES2021-only `replaceAll` and the unsupported `link` button variant.
+- Passed: changed-file `bunx --bun biome check` and `git diff --check`.
+  `make test-frontend` cannot start because `openapi-typescript` is absent from
+  the uninstalled frontend dependency tree; CI must run frontend test/build.
+- Final amended-head CI passed all 13 checks, including frontend test/build,
+  backend test/lint/format, generated-code drift, migration round-trip, and
+  developer tooling. Generated-code drift (2m) and backend tests (1m41) were
+  the slowest checks; no review or inline comments are present.
 
 # Issue #237 — v0 solver feasibility model
 
@@ -356,3 +363,29 @@ I’ll resume #301 from its live issue, pull request, Workpad, and repository st
   Changed-file Biome lint/format and `git diff --check` pass. `make test-frontend` cannot run here
   because `openapi-typescript` is absent from the uninstalled dependency tree; CI must run generated
   types and the full frontend gates.
+
+## 2026-10-06T18:08:27Z - Failed run output tail
+
+- final_state: failed
+- error: stream turn: context canceled
+close codex app-server transport: context canceled
+worker github REST budget monitor failed: Get "https://api.github.com/rate_limit": dial tcp: lookup api.github.com: no such host
+
+Output tail:
+
+```text
+I’m resuming the #303 rework by checking the live issue, pull request feedback, current diff, and the existing Workpad. Then I’ll make only the review-requested corrections, re-run the complete gate, and update the handoff evidence.
+```
+
+## 2026-10-06T19:24:11Z - Failed run output tail
+
+- final_state: failed
+- error: stream turn: context canceled
+close codex app-server transport: signal: killed
+worker github REST budget monitor failed: Get "https://api.github.com/rate_limit": context deadline exceeded
+
+Output tail:
+
+```text
+I’m resuming the #303 rework from the live issue, pull request, feedback, and existing local change. I’ll preserve the partial work, address only actionable review findings, then re-run the required gate and update the persistent Workpad.The rework is limited to two CI findings: the new test made uniqueness assertions against text that now appears in both the board and review panel, and the review panel uses an unsupported string API/button variant for the project’s TypeScript target. I’m correcting those narrow points and will run the affected component test and frontend build if the installed dependency tree permits it.The source corrections are applied and the whitespace gate is clean. This workspace still lacks `frontend/node_modules`, so I’ll document the local limitation without installing dependencies; CI will execute the actual test and build gates on the amended head.
+```

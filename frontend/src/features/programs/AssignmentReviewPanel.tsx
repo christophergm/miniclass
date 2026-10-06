@@ -225,7 +225,7 @@ export function AssignmentReviewPanel({
                   className="flex justify-between gap-2 rounded border px-3 py-2 text-sm"
                   key={warning.id}
                 >
-                  <span>{warning.id.replaceAll("-", " ")}</span>
+                  <span>{warning.id.replace(/-/g, " ")}</span>
                   <span className="flex items-center gap-2">
                     {acknowledged && <Badge variant="secondary">Commented</Badge>}
                     <Button
@@ -268,13 +268,13 @@ export function AssignmentReviewPanel({
               return (
                 <li className="flex justify-between gap-2" key={offering.offering_id}>
                   <Button
-                    className="h-auto p-0"
+                    className="h-auto border-0 p-0 text-primary shadow-none hover:bg-transparent hover:text-primary hover:underline"
                     onClick={() => {
                       navigateTo(host);
                       openDetails(host);
                     }}
                     type="button"
-                    variant="link"
+                    variant="outline"
                   >
                     {hostLabel(host, workspace, assignments)}
                   </Button>
