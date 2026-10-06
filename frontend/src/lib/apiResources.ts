@@ -50,6 +50,11 @@ export type RankedChoiceResults = Schemas["RankedChoiceResultsResponse"];
 export type AssignmentWorkspace = Schemas["AssignmentWorkspaceResponse"];
 export type AssignmentQuality = Schemas["AssignmentQualityResponse"];
 export type SolveRun = Schemas["SolveRunResponse"];
+export type AssignmentOperationInput = Schemas["MoveAssignmentInputBody"];
+export type AssignmentSwapInput = Schemas["SwapAssignmentsInputBody"];
+export type AssignmentPinInput = Schemas["AssignmentPinInputBody"];
+export type AssignmentExclusionInput = Schemas["CreateAssignmentExclusionInputBody"];
+export type AssignmentExclusionDeleteInput = Schemas["DeleteAssignmentExclusionInputBody"];
 export type ResponseReportFilters = { grade_level_ids: string[]; homeroom_ids: string[] };
 
 export function canonicalResponseReportFilters(
@@ -956,6 +961,76 @@ export const resourceApi = {
           params: { path: { schoolYearID, programID, sessionID } },
           body: {},
         },
+      ),
+    ),
+  moveAssignment: (
+    schoolYearID: string,
+    programID: string,
+    sessionID: string,
+    value: AssignmentOperationInput,
+  ) =>
+    unwrap(
+      api.POST(
+        "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/assignments/move",
+        { params: { path: { schoolYearID, programID, sessionID } }, body: value },
+      ),
+    ),
+  swapAssignments: (
+    schoolYearID: string,
+    programID: string,
+    sessionID: string,
+    value: AssignmentSwapInput,
+  ) =>
+    unwrap(
+      api.POST(
+        "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/assignments/swap",
+        { params: { path: { schoolYearID, programID, sessionID } }, body: value },
+      ),
+    ),
+  setAssignmentPin: (
+    schoolYearID: string,
+    programID: string,
+    sessionID: string,
+    studentID: string,
+    pinned: boolean,
+    value: AssignmentPinInput,
+  ) =>
+    pinned
+      ? unwrap(
+          api.POST(
+            "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/assignments/{studentID}/pin",
+            { params: { path: { schoolYearID, programID, sessionID, studentID } }, body: value },
+          ),
+        )
+      : unwrap(
+          api.POST(
+            "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/assignments/{studentID}/unpin",
+            { params: { path: { schoolYearID, programID, sessionID, studentID } }, body: value },
+          ),
+        ),
+  createAssignmentExclusion: (
+    schoolYearID: string,
+    programID: string,
+    sessionID: string,
+    value: AssignmentExclusionInput,
+  ) =>
+    unwrap(
+      api.POST(
+        "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/assignment-exclusions",
+        { params: { path: { schoolYearID, programID, sessionID } }, body: value },
+      ),
+    ),
+  deleteAssignmentExclusion: (
+    schoolYearID: string,
+    programID: string,
+    sessionID: string,
+    exclusionID: string,
+    value: AssignmentExclusionDeleteInput,
+  ) =>
+    unwrap(
+      api.DELETE(
+        "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/assignment-exclusions/{exclusionID}",
+        { params: { path: { schoolYearID, programID, sessionID, exclusionID } }, body: value },
       ),
     ),
 
