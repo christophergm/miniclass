@@ -48,6 +48,13 @@ func TestStartReplacesSuccessfulDraftAndPreservesItOnInfeasibility(t *testing.T)
 	request := solvercontract.Request{Version: solvercontract.Version, Seed: 33, MaxDeterministicTime: 1, QualityConfig: solvercontract.QualityConfig{HighRankMax: 3}, Participants: []solvercontract.Participant{{ID: string(student.ID), GradeOrdinal: 1}}, Offerings: []solvercontract.Offering{{ID: string(offering.ID), Capacity: 2, MinGradeOrdinal: 1, MaxGradeOrdinal: 1}}, Pins: []solvercontract.PinnedPlacement{{ParticipantID: string(student.ID), OfferingID: string(offering.ID)}}}
 	client := &responseClient{response: solvercontract.Response{Version: solvercontract.Version, Seed: request.Seed, Status: "optimal", Assignments: []solvercontract.Assignment{{ParticipantID: string(student.ID), OfferingID: string(offering.ID), RealizedQuality: solvercontract.QualityTop}}}}
 	service := New(harness.Database, client)
+	snapshot, err := service.CompileSnapshot(ctx, string(organizationID), year.ID, programRow.ID, session.ID)
+	require.NoError(t, err)
+	require.Zero(t, snapshot.DraftRevision)
+	require.Equal(t, []solvercontract.Participant{{ID: string(student.ID), GradeOrdinal: 1, InterestProfile: []solvercontract.InterestRating{}}}, snapshot.Request.Participants)
+	require.Equal(t, []solvercontract.Offering{{ID: string(offering.ID), Capacity: 2, MinGradeOrdinal: 1, MaxGradeOrdinal: 1}}, snapshot.Request.Offerings)
+	require.Empty(t, snapshot.Request.Pins)
+	require.Empty(t, snapshot.Request.PriorPlacements)
 	run, err := service.Start(ctx, string(organizationID), actor, StartInput{SchoolYearID: year.ID, ProgramID: programRow.ID, SessionID: session.ID, Request: request, Seed: &request.Seed})
 	require.NoError(t, err)
 
@@ -56,6 +63,11 @@ func TestStartReplacesSuccessfulDraftAndPreservesItOnInfeasibility(t *testing.T)
 	assignmentID := assignments[0].ID
 	require.Equal(t, &run.ID, assignments[0].SolveRunID)
 	require.Equal(t, "top", assignments[0].RealizedQuality)
+	snapshot, err = service.CompileSnapshot(ctx, string(organizationID), year.ID, programRow.ID, session.ID)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), snapshot.DraftRevision)
+	require.Equal(t, []solvercontract.PinnedPlacement{{ParticipantID: string(student.ID), OfferingID: string(offering.ID)}}, snapshot.Request.Pins)
+	require.Equal(t, []solvercontract.Placement{{ParticipantID: string(student.ID), OfferingID: string(offering.ID)}}, snapshot.Request.PriorPlacements)
 
 	client.response = solvercontract.Response{Version: solvercontract.Version, Seed: request.Seed, Status: "optimal", Assignments: []solvercontract.Assignment{{ParticipantID: string(student.ID), OfferingID: string(offering.ID), RealizedQuality: solvercontract.QualityTop}}}
 	secondRun, err := service.Start(ctx, string(organizationID), actor, StartInput{SchoolYearID: year.ID, ProgramID: programRow.ID, SessionID: session.ID, Request: request, Seed: &request.Seed})

@@ -179,3 +179,20 @@
 - PR #310 is open, ready, and green on all 13 current-head CI checks. The
   slowest were generated-code drift (1m51) and backend tests (1m50); no review
   or inline comments were present at handoff.
+
+## Issue #295 — authoritative session solve snapshots
+
+- `backend/internal/solver/snapshot.go` builds the v1 request from one
+  tenant-scoped persisted snapshot: participating membership/grades, offerings,
+  current session choices, effective interest profiles, pins, exclusions,
+  placement-bound exceptions, effective weights, and the current draft as the
+  stability baseline. The snapshot records `draft_revision` for write freshness.
+- The solve HTTP endpoints no longer accept a browser-supplied solver request.
+  Starts accept only an optional seed; reruns reconstruct current state and use
+  the recorded seed and fingerprint guard. A draft changed during sidecar work
+  returns a conflict rather than replacing newer placements.
+- Passed: `go test ./...` in `backend/`, `make generate`, `make format`,
+  `make lint-backend` (depguard passed), and `git diff --check`. `make
+  test-backend` cannot start because external `/miniclass-mailpit` owns the
+  fixed Compose container name; this worktree's empty network and volume were
+  removed without touching it.
