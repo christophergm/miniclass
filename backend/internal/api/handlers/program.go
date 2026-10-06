@@ -57,6 +57,9 @@ type ProgramService interface {
 	ListParticipatingMemberships(context.Context, string, ids.XID, ids.XID, ids.XID) ([]data.ProgramMembership, error)
 	GetAssignmentWorkspace(context.Context, string, ids.XID, ids.XID, ids.XID) (programservice.AssignmentWorkspace, error)
 	GetAssignmentQuality(context.Context, string, ids.XID, ids.XID, ids.XID) (programservice.AssignmentQuality, error)
+	CreatePlacementComment(context.Context, string, audit.Actor, programservice.PlacementCommentInput) (data.PlacementComment, error)
+	UpdatePlacementComment(context.Context, string, audit.Actor, programservice.PlacementCommentInput, ids.XID) (data.PlacementComment, error)
+	DeletePlacementComment(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, ids.XID) (data.PlacementComment, error)
 	MoveAssignment(context.Context, string, audit.Actor, programservice.AssignmentOperationInput, ids.XID, ids.XID) (programservice.AssignmentOperationResult, error)
 	SwapAssignments(context.Context, string, audit.Actor, programservice.AssignmentOperationInput, ids.XID, ids.XID) (programservice.AssignmentOperationResult, error)
 	SetAssignmentPin(context.Context, string, audit.Actor, programservice.AssignmentOperationInput, ids.XID, bool) (programservice.AssignmentOperationResult, error)
@@ -161,7 +164,18 @@ type AssignmentWorkspaceResponse struct {
 	Assignments         []AssignmentResponse          `json:"assignments"`
 	Exclusions          []AssignmentExclusionResponse `json:"exclusions"`
 	Overrides           []AssignmentOverrideResponse  `json:"overrides"`
+	Comments            []PlacementCommentResponse    `json:"comments"`
 	RankedChoiceAnswers []RankedChoiceAnswerResponse  `json:"ranked_choice_answers"`
+}
+type PlacementCommentResponse struct {
+	ID           string    `json:"id"`
+	HostType     string    `json:"host_type" enum:"assignment,offering,session"`
+	HostID       string    `json:"host_id"`
+	AuthorUserID string    `json:"author_user_id"`
+	Body         string    `json:"body"`
+	Sensitivity  string    `json:"sensitivity" enum:"public,internal,sensitive"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 type ProgramListOutput struct{ Body []ProgramResponse }
 type ProgramOutput struct{ Body ProgramResponse }
@@ -231,6 +245,27 @@ type ProgramMembershipPathInput struct {
 }
 type ListProgramsInput struct{ ProgramYearPathInput }
 type AssignmentWorkspaceInput struct{ SessionPathInput }
+type PlacementCommentPathInput struct {
+	SessionPathInput
+	CommentID string `path:"commentID" minLength:"1"`
+}
+type CreatePlacementCommentInput struct {
+	SessionPathInput
+	Body struct {
+		HostType    string `json:"host_type" enum:"assignment,offering,session"`
+		HostID      string `json:"host_id" minLength:"1"`
+		Body        string `json:"body" minLength:"1"`
+		Sensitivity string `json:"sensitivity" enum:"public,internal,sensitive"`
+	}
+}
+type UpdatePlacementCommentInput struct {
+	PlacementCommentPathInput
+	Body struct {
+		Body        string `json:"body" minLength:"1"`
+		Sensitivity string `json:"sensitivity" enum:"public,internal,sensitive"`
+	}
+}
+type PlacementCommentOutput struct{ Body PlacementCommentResponse }
 type MoveAssignmentInput struct {
 	SessionPathInput
 	Body struct {
@@ -625,6 +660,7 @@ func (h *ProgramHandler) GetAssignmentWorkspace(ctx context.Context, input *Assi
 		Assignments:         make([]AssignmentResponse, 0, len(workspace.Assignments)),
 		Exclusions:          make([]AssignmentExclusionResponse, 0, len(workspace.Exclusions)),
 		Overrides:           make([]AssignmentOverrideResponse, 0, len(workspace.Overrides)),
+		Comments:            make([]PlacementCommentResponse, 0, len(workspace.Comments)),
 		RankedChoiceAnswers: make([]RankedChoiceAnswerResponse, 0, len(workspace.RankedChoiceAnswers)),
 	}
 	for _, row := range workspace.Participants {
@@ -647,10 +683,66 @@ func (h *ProgramHandler) GetAssignmentWorkspace(ctx context.Context, input *Assi
 	for _, row := range workspace.Overrides {
 		result.Overrides = append(result.Overrides, AssignmentOverrideResponse{ID: string(row.ID), AssignmentID: string(row.AssignmentID), Rule: row.Rule, Reason: row.Reason, RecordedBy: row.RecordedBy})
 	}
+	for _, row := range workspace.Comments {
+		result.Comments = append(result.Comments, placementCommentResponse(row))
+	}
 	for _, row := range workspace.RankedChoiceAnswers {
 		result.RankedChoiceAnswers = append(result.RankedChoiceAnswers, RankedChoiceAnswerResponse{StudentID: string(row.StudentID), OfferingID: string(row.OfferingID), Answer: string(row.Answer), Rank: row.Rank})
 	}
 	return &AssignmentWorkspaceOutput{Body: result}, nil
+}
+
+func (h *ProgramHandler) CreatePlacementComment(ctx context.Context, input *CreatePlacementCommentInput) (*PlacementCommentOutput, error) {
+	account, err := programAccount(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if h == nil || h.service == nil || input == nil {
+		return nil, sessionNotFound()
+	}
+	value, err := h.service.CreatePlacementComment(ctx, string(account.OrganizationID), programActor(account), placementCommentInput(input.SchoolYearID, input.ProgramID, input.SessionID, input.Body.HostType, input.Body.HostID, input.Body.Body, input.Body.Sensitivity))
+	if err != nil {
+		return nil, placementCommentProblem(err)
+	}
+	return &PlacementCommentOutput{Body: placementCommentResponse(value)}, nil
+}
+
+func (h *ProgramHandler) UpdatePlacementComment(ctx context.Context, input *UpdatePlacementCommentInput) (*PlacementCommentOutput, error) {
+	account, err := programAccount(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if h == nil || h.service == nil || input == nil {
+		return nil, sessionNotFound()
+	}
+	value, err := h.service.UpdatePlacementComment(ctx, string(account.OrganizationID), programActor(account), placementCommentInput(input.SchoolYearID, input.ProgramID, input.SessionID, "", "", input.Body.Body, input.Body.Sensitivity), ids.XID(input.CommentID))
+	if err != nil {
+		return nil, placementCommentProblem(err)
+	}
+	return &PlacementCommentOutput{Body: placementCommentResponse(value)}, nil
+}
+
+func (h *ProgramHandler) DeletePlacementComment(ctx context.Context, input *PlacementCommentPathInput) (*struct{}, error) {
+	account, err := programAccount(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if h == nil || h.service == nil || input == nil {
+		return nil, sessionNotFound()
+	}
+	_, err = h.service.DeletePlacementComment(ctx, string(account.OrganizationID), programActor(account), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), ids.XID(input.SessionID), ids.XID(input.CommentID))
+	if err != nil {
+		return nil, placementCommentProblem(err)
+	}
+	return nil, nil
+}
+
+func placementCommentInput(year, program, session, hostType, hostID, body, sensitivity string) programservice.PlacementCommentInput {
+	return programservice.PlacementCommentInput{SchoolYearID: ids.XID(year), ProgramID: ids.XID(program), SessionID: ids.XID(session), HostType: hostType, HostID: ids.XID(hostID), Body: body, Sensitivity: sensitivity}
+}
+
+func placementCommentResponse(row data.PlacementComment) PlacementCommentResponse {
+	return PlacementCommentResponse{ID: string(row.ID), HostType: row.HostType, HostID: string(row.HostID), AuthorUserID: string(row.AuthorUserID), Body: row.Body, Sensitivity: row.Sensitivity, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
 }
 
 func (h *ProgramHandler) MoveAssignment(ctx context.Context, input *MoveAssignmentInput) (*AssignmentOperationOutput, error) {
@@ -761,6 +853,19 @@ func assignmentOperationProblem(err error) error {
 		return problems.New(http.StatusConflict, problems.ProgramConflict, err.Error())
 	case errors.Is(err, programservice.ErrDraftRevisionConflict):
 		return problems.New(http.StatusConflict, problems.ProgramConflict, err.Error())
+	default:
+		return sessionProblem(err)
+	}
+}
+
+func placementCommentProblem(err error) error {
+	switch {
+	case errors.Is(err, programservice.ErrPlacementCommentNotFound), errors.Is(err, programservice.ErrPlacementCommentAuthorOnly), errors.Is(err, pgx.ErrNoRows):
+		return problems.New(http.StatusNotFound, problems.ResourceNotFound, "placement comment not found")
+	case data.IsSchoolYearClosed(err):
+		return problems.New(http.StatusConflict, problems.SchoolYearClosed, "the school year is closed and cannot be changed")
+	case strings.Contains(err.Error(), "body is required"), strings.Contains(err.Error(), "host type"), strings.Contains(err.Error(), "sensitivity"):
+		return problems.New(http.StatusBadRequest, problems.ProgramConflict, err.Error())
 	default:
 		return sessionProblem(err)
 	}

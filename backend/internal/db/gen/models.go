@@ -922,6 +922,23 @@ type OrganizationMember struct {
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
 
+type PlacementComment struct {
+	ID              ids.XID            `json:"id"`
+	OrganizationID  ids.XID            `json:"organization_id"`
+	SchoolYearID    ids.XID            `json:"school_year_id"`
+	ProgramID       ids.XID            `json:"program_id"`
+	SessionID       ids.XID            `json:"session_id"`
+	HostType        string             `json:"host_type"`
+	HostID          ids.XID            `json:"host_id"`
+	AuthorUserID    ids.XID            `json:"author_user_id"`
+	Body            string             `json:"body"`
+	Sensitivity     string             `json:"sensitivity"`
+	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
+	DeletedByUserID *ids.XID           `json:"deleted_by_user_id"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Program struct {
 	ID                          ids.XID            `json:"id"`
 	OrganizationID              ids.XID            `json:"organization_id"`
