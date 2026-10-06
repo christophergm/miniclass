@@ -15,12 +15,10 @@ const createSolveRun = `-- name: CreateSolveRun :one
 insert into solve_runs (
     organization_id, school_year_id, program_id, session_id, rerun_of_solve_run_id,
     contract_version, seed, input_fingerprint, request_document, response_document,
-    effective_weights_document, metrics_document, solver_status, deterministic_duration
+    effective_weights_document, metrics_document, solver_status, application_status, deterministic_duration
 )
-values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-returning id, organization_id, school_year_id, program_id, session_id, rerun_of_solve_run_id,
-    contract_version, seed, input_fingerprint, request_document, response_document,
-    solver_status, deterministic_duration, created_at, effective_weights_document, metrics_document
+values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+returning solve_runs.id, solve_runs.organization_id, solve_runs.school_year_id, solve_runs.program_id, solve_runs.session_id, solve_runs.rerun_of_solve_run_id, solve_runs.contract_version, solve_runs.seed, solve_runs.input_fingerprint, solve_runs.request_document, solve_runs.response_document, solve_runs.solver_status, solve_runs.deterministic_duration, solve_runs.created_at, solve_runs.effective_weights_document, solve_runs.metrics_document, solve_runs.application_status
 `
 
 type CreateSolveRunParams struct {
@@ -37,6 +35,7 @@ type CreateSolveRunParams struct {
 	EffectiveWeightsDocument []byte   `json:"effective_weights_document"`
 	MetricsDocument          []byte   `json:"metrics_document"`
 	SolverStatus             string   `json:"solver_status"`
+	ApplicationStatus        string   `json:"application_status"`
 	DeterministicDuration    float64  `json:"deterministic_duration"`
 }
 
@@ -55,6 +54,7 @@ func (q *Queries) CreateSolveRun(ctx context.Context, arg CreateSolveRunParams) 
 		arg.EffectiveWeightsDocument,
 		arg.MetricsDocument,
 		arg.SolverStatus,
+		arg.ApplicationStatus,
 		arg.DeterministicDuration,
 	)
 	var i SolveRun
@@ -75,14 +75,13 @@ func (q *Queries) CreateSolveRun(ctx context.Context, arg CreateSolveRunParams) 
 		&i.CreatedAt,
 		&i.EffectiveWeightsDocument,
 		&i.MetricsDocument,
+		&i.ApplicationStatus,
 	)
 	return i, err
 }
 
 const findSolveRunForRegistry = `-- name: FindSolveRunForRegistry :one
-select id, organization_id, school_year_id, program_id, session_id, rerun_of_solve_run_id,
-    contract_version, seed, input_fingerprint, request_document, response_document,
-    solver_status, deterministic_duration, created_at, effective_weights_document, metrics_document
+select solve_runs.id, solve_runs.organization_id, solve_runs.school_year_id, solve_runs.program_id, solve_runs.session_id, solve_runs.rerun_of_solve_run_id, solve_runs.contract_version, solve_runs.seed, solve_runs.input_fingerprint, solve_runs.request_document, solve_runs.response_document, solve_runs.solver_status, solve_runs.deterministic_duration, solve_runs.created_at, solve_runs.effective_weights_document, solve_runs.metrics_document, solve_runs.application_status
 from solve_runs
 where id = $1 and organization_id = $2
 `
@@ -112,14 +111,13 @@ func (q *Queries) FindSolveRunForRegistry(ctx context.Context, arg FindSolveRunF
 		&i.CreatedAt,
 		&i.EffectiveWeightsDocument,
 		&i.MetricsDocument,
+		&i.ApplicationStatus,
 	)
 	return i, err
 }
 
 const getSolveRun = `-- name: GetSolveRun :one
-select id, organization_id, school_year_id, program_id, session_id, rerun_of_solve_run_id,
-    contract_version, seed, input_fingerprint, request_document, response_document,
-    solver_status, deterministic_duration, created_at, effective_weights_document, metrics_document
+select solve_runs.id, solve_runs.organization_id, solve_runs.school_year_id, solve_runs.program_id, solve_runs.session_id, solve_runs.rerun_of_solve_run_id, solve_runs.contract_version, solve_runs.seed, solve_runs.input_fingerprint, solve_runs.request_document, solve_runs.response_document, solve_runs.solver_status, solve_runs.deterministic_duration, solve_runs.created_at, solve_runs.effective_weights_document, solve_runs.metrics_document, solve_runs.application_status
 from solve_runs
 where id = $1 and organization_id = $2 and school_year_id = $3 and program_id = $4 and session_id = $5
 `
@@ -158,14 +156,13 @@ func (q *Queries) GetSolveRun(ctx context.Context, arg GetSolveRunParams) (Solve
 		&i.CreatedAt,
 		&i.EffectiveWeightsDocument,
 		&i.MetricsDocument,
+		&i.ApplicationStatus,
 	)
 	return i, err
 }
 
 const listAllSolveRunsForRegistry = `-- name: ListAllSolveRunsForRegistry :many
-select id, organization_id, school_year_id, program_id, session_id, rerun_of_solve_run_id,
-    contract_version, seed, input_fingerprint, request_document, response_document,
-    solver_status, deterministic_duration, created_at, effective_weights_document, metrics_document
+select solve_runs.id, solve_runs.organization_id, solve_runs.school_year_id, solve_runs.program_id, solve_runs.session_id, solve_runs.rerun_of_solve_run_id, solve_runs.contract_version, solve_runs.seed, solve_runs.input_fingerprint, solve_runs.request_document, solve_runs.response_document, solve_runs.solver_status, solve_runs.deterministic_duration, solve_runs.created_at, solve_runs.effective_weights_document, solve_runs.metrics_document, solve_runs.application_status
 from solve_runs
 where organization_id = $1
 order by id
@@ -197,6 +194,7 @@ func (q *Queries) ListAllSolveRunsForRegistry(ctx context.Context, organizationI
 			&i.CreatedAt,
 			&i.EffectiveWeightsDocument,
 			&i.MetricsDocument,
+			&i.ApplicationStatus,
 		); err != nil {
 			return nil, err
 		}
@@ -209,9 +207,7 @@ func (q *Queries) ListAllSolveRunsForRegistry(ctx context.Context, organizationI
 }
 
 const listSolveRuns = `-- name: ListSolveRuns :many
-select id, organization_id, school_year_id, program_id, session_id, rerun_of_solve_run_id,
-    contract_version, seed, input_fingerprint, request_document, response_document,
-    solver_status, deterministic_duration, created_at, effective_weights_document, metrics_document
+select solve_runs.id, solve_runs.organization_id, solve_runs.school_year_id, solve_runs.program_id, solve_runs.session_id, solve_runs.rerun_of_solve_run_id, solve_runs.contract_version, solve_runs.seed, solve_runs.input_fingerprint, solve_runs.request_document, solve_runs.response_document, solve_runs.solver_status, solve_runs.deterministic_duration, solve_runs.created_at, solve_runs.effective_weights_document, solve_runs.metrics_document, solve_runs.application_status
 from solve_runs
 where organization_id = $1 and school_year_id = $2 and program_id = $3 and session_id = $4
 order by created_at desc, id desc
@@ -255,6 +251,7 @@ func (q *Queries) ListSolveRuns(ctx context.Context, arg ListSolveRunsParams) ([
 			&i.CreatedAt,
 			&i.EffectiveWeightsDocument,
 			&i.MetricsDocument,
+			&i.ApplicationStatus,
 		); err != nil {
 			return nil, err
 		}

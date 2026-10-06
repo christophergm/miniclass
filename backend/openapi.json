@@ -6655,6 +6655,9 @@
             "readOnly": true,
             "type": "string"
           },
+          "application_status": {
+            "type": "string"
+          },
           "contract_version": {
             "type": "string"
           },
@@ -6709,6 +6712,7 @@
           "effective_weights_document",
           "metrics_document",
           "solver_status",
+          "application_status",
           "deterministic_duration",
           "created_at"
         ],

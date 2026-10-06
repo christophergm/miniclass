@@ -92,21 +92,19 @@ func (s *Service) Start(ctx context.Context, organizationID string, actor audit.
 	}
 	var result data.SolveRun
 	err = s.database.InTenant(ctx, organizationID, actor, func(ctx context.Context, tx *data.Tx) error {
+		current, getErr := tx.GetSessionForUpdate(ctx, input.SchoolYearID, input.ProgramID, input.SessionID)
+		if getErr != nil {
+			return fmt.Errorf("start solve run: get draft revision: %w", getErr)
+		}
+		applicationStatus := applicationStatus(response.Status, input.DraftRevision, current.DraftRevision)
 		result, err = tx.CreateSolveRun(ctx, data.CreateSolveRunInput{SchoolYearID: input.SchoolYearID, ProgramID: input.ProgramID, SessionID: input.SessionID,
 			RerunOfSolveRunID: input.RerunOfSolveRunID, ContractVersion: input.Request.Version, Seed: input.Request.Seed, InputFingerprint: fingerprint,
 			RequestDocument: json.RawMessage(requestDocument), ResponseDocument: json.RawMessage(responseDocument), EffectiveWeightsDocument: effectiveWeightsDocument, MetricsDocument: metricsDocument,
-			SolverStatus: response.Status, DeterministicDuration: 0})
+			SolverStatus: response.Status, ApplicationStatus: applicationStatus, DeterministicDuration: 0})
 		if err != nil {
 			return err
 		}
-		if successfulStatus(response.Status) {
-			current, getErr := tx.GetSessionForUpdate(ctx, input.SchoolYearID, input.ProgramID, input.SessionID)
-			if getErr != nil {
-				return fmt.Errorf("start solve run: get draft revision: %w", getErr)
-			}
-			if input.DraftRevision != nil && current.DraftRevision != *input.DraftRevision {
-				return ErrDraftRevisionChanged
-			}
+		if applicationStatus == "applied" {
 			assignments := assignmentInputs(input, result.ID, response)
 			if _, err = tx.ReplaceDraftAssignments(ctx, input.SchoolYearID, input.ProgramID, input.SessionID, assignments); err != nil {
 				return err
@@ -116,12 +114,22 @@ func (s *Service) Start(ctx context.Context, organizationID string, actor audit.
 			}
 		}
 		return tx.Record(ctx, audit.Entry{Action: audit.ActionSolveRun, ObjectType: "solve_run", ObjectID: &result.ID, SchoolYearID: &input.SchoolYearID,
-			ChangeSummary: json.RawMessage(fmt.Sprintf(`{"contract_version":%q,"seed":%d,"input_fingerprint":%q,"solver_status":%q}`, input.Request.Version, input.Request.Seed, fingerprint, response.Status))})
+			ChangeSummary: json.RawMessage(fmt.Sprintf(`{"application_status":%q,"contract_version":%q,"seed":%d,"input_fingerprint":%q,"solver_status":%q}`, applicationStatus, input.Request.Version, input.Request.Seed, fingerprint, response.Status))})
 	})
 	return result, err
 }
 
 func successfulStatus(status string) bool { return status == "optimal" || status == "feasible" }
+
+func applicationStatus(solverStatus string, expectedRevision *int64, currentRevision int64) string {
+	if !successfulStatus(solverStatus) {
+		return "not_applicable"
+	}
+	if expectedRevision != nil && currentRevision != *expectedRevision {
+		return "superseded"
+	}
+	return "applied"
+}
 
 func validateSuccessfulResponse(request solvercontract.Request, response solvercontract.Response) error {
 	if !successfulStatus(response.Status) {

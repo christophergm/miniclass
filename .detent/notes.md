@@ -215,3 +215,37 @@
 - PR #312 is open and ready. All 13 current-head CI checks passed; generated
   code drift was slowest (2m4s), followed by backend tests (1m41s). No review
   or inline comments were present at handoff.
+
+## 2026-10-06T13:06:27Z - Failed run output tail
+
+- final_state: failed
+- error: stream turn: context canceled
+close codex app-server transport: context canceled
+worker github REST budget monitor failed: Get "https://api.github.com/rate_limit": context deadline exceeded
+
+Output tail:
+
+```text
+I’ll resume issue #298 from its tracker and repository state, update the persistent Workpad, then implement and validate the narrowly scoped stale-draft protection.The current service detects a changed draft revision, but rolls back the entire transaction—so the stale solve run is lost. I’ll change that boundary so the run persists with a distinct non-applied outcome while draft mutation remains guarded and atomic.This change needs a tenant-scoped schema migration and its isolation proof, so I’m applying the repository’s tenant-isolation-harness guidance before editing the data layer.The referenced isolation-harness skill file is unavailable at its declared path, so I’ll follow the repository’s existing tenant-entity registry and integration-test patterns directly instead.
+```
+
+## 2026-10-06T13:10:41Z - Failed run output tail
+
+- final_state: failed
+- error: stream turn: context canceled
+close codex app-server transport: context canceled: stderr: [2m2026-10-06T13:10:41.619424Z[0m [31mERROR[0m [2mcodex_core::tools::router[0m[2m:[0m [3merror[0m[2m=[0mexec_command failed: UnknownProcessId { process_id: 98719 }
+worker github REST budget monitor failed: Get "https://api.github.com/rate_limit": context deadline exceeded
+
+Output tail:
+
+```text
+I’m resuming #298 from the existing worktree. I’ll first inspect the issue, Workpad, and the saved partial change; because this alters tenant-scoped persistence, I’m using the repository’s tenant-entity and isolation-harness guidance before touching the implementation.
+```
+
+## Issue #298 — stale draft solve protection
+
+- Adds immutable `application_status`: `applied`, `superseded`, or
+  `not_applicable`. A stale successful run is retained and audited without
+  replacing assignments or advancing the revision. SPEC §§17.9–17.10, 20.1–20.2.
+- Passed `go test ./...` in `backend/`, format, lint/depguard, generation, and
+  `git diff --check`. Migration round-trip needs CI because its database URL is unset.
