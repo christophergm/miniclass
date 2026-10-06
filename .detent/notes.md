@@ -209,5 +209,9 @@
   pin. Passed in `miniclass-solver:latest`: `python -m pytest` (55).
 - Passed `go test ./internal/solvercontract ./internal/solverclient
   ./internal/solver`, `make format`, `make lint-backend` (including depguard),
-  and `make generate` without generated drift. Run `make check` before handoff;
-  it may encounter the existing fixed-name Compose container limitation.
+  and `make generate` without generated drift. `make check` reached Backend
+  tests but cannot start locally because external `/miniclass-mailpit` owns the
+  fixed Compose name; removed only this worktree's empty network and volume.
+- PR #312 is open and ready. All 13 current-head CI checks passed; generated
+  code drift was slowest (2m4s), followed by backend tests (1m41s). No review
+  or inline comments were present at handoff.
