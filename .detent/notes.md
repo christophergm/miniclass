@@ -1,3 +1,12 @@
+# Issue #303 — named-first quality review and comments
+
+- Frontend review panel is in progress: named unwanted/no-signal/override lists,
+  warning acknowledgement indicators, occupancy/distribution, placement details,
+  and administrator comment create/edit/delete wrappers use the existing APIs.
+- `git diff --check` passes. The worktree has no frontend dependencies or cached
+  Biome binary, so local frontend test/lint/build cannot run without violating the
+  no-ad-hoc-install policy; CI must run the generated contract and frontend gates.
+
 # Issue #237 — v0 solver feasibility model
 
 - Rework reason: PR #255 conflicted solely because `main` advanced its shared

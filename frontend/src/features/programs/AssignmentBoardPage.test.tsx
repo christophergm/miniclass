@@ -1,9 +1,8 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
-import { renderWithQueryClient } from "@/test/queryClient";
 import { ApiError } from "@/lib/api";
+import { renderWithQueryClient } from "@/test/queryClient";
 
 import { AssignmentBoardPage } from "./AssignmentBoardPage";
 
@@ -13,6 +12,13 @@ const swapAssignments = vi.fn();
 const setPin = vi.fn();
 const addExclusion = vi.fn();
 const removeExclusion = vi.fn();
+const createComment = vi.fn();
+const updateComment = vi.fn();
+const deleteComment = vi.fn();
+
+vi.mock("@/lib/hooks/useAccount", () => ({
+  useAccount: () => ({ data: { role: "administrator", principal: { id: "admin-1" } } }),
+}));
 
 vi.mock("./usePrograms", () => ({
   usePrograms: () => ({ data: [{ id: "program-1", name: "Clubs" }] }),
@@ -45,13 +51,49 @@ vi.mock("./usePrograms", () => ({
           realized_quality: "acceptable",
         },
       ],
+      comments: [],
     },
     isLoading: false,
     isError: false,
     refetch: vi.fn(),
   }),
   useAssignmentQuality: () => ({
-    data: { offerings: [{ offering_id: "robots", enrolled: 1, capacity: 2 }] },
+    data: {
+      offerings: [{ offering_id: "robots", enrolled: 1, capacity: 2 }],
+      placements: [
+        {
+          assignment: {
+            id: "assignment-ada",
+            student_id: "ada",
+            offering_id: "robots",
+            pinned: true,
+            realized_quality: "top",
+          },
+          student_name: "Ada Synthesis",
+          current_preference: "top",
+          warnings: [],
+        },
+      ],
+      unplaced: [],
+      unwanted: [
+        {
+          assignment: {
+            id: "assignment-ada",
+            student_id: "ada",
+            offering_id: "robots",
+            pinned: true,
+            realized_quality: "top",
+          },
+          student_name: "Ada Synthesis",
+          current_preference: "top",
+          warnings: [],
+        },
+      ],
+      no_signal: [],
+      overridden: [],
+      quality_distribution: { top: 1, acceptable: 1 },
+      warnings: [],
+    },
     isLoading: false,
     isError: false,
     refetch: vi.fn(),
@@ -62,6 +104,9 @@ vi.mock("./usePrograms", () => ({
   useSetAssignmentPin: () => ({ mutateAsync: setPin }),
   useCreateAssignmentExclusion: () => ({ mutateAsync: addExclusion }),
   useDeleteAssignmentExclusion: () => ({ mutateAsync: removeExclusion }),
+  useCreatePlacementComment: () => ({ mutateAsync: createComment, isPending: false }),
+  useUpdatePlacementComment: () => ({ mutateAsync: updateComment, isPending: false }),
+  useDeletePlacementComment: () => ({ mutateAsync: deleteComment }),
 }));
 
 function renderBoard() {
@@ -90,6 +135,9 @@ describe("AssignmentBoardPage", () => {
     setPin.mockResolvedValue({});
     addExclusion.mockResolvedValue({});
     removeExclusion.mockResolvedValue({});
+    createComment.mockResolvedValue({});
+    updateComment.mockResolvedValue({});
+    deleteComment.mockResolvedValue({});
   });
   it("shows persisted placements, a prominent unplaced student, and starts a re-solve", () => {
     renderBoard();
@@ -170,5 +218,30 @@ describe("AssignmentBoardPage", () => {
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(moveAssignment).toHaveBeenCalledOnce();
+  });
+
+  it("puts named quality review before aggregates and records warning acknowledgement as a comment", async () => {
+    renderBoard();
+
+    expect(screen.getByRole("heading", { name: "Review draft" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Quality distribution" })).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", { name: "Review" })[0]);
+    expect(
+      await screen.findByRole("dialog", { name: "Ada Synthesis details" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Recorded quality")).toBeInTheDocument();
+    expect(screen.getByText("Pinned")).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox", { name: "Add comment" }), {
+      target: { value: "Reviewed with the organiser." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add comment" }));
+    await waitFor(() =>
+      expect(createComment).toHaveBeenCalledWith({
+        host_type: "assignment",
+        host_id: "assignment-ada",
+        body: "Reviewed with the organiser.",
+        sensitivity: "internal",
+      }),
+    );
   });
 });
