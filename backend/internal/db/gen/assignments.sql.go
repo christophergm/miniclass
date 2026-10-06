@@ -22,16 +22,16 @@ returning id, organization_id, school_year_id, program_id, session_id, student_i
 `
 
 type CreateAssignmentParams struct {
-	OrganizationID  ids.XID `json:"organization_id"`
-	SchoolYearID    ids.XID `json:"school_year_id"`
-	ProgramID       ids.XID `json:"program_id"`
-	SessionID       ids.XID `json:"session_id"`
-	StudentID       ids.XID `json:"student_id"`
-	OfferingID      ids.XID `json:"offering_id"`
-	SolveRunID      ids.XID `json:"solve_run_id"`
-	Origin          string  `json:"origin"`
-	Pinned          bool    `json:"pinned"`
-	RealizedQuality string  `json:"realized_quality"`
+	OrganizationID  ids.XID  `json:"organization_id"`
+	SchoolYearID    ids.XID  `json:"school_year_id"`
+	ProgramID       ids.XID  `json:"program_id"`
+	SessionID       ids.XID  `json:"session_id"`
+	StudentID       ids.XID  `json:"student_id"`
+	OfferingID      ids.XID  `json:"offering_id"`
+	SolveRunID      *ids.XID `json:"solve_run_id"`
+	Origin          string   `json:"origin"`
+	Pinned          bool     `json:"pinned"`
+	RealizedQuality string   `json:"realized_quality"`
 }
 
 func (q *Queries) CreateAssignment(ctx context.Context, arg CreateAssignmentParams) (Assignment, error) {

@@ -53,8 +53,16 @@ func TestStartReplacesSuccessfulDraftAndPreservesItOnInfeasibility(t *testing.T)
 
 	assignments := listDraft(t, harness.Database, organizationID, year.ID, programRow.ID, session.ID)
 	require.Len(t, assignments, 1)
-	require.Equal(t, run.ID, assignments[0].SolveRunID)
+	assignmentID := assignments[0].ID
+	require.Equal(t, &run.ID, assignments[0].SolveRunID)
 	require.Equal(t, "top", assignments[0].RealizedQuality)
+
+	client.response = solvercontract.Response{Version: solvercontract.Version, Seed: request.Seed, Status: "optimal", Assignments: []solvercontract.Assignment{{ParticipantID: string(student.ID), OfferingID: string(offering.ID), RealizedQuality: solvercontract.QualityTop}}}
+	secondRun, err := service.Start(ctx, string(organizationID), actor, StartInput{SchoolYearID: year.ID, ProgramID: programRow.ID, SessionID: session.ID, Request: request, Seed: &request.Seed})
+	require.NoError(t, err)
+	assignments = listDraft(t, harness.Database, organizationID, year.ID, programRow.ID, session.ID)
+	require.Equal(t, assignmentID, assignments[0].ID, "unchanged placement retains its editing context")
+	require.Equal(t, &secondRun.ID, assignments[0].SolveRunID)
 	require.True(t, assignments[0].Pinned)
 
 	client.response = solvercontract.Response{Version: solvercontract.Version, Seed: request.Seed, Status: "infeasible", Assignments: []solvercontract.Assignment{}}
@@ -62,7 +70,7 @@ func TestStartReplacesSuccessfulDraftAndPreservesItOnInfeasibility(t *testing.T)
 	require.NoError(t, err)
 	assignments = listDraft(t, harness.Database, organizationID, year.ID, programRow.ID, session.ID)
 	require.Len(t, assignments, 1)
-	require.Equal(t, run.ID, assignments[0].SolveRunID)
+	require.Equal(t, &secondRun.ID, assignments[0].SolveRunID)
 	require.Equal(t, "top", assignments[0].RealizedQuality)
 
 	changed := request

@@ -88,9 +88,16 @@ func (s *Service) Start(ctx context.Context, organizationID string, actor audit.
 			return err
 		}
 		if successfulStatus(response.Status) {
+			current, getErr := tx.GetSessionForUpdate(ctx, input.SchoolYearID, input.ProgramID, input.SessionID)
+			if getErr != nil {
+				return fmt.Errorf("start solve run: get draft revision: %w", getErr)
+			}
 			assignments := assignmentInputs(input, result.ID, response)
 			if _, err = tx.ReplaceDraftAssignments(ctx, input.SchoolYearID, input.ProgramID, input.SessionID, assignments); err != nil {
 				return err
+			}
+			if _, err = tx.AdvanceDraftRevision(ctx, input.SchoolYearID, input.ProgramID, input.SessionID, current.DraftRevision); err != nil {
+				return fmt.Errorf("start solve run: advance draft revision: %w", err)
 			}
 		}
 		return tx.Record(ctx, audit.Entry{Action: audit.ActionSolveRun, ObjectType: "solve_run", ObjectID: &result.ID, SchoolYearID: &input.SchoolYearID,
@@ -142,7 +149,7 @@ func assignmentInputs(input StartInput, runID ids.XID, response solvercontract.R
 	assignments := make([]data.CreateAssignmentInput, 0, len(response.Assignments))
 	for _, assignment := range response.Assignments {
 		assignments = append(assignments, data.CreateAssignmentInput{SchoolYearID: input.SchoolYearID, ProgramID: input.ProgramID, SessionID: input.SessionID,
-			StudentID: ids.XID(assignment.ParticipantID), OfferingID: ids.XID(assignment.OfferingID), SolveRunID: runID, Origin: "solver",
+			StudentID: ids.XID(assignment.ParticipantID), OfferingID: ids.XID(assignment.OfferingID), SolveRunID: &runID, Origin: "solver",
 			Pinned: pins[assignment.ParticipantID] == assignment.OfferingID, RealizedQuality: assignment.RealizedQuality})
 	}
 	return assignments

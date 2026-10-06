@@ -122,3 +122,18 @@
   and are discarded on unpin; changed placements do not inherit overrides or assignment comments.
 - Validated: `git diff --check` passes; reviewed the cited spec sections against the approved
   Phase 5A plan. No automated test applies to this documentation-only update.
+
+## Issue #290 — persisted assignment editing state
+
+- Adds timestamped migration `20261006100000_assignment_editing_state.sql`: nullable solve-run
+  provenance for manual assignments; session `draft_revision`; tenant-scoped assignment exclusions
+  and assignment overrides; RLS, closed-year guards, entity factories, and §16.2 bidirectional
+  participant/assignment guards.
+- Re-solves preserve an assignment row (and its future placement-bound context) when the student
+  remains in the same offering. Changed or removed placements are deleted before replacement, so
+  overrides cannot migrate. Successful draft replacement advances the session revision.
+- Passed `go test ./...` from `backend/`, `make generate`, `make format`, `make lint-backend`
+  (including depguard), and `git diff --check`. `make test-migrations` is blocked locally because
+  `MIGRATION_ROUNDTRIP_DATABASE_URL` is unset; `make test-backend` cannot start because an external
+  `/miniclass-postgres` container holds the fixed Compose name. Its temporary network/volume were
+  removed without touching that container.

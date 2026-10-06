@@ -648,12 +648,38 @@ type Assignment struct {
 	SessionID       ids.XID            `json:"session_id"`
 	StudentID       ids.XID            `json:"student_id"`
 	OfferingID      ids.XID            `json:"offering_id"`
-	SolveRunID      ids.XID            `json:"solve_run_id"`
+	SolveRunID      *ids.XID           `json:"solve_run_id"`
 	Origin          string             `json:"origin"`
 	Pinned          bool               `json:"pinned"`
 	RealizedQuality string             `json:"realized_quality"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type AssignmentExclusion struct {
+	ID             ids.XID            `json:"id"`
+	OrganizationID ids.XID            `json:"organization_id"`
+	SchoolYearID   ids.XID            `json:"school_year_id"`
+	ProgramID      ids.XID            `json:"program_id"`
+	SessionID      ids.XID            `json:"session_id"`
+	StudentID      ids.XID            `json:"student_id"`
+	OfferingID     ids.XID            `json:"offering_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type AssignmentOverride struct {
+	ID             ids.XID            `json:"id"`
+	OrganizationID ids.XID            `json:"organization_id"`
+	SchoolYearID   ids.XID            `json:"school_year_id"`
+	ProgramID      ids.XID            `json:"program_id"`
+	SessionID      ids.XID            `json:"session_id"`
+	AssignmentID   ids.XID            `json:"assignment_id"`
+	Rule           string             `json:"rule"`
+	Reason         string             `json:"reason"`
+	RecordedBy     string             `json:"recorded_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
 type AuditLog struct {
@@ -994,6 +1020,7 @@ type Session struct {
 	RankedChoiceEnabled   bool               `json:"ranked_choice_enabled"`
 	RankedChoiceRankDepth pgtype.Int4        `json:"ranked_choice_rank_depth"`
 	RankedChoiceDeadline  pgtype.Timestamptz `json:"ranked_choice_deadline"`
+	DraftRevision         int64              `json:"draft_revision"`
 }
 
 type SessionNonParticipation struct {

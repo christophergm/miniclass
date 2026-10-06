@@ -61,7 +61,7 @@ func createAssignment(ctx context.Context, harness *testharness.Harness, organiz
 		if err != nil {
 			return err
 		}
-		result, err = tx.CreateAssignment(ctx, data.CreateAssignmentInput{SchoolYearID: year.ID, ProgramID: programRow.ID, SessionID: session.ID, StudentID: student.ID, OfferingID: offering.ID, SolveRunID: run.ID, Origin: "solver", RealizedQuality: "neutral"})
+		result, err = tx.CreateAssignment(ctx, data.CreateAssignmentInput{SchoolYearID: year.ID, ProgramID: programRow.ID, SessionID: session.ID, StudentID: student.ID, OfferingID: offering.ID, SolveRunID: &run.ID, Origin: "solver", RealizedQuality: "neutral"})
 		if err != nil {
 			return err
 		}

@@ -21,7 +21,7 @@ type Assignment struct {
 	SessionID       ids.XID   `json:"session_id"`
 	StudentID       ids.XID   `json:"student_id"`
 	OfferingID      ids.XID   `json:"offering_id"`
-	SolveRunID      ids.XID   `json:"solve_run_id"`
+	SolveRunID      *ids.XID  `json:"solve_run_id"`
 	Origin          string    `json:"origin"`
 	Pinned          bool      `json:"pinned"`
 	RealizedQuality string    `json:"realized_quality"`
@@ -35,7 +35,7 @@ type CreateAssignmentInput struct {
 	SessionID       ids.XID
 	StudentID       ids.XID
 	OfferingID      ids.XID
-	SolveRunID      ids.XID
+	SolveRunID      *ids.XID
 	Origin          string
 	Pinned          bool
 	RealizedQuality string
@@ -45,7 +45,7 @@ func (tx *Tx) CreateAssignment(ctx context.Context, input CreateAssignmentInput)
 	if tx == nil || tx.queries == nil {
 		return Assignment{}, errors.New("create assignment: transaction is nil")
 	}
-	if input.SchoolYearID == "" || input.ProgramID == "" || input.SessionID == "" || input.StudentID == "" || input.OfferingID == "" || input.SolveRunID == "" || input.Origin == "" || input.RealizedQuality == "" {
+	if input.SchoolYearID == "" || input.ProgramID == "" || input.SessionID == "" || input.StudentID == "" || input.OfferingID == "" || input.Origin == "" || input.RealizedQuality == "" {
 		return Assignment{}, errors.New("create assignment: required assignment fields are missing")
 	}
 	row, err := tx.queries.CreateAssignment(ctx, db.CreateAssignmentParams{
@@ -59,8 +59,9 @@ func (tx *Tx) CreateAssignment(ctx context.Context, input CreateAssignmentInput)
 	return assignment(row)
 }
 
-// ReplaceDraftAssignments clears exactly one session's current draft before
-// writing its complete replacement in the same caller-owned transaction.
+// ReplaceDraftAssignments writes a complete replacement in the same
+// caller-owned transaction. Upserts preserve identity and placement-bound
+// context when a student remains in the same offering (SPEC §20.3).
 func (tx *Tx) ReplaceDraftAssignments(ctx context.Context, schoolYearID, programID, sessionID ids.XID, inputs []CreateAssignmentInput) ([]Assignment, error) {
 	if tx == nil || tx.queries == nil {
 		return nil, errors.New("replace draft assignments: transaction is nil")
@@ -68,19 +69,35 @@ func (tx *Tx) ReplaceDraftAssignments(ctx context.Context, schoolYearID, program
 	if schoolYearID == "" || programID == "" || sessionID == "" {
 		return nil, errors.New("replace draft assignments: session scope is required")
 	}
-	if _, err := tx.queries.DeleteDraftAssignments(ctx, db.DeleteDraftAssignmentsParams{OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID, SessionID: sessionID}); err != nil {
-		return nil, fmt.Errorf("replace draft assignments: delete current draft: %w", err)
-	}
 	assignments := make([]Assignment, 0, len(inputs))
+	studentIDs := make([]string, 0, len(inputs))
 	for _, input := range inputs {
 		if input.SchoolYearID != schoolYearID || input.ProgramID != programID || input.SessionID != sessionID {
 			return nil, errors.New("replace draft assignments: assignment scope does not match session")
 		}
-		assignment, err := tx.CreateAssignment(ctx, input)
+		if _, err := tx.queries.DeleteChangedDraftAssignment(ctx, db.DeleteChangedDraftAssignmentParams{
+			OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID, SessionID: sessionID,
+			StudentID: input.StudentID, OfferingID: input.OfferingID,
+		}); err != nil {
+			return nil, fmt.Errorf("replace draft assignments: delete changed placement: %w", err)
+		}
+		row, err := tx.queries.UpsertAssignment(ctx, db.UpsertAssignmentParams{
+			OrganizationID: tx.organizationID, SchoolYearID: input.SchoolYearID, ProgramID: input.ProgramID, SessionID: input.SessionID,
+			StudentID: input.StudentID, OfferingID: input.OfferingID, SolveRunID: input.SolveRunID, Origin: input.Origin,
+			Pinned: input.Pinned, RealizedQuality: input.RealizedQuality,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("replace draft assignments: upsert assignment: %w", err)
+		}
+		value, err := assignment(row)
 		if err != nil {
 			return nil, err
 		}
-		assignments = append(assignments, assignment)
+		assignments = append(assignments, value)
+		studentIDs = append(studentIDs, string(input.StudentID))
+	}
+	if _, err := tx.queries.DeleteReplacedDraftAssignments(ctx, db.DeleteReplacedDraftAssignmentsParams{OrganizationID: tx.organizationID, SchoolYearID: schoolYearID, ProgramID: programID, SessionID: sessionID, StudentIds: studentIDs}); err != nil {
+		return nil, fmt.Errorf("replace draft assignments: delete removed placements: %w", err)
 	}
 	return assignments, nil
 }
