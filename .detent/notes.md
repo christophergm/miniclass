@@ -249,3 +249,14 @@ I’m resuming #298 from the existing worktree. I’ll first inspect the issue, 
   replacing assignments or advancing the revision. SPEC §§17.9–17.10, 20.1–20.2.
 - Passed `go test ./...` in `backend/`, format, lint/depguard, generation, and
   `git diff --check`. Migration round-trip needs CI because its database URL is unset.
+
+## Issue #299 — draft warnings and placement quality
+
+- Adds the administrator-only `GET .../assignment-quality` read model. It computes
+  non-blocking assignment/offering/session warnings and named draft review lists
+  from one tenant-scoped snapshot; stored realized quality stays historical while
+  current preference context is shown separately. Implements SPEC §§16.5–16.6,
+  17.13, 19.1–19.2.
+- Focused Go tests, `make format`, `make lint-backend` (including depguard),
+  `make generate`, and `git diff --check` pass when Go and golangci caches are
+  redirected to the Detent temporary directory.

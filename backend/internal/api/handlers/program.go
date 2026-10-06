@@ -56,6 +56,7 @@ type ProgramService interface {
 	DeleteSessionNonParticipation(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, ids.XID) error
 	ListParticipatingMemberships(context.Context, string, ids.XID, ids.XID, ids.XID) ([]data.ProgramMembership, error)
 	GetAssignmentWorkspace(context.Context, string, ids.XID, ids.XID, ids.XID) (programservice.AssignmentWorkspace, error)
+	GetAssignmentQuality(context.Context, string, ids.XID, ids.XID, ids.XID) (programservice.AssignmentQuality, error)
 	MoveAssignment(context.Context, string, audit.Actor, programservice.AssignmentOperationInput, ids.XID, ids.XID) (programservice.AssignmentOperationResult, error)
 	SwapAssignments(context.Context, string, audit.Actor, programservice.AssignmentOperationInput, ids.XID, ids.XID) (programservice.AssignmentOperationResult, error)
 	SetAssignmentPin(context.Context, string, audit.Actor, programservice.AssignmentOperationInput, ids.XID, bool) (programservice.AssignmentOperationResult, error)
