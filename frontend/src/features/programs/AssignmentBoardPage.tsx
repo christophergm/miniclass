@@ -229,6 +229,7 @@ export function AssignmentBoardPage() {
       refresh();
     } else if (retry && description) {
       setReason("");
+      setEditor(null);
       setOverride({ apply: retry, description });
     } else setEditError(errorMessage(error));
   };
