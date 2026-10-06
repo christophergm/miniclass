@@ -113,3 +113,12 @@
   start a healthy solver in this sandbox; CI must provide live-boundary timing.
 - Filed Backlog #261 after CI-contract review: `Backend lint` runs only
   golangci-lint and omits the mapped depguard proof.
+
+## Issue #289 — placement-workspace specification alignment
+
+- `SPEC.md` clarifies session-hosted administrator comments; public and guardian visibility remains
+  prohibited.
+- Pinned hard-rule exceptions are limited to the named placement, consume their authorised capacity,
+  and are discarded on unpin; changed placements do not inherit overrides or assignment comments.
+- Validated: `git diff --check` passes; reviewed the cited spec sections against the approved
+  Phase 5A plan. No automated test applies to this documentation-only update.
