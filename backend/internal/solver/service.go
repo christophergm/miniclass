@@ -22,6 +22,7 @@ type Service struct {
 }
 
 var ErrInputFingerprintMismatch = errors.New("recorded solve run input fingerprint does not match the supplied current snapshot")
+var ErrDraftRevisionChanged = errors.New("authoritative solver snapshot is stale")
 
 func New(database *data.DB, client solverclient.Client) *Service {
 	return &Service{database: database, client: client}
@@ -34,6 +35,17 @@ type StartInput struct {
 	RerunOfSolveRunID *ids.XID
 	Request           solvercontract.Request
 	Seed              *int64
+	DraftRevision     *int64
+}
+
+// StartAuthoritative compiles its request from persisted state rather than
+// accepting client-supplied solver inputs (SPEC §§17.1, 17.8–17.9).
+func (s *Service) StartAuthoritative(ctx context.Context, organizationID string, actor audit.Actor, schoolYearID, programID, sessionID ids.XID, seed *int64) (data.SolveRun, error) {
+	snapshot, err := s.CompileSnapshot(ctx, organizationID, schoolYearID, programID, sessionID)
+	if err != nil {
+		return data.SolveRun{}, err
+	}
+	return s.Start(ctx, organizationID, actor, StartInput{SchoolYearID: schoolYearID, ProgramID: programID, SessionID: sessionID, Request: snapshot.Request, Seed: seed, DraftRevision: &snapshot.DraftRevision})
 }
 
 // Start calls the stateless sidecar before atomically persisting its canonical
@@ -91,6 +103,9 @@ func (s *Service) Start(ctx context.Context, organizationID string, actor audit.
 			current, getErr := tx.GetSessionForUpdate(ctx, input.SchoolYearID, input.ProgramID, input.SessionID)
 			if getErr != nil {
 				return fmt.Errorf("start solve run: get draft revision: %w", getErr)
+			}
+			if input.DraftRevision != nil && current.DraftRevision != *input.DraftRevision {
+				return ErrDraftRevisionChanged
 			}
 			assignments := assignmentInputs(input, result.ID, response)
 			if _, err = tx.ReplaceDraftAssignments(ctx, input.SchoolYearID, input.ProgramID, input.SessionID, assignments); err != nil {
@@ -185,6 +200,29 @@ func (s *Service) Rerun(ctx context.Context, organizationID string, actor audit.
 	seed := source.Seed
 	return s.Start(ctx, organizationID, actor, StartInput{SchoolYearID: schoolYearID, ProgramID: programID, SessionID: sessionID,
 		RerunOfSolveRunID: &source.ID, Request: request, Seed: &seed})
+}
+
+// RerunAuthoritative recompiles the current persisted snapshot before applying
+// the original seed and fingerprint guard required by SPEC §20.2.
+func (s *Service) RerunAuthoritative(ctx context.Context, organizationID string, actor audit.Actor, schoolYearID, programID, sessionID, runID ids.XID) (data.SolveRun, error) {
+	source, err := s.Get(ctx, organizationID, schoolYearID, programID, sessionID, runID)
+	if err != nil {
+		return data.SolveRun{}, err
+	}
+	snapshot, err := s.CompileSnapshot(ctx, organizationID, schoolYearID, programID, sessionID)
+	if err != nil {
+		return data.SolveRun{}, err
+	}
+	snapshot.Request.Seed = source.Seed
+	fingerprint, err := solvercontract.Fingerprint(snapshot.Request)
+	if err != nil {
+		return data.SolveRun{}, fmt.Errorf("rerun solve run: canonicalize current snapshot: %w", err)
+	}
+	if fingerprint != source.InputFingerprint {
+		return data.SolveRun{}, ErrInputFingerprintMismatch
+	}
+	return s.Start(ctx, organizationID, actor, StartInput{SchoolYearID: schoolYearID, ProgramID: programID, SessionID: sessionID,
+		RerunOfSolveRunID: &source.ID, Request: snapshot.Request, Seed: &source.Seed, DraftRevision: &snapshot.DraftRevision})
 }
 
 func (s *Service) Get(ctx context.Context, organizationID string, schoolYearID, programID, sessionID, runID ids.XID) (data.SolveRun, error) {

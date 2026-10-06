@@ -725,26 +725,6 @@
         ],
         "type": "object"
       },
-      "AuthorizedPinnedException": {
-        "additionalProperties": false,
-        "properties": {
-          "offering_id": {
-            "type": "string"
-          },
-          "participant_id": {
-            "type": "string"
-          },
-          "rule": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "participant_id",
-          "offering_id",
-          "rule"
-        ],
-        "type": "object"
-      },
       "CatalogAreaGapResponse": {
         "additionalProperties": false,
         "properties": {
@@ -3948,22 +3928,6 @@
         ],
         "type": "object"
       },
-      "InterestRating": {
-        "additionalProperties": false,
-        "properties": {
-          "interest_area_id": {
-            "type": "string"
-          },
-          "rating": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "interest_area_id",
-          "rating"
-        ],
-        "type": "object"
-      },
       "InvitationImportResult": {
         "additionalProperties": false,
         "properties": {
@@ -4602,36 +4566,6 @@
         ],
         "type": "object"
       },
-      "Offering": {
-        "additionalProperties": false,
-        "properties": {
-          "capacity": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "id": {
-            "type": "string"
-          },
-          "interest_area_id": {
-            "type": "string"
-          },
-          "max_grade_ordinal": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "min_grade_ordinal": {
-            "format": "int64",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "id",
-          "capacity",
-          "min_grade_ordinal",
-          "max_grade_ordinal"
-        ],
-        "type": "object"
-      },
       "OfferingResponse": {
         "additionalProperties": false,
         "properties": {
@@ -4763,68 +4697,6 @@
           "unchanged",
           "conflict",
           "error"
-        ],
-        "type": "object"
-      },
-      "Participant": {
-        "additionalProperties": false,
-        "properties": {
-          "grade_ordinal": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "id": {
-            "type": "string"
-          },
-          "interest_profile": {
-            "items": {
-              "$ref": "#/components/schemas/InterestRating"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          },
-          "ranked_choices": {
-            "$ref": "#/components/schemas/RankedChoices"
-          }
-        },
-        "required": [
-          "id",
-          "grade_ordinal",
-          "interest_profile"
-        ],
-        "type": "object"
-      },
-      "PinnedPlacement": {
-        "additionalProperties": false,
-        "properties": {
-          "offering_id": {
-            "type": "string"
-          },
-          "participant_id": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "participant_id",
-          "offering_id"
-        ],
-        "type": "object"
-      },
-      "Placement": {
-        "additionalProperties": false,
-        "properties": {
-          "offering_id": {
-            "type": "string"
-          },
-          "participant_id": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "participant_id",
-          "offering_id"
         ],
         "type": "object"
       },
@@ -5516,39 +5388,6 @@
         ],
         "type": "object"
       },
-      "QualityConfig": {
-        "additionalProperties": false,
-        "properties": {
-          "high_rank_max": {
-            "format": "int64",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "high_rank_max"
-        ],
-        "type": "object"
-      },
-      "RankedChoice": {
-        "additionalProperties": false,
-        "properties": {
-          "offering_id": {
-            "type": "string"
-          },
-          "rank": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "response": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "offering_id",
-          "response"
-        ],
-        "type": "object"
-      },
       "RankedChoiceAdministratorSubmitInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -5828,24 +5667,6 @@
         ],
         "type": "object"
       },
-      "RankedChoices": {
-        "additionalProperties": false,
-        "properties": {
-          "choices": {
-            "items": {
-              "$ref": "#/components/schemas/RankedChoice"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          }
-        },
-        "required": [
-          "choices"
-        ],
-        "type": "object"
-      },
       "ReconcilePlaceholderStudentInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -6026,92 +5847,6 @@
         ],
         "type": "object"
       },
-      "Request": {
-        "additionalProperties": false,
-        "properties": {
-          "authorized_pinned_exceptions": {
-            "items": {
-              "$ref": "#/components/schemas/AuthorizedPinnedException"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          },
-          "exclusions": {
-            "items": {
-              "$ref": "#/components/schemas/Placement"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          },
-          "max_deterministic_time": {
-            "format": "double",
-            "type": "number"
-          },
-          "offerings": {
-            "items": {
-              "$ref": "#/components/schemas/Offering"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          },
-          "participants": {
-            "items": {
-              "$ref": "#/components/schemas/Participant"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          },
-          "pins": {
-            "items": {
-              "$ref": "#/components/schemas/PinnedPlacement"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          },
-          "prior_placements": {
-            "items": {
-              "$ref": "#/components/schemas/Placement"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          },
-          "quality_config": {
-            "$ref": "#/components/schemas/QualityConfig"
-          },
-          "seed": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "version": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "version",
-          "seed",
-          "max_deterministic_time",
-          "quality_config",
-          "participants",
-          "offerings",
-          "pins",
-          "exclusions",
-          "authorized_pinned_exceptions",
-          "prior_placements"
-        ],
-        "type": "object"
-      },
       "RequestAdultOTPInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -6158,27 +5893,6 @@
         "required": [
           "accepted",
           "challenge_id"
-        ],
-        "type": "object"
-      },
-      "RerunSolveRunInputBody": {
-        "additionalProperties": false,
-        "properties": {
-          "$schema": {
-            "description": "A URL to the JSON Schema for this object.",
-            "examples": [
-              "https://example.com/RerunSolveRunInputBody.json"
-            ],
-            "format": "uri",
-            "readOnly": true,
-            "type": "string"
-          },
-          "request": {
-            "$ref": "#/components/schemas/Request"
-          }
-        },
-        "required": [
-          "request"
         ],
         "type": "object"
       },
@@ -7043,17 +6757,11 @@
             "readOnly": true,
             "type": "string"
           },
-          "request": {
-            "$ref": "#/components/schemas/Request"
-          },
           "seed": {
             "format": "int64",
             "type": "integer"
           }
         },
-        "required": [
-          "request"
-        ],
         "type": "object"
       },
       "StudentResponse": {
@@ -21047,16 +20755,6 @@
             }
           }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RerunSolveRunInputBody"
-              }
-            }
-          },
-          "required": true
-        },
         "responses": {
           "200": {
             "content": {

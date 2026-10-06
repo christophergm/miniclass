@@ -12,7 +12,6 @@ import (
 	"github.com/chrismott/miniclass/internal/ids"
 	solverservice "github.com/chrismott/miniclass/internal/solver"
 	"github.com/chrismott/miniclass/internal/solverclient"
-	"github.com/chrismott/miniclass/internal/solvercontract"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -41,16 +40,12 @@ type SolveRunPathInput struct {
 type StartSolveRunInput struct {
 	SessionPathInput
 	Body struct {
-		Request solvercontract.Request `json:"request"`
-		Seed    *int64                 `json:"seed,omitempty"`
+		Seed *int64 `json:"seed,omitempty"`
 	}
 }
 type RerunSolveRunInput struct {
 	SessionPathInput
 	RunID string `path:"runID" minLength:"1"`
-	Body  struct {
-		Request solvercontract.Request `json:"request"`
-	}
 }
 
 type SolveRunHandler struct{ service SolveRunService }
@@ -67,7 +62,7 @@ func (h *SolveRunHandler) Start(ctx context.Context, input *StartSolveRunInput) 
 	if h == nil || h.service == nil || input == nil {
 		return nil, problems.New(http.StatusServiceUnavailable, problems.SolverUnavailable, "solver is not configured")
 	}
-	row, err := h.service.Start(ctx, string(account.OrganizationID), programActor(account), solverservice.StartInput{SchoolYearID: ids.XID(input.SchoolYearID), ProgramID: ids.XID(input.ProgramID), SessionID: ids.XID(input.SessionID), Request: input.Body.Request, Seed: input.Body.Seed})
+	row, err := h.service.StartAuthoritative(ctx, string(account.OrganizationID), programActor(account), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), ids.XID(input.SessionID), input.Body.Seed)
 	if err != nil {
 		return nil, solveRunProblem(err)
 	}
@@ -95,7 +90,7 @@ func (h *SolveRunHandler) Rerun(ctx context.Context, input *RerunSolveRunInput) 
 	if h == nil || h.service == nil || input == nil {
 		return nil, problems.New(http.StatusServiceUnavailable, problems.SolverUnavailable, "solver is not configured")
 	}
-	row, err := h.service.Rerun(ctx, string(account.OrganizationID), programActor(account), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), ids.XID(input.SessionID), ids.XID(input.RunID), input.Body.Request)
+	row, err := h.service.RerunAuthoritative(ctx, string(account.OrganizationID), programActor(account), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), ids.XID(input.SessionID), ids.XID(input.RunID))
 	if err != nil {
 		return nil, solveRunProblem(err)
 	}
@@ -118,6 +113,9 @@ func solveRunProblem(err error) error {
 	}
 	if errors.Is(err, solverservice.ErrInputFingerprintMismatch) {
 		return problems.New(http.StatusConflict, problems.SolveRunInputMismatch, "the current solver inputs differ from the recorded run")
+	}
+	if errors.Is(err, solverservice.ErrDraftRevisionChanged) {
+		return problems.New(http.StatusConflict, problems.SolveRunInputMismatch, "the session draft changed while the solver was running")
 	}
 	return problems.New(http.StatusInternalServerError, problems.InternalError, "unable to process solve run")
 }
