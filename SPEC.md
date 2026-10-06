@@ -2294,9 +2294,10 @@ stop within a week and thereafter capture nothing; prompting captures the genuin
 and the reference data shows organizers do write useful ones unprompted — `parent`,
 `in previous session`, `agreed to do something other than knitting`.
 
-An override applies to one specific placement. If that placement changes, the override MUST be
-discarded rather than carried to the replacement, and the warning re-evaluated from scratch.
-Overrides MUST appear in the audit log (§20.1).
+An override applies to one specific placement. It remains with that placement when a re-solve keeps
+the placement unchanged, including when it is preserved as a pin (§17.9). If the placement changes
+or is unpinned, the override MUST be discarded rather than carried to the replacement, and the
+warning re-evaluated from scratch. Overrides MUST appear in the audit log (§20.1).
 
 ## 17. Assignment Engine
 
@@ -2559,6 +2560,13 @@ Requirements:
 - Pins MUST survive re-solve, catalog edits that do not affect them, and preference changes.
 - If a pin becomes impossible — its offering is deleted, or the student stops participating — the
   system MUST report it rather than silently dropping it.
+- A pin with a deliberately authorised hard-rule exception retains only that named exception. A
+  grade-window or exclusion exception authorises only the pinned student–offering placement; a
+  capacity exception consumes capacity for that placement, including its authorised excess, and
+  MUST NOT make an additional seat available to the solver. The solver MUST NOT create or broaden
+  an exception while re-solving.
+- Unpinning returns the student's decision to the ordinary hard rules and discards any exception
+  attached to that pin (§16.7). A later manual placement requires its own override record.
 
 **Stability.** `[New]` A re-solve SHOULD prefer to leave unpinned placements where they are when
 doing so costs nothing on the objective. Without this, pinning one student can reshuffle forty
@@ -2619,7 +2627,9 @@ The organizer MUST be able to:
 | Revert | Restore a previous solve run (§20.2) |
 
 Every operation that violates a hard rule MUST create an override record and raise a persistent
-warning (§16.7). No operation is blocked on the grounds that it produces warnings.
+warning (§16.7). No operation is blocked on the grounds that it produces warnings. A move or swap
+that creates an exception pins the resulting placement; unpinning does not preserve permission to
+repeat that exception elsewhere.
 
 ### 17.13 The unplaceable student
 
@@ -2939,9 +2949,9 @@ would be worse than admitting the inputs moved.
 
 | Property | Rule |
 |---|---|
-| Attachable to | Assignments, offerings, students, adults |
+| Attachable to | Assignments, offerings, sessions, students, adults |
 | Author, timestamp | Recorded |
-| Visibility | All administrators |
+| Visibility | All administrators; never public or guardian-visible |
 | Sensitivity | Per §10.5; student and adult comments SHOULD default to `Internal` or higher |
 | Editing | By the author; prior text retained in the audit log |
 | Deletion | Soft; the fact of deletion is retained |
@@ -2950,6 +2960,12 @@ Comments are scoped by their host. A comment on an **assignment** concerns one p
 session. A comment on a **student** is standing context that follows them through the year — the
 kind of observation that currently lives in an untracked notes file and is lost between organizers.
 A comment on an **adult** records volunteer context such as teaching preferences or constraints.
+A comment on a **session** records administrative context for that session. A session-hosted comment
+does not widen the visibility of any assignment, offering, student or adult information.
+
+Assignment comments stay with an assignment when re-solve preserves that placement. If re-solve
+changes the placement, its comments remain attributable to the prior assignment and MUST NOT be
+silently copied to the replacement; the organizer may add a new comment where it is relevant.
 
 Comments supersede the free-text note columns scattered through the predecessor's files — `parent`,
 `in previous session`, `done previously this year`, `verbal request to Chris`. That material is
