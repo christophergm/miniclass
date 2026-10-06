@@ -51,7 +51,7 @@ func (q *Queries) CreateMeetingDate(ctx context.Context, arg CreateMeetingDatePa
 const createSession = `-- name: CreateSession :one
 insert into sessions (organization_id, school_year_id, program_id, name)
 values ($1, $2, $3, $4)
-returning id, organization_id, school_year_id, program_id, name, state, draft_assignments_stale, ranked_choice_enabled, ranked_choice_rank_depth, ranked_choice_deadline, created_at, updated_at
+returning id, organization_id, school_year_id, program_id, name, state, draft_assignments_stale, ranked_choice_enabled, ranked_choice_rank_depth, ranked_choice_deadline, draft_revision, created_at, updated_at
 `
 
 type CreateSessionParams struct {
@@ -72,6 +72,7 @@ type CreateSessionRow struct {
 	RankedChoiceEnabled   bool               `json:"ranked_choice_enabled"`
 	RankedChoiceRankDepth pgtype.Int4        `json:"ranked_choice_rank_depth"`
 	RankedChoiceDeadline  pgtype.Timestamptz `json:"ranked_choice_deadline"`
+	DraftRevision         int64              `json:"draft_revision"`
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
 }
@@ -95,6 +96,7 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (C
 		&i.RankedChoiceEnabled,
 		&i.RankedChoiceRankDepth,
 		&i.RankedChoiceDeadline,
+		&i.DraftRevision,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -214,7 +216,7 @@ func (q *Queries) FindMeetingDateForRegistry(ctx context.Context, arg FindMeetin
 }
 
 const findSessionForRegistry = `-- name: FindSessionForRegistry :one
-select id, organization_id, school_year_id, program_id, name, state, draft_assignments_stale, ranked_choice_enabled, ranked_choice_rank_depth, ranked_choice_deadline, created_at, updated_at
+select id, organization_id, school_year_id, program_id, name, state, draft_assignments_stale, ranked_choice_enabled, ranked_choice_rank_depth, ranked_choice_deadline, draft_revision, created_at, updated_at
 from sessions where id = $1 and organization_id = $2
 `
 
@@ -234,6 +236,7 @@ type FindSessionForRegistryRow struct {
 	RankedChoiceEnabled   bool               `json:"ranked_choice_enabled"`
 	RankedChoiceRankDepth pgtype.Int4        `json:"ranked_choice_rank_depth"`
 	RankedChoiceDeadline  pgtype.Timestamptz `json:"ranked_choice_deadline"`
+	DraftRevision         int64              `json:"draft_revision"`
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
 }
@@ -252,6 +255,7 @@ func (q *Queries) FindSessionForRegistry(ctx context.Context, arg FindSessionFor
 		&i.RankedChoiceEnabled,
 		&i.RankedChoiceRankDepth,
 		&i.RankedChoiceDeadline,
+		&i.DraftRevision,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -295,7 +299,7 @@ func (q *Queries) GetMeetingDate(ctx context.Context, arg GetMeetingDateParams) 
 }
 
 const getSession = `-- name: GetSession :one
-select id, organization_id, school_year_id, program_id, name, state, draft_assignments_stale, ranked_choice_enabled, ranked_choice_rank_depth, ranked_choice_deadline, created_at, updated_at
+select id, organization_id, school_year_id, program_id, name, state, draft_assignments_stale, ranked_choice_enabled, ranked_choice_rank_depth, ranked_choice_deadline, draft_revision, created_at, updated_at
 from sessions
 where id = $1 and organization_id = $2 and school_year_id = $3 and program_id = $4
 `
@@ -318,6 +322,7 @@ type GetSessionRow struct {
 	RankedChoiceEnabled   bool               `json:"ranked_choice_enabled"`
 	RankedChoiceRankDepth pgtype.Int4        `json:"ranked_choice_rank_depth"`
 	RankedChoiceDeadline  pgtype.Timestamptz `json:"ranked_choice_deadline"`
+	DraftRevision         int64              `json:"draft_revision"`
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
 }
@@ -341,6 +346,7 @@ func (q *Queries) GetSession(ctx context.Context, arg GetSessionParams) (GetSess
 		&i.RankedChoiceEnabled,
 		&i.RankedChoiceRankDepth,
 		&i.RankedChoiceDeadline,
+		&i.DraftRevision,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -348,7 +354,7 @@ func (q *Queries) GetSession(ctx context.Context, arg GetSessionParams) (GetSess
 }
 
 const getSessionForUpdate = `-- name: GetSessionForUpdate :one
-select id, organization_id, school_year_id, program_id, name, state, draft_assignments_stale, ranked_choice_enabled, ranked_choice_rank_depth, ranked_choice_deadline, created_at, updated_at
+select id, organization_id, school_year_id, program_id, name, state, draft_assignments_stale, ranked_choice_enabled, ranked_choice_rank_depth, ranked_choice_deadline, draft_revision, created_at, updated_at
 from sessions
 where id = $1 and organization_id = $2 and school_year_id = $3 and program_id = $4
 for update
@@ -372,6 +378,7 @@ type GetSessionForUpdateRow struct {
 	RankedChoiceEnabled   bool               `json:"ranked_choice_enabled"`
 	RankedChoiceRankDepth pgtype.Int4        `json:"ranked_choice_rank_depth"`
 	RankedChoiceDeadline  pgtype.Timestamptz `json:"ranked_choice_deadline"`
+	DraftRevision         int64              `json:"draft_revision"`
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
 }
@@ -395,6 +402,7 @@ func (q *Queries) GetSessionForUpdate(ctx context.Context, arg GetSessionForUpda
 		&i.RankedChoiceEnabled,
 		&i.RankedChoiceRankDepth,
 		&i.RankedChoiceDeadline,
+		&i.DraftRevision,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -436,7 +444,7 @@ func (q *Queries) ListAllMeetingDatesForRegistry(ctx context.Context, organizati
 }
 
 const listAllSessionsForRegistry = `-- name: ListAllSessionsForRegistry :many
-select id, organization_id, school_year_id, program_id, name, state, draft_assignments_stale, ranked_choice_enabled, ranked_choice_rank_depth, ranked_choice_deadline, created_at, updated_at
+select id, organization_id, school_year_id, program_id, name, state, draft_assignments_stale, ranked_choice_enabled, ranked_choice_rank_depth, ranked_choice_deadline, draft_revision, created_at, updated_at
 from sessions where sessions.organization_id = $1
 order by school_year_id, program_id,
     (select min(meeting_date) from meeting_dates where meeting_dates.session_id = sessions.id and meeting_dates.organization_id = sessions.organization_id),
@@ -454,6 +462,7 @@ type ListAllSessionsForRegistryRow struct {
 	RankedChoiceEnabled   bool               `json:"ranked_choice_enabled"`
 	RankedChoiceRankDepth pgtype.Int4        `json:"ranked_choice_rank_depth"`
 	RankedChoiceDeadline  pgtype.Timestamptz `json:"ranked_choice_deadline"`
+	DraftRevision         int64              `json:"draft_revision"`
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
 }
@@ -478,6 +487,7 @@ func (q *Queries) ListAllSessionsForRegistry(ctx context.Context, organizationID
 			&i.RankedChoiceEnabled,
 			&i.RankedChoiceRankDepth,
 			&i.RankedChoiceDeadline,
+			&i.DraftRevision,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -540,7 +550,7 @@ func (q *Queries) ListMeetingDates(ctx context.Context, arg ListMeetingDatesPara
 }
 
 const listSessions = `-- name: ListSessions :many
-select id, organization_id, school_year_id, program_id, name, state, draft_assignments_stale, ranked_choice_enabled, ranked_choice_rank_depth, ranked_choice_deadline, created_at, updated_at
+select id, organization_id, school_year_id, program_id, name, state, draft_assignments_stale, ranked_choice_enabled, ranked_choice_rank_depth, ranked_choice_deadline, draft_revision, created_at, updated_at
 from sessions
 where sessions.organization_id = $1 and sessions.school_year_id = $2 and sessions.program_id = $3
 order by (select min(meeting_date) from meeting_dates where meeting_dates.session_id = sessions.id and meeting_dates.organization_id = sessions.organization_id), lower(sessions.name), sessions.id
@@ -563,6 +573,7 @@ type ListSessionsRow struct {
 	RankedChoiceEnabled   bool               `json:"ranked_choice_enabled"`
 	RankedChoiceRankDepth pgtype.Int4        `json:"ranked_choice_rank_depth"`
 	RankedChoiceDeadline  pgtype.Timestamptz `json:"ranked_choice_deadline"`
+	DraftRevision         int64              `json:"draft_revision"`
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
 }
@@ -587,6 +598,7 @@ func (q *Queries) ListSessions(ctx context.Context, arg ListSessionsParams) ([]L
 			&i.RankedChoiceEnabled,
 			&i.RankedChoiceRankDepth,
 			&i.RankedChoiceDeadline,
+			&i.DraftRevision,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -664,7 +676,7 @@ set name = $2,
     ranked_choice_rank_depth = $7,
     ranked_choice_deadline = $8
 where id = $1 and organization_id = $3 and school_year_id = $4 and program_id = $5
-returning id, organization_id, school_year_id, program_id, name, state, draft_assignments_stale, ranked_choice_enabled, ranked_choice_rank_depth, ranked_choice_deadline, created_at, updated_at
+returning id, organization_id, school_year_id, program_id, name, state, draft_assignments_stale, ranked_choice_enabled, ranked_choice_rank_depth, ranked_choice_deadline, draft_revision, created_at, updated_at
 `
 
 type UpdateSessionParams struct {
@@ -689,6 +701,7 @@ type UpdateSessionRow struct {
 	RankedChoiceEnabled   bool               `json:"ranked_choice_enabled"`
 	RankedChoiceRankDepth pgtype.Int4        `json:"ranked_choice_rank_depth"`
 	RankedChoiceDeadline  pgtype.Timestamptz `json:"ranked_choice_deadline"`
+	DraftRevision         int64              `json:"draft_revision"`
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
 }
@@ -716,6 +729,7 @@ func (q *Queries) UpdateSession(ctx context.Context, arg UpdateSessionParams) (U
 		&i.RankedChoiceEnabled,
 		&i.RankedChoiceRankDepth,
 		&i.RankedChoiceDeadline,
+		&i.DraftRevision,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -744,7 +758,7 @@ const updateSessionLifecycle = `-- name: UpdateSessionLifecycle :one
 update sessions
 set state = $2, draft_assignments_stale = $3
 where id = $1 and organization_id = $4 and school_year_id = $5 and program_id = $6
-returning id, organization_id, school_year_id, program_id, name, state, draft_assignments_stale, ranked_choice_enabled, ranked_choice_rank_depth, ranked_choice_deadline, created_at, updated_at
+returning id, organization_id, school_year_id, program_id, name, state, draft_assignments_stale, ranked_choice_enabled, ranked_choice_rank_depth, ranked_choice_deadline, draft_revision, created_at, updated_at
 `
 
 type UpdateSessionLifecycleParams struct {
@@ -767,6 +781,7 @@ type UpdateSessionLifecycleRow struct {
 	RankedChoiceEnabled   bool               `json:"ranked_choice_enabled"`
 	RankedChoiceRankDepth pgtype.Int4        `json:"ranked_choice_rank_depth"`
 	RankedChoiceDeadline  pgtype.Timestamptz `json:"ranked_choice_deadline"`
+	DraftRevision         int64              `json:"draft_revision"`
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
 }
@@ -792,6 +807,7 @@ func (q *Queries) UpdateSessionLifecycle(ctx context.Context, arg UpdateSessionL
 		&i.RankedChoiceEnabled,
 		&i.RankedChoiceRankDepth,
 		&i.RankedChoiceDeadline,
+		&i.DraftRevision,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -802,7 +818,7 @@ const updateSessionRankedChoiceDeadline = `-- name: UpdateSessionRankedChoiceDea
 update sessions
 set ranked_choice_deadline = $2
 where id = $1 and organization_id = $3 and school_year_id = $4 and program_id = $5
-returning id, organization_id, school_year_id, program_id, name, state, draft_assignments_stale, ranked_choice_enabled, ranked_choice_rank_depth, ranked_choice_deadline, created_at, updated_at
+returning id, organization_id, school_year_id, program_id, name, state, draft_assignments_stale, ranked_choice_enabled, ranked_choice_rank_depth, ranked_choice_deadline, draft_revision, created_at, updated_at
 `
 
 type UpdateSessionRankedChoiceDeadlineParams struct {
@@ -824,6 +840,7 @@ type UpdateSessionRankedChoiceDeadlineRow struct {
 	RankedChoiceEnabled   bool               `json:"ranked_choice_enabled"`
 	RankedChoiceRankDepth pgtype.Int4        `json:"ranked_choice_rank_depth"`
 	RankedChoiceDeadline  pgtype.Timestamptz `json:"ranked_choice_deadline"`
+	DraftRevision         int64              `json:"draft_revision"`
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
 }
@@ -848,6 +865,7 @@ func (q *Queries) UpdateSessionRankedChoiceDeadline(ctx context.Context, arg Upd
 		&i.RankedChoiceEnabled,
 		&i.RankedChoiceRankDepth,
 		&i.RankedChoiceDeadline,
+		&i.DraftRevision,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
