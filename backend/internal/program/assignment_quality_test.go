@@ -29,8 +29,9 @@ func TestEvaluateAssignmentQualityReportsNamedWarningsAndHistoricalQuality(t *te
 	require.Equal(t, []string{"below-minimum-enrollment"}, draftWarningIDs(result.Offerings[0].Warnings))
 	require.ElementsMatch(t, []string{"below-minimum-enrollment", "catalog-grade-gap", "exclusion-overridden", "grade-out-of-range", "no-preference-signal", "non-preferred-placement", "stale-draft"}, draftWarningIDs(result.Warnings))
 	// Stored quality is a historical fact even when current preferences differ.
-	require.Equal(t, "top", result.Placements[0].Assignment.RealizedQuality)
-	require.Equal(t, data.RankedChoiceNotInterested, result.Placements[0].CurrentPreference)
+	ada := placementByStudent(t, result.Placements, "ada")
+	require.Equal(t, "top", ada.Assignment.RealizedQuality)
+	require.Equal(t, data.RankedChoiceNotInterested, ada.CurrentPreference)
 
 	capacity := EvaluateAssignmentQuality(AssignmentQualitySnapshot{Participants: []data.ProgramMembership{{StudentID: "a"}, {StudentID: "b"}}, Offerings: []data.Offering{{ID: "offering", Capacity: 1}}, Assignments: []data.Assignment{{ID: "one", StudentID: "a", OfferingID: "offering"}, {ID: "two", StudentID: "b", OfferingID: "offering"}}})
 	require.Equal(t, []string{"capacity-exceeded"}, draftWarningIDs(capacity.Offerings[0].Warnings))
@@ -44,6 +45,17 @@ func placementNames(values []DraftPlacement) []string {
 		result = append(result, value.StudentName)
 	}
 	return result
+}
+
+func placementByStudent(t *testing.T, values []DraftPlacement, studentID ids.XID) DraftPlacement {
+	t.Helper()
+	for _, value := range values {
+		if value.Assignment.StudentID == studentID {
+			return value
+		}
+	}
+	require.FailNowf(t, "placement not found", "student ID %q", studentID)
+	return DraftPlacement{}
 }
 func draftWarningIDs(values []DraftWarning) []string {
 	result := make([]string, 0, len(values))
