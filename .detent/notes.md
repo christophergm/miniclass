@@ -176,3 +176,6 @@
   `make check` remains unable to start because the externally owned healthy
   `/miniclass-mailpit` container holds the fixed Compose name; this run removed
   only its own empty network and volume afterward.
+- PR #310 is open, ready, and green on all 13 current-head CI checks. The
+  slowest were generated-code drift (1m51) and backend tests (1m50); no review
+  or inline comments were present at handoff.
