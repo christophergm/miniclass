@@ -32,11 +32,11 @@ function formatDate(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
-function displayDate(value: string, withTime: boolean, emptyLabel: string) {
+function displayDate(value: string, emptyLabel: string) {
   const date = parseDate(value);
   if (!date) return emptyLabel;
   const dateLabel = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(date);
-  return withTime && value.length >= 16 ? `${dateLabel}, ${value.slice(11, 16)}` : dateLabel;
+  return dateLabel;
 }
 
 function DatePicker({
@@ -60,6 +60,7 @@ function DatePicker({
         aria-hidden="true"
         aria-label={ariaLabel}
         className="sr-only"
+        disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
         required={required}
         tabIndex={-1}
@@ -77,7 +78,7 @@ function DatePicker({
             variant="outline"
           >
             <CalendarIcon className="h-4 w-4 shrink-0" />
-            <span className="truncate">{displayDate(value, withTime, emptyLabel)}</span>
+            <span className="truncate">{displayDate(value, emptyLabel)}</span>
           </Button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-auto p-2">

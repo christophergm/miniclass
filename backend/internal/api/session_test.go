@@ -48,6 +48,69 @@ func (f *fakeSessionLifecycleService) TransitionSession(_ context.Context, organ
 	}, nil
 }
 
+type fakeSessionUpdateService struct {
+	handlers.ProgramService
+	organizationID                     string
+	schoolYearID, programID, sessionID ids.XID
+	input                              program.SessionUpdate
+	err                                error
+}
+
+func (f *fakeSessionUpdateService) UpdateSession(_ context.Context, organizationID string, _ audit.Actor, schoolYearID, programID, sessionID ids.XID, input program.SessionUpdate) (data.Session, error) {
+	f.organizationID, f.schoolYearID, f.programID, f.sessionID = organizationID, schoolYearID, programID, sessionID
+	f.input = input
+	if f.err != nil {
+		return data.Session{}, f.err
+	}
+	return data.Session{ID: sessionID, OrganizationID: ids.XID(organizationID), SchoolYearID: schoolYearID, ProgramID: programID, Name: *input.Name, State: data.SessionVotingOpen, MeetingDates: *input.Dates, RankedChoice: input.RankedChoice}, nil
+}
+
+func (f *fakeSessionUpdateService) GetCatalogFeasibility(context.Context, string, ids.XID, ids.XID, ids.XID) (program.CatalogFeasibility, error) {
+	return program.CatalogFeasibility{}, nil
+}
+
+func TestSessionUpdateRoutePassesConfigurationAndMapsErrors(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		err     error
+		status  int
+		problem problems.Slug
+	}{
+		{"metadata with expired unchanged configuration", nil, http.StatusOK, ""},
+		{"locked configuration", program.ErrRankedChoiceConfigurationLocked, http.StatusConflict, problems.ProgramConflict},
+		{"expired replacement", program.ErrRankedChoiceDeadlineInvalid, http.StatusBadRequest, problems.ProgramConflict},
+		{"complete", program.ErrSessionReadOnly, http.StatusConflict, problems.SessionReadOnly},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			verifier, resolver, token := testAuth(t)
+			service := &fakeSessionUpdateService{err: test.err}
+			router := NewRouter(RouterOptions{Programs: service, Verifier: verifier, Identity: resolver})
+			request := httptest.NewRequest(http.MethodPatch, "/api/school-years/year-test/programs/program-test/sessions/session-test", strings.NewReader(`{"name":"Synthetic renamed session","meeting_dates":["2026-10-23"],"ranked_choice":{"rank_depth":3,"deadline":"2020-01-01T00:00:00Z"}}`))
+			request.Header.Set("Authorization", "Bearer "+token)
+			request.Header.Set("Content-Type", "application/json")
+			recording := httptest.NewRecorder()
+			router.ServeHTTP(recording, request)
+			require.Equal(t, test.status, recording.Code, recording.Body.String())
+			require.Equal(t, "org-test", service.organizationID)
+			require.Equal(t, ids.XID("year-test"), service.schoolYearID)
+			require.Equal(t, ids.XID("program-test"), service.programID)
+			require.Equal(t, ids.XID("session-test"), service.sessionID)
+			require.Equal(t, "Synthetic renamed session", *service.input.Name)
+			require.Equal(t, []time.Time{time.Date(2026, 10, 23, 0, 0, 0, 0, time.UTC)}, *service.input.Dates)
+			require.Equal(t, 3, service.input.RankedChoice.RankDepth)
+			require.True(t, service.input.RankedChoice.Deadline.Equal(time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)))
+			var response map[string]any
+			require.NoError(t, json.NewDecoder(recording.Body).Decode(&response))
+			if test.err != nil {
+				require.Equal(t, string(test.problem), response["type"])
+			} else {
+				require.Equal(t, "voting_open", response["state"])
+				require.Equal(t, "Synthetic renamed session", response["name"])
+			}
+		})
+	}
+}
+
 func TestSessionTransitionRouteUsesCatalogCapabilityAndTypedPayload(t *testing.T) {
 	verifier, resolver, token := testAuth(t)
 	service := &fakeSessionLifecycleService{}
