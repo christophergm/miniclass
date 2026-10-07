@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -12,6 +13,8 @@ import (
 	"github.com/chrismott/miniclass/internal/ids"
 	solverservice "github.com/chrismott/miniclass/internal/solver"
 	"github.com/chrismott/miniclass/internal/solverclient"
+	"github.com/danielgtaylor/huma/v2"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -49,10 +52,20 @@ type RerunSolveRunInput struct {
 	RunID string `path:"runID" minLength:"1"`
 }
 
-type SolveRunHandler struct{ service SolveRunService }
+type SolveRunHandler struct {
+	service SolveRunService
+	logger  *slog.Logger
+}
 
 func NewSolveRunHandler(service SolveRunService) *SolveRunHandler {
 	return &SolveRunHandler{service: service}
+}
+
+func (h *SolveRunHandler) WithLogger(logger *slog.Logger) *SolveRunHandler {
+	if h != nil {
+		h.logger = logger
+	}
+	return h
 }
 
 func (h *SolveRunHandler) Start(ctx context.Context, input *StartSolveRunInput) (*SolveRunOutput, error) {
@@ -65,7 +78,7 @@ func (h *SolveRunHandler) Start(ctx context.Context, input *StartSolveRunInput) 
 	}
 	row, err := h.service.StartAuthoritative(ctx, string(account.OrganizationID), programActor(account), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), ids.XID(input.SessionID), input.Body.Seed)
 	if err != nil {
-		return nil, solveRunProblem(err)
+		return nil, h.problem(ctx, "start", string(account.OrganizationID), input.SessionPathInput, err)
 	}
 	return &SolveRunOutput{Body: solveRunResponse(row)}, nil
 }
@@ -79,7 +92,7 @@ func (h *SolveRunHandler) Get(ctx context.Context, input *SolveRunPathInput) (*S
 	}
 	row, err := h.service.Get(ctx, string(account.OrganizationID), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), ids.XID(input.SessionID), ids.XID(input.RunID))
 	if err != nil {
-		return nil, solveRunProblem(err)
+		return nil, h.problem(ctx, "get", string(account.OrganizationID), input.SessionPathInput, err)
 	}
 	return &SolveRunOutput{Body: solveRunResponse(row)}, nil
 }
@@ -93,10 +106,33 @@ func (h *SolveRunHandler) Rerun(ctx context.Context, input *RerunSolveRunInput) 
 	}
 	row, err := h.service.RerunAuthoritative(ctx, string(account.OrganizationID), programActor(account), ids.XID(input.SchoolYearID), ids.XID(input.ProgramID), ids.XID(input.SessionID), ids.XID(input.RunID))
 	if err != nil {
-		return nil, solveRunProblem(err)
+		return nil, h.problem(ctx, "rerun", string(account.OrganizationID), input.SessionPathInput, err)
 	}
 	return &SolveRunOutput{Body: solveRunResponse(row)}, nil
 }
+
+func (h *SolveRunHandler) problem(ctx context.Context, operation, organizationID string, input SessionPathInput, cause error) error {
+	problem := solveRunProblem(cause)
+	var model *huma.ErrorModel
+	if !errors.As(problem, &model) || model.Status != http.StatusInternalServerError {
+		return problem
+	}
+	logger := h.logger
+	if logger == nil {
+		logger = slog.Default()
+	}
+	logger.ErrorContext(ctx, "solve run failed",
+		slog.String("operation", operation),
+		slog.String("request_id", middleware.GetReqID(ctx)),
+		slog.String("organization_id", organizationID),
+		slog.String("school_year_id", input.SchoolYearID),
+		slog.String("program_id", input.ProgramID),
+		slog.String("session_id", input.SessionID),
+		slog.Any("error", cause),
+	)
+	return problem
+}
+
 func solveRunResponse(row data.SolveRun) SolveRunResponse {
 	var source *string
 	if row.RerunOfSolveRunID != nil {
