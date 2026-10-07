@@ -143,12 +143,12 @@ function row(name: string) {
 
 function warning(host_type: "assignment" | "offering" | "session", host_id: string) {
   return {
-    id: "catalog-area-gap",
+    id: "catalog-grade-gap",
     severity: "warning" as const,
     host_type,
     host_id,
-    message: "No matching area offering",
-    affected_areas: [{ id: "science", label: "Science", high_rating_count: 2 }],
+    message: "No eligible offering for grade",
+    affected_areas: [],
   };
 }
 
@@ -191,7 +191,7 @@ function renderBoard() {
 }
 
 function YearRoute() {
-  return <Outlet context={{ id: "year-1" }} />;
+  return <Outlet context={{ id: "year-1", label: "2026–27" }} />;
 }
 
 describe("AssignmentBoardPage", () => {
@@ -232,10 +232,97 @@ describe("AssignmentBoardPage", () => {
     updateComment.mockResolvedValue({});
     deleteComment.mockResolvedValue({});
   });
+  it.each([
+    { value: "top", label: "Top", symbol: "1", tint: "bg-[#F3FAF8]" },
+    { value: "high", label: "High", symbol: "↑", tint: "bg-[#F6FAF8]" },
+    { value: "acceptable", label: "Acceptable", symbol: "—", tint: "bg-[#FDFAF3]" },
+    {
+      value: "neutral",
+      label: "Neutral — no preference signal",
+      symbol: "?",
+      tint: "bg-[#F8F9FB]",
+    },
+    { value: "unwanted", label: "Unwanted", symbol: "↓", tint: "bg-[#FDF6F8]" },
+    { value: "", label: "Not recorded", symbol: "—", tint: "bg-card" },
+  ])(
+    "shows the $label quality icon after the drag handle without a row badge",
+    ({ value, label, symbol, tint }) => {
+      workspace.assignments = (workspace.assignments ?? []).map((assignment) =>
+        assignment.student_id === "ada" ? { ...assignment, realized_quality: value } : assignment,
+      );
+      renderBoard();
+
+      const placement = row("Ada Synthesis");
+      const icon = within(placement).getByRole("img", { name: `Quality: ${label}` });
+      const handle = within(placement).getByRole("button", { name: "Drag Ada Synthesis" });
+      expect(handle.nextElementSibling).toBe(icon);
+      expect(icon).toHaveTextContent(symbol);
+      expect(icon).toHaveAttribute("title", `Quality: ${label}`);
+      expect(icon).toHaveClass("rounded-full", "border", "size-[18px]");
+      expect(placement).toHaveClass(tint);
+      expect(icon.className).not.toContain("dark:");
+      expect(placement.className).not.toContain("dark:");
+      if (value === "neutral") expect(icon).toHaveClass("text-[#586779]");
+      if (value === "high") expect(icon).toHaveClass("text-[#287A43]");
+      if (value) expect(within(placement).queryByText(value)).not.toBeInTheDocument();
+      expect(within(placement).getByText("Ada Synthesis")).toBeInTheDocument();
+      expect(within(placement).getByRole("img", { name: "Pinned" })).toBeInTheDocument();
+    },
+  );
+
+  it("uses the standard breadcrumb from school year through session to Assignment Board", () => {
+    renderBoard();
+
+    const breadcrumb = screen.getByRole("navigation", { name: "Program breadcrumb" });
+    const links = within(breadcrumb)
+      .getAllByRole("link")
+      .filter((link) => link.hasAttribute("href"));
+    expect(links.map((link) => link.textContent)).toEqual(["2026–27", "Clubs", "Autumn clubs"]);
+    expect(links.map((link) => link.getAttribute("href"))).toEqual([
+      "/y/year-1",
+      "/y/year-1/programs/program-1",
+      "/y/year-1/programs/program-1/sessions/session-1",
+    ]);
+    expect(breadcrumb.querySelector('[aria-current="page"]')).toHaveTextContent("Assignment Board");
+    expect(screen.getByRole("heading", { name: "Assignment Board", level: 1 })).toBeInTheDocument();
+  });
+
+  it("shows unplaced students as the first offering-style card with placement actions", async () => {
+    renderBoard();
+
+    const card = screen.getByRole("region", { name: "Unplaced students" });
+    expect(card.parentElement?.firstElementChild).toBe(card);
+    expect(card.nextElementSibling).toBe(offering("Robotics"));
+    expect(card).toHaveClass("rounded-lg", "border", "bg-card", "p-3");
+    expect(
+      within(card).getByRole("heading", { name: "Unplaced students", level: 3 }),
+    ).toBeInTheDocument();
+    expect(within(card).getByText("1 unplaced")).toBeInTheDocument();
+    expect(within(card).getByRole("button", { name: "Drag Bea Example" })).toBeInTheDocument();
+    expect(within(card).getByRole("button", { name: "Exclusions" })).toBeInTheDocument();
+    fireEvent.click(within(card).getByRole("button", { name: "Place" }));
+    expect(await screen.findByRole("dialog", { name: "Move Bea Example" })).toBeInTheDocument();
+  });
+
+  it("hides the unplaced card entirely when every participant is placed", () => {
+    workspace.assignments = [
+      ...(workspace.assignments ?? []),
+      { ...workspace.assignments![0], id: "assignment-bea", student_id: "bea" },
+    ];
+    renderBoard();
+
+    expect(screen.queryByRole("region", { name: "Unplaced students" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Unplaced students" })).not.toBeInTheDocument();
+    expect(screen.queryByText("0 unplaced")).not.toBeInTheDocument();
+    expect(screen.queryByText("Every participating student is placed.")).not.toBeInTheDocument();
+    const firstOffering = offering("Robotics");
+    expect(firstOffering.parentElement?.firstElementChild).toBe(firstOffering);
+  });
+
   it("shows persisted placements, a prominent unplaced student, and starts a re-solve", async () => {
     renderBoard();
 
-    expect(screen.getByRole("heading", { name: "Assignments" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Assignment Board" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Unplaced students" })).toBeInTheDocument();
     expect(screen.getByText("Bea Example")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Actions for Ada Synthesis" }));
@@ -557,46 +644,70 @@ describe("AssignmentBoardPage", () => {
     });
   });
 
-  it("shows count-only placement metrics that stay unchanged by board search", () => {
+  it("shows ordered quality icons followed by nonzero no-preferences and warning badges", () => {
+    quality.quality_distribution = { unwanted: 5, neutral: 4, acceptable: 3, high: 2, top: 1 };
     quality.no_signal = quality.placements ?? [];
+    quality.warnings = [warning("assignment", "assignment-ada")];
     renderBoard();
 
-    for (const title of ["Unwanted placements", "No preference signal"]) {
-      const card = screen.getByRole("region", { name: title });
-      expect(within(card).getByRole("heading", { name: title })).toBeInTheDocument();
-      expect(within(card).getByText("1")).toBeInTheDocument();
-      expect(within(card).queryByRole("list")).not.toBeInTheDocument();
-      expect(within(card).queryByRole("button")).not.toBeInTheDocument();
-      expect(within(card).queryByText("Ada Synthesis")).not.toBeInTheDocument();
-    }
-    expect(screen.queryByRole("textbox", { name: "Filter named review" })).not.toBeInTheDocument();
+    const summary = screen.getByRole("group", { name: "Assignment quality" });
+    const icons = within(summary).getAllByRole("img");
+    expect(icons.map((icon) => icon.textContent)).toEqual(["1", "↑", "—", "?", "↓"]);
+    expect(icons.map((icon) => icon.closest("dt")?.nextElementSibling?.textContent)).toEqual([
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+    ]);
+    const noPreferences = within(summary).getByText("1 no preferences");
+    const warningCount = within(summary).getByText("1 warnings");
+    expect(summary.querySelector("dl")?.nextElementSibling).toBe(noPreferences);
+    expect(noPreferences.nextElementSibling).toBe(warningCount);
+    expect(screen.queryByRole("group", { name: "No preferences" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Offering board" })).not.toBeInTheDocument();
+    const title = screen.getByRole("heading", { name: "Assignment Board", level: 1 });
+    expect(title.nextElementSibling).toHaveTextContent("Revision 4");
+    expect(screen.queryByText(/Saved placements, pins, and constraints/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Quality distribution" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Offering occupancy" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Unwanted placements" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "No preference signal" })).not.toBeInTheDocument();
+    expect(within(summary).queryByRole("button")).not.toBeInTheDocument();
+    expect(within(noPreferences).queryByText("Ada Synthesis")).not.toBeInTheDocument();
     fireEvent.change(screen.getByRole("textbox", { name: "Find a student" }), {
       target: { value: "No matching student" },
     });
-    expect(
-      within(screen.getByRole("region", { name: "Unwanted placements" })).getByText("1"),
-    ).toBeInTheDocument();
-    expect(
-      within(screen.getByRole("region", { name: "No preference signal" })).getByText("1"),
-    ).toBeInTheDocument();
+    expect(within(summary).getByText("1 no preferences")).toBeInTheDocument();
+    expect(within(summary).getByText("1 warnings")).toBeInTheDocument();
+    expect(icons.map((icon) => icon.closest("dt")?.nextElementSibling?.textContent)).toEqual([
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+    ]);
   });
 
-  it("shows zero in placement metrics when there are no concerns", () => {
-    quality.unwanted = [];
+  it("shows zero for absent quality categories and hides empty summary badges", () => {
+    quality.quality_distribution = {};
     quality.no_signal = null;
     renderBoard();
-    for (const title of ["Unwanted placements", "No preference signal"]) {
-      expect(
-        within(screen.getByRole("region", { name: title })).getByText("0"),
-      ).toBeInTheDocument();
-    }
+
+    const summary = screen.getByRole("group", { name: "Assignment quality" });
+    expect(within(summary).getAllByRole("img")).toHaveLength(5);
+    expect(within(summary).getAllByText("0")).toHaveLength(5);
+    expect(within(summary).queryByText(/no preferences/)).not.toBeInTheDocument();
+    expect(within(summary).queryByText(/warnings/)).not.toBeInTheDocument();
+    expect(within(summary).queryByText(/area gaps/)).not.toBeInTheDocument();
+    expect(screen.queryByText("0 warnings")).not.toBeInTheDocument();
   });
 
   it("keeps draft metrics and records warning acknowledgement through assignment details", async () => {
     renderBoard();
 
-    expect(screen.getByRole("heading", { name: "Review draft" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Quality distribution" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Review draft" })).not.toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Assignment quality" })).toBeInTheDocument();
     await chooseAction("Ada Synthesis", "Details");
     expect(
       await screen.findByRole("dialog", { name: "Ada Synthesis details" }),
@@ -697,6 +808,44 @@ describe("AssignmentBoardPage", () => {
     expect(within(offering("Art")).queryByText(/^Available/)).not.toBeInTheDocument();
   });
 
+  it("summarizes area gaps without inline badges and preserves their review details", async () => {
+    const gap = {
+      ...warning("assignment", "assignment-ada"),
+      id: "catalog-area-gap",
+      message: "No matching area offering",
+      affected_areas: [{ id: "science", label: "Science", high_rating_count: 2 }],
+    };
+    quality.warnings = [
+      gap,
+      { ...gap, host_type: "offering", host_id: "robots" },
+      { ...gap, host_type: "session", host_id: "session-1" },
+      warning("assignment", "assignment-ada"),
+    ];
+    renderBoard();
+
+    const summary = screen.getByRole("group", { name: "Assignment quality" });
+    expect(within(summary).getByText("3 area gaps")).toBeInTheDocument();
+    expect(within(summary).getByText("4 warnings")).toBeInTheDocument();
+    expect(screen.queryByText(/Area gap:/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Review warning: No matching area offering/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(row("Ada Synthesis")).getAllByRole("button", { name: /^Review warning:/ }),
+    ).toHaveLength(1);
+    expect(
+      within(screen.getByRole("region", { name: "Session warnings" })).queryByRole("button"),
+    ).not.toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox", { name: "Find a student" }), {
+      target: { value: "Ada" },
+    });
+    expect(within(summary).getByText("3 area gaps")).toBeInTheDocument();
+    await chooseAction("Ada Synthesis", "Details");
+    const details = await screen.findByRole("dialog", { name: "Ada Synthesis details" });
+    expect(within(details).getByText("No matching area offering")).toBeInTheDocument();
+    expect(within(details).getByText("Science: 2 very interested")).toBeInTheDocument();
+  });
+
   it("preserves duplicate-looking warning occurrences on assignments, offerings, and sessions", async () => {
     quality.warnings = [
       warning("assignment", "assignment-ada"),
@@ -718,8 +867,7 @@ describe("AssignmentBoardPage", () => {
     expect(within(session).getAllByRole("button", { name: /^Review warning:/ })).toHaveLength(2);
     fireEvent.click(within(session).getAllByRole("button", { name: /^Review warning:/ })[0]);
     const details = await screen.findByRole("dialog", { name: "Autumn clubs details" });
-    expect(within(details).getAllByText("No matching area offering")).toHaveLength(2);
-    expect(within(details).getAllByText("Science: 2 very interested")).toHaveLength(2);
+    expect(within(details).getAllByText("No eligible offering for grade")).toHaveLength(2);
   });
 
   it("ANDs warnings and overrides filters with student search and hides available places in either mode", () => {
@@ -1267,7 +1415,7 @@ describe("AssignmentBoardPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add comment" }));
     await waitFor(() => expect(screen.getByText("Reviewed warning")).toBeInTheDocument());
     const details = screen.getByRole("dialog", { name: "Ada Synthesis details" });
-    expect(within(details).getAllByText("No matching area offering")).toHaveLength(2);
+    expect(within(details).getAllByText("No eligible offering for grade")).toHaveLength(2);
     fireEvent.keyDown(details, { key: "Escape" });
     expect(
       within(row("Ada Synthesis")).getAllByRole("button", { name: /acknowledged by comment/ }),

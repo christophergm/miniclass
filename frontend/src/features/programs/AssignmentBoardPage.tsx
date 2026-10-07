@@ -18,12 +18,22 @@ import { type ReactNode, useMemo, useState } from "react";
 import { Link, useOutletContext, useParams } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ModalForm } from "@/components/ui/modal-form";
 import { ApiError } from "@/lib/api";
 import type { AssignmentQuality, AssignmentWorkspace, SchoolYear } from "@/lib/apiResources";
 import { useAccount } from "@/lib/hooks/useAccount";
+import { AssignmentQualityIcon } from "./AssignmentQualityIcon";
+import { qualityStyle } from "./assignmentQualityStyles";
 import { AssignmentReviewPanel, type Host, WarningBadges } from "./AssignmentReviewPanel";
 import {
   useAssignmentQuality,
@@ -160,7 +170,7 @@ function DraggableStudentRow({
   const preview = (
     <div
       aria-hidden="true"
-      className={`${className} flex flex-wrap items-center gap-2 bg-card shadow-lg ring-2 ring-primary`}
+      className={`${className} flex flex-wrap items-center gap-2 shadow-lg ring-2 ring-primary`}
       data-testid="assignment-drag-preview"
     >
       <span className="inline-flex size-8 shrink-0 items-center justify-center text-muted-foreground">
@@ -282,11 +292,12 @@ function OfferingCard({
             ];
             return (
               <DraggableStudentRow
-                className="group rounded border px-2 py-1 text-sm"
+                className={`group rounded border px-2 py-1 text-sm ${qualityStyle(assignment.realized_quality).row}`}
                 id={`assignment-${assignment.id}`}
                 student={student}
                 key={assignment.id}
               >
+                <AssignmentQualityIcon quality={assignment.realized_quality} />
                 <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
                   <span className="font-medium">{name}</span>
                   <span className="text-muted-foreground">
@@ -319,9 +330,6 @@ function OfferingCard({
                     <Badge variant="secondary">Exclusions</Badge>
                   )}
 
-                  {assignment.realized_quality && (
-                    <Badge variant="outline">{assignment.realized_quality}</Badge>
-                  )}
                   <Menu.Root>
                     <Menu.Trigger
                       aria-label={`Actions for ${name}`}
@@ -624,7 +632,7 @@ export function AssignmentBoardPage() {
   if (workspace.isError || quality.isError)
     return (
       <main className="mx-auto w-full max-w-6xl px-6 py-8">
-        <h1 className="font-semibold text-3xl tracking-tight">Assignments</h1>
+        <h1 className="font-semibold text-3xl tracking-tight">Assignment Board</h1>
         <p
           className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 p-4 text-destructive text-sm"
           role="alert"
@@ -665,25 +673,39 @@ export function AssignmentBoardPage() {
       }}
     >
       <main className="mx-auto w-full max-w-6xl px-6 pt-4 pb-10">
-        <nav className="text-muted-foreground text-sm">
-          <Link className="hover:underline" to={`/y/${year.id}/programs/${programId}`}>
-            {selectedProgram?.name ?? "Program"}
-          </Link>
-          <span aria-hidden="true"> / </span>
-          <Link
-            className="hover:underline"
-            to={`/y/${year.id}/programs/${programId}/sessions/${sessionId}`}
-          >
-            {workspace.data?.session.name ?? "Session"}
-          </Link>
-          <span aria-hidden="true"> / Assignments</span>
-        </nav>
+        <Breadcrumb aria-label="Program breadcrumb">
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link to={`/y/${year.id}`}>{year.label}</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link to={`/y/${year.id}/programs/${programId}`}>
+                  {selectedProgram?.name ?? "Program"}
+                </Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link to={`/y/${year.id}/programs/${programId}/sessions/${sessionId}`}>
+                  {workspace.data?.session.name ?? "Session"}
+                </Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>Assignment Board</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
         <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="font-semibold text-3xl tracking-tight">Assignments</h1>
-            <p className="mt-1 text-muted-foreground text-sm">
-              Draft revision {revision}. Saved placements, pins, and constraints are shown below.
-            </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="font-semibold text-3xl tracking-tight">Assignment Board</h1>
+            <span className="text-muted-foreground text-sm">Revision {revision}</span>
           </div>
           <div className="flex gap-2">
             <Button onClick={refresh} type="button" variant="outline">
@@ -729,80 +751,7 @@ export function AssignmentBoardPage() {
             </p>
           </section>
         )}
-        <section
-          aria-labelledby="unplaced-heading"
-          className="mt-6 rounded-lg border border-amber-300 bg-amber-50 p-5"
-        >
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="font-semibold" id="unplaced-heading">
-                Unplaced students
-              </h2>
-              <p className="text-muted-foreground text-sm">
-                Students without a current assignment need attention.
-              </p>
-            </div>
-            <Badge variant={unplaced.length ? "destructive" : "secondary"}>
-              {unplaced.length} unplaced
-            </Badge>
-          </div>
-          {unplaced.length ? (
-            <ul className="mt-3 grid gap-2 sm:grid-cols-2">
-              {unplaced.map((student) => (
-                <DraggableStudentRow
-                  className="rounded border bg-background px-3 py-2 text-sm"
-                  student={student}
-                  key={student.student_id}
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span>{studentName(student)}</span>
-                    <span className="text-muted-foreground">
-                      {student.grade_label || "Grade unknown"}
-                    </span>
-                    <span className="text-muted-foreground">
-                      {student.homeroom_name || "Homeroom unknown"}
-                    </span>
-                    {excludedStudentIDs.has(student.student_id) && (
-                      <Badge variant="secondary">Exclusions</Badge>
-                    )}
-                  </div>
-                  <div className="mt-2 flex gap-2">
-                    <Button
-                      onClick={() =>
-                        setEditor({
-                          kind: "move",
-                          studentID: student.student_id,
-                          offeringID: offerings[0]?.id ?? "",
-                        })
-                      }
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                    >
-                      Place
-                    </Button>
-                    <Button
-                      onClick={() =>
-                        setEditor({
-                          kind: "exclusion",
-                          studentID: student.student_id,
-                          offeringID: offerings[0]?.id ?? "",
-                        })
-                      }
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                    >
-                      Exclusions
-                    </Button>
-                  </div>
-                </DraggableStudentRow>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-3 text-sm">Every participating student is placed.</p>
-          )}
-        </section>
+
         {workspace.data && quality.data && programId && sessionId && (
           <AssignmentReviewPanel
             selectedHost={selectedHost}
@@ -816,12 +765,6 @@ export function AssignmentBoardPage() {
         )}
         <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <div className="flex items-center gap-3">
-              <h2 className="font-semibold text-xl">Offering board</h2>
-              <Badge variant={warnings.length ? "secondary" : "outline"}>
-                {warnings.length} warnings
-              </Badge>
-            </div>
             <p className="text-muted-foreground text-sm">
               Drag a student to an offering, or use the Move and Swap controls for keyboard
               operation.
@@ -844,16 +787,14 @@ export function AssignmentBoardPage() {
               />
               Overrides only
             </label>
-            <label className="font-medium text-sm" htmlFor="assignment-student-filter">
-              Find a student
-              <Input
-                className="mt-1"
-                id="assignment-student-filter"
-                onChange={(event) => setFilter(event.target.value)}
-                placeholder="Search students"
-                value={filter}
-              />
-            </label>
+            <Input
+              aria-label="Find a student"
+              className="w-auto"
+              id="assignment-student-filter"
+              onChange={(event) => setFilter(event.target.value)}
+              placeholder="Search students"
+              value={filter}
+            />
           </div>
         </div>
         <section aria-label="Session warnings" className="mt-3" id={`session-${sessionId}`}>
@@ -864,6 +805,68 @@ export function AssignmentBoardPage() {
           />
         </section>
         <div className="mt-4 grid grid-cols-1 gap-3">
+          {unplaced.length > 0 && (
+            <section aria-labelledby="unplaced-heading" className="rounded-lg border bg-card p-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <h3 className="font-semibold" id="unplaced-heading">
+                  Unplaced students
+                </h3>
+                <span className="text-muted-foreground text-sm">{unplaced.length} unplaced</span>
+              </div>
+              <ul className="mt-2 space-y-1">
+                {unplaced.map((student) => (
+                  <DraggableStudentRow
+                    className="rounded border bg-background px-2 py-1 text-sm"
+                    student={student}
+                    key={student.student_id}
+                  >
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+                      <span className="font-medium">{studentName(student)}</span>
+                      <span className="text-muted-foreground">
+                        {student.grade_label || "Grade unknown"}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {student.homeroom_name || "Homeroom unknown"}
+                      </span>
+                      {excludedStudentIDs.has(student.student_id) && (
+                        <Badge variant="secondary">Exclusions</Badge>
+                      )}
+                    </div>
+                    <div className="ml-auto flex flex-wrap items-center justify-end gap-1">
+                      <Button
+                        onClick={() =>
+                          setEditor({
+                            kind: "move",
+                            studentID: student.student_id,
+                            offeringID: offerings[0]?.id ?? "",
+                          })
+                        }
+                        size="sm"
+                        type="button"
+                        variant="outline"
+                      >
+                        Place
+                      </Button>
+                      <Button
+                        onClick={() =>
+                          setEditor({
+                            kind: "exclusion",
+                            studentID: student.student_id,
+                            offeringID: offerings[0]?.id ?? "",
+                          })
+                        }
+                        size="sm"
+                        type="button"
+                        variant="outline"
+                      >
+                        Exclusions
+                      </Button>
+                    </div>
+                  </DraggableStudentRow>
+                ))}
+              </ul>
+            </section>
+          )}
           {offerings
             .filter(
               (offering) =>
