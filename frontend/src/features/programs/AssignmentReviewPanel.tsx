@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { ModalForm } from "@/components/ui/modal-form";
 import type { AssignmentQuality, AssignmentWorkspace } from "@/lib/apiResources";
 import { useAccount } from "@/lib/hooks/useAccount";
+import { AssignmentQualityIcon } from "./AssignmentQualityIcon";
+import { assignmentQualityOrder } from "./assignmentQualityStyles";
 
 import {
   useCreatePlacementComment,
@@ -36,21 +38,8 @@ function hostLabel(host: Host, workspace: Workspace, assignments: Assignment[]) 
     : "Unknown placement";
 }
 
-function navigateTo(host: Host) {
-  document
-    .getElementById(`${host.type}-${host.id}`)
-    ?.scrollIntoView({ behavior: "smooth", block: "center" });
-}
-
 const warningMessage = (warning: Warning) =>
   warning.message?.trim() || warning.id.replace(/[-_]+/g, " ");
-
-function warningBadgeText(warning: Warning) {
-  if (warning.id === "catalog-area-gap" && warning.affected_areas?.length) {
-    return `Area gap: ${warning.affected_areas.map((area) => area.label).join(", ")}`;
-  }
-  return warningMessage(warning);
-}
 
 function warningDetails(warning: Warning) {
   const areas = (warning.affected_areas ?? []).map(
@@ -70,30 +59,23 @@ export function WarningBadges({
 }) {
   return (
     <div className="flex flex-wrap gap-1">
-      {warnings.map((warning, occurrenceIndex) => (
-        <Button
-          aria-label={`Review warning: ${warningDetails(warning)}${commented ? "; acknowledged by comment" : ""}`}
-          className="h-auto whitespace-normal rounded-md border-transparent bg-amber-100 px-2 py-0.5 text-left text-xs font-medium text-amber-800 hover:bg-amber-200"
-          key={occurrenceIndex}
-          onClick={() => onReview({ type: warning.host_type, id: warning.host_id })}
-          title={warningDetails(warning)}
-          type="button"
-          variant="outline"
-        >
-          {warningBadgeText(warning)}
-          {commented && <span> — Commented</span>}
-        </Button>
-      ))}
+      {warnings
+        .filter((warning) => warning.id !== "catalog-area-gap")
+        .map((warning, occurrenceIndex) => (
+          <Button
+            aria-label={`Review warning: ${warningDetails(warning)}${commented ? "; acknowledged by comment" : ""}`}
+            className="h-auto whitespace-normal rounded-md border-transparent bg-amber-100 px-2 py-0.5 text-left text-xs font-medium text-amber-800 hover:bg-amber-200"
+            key={occurrenceIndex}
+            onClick={() => onReview({ type: warning.host_type, id: warning.host_id })}
+            title={warningDetails(warning)}
+            type="button"
+            variant="outline"
+          >
+            {warningMessage(warning)}
+            {commented && <span> — Commented</span>}
+          </Button>
+        ))}
     </div>
-  );
-}
-
-function ReviewMetric({ title, count }: { title: string; count: number }) {
-  return (
-    <section aria-label={title} className="rounded-lg border bg-card p-4">
-      <h3 className="font-semibold">{title}</h3>
-      <p className="mt-2 font-semibold text-3xl tabular-nums">{count}</p>
-    </section>
   );
 }
 
@@ -122,6 +104,9 @@ export function AssignmentReviewPanel({
   const updateComment = useUpdatePlacementComment(schoolYearID, programID, sessionID);
   const deleteComment = useDeletePlacementComment(schoolYearID, programID, sessionID);
   const assignments = workspace.assignments ?? [];
+  const areaGapCount = (quality.warnings ?? []).filter(
+    (warning) => warning.id === "catalog-area-gap",
+  ).length;
 
   const canViewSensitive = ["owner", "administrator"].includes(
     account.data?.role.toLocaleLowerCase() ?? "",
@@ -146,31 +131,12 @@ export function AssignmentReviewPanel({
     setDraft("");
     setSensitivity("internal");
   }, [selectedHost?.type, selectedHost?.id]);
-  const openDetails = (host: Host) => {
-    onSelectHost(host);
-    setEditingID(null);
-    setDraft("");
-    setSensitivity("internal");
-  };
+
   const warningsForHost = (host: Host) =>
     (quality.warnings ?? []).filter(
       (warning) => warning.host_type === host.type && warning.host_id === host.id,
     );
-  const overriddenAssignments = new Set(
-    (workspace.overrides ?? []).map((override) => override.assignment_id),
-  );
-  const renderHostBadges = (host: Host) => (
-    <div className="flex flex-wrap items-center gap-1">
-      {host.type === "assignment" && overriddenAssignments.has(host.id) && (
-        <Badge variant="warning">Override</Badge>
-      )}
-      <WarningBadges
-        commented={(commentsByHost.get(hostKey(host)) ?? []).length > 0}
-        onReview={openDetails}
-        warnings={warningsForHost(host)}
-      />
-    </div>
-  );
+
   const selectedWarnings = selectedHost ? warningsForHost(selectedHost) : [];
   const selectedComments = selectedHost ? (commentsByHost.get(hostKey(selectedHost)) ?? []) : [];
   const selectedAssignment =
@@ -205,64 +171,32 @@ export function AssignmentReviewPanel({
   };
 
   return (
-    <section aria-labelledby="assignment-review-heading" className="mt-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h2 className="font-semibold text-xl" id="assignment-review-heading">
-            Review draft
-          </h2>
-          <p className="text-muted-foreground text-sm">
-            Review placement concerns on the offering board; warnings remain visible after
-            acknowledgement by comment.
-          </p>
-        </div>
-      </div>
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <ReviewMetric title="Unwanted placements" count={(quality.unwanted ?? []).length} />
-        <ReviewMetric title="No preference signal" count={(quality.no_signal ?? []).length} />
-      </div>
-
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <section className="rounded-lg border bg-card p-4">
-          <h3 className="font-semibold">Quality distribution</h3>
-          <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
-            {Object.entries(quality.quality_distribution ?? {}).map(([name, count]) => (
-              <div className="rounded border px-3 py-2" key={name}>
-                <dt className="capitalize">{name}</dt>
-                <dd className="font-semibold">{count}</dd>
-              </div>
-            ))}
-          </dl>
-        </section>
-        <section className="rounded-lg border bg-card p-4">
-          <h3 className="font-semibold">Offering occupancy</h3>
-          <ul className="mt-3 space-y-2 text-sm">
-            {(quality.offerings ?? []).map((offering) => {
-              const host = { type: "offering" as const, id: offering.offering_id };
-              return (
-                <li className="flex justify-between gap-2" key={offering.offering_id}>
-                  <div className="min-w-0 space-y-1">
-                    <Button
-                      className="h-auto border-0 p-0 text-primary shadow-none hover:bg-transparent hover:text-primary hover:underline"
-                      onClick={() => {
-                        navigateTo(host);
-                        openDetails(host);
-                      }}
-                      type="button"
-                      variant="outline"
-                    >
-                      {hostLabel(host, workspace, assignments)}
-                    </Button>
-                    {renderHostBadges(host)}
-                  </div>
-                  <span>
-                    {offering.enrolled} / {offering.capacity}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
+    <section aria-label="Assignment review" className="mt-4 space-y-2 text-sm">
+      <div
+        aria-label="Assignment quality"
+        role="group"
+        className="flex flex-wrap items-center gap-x-4 gap-y-2"
+      >
+        <span className="font-medium">Assignment quality:</span>
+        <dl className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          {assignmentQualityOrder.map((name) => (
+            <div className="inline-flex items-center gap-2" key={name}>
+              <dt>
+                <AssignmentQualityIcon quality={name} />
+              </dt>
+              <dd className="font-semibold tabular-nums">
+                {quality.quality_distribution?.[name] ?? 0}
+              </dd>
+            </div>
+          ))}
+        </dl>
+        {(quality.no_signal ?? []).length > 0 && (
+          <Badge variant="secondary">{(quality.no_signal ?? []).length} no preferences</Badge>
+        )}
+        {areaGapCount > 0 && <Badge variant="secondary">{areaGapCount} area gaps</Badge>}
+        {(quality.warnings ?? []).length > 0 && (
+          <Badge variant="secondary">{(quality.warnings ?? []).length} warnings</Badge>
+        )}
       </div>
       <ModalForm
         description="Comments record review reasoning; they do not dismiss warnings."

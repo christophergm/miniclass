@@ -113,12 +113,12 @@ test.beforeEach(async ({ page }) => {
   });
   const workspace = initialWorkspace();
   const warning = {
-    id: "catalog-area-gap",
+    id: "grade-out-of-range",
     severity: "warning",
     host_type: "assignment",
     host_id: "assignment-0",
-    message: "No matching area offering",
-    affected_areas: [{ id: "science", label: "Science", high_rating_count: 2 }],
+    message: "Grade outside offering range",
+    affected_areas: [],
   };
   const year = { id: "year-1", label: "2026–27", state: "active" };
   const routes: Record<string, unknown> = {
@@ -240,7 +240,7 @@ test.beforeEach(async ({ page }) => {
     },
   );
   await page.goto(base);
-  await expect(page.getByRole("heading", { name: "Assignments", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Assignment Board", exact: true })).toBeVisible();
   await expect(page.getByRole("region", { name: "Robotics placements" })).toBeVisible();
 });
 
@@ -283,7 +283,7 @@ async function expectOriginalPlacement(page: Page) {
       .getByRole("region", { name: "Art placements" })
       .getByText("Ada Synthesis", { exact: true }),
   ).toHaveCount(0);
-  await expect(page.getByText(/Draft revision 4\./)).toBeVisible();
+  await expect(page.getByText("Revision 4", { exact: true })).toBeVisible();
 }
 
 async function expectUnchangedPlacement(page: Page) {
@@ -316,7 +316,7 @@ async function expectSavedMove(
   });
   await expect(destination.getByText(name, { exact: true })).toBeVisible();
   await expect(source.getByText(name, { exact: true })).toHaveCount(0);
-  await expect(page.getByText(/Draft revision 5\./)).toBeVisible();
+  await expect(page.getByText("Revision 5", { exact: true })).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   const state = observations.get(page)!;
   expect(state.moves).toEqual([ordinaryMove(studentID, offeringID)]);
@@ -362,7 +362,7 @@ test.describe("mobile touch assignment board (#323)", () => {
     await expect(row.getByText("Room 1", { exact: true })).toBeVisible();
     await expect(
       row.getByRole("button", {
-        name: /Review warning: No matching area offering; Science: 2 very interested/,
+        name: /Review warning: Grade outside offering range/,
       }),
     ).toBeVisible();
     await trigger.tap();
@@ -379,7 +379,7 @@ test.describe("mobile touch assignment board (#323)", () => {
     await dialog.getByRole("button", { name: "Done", exact: true }).tap();
     await expect(dialog).not.toBeVisible();
     await expect(row.getByText("Exclusions", { exact: true })).toBeVisible();
-    await expect(page.getByText(/Draft revision 5\./)).toBeVisible();
+    await expect(page.getByText("Revision 5", { exact: true })).toBeVisible();
     await trigger.tap();
     await page.getByRole("menuitem", { name: "Exclusions", exact: true }).tap();
     await expect(dialog.getByRole("checkbox", { name: "Art", exact: true })).toBeChecked();
@@ -493,9 +493,10 @@ test.describe("desktop assignment board (#323)", () => {
     const { start, end, destination } = await startMouseDrag(page);
     const preview = page.locator(previewSelector);
     await expect(preview).toHaveAttribute("aria-hidden", "true");
-    for (const text of ["Ada Synthesis", "Grade 1", "Room 1", "Area gap: Science", "top"]) {
+    for (const text of ["Ada Synthesis", "Grade 1", "Room 1", "Grade outside offering range"]) {
       await expect(preview.getByText(text, { exact: true })).toBeVisible();
     }
+    await expect(preview.locator('[aria-label="Quality: Top"]')).toBeVisible();
     const pinIcon = preview.locator('svg[aria-label="Pinned"]');
     await expect(pinIcon).toBeVisible();
     await expect(pinIcon.locator("..")).toHaveText("Room 1");
@@ -566,7 +567,7 @@ test.describe("desktop assignment board (#323)", () => {
         .getByRole("region", { name: "Robotics placements" })
         .getByText("Ada Synthesis", { exact: true }),
     ).toHaveCount(0);
-    await expect(page.getByText(/Draft revision 5\./)).toBeVisible();
+    await expect(page.getByText("Revision 5", { exact: true })).toBeVisible();
     await expect(page.getByRole("dialog")).toHaveCount(0);
     expect(state.moves).toEqual([
       ordinaryMove(),

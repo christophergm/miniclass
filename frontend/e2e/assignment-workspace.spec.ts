@@ -3,7 +3,9 @@ import { expect, type Page, test } from "@playwright/test";
 const apiBase = "/api/school-years/year-1/programs/program-1/sessions/session-1";
 type Assignment = { id: string; student_id: string; offering_id: string; pinned: boolean };
 
-function workspace(assignments: Assignment[], revision: number) {
+type Exclusion = { id: string; student_id: string; offering_id: string };
+
+function workspace(assignments: Assignment[], revision: number, exclusions: Exclusion[] = []) {
   return {
     session: { id: "session-1", name: "Synthetic placement session" },
     draft_revision: revision,
@@ -16,7 +18,7 @@ function workspace(assignments: Assignment[], revision: number) {
       { id: "art", name: "Art", capacity: 2 },
     ],
     assignments,
-    exclusions: [],
+    exclusions,
     overrides: [],
     comments: [],
     ranked_choice_answers: [],
@@ -82,10 +84,11 @@ test("an administrator can complete and reopen a synthetic placement draft witho
   await mockAdministrator(page);
   let assignments: Assignment[] = [];
   let revision = 0;
+  const exclusions: Exclusion[] = [];
   const requests: string[] = [];
   await page.route(
     (url) => url.pathname === `${apiBase}/assignment-workspace`,
-    (route) => route.fulfill({ json: workspace(assignments, revision) }),
+    (route) => route.fulfill({ json: workspace(assignments, revision, exclusions) }),
   );
   await page.route(
     (url) => url.pathname === `${apiBase}/assignment-quality`,
@@ -124,8 +127,15 @@ test("an administrator can complete and reopen a synthetic placement draft witho
     (url) => url.pathname === `${apiBase}/assignment-exclusions`,
     async (route) => {
       requests.push("exclude");
+      const body = route.request().postDataJSON();
+      const exclusion = {
+        id: "exclusion-ada",
+        student_id: body.student_id,
+        offering_id: body.offering_id,
+      };
+      exclusions.push(exclusion);
       revision += 1;
-      await route.fulfill({ json: workspace(assignments, revision) });
+      await route.fulfill({ json: exclusion });
     },
   );
   await page.route(
@@ -143,20 +153,47 @@ test("an administrator can complete and reopen a synthetic placement draft witho
   await page.getByRole("button", { name: "Place" }).first().click();
   await page.getByRole("combobox", { name: "Offering" }).selectOption("robots");
   await page.getByRole("button", { name: "Move and pin" }).click();
-  await expect(page.getByRole("button", { name: "Unpin Ada Synthetic" })).toBeVisible();
-  // The suite uses a mobile viewport, where Playwright's physical drag gesture
-  // is touch-oriented. Dispatch the HTML drag lifecycle directly to exercise
-  // the board's desktop drag-and-drop handlers alongside the keyboard flow.
-  await page.getByText("Bea Synthetic").dispatchEvent("dragstart");
-  await page.getByLabel("Art placements").dispatchEvent("drop");
-  await page.getByRole("button", { name: "Move and pin" }).click();
-  await expect(page.getByRole("button", { name: "Unpin Bea Synthetic" })).toBeVisible();
-  await page.getByRole("button", { name: "Unpin Ada Synthetic" }).click();
-  await page.getByRole("button", { name: "Manage exclusions for Ada Synthetic" }).click();
-  await page.getByRole("button", { name: "Add exclusion" }).click();
+  const adaRow = page.locator("#assignment-assignment-ada");
+  await expect(adaRow.getByRole("img", { name: "Pinned", exact: true })).toBeVisible();
+  const beaHandle = page.getByRole("button", { name: "Drag Bea Synthetic", exact: true });
+  await beaHandle.focus();
+  await page.keyboard.press("Space");
+  await expect(page.getByTestId("assignment-drag-preview")).toBeVisible();
+  await page.keyboard.press("ArrowDown");
+  await expect(page.getByRole("region", { name: "Robotics placements" })).toHaveAttribute(
+    "data-drop-target",
+    "true",
+  );
+  await page.keyboard.press("ArrowDown");
+  await expect(page.getByRole("region", { name: "Art placements" })).toHaveAttribute(
+    "data-drop-target",
+    "true",
+  );
+  await page.keyboard.press("Space");
+  const beaRow = page.locator("#assignment-assignment-bea");
+  await expect(
+    page
+      .getByRole("region", { name: "Art placements" })
+      .getByText("Bea Synthetic", { exact: true }),
+  ).toBeVisible();
+  await expect(beaRow.getByRole("img", { name: "Pinned", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Actions for Ada Synthetic" }).click();
+  await page.getByRole("menuitem", { name: "Unpin", exact: true }).click();
+  await expect(adaRow.getByRole("img", { name: "Pinned", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Actions for Ada Synthetic" }).click();
+  await page.getByRole("menuitem", { name: "Exclusions", exact: true }).click();
+  const exclusionsDialog = page.getByRole("dialog", { name: "Exclusions for Ada Synthetic" });
+  const artExclusion = exclusionsDialog.getByRole("checkbox", { name: "Art", exact: true });
+  await artExclusion.click();
+  await expect(artExclusion).toBeChecked();
+  await exclusionsDialog.getByRole("button", { name: "Done", exact: true }).click();
   await page.getByRole("button", { name: "Re-solve draft" }).click();
   await expect.poll(() => requests).toEqual(["move", "move", "unpin", "exclude", "solve"]);
   await page.reload();
-  await expect(page.getByText("Ada Synthetic").first()).toBeVisible();
+  await expect(adaRow.getByText("Ada Synthetic", { exact: true })).toBeVisible();
+  await expect(adaRow.getByRole("img", { name: "Pinned", exact: true })).toHaveCount(0);
+  await expect(adaRow.getByText("Exclusions", { exact: true })).toBeVisible();
+  await expect(beaRow.getByText("Bea Synthetic", { exact: true })).toBeVisible();
+  await expect(page.getByText("Revision 4", { exact: true })).toBeVisible();
   await expect(page.getByText(/Nothing is finalised or published/)).not.toBeVisible();
 });
