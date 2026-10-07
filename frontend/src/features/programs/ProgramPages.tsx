@@ -1037,6 +1037,9 @@ export function ProgramMembershipPage() {
   const selected = programs.data?.find((program) => program.id === programId);
   const memberships = useProgramMemberships(schoolYearId, programId);
   const students = usePeople("student", schoolYearId);
+  const studentNames = new Map(
+    (students.data ?? []).map((student) => [student.id, student.display_name]),
+  );
   const addMembership = useAddProgramMembership(schoolYearId ?? "", programId ?? "");
   const removeMembership = useRemoveProgramMembership(schoolYearId ?? "", programId ?? "");
   const [studentId, setStudentId] = useState("");
@@ -1109,7 +1112,8 @@ export function ProgramMembershipPage() {
                     className="font-medium text-primary hover:underline"
                     to={`/y/${schoolYearId}/students/${membership.student_id}`}
                   >
-                    {membership.legal_given_name} {membership.legal_family_name}
+                    {studentNames.get(membership.student_id) ||
+                      `${membership.legal_given_name} ${membership.legal_family_name}`}
                   </Link>
                 </TableCell>
                 <TableCell>
