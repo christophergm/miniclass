@@ -7,14 +7,24 @@ import (
 
 	"github.com/chrismott/miniclass/internal/data"
 	"github.com/chrismott/miniclass/internal/ids"
+	"github.com/chrismott/miniclass/internal/people"
 )
+
+// AssignmentParticipant adds persisted roster context to a workspace membership.
+type AssignmentParticipant struct {
+	data.ProgramMembership
+	DisplayName  string
+	GradeLabel   string
+	GradeOrdinal *int
+	HomeroomName string
+}
 
 // AssignmentWorkspace is the complete persisted draft projection used by
 // administrator placement clients (SPEC §§8.6, 16.2, 17.13, 18.1).
 // It intentionally represents an empty or incomplete draft as empty slices.
 type AssignmentWorkspace struct {
 	Session             data.Session
-	Participants        []data.ProgramMembership
+	Participants        []AssignmentParticipant
 	Offerings           []data.Offering
 	Assignments         []data.Assignment
 	Exclusions          []data.AssignmentExclusion
@@ -56,6 +66,18 @@ func (s *Service) GetAssignmentWorkspace(ctx context.Context, organizationID str
 				participants = append(participants, row)
 			}
 		}
+		students, err := tx.ListStudents(ctx, schoolYearID, true)
+		if err != nil {
+			return err
+		}
+		grades, err := tx.ListGradeLevels(ctx, schoolYearID, true)
+		if err != nil {
+			return err
+		}
+		homerooms, err := tx.ListHomerooms(ctx, schoolYearID, true)
+		if err != nil {
+			return err
+		}
 		offerings, err := tx.ListOfferings(ctx, schoolYearID, programID, sessionID)
 		if err != nil {
 			return err
@@ -80,11 +102,43 @@ func (s *Service) GetAssignmentWorkspace(ctx context.Context, organizationID str
 		if err != nil {
 			return err
 		}
-		result = AssignmentWorkspace{Session: session, Participants: participants, Offerings: offerings, Assignments: assignments, Exclusions: exclusions, Overrides: overrides, Comments: comments, RankedChoiceAnswers: answers}
+		result = AssignmentWorkspace{Session: session, Participants: assignmentParticipants(participants, students, grades, homerooms), Offerings: offerings, Assignments: assignments, Exclusions: exclusions, Overrides: overrides, Comments: comments, RankedChoiceAnswers: answers}
 		return nil
 	})
 	if err != nil {
 		return AssignmentWorkspace{}, fmt.Errorf("get assignment workspace: %w", err)
 	}
 	return result, nil
+}
+
+func assignmentParticipants(memberships []data.ProgramMembership, students []data.Student, grades []data.GradeLevel, homerooms []data.Homeroom) []AssignmentParticipant {
+	studentByID := make(map[ids.XID]data.Student, len(students))
+	for _, student := range students {
+		studentByID[student.ID] = student
+	}
+	gradeByID := make(map[ids.XID]data.GradeLevel, len(grades))
+	for _, grade := range grades {
+		gradeByID[grade.ID] = grade
+	}
+	homeroomByID := make(map[ids.XID]data.Homeroom, len(homerooms))
+	for _, homeroom := range homerooms {
+		homeroomByID[homeroom.ID] = homeroom
+	}
+	result := make([]AssignmentParticipant, 0, len(memberships))
+	for _, membership := range memberships {
+		student := studentByID[membership.StudentID]
+		participant := AssignmentParticipant{
+			ProgramMembership: membership,
+			DisplayName:       people.DisplayName(student.PreferredGivenName, &membership.LegalGivenName, &membership.LegalFamilyName),
+			HomeroomName:      homeroomByID[student.HomeroomID].Name,
+		}
+		if membership.GradeLevelID != nil {
+			if grade, ok := gradeByID[*membership.GradeLevelID]; ok {
+				participant.GradeLabel = grade.Label
+				participant.GradeOrdinal = &grade.Ordinal
+			}
+		}
+		result = append(result, participant)
+	}
+	return result
 }

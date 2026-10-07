@@ -8,13 +8,15 @@ import (
 )
 
 type DraftWarningResponse struct {
-	ID           string  `json:"id"`
-	Severity     string  `json:"severity" enum:"warning,info"`
-	HostType     string  `json:"host_type" enum:"assignment,offering,session"`
-	HostID       string  `json:"host_id"`
-	AssignmentID *string `json:"assignment_id,omitempty"`
-	StudentID    *string `json:"student_id,omitempty"`
-	OfferingID   *string `json:"offering_id,omitempty"`
+	ID            string                   `json:"id"`
+	Severity      string                   `json:"severity" enum:"warning,info"`
+	HostType      string                   `json:"host_type" enum:"assignment,offering,session"`
+	HostID        string                   `json:"host_id"`
+	AssignmentID  *string                  `json:"assignment_id,omitempty"`
+	StudentID     *string                  `json:"student_id,omitempty"`
+	OfferingID    *string                  `json:"offering_id,omitempty"`
+	Message       string                   `json:"message,omitempty" doc:"Readable explanation of this warning occurrence when available."`
+	AffectedAreas []CatalogAreaGapResponse `json:"affected_areas,omitempty" doc:"Missing interest areas for catalog-area-gap; high_rating_count counts participating students rating the area very interested."`
 }
 type DraftPlacementResponse struct {
 	Assignment        AssignmentResponse     `json:"assignment"`
@@ -77,7 +79,10 @@ func occupancyResponses(values []programservice.OfferingOccupancy) []OfferingOcc
 func warningResponses(values []programservice.DraftWarning) []DraftWarningResponse {
 	r := make([]DraftWarningResponse, 0, len(values))
 	for _, v := range values {
-		item := DraftWarningResponse{ID: v.ID, Severity: v.Severity, HostType: v.HostType, HostID: string(v.HostID)}
+		item := DraftWarningResponse{ID: v.ID, Severity: v.Severity, HostType: v.HostType, HostID: string(v.HostID), Message: v.Message}
+		for _, area := range v.AffectedAreas {
+			item.AffectedAreas = append(item.AffectedAreas, CatalogAreaGapResponse{ID: string(area.ID), Label: area.Label, HighRatingCount: area.HighRatingCount})
+		}
 		if v.AssignmentID != nil {
 			x := string(*v.AssignmentID)
 			item.AssignmentID = &x

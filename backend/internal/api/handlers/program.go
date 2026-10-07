@@ -143,12 +143,21 @@ type AssignmentExclusionResponse struct {
 	StudentID  string `json:"student_id"`
 	OfferingID string `json:"offering_id"`
 }
+type AssignmentParticipantResponse struct {
+	ProgramMembershipResponse
+	DisplayName  string `json:"display_name" doc:"Canonical persisted student name, using a nonblank preferred given name when available."`
+	GradeLabel   string `json:"grade_label"`
+	GradeOrdinal *int   `json:"grade_ordinal" nullable:"true" doc:"Vocabulary ordering; null when grade is unknown. Sort null values last."`
+	HomeroomName string `json:"homeroom_name"`
+}
+
 type AssignmentOverrideResponse struct {
-	ID           string `json:"id"`
-	AssignmentID string `json:"assignment_id"`
-	Rule         string `json:"rule"`
-	Reason       string `json:"reason"`
-	RecordedBy   string `json:"recorded_by"`
+	ID           string    `json:"id"`
+	AssignmentID string    `json:"assignment_id"`
+	Rule         string    `json:"rule"`
+	Reason       string    `json:"reason"`
+	RecordedBy   string    `json:"recorded_by"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 type RankedChoiceAnswerResponse struct {
 	StudentID  string `json:"student_id"`
@@ -157,15 +166,15 @@ type RankedChoiceAnswerResponse struct {
 	Rank       *int   `json:"rank,omitempty"`
 }
 type AssignmentWorkspaceResponse struct {
-	Session             SessionResponse               `json:"session"`
-	DraftRevision       int64                         `json:"draft_revision"`
-	Participants        []ProgramMembershipResponse   `json:"participants"`
-	Offerings           []OfferingResponse            `json:"offerings"`
-	Assignments         []AssignmentResponse          `json:"assignments"`
-	Exclusions          []AssignmentExclusionResponse `json:"exclusions"`
-	Overrides           []AssignmentOverrideResponse  `json:"overrides"`
-	Comments            []PlacementCommentResponse    `json:"comments"`
-	RankedChoiceAnswers []RankedChoiceAnswerResponse  `json:"ranked_choice_answers"`
+	Session             SessionResponse                 `json:"session"`
+	DraftRevision       int64                           `json:"draft_revision"`
+	Participants        []AssignmentParticipantResponse `json:"participants"`
+	Offerings           []OfferingResponse              `json:"offerings"`
+	Assignments         []AssignmentResponse            `json:"assignments"`
+	Exclusions          []AssignmentExclusionResponse   `json:"exclusions"`
+	Overrides           []AssignmentOverrideResponse    `json:"overrides"`
+	Comments            []PlacementCommentResponse      `json:"comments"`
+	RankedChoiceAnswers []RankedChoiceAnswerResponse    `json:"ranked_choice_answers"`
 }
 type PlacementCommentResponse struct {
 	ID           string    `json:"id"`
@@ -655,7 +664,7 @@ func (h *ProgramHandler) GetAssignmentWorkspace(ctx context.Context, input *Assi
 	response := sessionResponse(workspace.Session)
 	result := AssignmentWorkspaceResponse{
 		Session: response, DraftRevision: workspace.Session.DraftRevision,
-		Participants:        make([]ProgramMembershipResponse, 0, len(workspace.Participants)),
+		Participants:        make([]AssignmentParticipantResponse, 0, len(workspace.Participants)),
 		Offerings:           make([]OfferingResponse, 0, len(workspace.Offerings)),
 		Assignments:         make([]AssignmentResponse, 0, len(workspace.Assignments)),
 		Exclusions:          make([]AssignmentExclusionResponse, 0, len(workspace.Exclusions)),
@@ -664,7 +673,10 @@ func (h *ProgramHandler) GetAssignmentWorkspace(ctx context.Context, input *Assi
 		RankedChoiceAnswers: make([]RankedChoiceAnswerResponse, 0, len(workspace.RankedChoiceAnswers)),
 	}
 	for _, row := range workspace.Participants {
-		result.Participants = append(result.Participants, programMembershipResponse(row))
+		result.Participants = append(result.Participants, AssignmentParticipantResponse{
+			ProgramMembershipResponse: programMembershipResponse(row.ProgramMembership),
+			DisplayName:               row.DisplayName, GradeLabel: row.GradeLabel, GradeOrdinal: row.GradeOrdinal, HomeroomName: row.HomeroomName,
+		})
 	}
 	for _, row := range workspace.Offerings {
 		result.Offerings = append(result.Offerings, offeringResponse(row))
@@ -681,7 +693,7 @@ func (h *ProgramHandler) GetAssignmentWorkspace(ctx context.Context, input *Assi
 		result.Exclusions = append(result.Exclusions, AssignmentExclusionResponse{ID: string(row.ID), StudentID: string(row.StudentID), OfferingID: string(row.OfferingID)})
 	}
 	for _, row := range workspace.Overrides {
-		result.Overrides = append(result.Overrides, AssignmentOverrideResponse{ID: string(row.ID), AssignmentID: string(row.AssignmentID), Rule: row.Rule, Reason: row.Reason, RecordedBy: row.RecordedBy})
+		result.Overrides = append(result.Overrides, AssignmentOverrideResponse{ID: string(row.ID), AssignmentID: string(row.AssignmentID), Rule: row.Rule, Reason: row.Reason, RecordedBy: row.RecordedBy, CreatedAt: row.CreatedAt})
 	}
 	for _, row := range workspace.Comments {
 		result.Comments = append(result.Comments, placementCommentResponse(row))

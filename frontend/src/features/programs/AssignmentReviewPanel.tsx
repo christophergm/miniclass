@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+
 import { ModalForm } from "@/components/ui/modal-form";
 import type { AssignmentQuality, AssignmentWorkspace } from "@/lib/apiResources";
 import { useAccount } from "@/lib/hooks/useAccount";
@@ -15,8 +15,8 @@ import {
 
 type Workspace = NonNullable<AssignmentWorkspace>;
 type Assignment = NonNullable<Workspace["assignments"]>[number];
-type Host = { type: "assignment" | "offering" | "session"; id: string };
-type Placement = NonNullable<AssignmentQuality["placements"]>[number];
+export type Host = { type: "assignment" | "offering" | "session"; id: string };
+type Warning = NonNullable<AssignmentQuality["warnings"]>[number];
 
 const hostKey = (host: Host) => `${host.type}:${host.id}`;
 
@@ -31,7 +31,8 @@ function hostLabel(host: Host, workspace: Workspace, assignments: Assignment[]) 
     (row) => row.student_id === assignment?.student_id,
   );
   return participant
-    ? `${participant.legal_given_name} ${participant.legal_family_name}`
+    ? participant.display_name?.trim() ||
+        `${participant.legal_given_name} ${participant.legal_family_name}`
     : "Unknown placement";
 }
 
@@ -41,45 +42,57 @@ function navigateTo(host: Host) {
     ?.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
-function ReviewList({
-  title,
-  empty,
-  placements,
+const warningMessage = (warning: Warning) =>
+  warning.message?.trim() || warning.id.replace(/[-_]+/g, " ");
+
+function warningBadgeText(warning: Warning) {
+  if (warning.id === "catalog-area-gap" && warning.affected_areas?.length) {
+    return `Area gap: ${warning.affected_areas.map((area) => area.label).join(", ")}`;
+  }
+  return warningMessage(warning);
+}
+
+function warningDetails(warning: Warning) {
+  const areas = (warning.affected_areas ?? []).map(
+    (area) => `${area.label}: ${area.high_rating_count} very interested`,
+  );
+  return [warningMessage(warning), ...areas].join("; ");
+}
+
+export function WarningBadges({
+  warnings,
   onReview,
+  commented = false,
 }: {
-  title: string;
-  empty: string;
-  placements: Placement[];
+  warnings: NonNullable<AssignmentQuality["warnings"]>;
   onReview: (host: Host) => void;
+  commented?: boolean;
 }) {
   return (
-    <section className="rounded-lg border bg-card p-4">
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="font-semibold">{title}</h3>
-        <Badge variant={placements.length ? "secondary" : "outline"}>{placements.length}</Badge>
-      </div>
-      {placements.length ? (
-        <ul className="mt-3 space-y-2">
-          {placements.map((placement) => (
-            <li
-              className="flex items-center justify-between gap-2 rounded border px-3 py-2 text-sm"
-              key={placement.assignment.id}
-            >
-              <span>{placement.student_name}</span>
-              <Button
-                onClick={() => onReview({ type: "assignment", id: placement.assignment.id })}
-                size="sm"
-                type="button"
-                variant="outline"
-              >
-                Review
-              </Button>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="mt-3 text-muted-foreground text-sm">{empty}</p>
-      )}
+    <div className="flex flex-wrap gap-1">
+      {warnings.map((warning, occurrenceIndex) => (
+        <Button
+          aria-label={`Review warning: ${warningDetails(warning)}${commented ? "; acknowledged by comment" : ""}`}
+          className="h-auto whitespace-normal rounded-md border-transparent bg-amber-100 px-2 py-0.5 text-left text-xs font-medium text-amber-800 hover:bg-amber-200"
+          key={occurrenceIndex}
+          onClick={() => onReview({ type: warning.host_type, id: warning.host_id })}
+          title={warningDetails(warning)}
+          type="button"
+          variant="outline"
+        >
+          {warningBadgeText(warning)}
+          {commented && <span> — Commented</span>}
+        </Button>
+      ))}
+    </div>
+  );
+}
+
+function ReviewMetric({ title, count }: { title: string; count: number }) {
+  return (
+    <section aria-label={title} className="rounded-lg border bg-card p-4">
+      <h3 className="font-semibold">{title}</h3>
+      <p className="mt-2 font-semibold text-3xl tabular-nums">{count}</p>
     </section>
   );
 }
@@ -90,15 +103,17 @@ export function AssignmentReviewPanel({
   schoolYearID,
   programID,
   sessionID,
+  selectedHost,
+  onSelectHost,
 }: {
   quality: AssignmentQuality;
   workspace: Workspace;
   schoolYearID: string;
   programID: string;
   sessionID: string;
+  selectedHost: Host | null;
+  onSelectHost: (host: Host | null) => void;
 }) {
-  const [filter, setFilter] = useState("");
-  const [selectedHost, setSelectedHost] = useState<Host | null>(null);
   const [draft, setDraft] = useState("");
   const [sensitivity, setSensitivity] = useState<"public" | "internal" | "sensitive">("internal");
   const [editingID, setEditingID] = useState<string | null>(null);
@@ -107,7 +122,7 @@ export function AssignmentReviewPanel({
   const updateComment = useUpdatePlacementComment(schoolYearID, programID, sessionID);
   const deleteComment = useDeletePlacementComment(schoolYearID, programID, sessionID);
   const assignments = workspace.assignments ?? [];
-  const normalizedFilter = filter.trim().toLocaleLowerCase();
+
   const canViewSensitive = ["owner", "administrator"].includes(
     account.data?.role.toLocaleLowerCase() ?? "",
   );
@@ -125,14 +140,38 @@ export function AssignmentReviewPanel({
   const placementByAssignment = new Map(
     (quality.placements ?? []).map((placement) => [placement.assignment.id, placement]),
   );
-  const matches = (placement: Placement) =>
-    placement.student_name.toLocaleLowerCase().includes(normalizedFilter);
+
+  useEffect(() => {
+    setEditingID(null);
+    setDraft("");
+    setSensitivity("internal");
+  }, [selectedHost?.type, selectedHost?.id]);
   const openDetails = (host: Host) => {
-    setSelectedHost(host);
+    onSelectHost(host);
     setEditingID(null);
     setDraft("");
     setSensitivity("internal");
   };
+  const warningsForHost = (host: Host) =>
+    (quality.warnings ?? []).filter(
+      (warning) => warning.host_type === host.type && warning.host_id === host.id,
+    );
+  const overriddenAssignments = new Set(
+    (workspace.overrides ?? []).map((override) => override.assignment_id),
+  );
+  const renderHostBadges = (host: Host) => (
+    <div className="flex flex-wrap items-center gap-1">
+      {host.type === "assignment" && overriddenAssignments.has(host.id) && (
+        <Badge variant="warning">Override</Badge>
+      )}
+      <WarningBadges
+        commented={(commentsByHost.get(hostKey(host)) ?? []).length > 0}
+        onReview={openDetails}
+        warnings={warningsForHost(host)}
+      />
+    </div>
+  );
+  const selectedWarnings = selectedHost ? warningsForHost(selectedHost) : [];
   const selectedComments = selectedHost ? (commentsByHost.get(hostKey(selectedHost)) ?? []) : [];
   const selectedAssignment =
     selectedHost?.type === "assignment"
@@ -164,7 +203,6 @@ export function AssignmentReviewPanel({
     setDraft("");
     setEditingID(null);
   };
-  const filtered = (placements: Placement[]) => placements.filter(matches);
 
   return (
     <section aria-labelledby="assignment-review-heading" className="mt-6">
@@ -174,80 +212,16 @@ export function AssignmentReviewPanel({
             Review draft
           </h2>
           <p className="text-muted-foreground text-sm">
-            Named concerns come first; warnings remain visible after acknowledgement by comment.
+            Review placement concerns on the offering board; warnings remain visible after
+            acknowledgement by comment.
           </p>
         </div>
-        <label className="font-medium text-sm" htmlFor="assignment-review-filter">
-          Filter named review
-          <Input
-            className="mt-1"
-            id="assignment-review-filter"
-            onChange={(event) => setFilter(event.target.value)}
-            placeholder="Search students"
-            value={filter}
-          />
-        </label>
       </div>
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <ReviewList
-          empty="No student is placed against a stated non-preference."
-          onReview={openDetails}
-          placements={filtered(quality.unwanted ?? [])}
-          title="Unwanted placements"
-        />
-        <ReviewList
-          empty="Every placement has a current preference signal."
-          onReview={openDetails}
-          placements={filtered(quality.no_signal ?? [])}
-          title="No preference signal"
-        />
-        <ReviewList
-          empty="No current placement has an override."
-          onReview={openDetails}
-          placements={filtered(quality.overridden ?? [])}
-          title="Overrides"
-        />
+        <ReviewMetric title="Unwanted placements" count={(quality.unwanted ?? []).length} />
+        <ReviewMetric title="No preference signal" count={(quality.no_signal ?? []).length} />
       </div>
-      <section className="mt-4 rounded-lg border bg-card p-4">
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="font-semibold">Warnings</h3>
-          <Badge variant={(quality.warnings ?? []).length ? "secondary" : "outline"}>
-            {(quality.warnings ?? []).length}
-          </Badge>
-        </div>
-        {(quality.warnings ?? []).length ? (
-          <ul className="mt-3 space-y-2">
-            {(quality.warnings ?? []).map((warning) => {
-              const host = { type: warning.host_type, id: warning.host_id } as Host;
-              const acknowledged = (commentsByHost.get(hostKey(host)) ?? []).length > 0;
-              return (
-                <li
-                  className="flex justify-between gap-2 rounded border px-3 py-2 text-sm"
-                  key={warning.id}
-                >
-                  <span>{warning.id.replace(/-/g, " ")}</span>
-                  <span className="flex items-center gap-2">
-                    {acknowledged && <Badge variant="secondary">Commented</Badge>}
-                    <Button
-                      onClick={() => {
-                        navigateTo(host);
-                        openDetails(host);
-                      }}
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                    >
-                      {acknowledged ? "Review" : "Add acknowledgement"}
-                    </Button>
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <p className="mt-3 text-muted-foreground text-sm">No current draft warnings.</p>
-        )}
-      </section>
+
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <section className="rounded-lg border bg-card p-4">
           <h3 className="font-semibold">Quality distribution</h3>
@@ -267,17 +241,20 @@ export function AssignmentReviewPanel({
               const host = { type: "offering" as const, id: offering.offering_id };
               return (
                 <li className="flex justify-between gap-2" key={offering.offering_id}>
-                  <Button
-                    className="h-auto border-0 p-0 text-primary shadow-none hover:bg-transparent hover:text-primary hover:underline"
-                    onClick={() => {
-                      navigateTo(host);
-                      openDetails(host);
-                    }}
-                    type="button"
-                    variant="outline"
-                  >
-                    {hostLabel(host, workspace, assignments)}
-                  </Button>
+                  <div className="min-w-0 space-y-1">
+                    <Button
+                      className="h-auto border-0 p-0 text-primary shadow-none hover:bg-transparent hover:text-primary hover:underline"
+                      onClick={() => {
+                        navigateTo(host);
+                        openDetails(host);
+                      }}
+                      type="button"
+                      variant="outline"
+                    >
+                      {hostLabel(host, workspace, assignments)}
+                    </Button>
+                    {renderHostBadges(host)}
+                  </div>
                   <span>
                     {offering.enrolled} / {offering.capacity}
                   </span>
@@ -289,7 +266,7 @@ export function AssignmentReviewPanel({
       </div>
       <ModalForm
         description="Comments record review reasoning; they do not dismiss warnings."
-        onClose={() => setSelectedHost(null)}
+        onClose={() => onSelectHost(null)}
         open={Boolean(selectedHost)}
         title={
           selectedHost
@@ -299,6 +276,37 @@ export function AssignmentReviewPanel({
       >
         {selectedHost && (
           <div className="space-y-4 text-sm">
+            <section>
+              <div className="flex items-center gap-2">
+                <h3 className="font-medium">Warnings</h3>
+                {selectedOverrides.length > 0 && <Badge variant="warning">Override</Badge>}
+                {selectedWarnings.length > 0 && selectedComments.length > 0 && (
+                  <Badge variant="secondary">Commented</Badge>
+                )}
+              </div>
+              {selectedWarnings.length ? (
+                <ul className="mt-2 space-y-2">
+                  {selectedWarnings.map((warning, occurrenceIndex) => (
+                    <li className="rounded border p-3" key={occurrenceIndex}>
+                      <Badge className="whitespace-normal text-left" variant="warning">
+                        {warningMessage(warning)}
+                      </Badge>
+                      {(warning.affected_areas ?? []).length > 0 && (
+                        <ul className="mt-2 space-y-1">
+                          {warning.affected_areas?.map((area) => (
+                            <li key={area.id}>
+                              {area.label}: {area.high_rating_count} very interested
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-2 text-muted-foreground">No current warnings for this object.</p>
+              )}
+            </section>
             {selectedAssignment && (
               <dl className="grid gap-2 rounded border p-3">
                 <div>
@@ -324,7 +332,10 @@ export function AssignmentReviewPanel({
                       <strong>{override.rule}</strong> — {override.reason || "No reason recorded"}
                       <br />
                       <span className="text-muted-foreground">
-                        Recorded by {override.recorded_by}
+                        Recorded by {override.recorded_by} —{" "}
+                        <time dateTime={override.created_at}>
+                          {new Date(override.created_at).toLocaleString()}
+                        </time>
                       </span>
                     </li>
                   ))}
@@ -391,16 +402,19 @@ export function AssignmentReviewPanel({
                 <option value="sensitive">Sensitive</option>
               </select>
               <div className="mt-3 flex justify-end gap-2">
-                <Button
-                  onClick={() => {
-                    setEditingID(null);
-                    setDraft("");
-                  }}
-                  type="button"
-                  variant="outline"
-                >
-                  Cancel
-                </Button>
+                {editingID && (
+                  <Button
+                    onClick={() => {
+                      setEditingID(null);
+                      setDraft("");
+                      setSensitivity("internal");
+                    }}
+                    type="button"
+                    variant="outline"
+                  >
+                    Cancel
+                  </Button>
+                )}
                 <Button
                   disabled={!draft.trim() || createComment.isPending || updateComment.isPending}
                   onClick={() => void saveComment()}

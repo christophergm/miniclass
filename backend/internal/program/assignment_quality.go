@@ -16,6 +16,8 @@ type DraftWarning struct {
 	AssignmentID           *ids.XID
 	StudentID              *ids.XID
 	OfferingID             *ids.XID
+	Message                string
+	AffectedAreas          []CatalogAreaGap
 }
 
 type DraftPlacement struct {
@@ -168,14 +170,13 @@ func EvaluateAssignmentQuality(s AssignmentQualitySnapshot) AssignmentQuality {
 		}
 	}
 	for _, area := range s.InterestAreas {
-		demanded := false
+		highRatingCount := 0
 		for _, profile := range s.Profiles {
 			if profile[area.ID] == data.InterestProfileVeryInterested {
-				demanded = true
-				break
+				highRatingCount++
 			}
 		}
-		if !demanded {
+		if highRatingCount == 0 {
 			continue
 		}
 		offered := false
@@ -186,7 +187,11 @@ func EvaluateAssignmentQuality(s AssignmentQualitySnapshot) AssignmentQuality {
 			}
 		}
 		if !offered {
-			r.Warnings = append(r.Warnings, DraftWarning{ID: "catalog-area-gap", Severity: "info", HostType: "session", HostID: s.Session.ID})
+			r.Warnings = append(r.Warnings, DraftWarning{
+				ID: "catalog-area-gap", Severity: "info", HostType: "session", HostID: s.Session.ID,
+				Message:       fmt.Sprintf("No offering covers interest area %q, despite %d participating student%s rating it very interested.", area.Label, highRatingCount, pluralSuffix(highRatingCount)),
+				AffectedAreas: []CatalogAreaGap{{ID: area.ID, Label: area.Label, HighRatingCount: highRatingCount}},
+			})
 		}
 	}
 	if s.Session.DraftAssignmentsStale {
