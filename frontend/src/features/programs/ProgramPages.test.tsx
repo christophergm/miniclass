@@ -34,6 +34,8 @@ const mocks = vi.hoisted(() => ({
   summaryState: "ready" as "ready" | "loading" | "error",
   includeRetiredArea: false,
   emptySummaries: false,
+  studentDisplayName: "Riley Synthetic",
+  rosterUnavailable: false,
   programs: [
     {
       id: "program-1",
@@ -302,7 +304,14 @@ vi.mock("@/lib/hooks/useVocabulary", () => ({
 }));
 vi.mock("@/features/people/roster-queries", () => ({
   usePeople: vi.fn((kind: string) => ({
-    data: kind === "student" ? [{ id: "student-1" }, { id: "student-2" }] : [],
+    data: mocks.rosterUnavailable
+      ? undefined
+      : kind === "student"
+        ? [
+            { id: "student-2", display_name: "Morgan Example" },
+            { id: "student-1", display_name: mocks.studentDisplayName },
+          ]
+        : [],
     isLoading: false,
     isError: false,
     error: null,
@@ -323,6 +332,8 @@ beforeEach(() => {
   mocks.autoAssignmentPending = false;
   mocks.includeRetiredArea = false;
   mocks.emptySummaries = false;
+  mocks.studentDisplayName = "Riley Synthetic";
+  mocks.rosterUnavailable = false;
   mocks.programs = [
     {
       id: "program-1",
@@ -459,6 +470,38 @@ function renderMembership(currentYear = year("active")) {
     </MemoryRouter>,
   );
 }
+
+describe("program membership student names", () => {
+  it.each(["Riley Synthetic", "Ry Synthetic"])(
+    "uses the year roster display name %s in the list and student picker",
+    (displayName) => {
+      mocks.studentDisplayName = displayName;
+      renderMembership();
+
+      const table = screen.getByRole("table", { name: "Program membership" });
+      expect(within(table).getByRole("link", { name: displayName })).toHaveAttribute(
+        "href",
+        "/y/year-1/students/student-1",
+      );
+      expect(screen.getByRole("option", { name: displayName })).toHaveValue("student-1");
+      expect(within(table).queryByText("Morgan Example")).not.toBeInTheDocument();
+      if (displayName !== "Riley Synthetic") {
+        expect(within(table).queryByText("Riley Synthetic")).not.toBeInTheDocument();
+      }
+    },
+  );
+
+  it("keeps a legal-name fallback when the year roster is unavailable", () => {
+    mocks.rosterUnavailable = true;
+    renderMembership();
+
+    const table = screen.getByRole("table", { name: "Program membership" });
+    expect(within(table).getByRole("link", { name: "Riley Synthetic" })).toHaveAttribute(
+      "href",
+      "/y/year-1/students/student-1",
+    );
+  });
+});
 
 function renderInterestAreas(currentYear = year("active")) {
   function ContextRoute() {
