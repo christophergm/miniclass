@@ -396,6 +396,10 @@
           "assignment_id": {
             "type": "string"
           },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
           "id": {
             "type": "string"
           },
@@ -414,7 +418,89 @@
           "assignment_id",
           "rule",
           "reason",
-          "recorded_by"
+          "recorded_by",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "AssignmentParticipantResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "display_name": {
+            "description": "Canonical persisted student name, using a nonblank preferred given name when available.",
+            "type": "string"
+          },
+          "grade_label": {
+            "type": "string"
+          },
+          "grade_level_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "grade_missing": {
+            "description": "True when the member's current roster grade is unknown.",
+            "type": "boolean"
+          },
+          "grade_ordinal": {
+            "description": "Vocabulary ordering; null when grade is unknown. Sort null values last.",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "homeroom_name": {
+            "type": "string"
+          },
+          "id": {
+            "description": "Opaque membership identifier.",
+            "type": "string"
+          },
+          "legal_family_name": {
+            "type": "string"
+          },
+          "legal_given_name": {
+            "type": "string"
+          },
+          "organization_id": {
+            "type": "string"
+          },
+          "program_id": {
+            "type": "string"
+          },
+          "school_year_id": {
+            "type": "string"
+          },
+          "student_id": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "display_name",
+          "grade_label",
+          "grade_ordinal",
+          "homeroom_name",
+          "id",
+          "organization_id",
+          "school_year_id",
+          "program_id",
+          "student_id",
+          "legal_given_name",
+          "legal_family_name",
+          "grade_level_id",
+          "grade_missing",
+          "created_at",
+          "updated_at"
         ],
         "type": "object"
       },
@@ -638,7 +724,7 @@
           },
           "participants": {
             "items": {
-              "$ref": "#/components/schemas/ProgramMembershipResponse"
+              "$ref": "#/components/schemas/AssignmentParticipantResponse"
             },
             "type": [
               "array",
@@ -1735,6 +1821,16 @@
       "DraftWarningResponse": {
         "additionalProperties": false,
         "properties": {
+          "affected_areas": {
+            "description": "Missing interest areas for catalog-area-gap; high_rating_count counts participating students rating the area very interested.",
+            "items": {
+              "$ref": "#/components/schemas/CatalogAreaGapResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "assignment_id": {
             "type": "string"
           },
@@ -1750,6 +1846,10 @@
             "type": "string"
           },
           "id": {
+            "type": "string"
+          },
+          "message": {
+            "description": "Readable explanation of this warning occurrence when available.",
             "type": "string"
           },
           "offering_id": {

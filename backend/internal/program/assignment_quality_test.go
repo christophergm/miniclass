@@ -38,6 +38,49 @@ func TestEvaluateAssignmentQualityReportsNamedWarningsAndHistoricalQuality(t *te
 	require.Equal(t, 3, countDraftWarnings(capacity.Warnings, "capacity-exceeded")) // offering plus one warning on each placement
 }
 
+// SPEC §§16.5–16.6: each missing highly-rated area remains a visible occurrence.
+func TestEvaluateAssignmentQualityCatalogAreaGapContext(t *testing.T) {
+	result := EvaluateAssignmentQuality(AssignmentQualitySnapshot{
+		Session: data.Session{ID: "session"},
+		InterestAreas: []data.InterestArea{
+			{ID: "missing-one", Label: "Synthetic Arts"},
+			{ID: "missing-two", Label: "Synthetic Arts"},
+			{ID: "covered", Label: "Synthetic Science"},
+			{ID: "interested-only", Label: "Synthetic Music"},
+			{ID: "unrated", Label: "Synthetic Games"},
+			{ID: "no-demand", Label: "Synthetic Drama"},
+		},
+		Offerings: []data.Offering{
+			{ID: "science-offering", InterestAreaID: xid("covered")},
+			{ID: "untagged-offering"},
+		},
+		Profiles: map[ids.XID]map[ids.XID]data.InterestProfileRating{
+			"student-one": {
+				"missing-one":     data.InterestProfileVeryInterested,
+				"missing-two":     data.InterestProfileVeryInterested,
+				"covered":         data.InterestProfileVeryInterested,
+				"interested-only": data.InterestProfileInterested,
+				"unrated":         data.InterestProfileUnrated,
+			},
+			"student-two": {"missing-one": data.InterestProfileVeryInterested},
+		},
+	})
+
+	require.Equal(t, []string{"catalog-area-gap", "catalog-area-gap"}, draftWarningIDs(result.Warnings))
+	require.Equal(t, []DraftWarning{
+		{
+			ID: "catalog-area-gap", Severity: "info", HostType: "session", HostID: "session",
+			Message:       `No offering covers interest area "Synthetic Arts", despite 2 participating students rating it very interested.`,
+			AffectedAreas: []CatalogAreaGap{{ID: "missing-one", Label: "Synthetic Arts", HighRatingCount: 2}},
+		},
+		{
+			ID: "catalog-area-gap", Severity: "info", HostType: "session", HostID: "session",
+			Message:       `No offering covers interest area "Synthetic Arts", despite 1 participating student rating it very interested.`,
+			AffectedAreas: []CatalogAreaGap{{ID: "missing-two", Label: "Synthetic Arts", HighRatingCount: 1}},
+		},
+	}, result.Warnings)
+}
+
 func xid(value string) *ids.XID { id := ids.XID(value); return &id }
 func placementNames(values []DraftPlacement) []string {
 	result := make([]string, 0, len(values))
