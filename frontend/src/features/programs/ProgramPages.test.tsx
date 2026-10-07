@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => ({
   updateOffering: vi.fn(),
   offering: null as unknown,
   sessionState: "planning",
+  rankedChoice: undefined as { rank_depth: number; deadline: string } | undefined,
   programUpdate: vi.fn(),
   sessionUpdate: vi.fn(),
   reorderAreas: vi.fn(),
@@ -87,6 +88,7 @@ vi.mock("./usePrograms", () => {
         program_id: "program-1",
         name: "Autumn session",
         state: mocks.sessionState,
+        ranked_choice: mocks.rankedChoice,
         draft_assignments_stale: false,
         meeting_dates: ["2026-10-02"],
         feasibility_warnings: [],
@@ -1023,6 +1025,7 @@ describe("SessionPage", () => {
     mocks.updateOffering.mockReset();
     mocks.offering = null;
     mocks.sessionState = "planning";
+    mocks.rankedChoice = undefined;
     mocks.programUpdate.mockReset();
     mocks.sessionUpdate.mockReset();
   });
@@ -1140,6 +1143,98 @@ describe("SessionPage", () => {
       expect.any(Object),
     );
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("allows metadata edits during voting without resending unchanged ranking settings", () => {
+    mocks.sessionState = "voting_open";
+    mocks.rankedChoice = { rank_depth: 3, deadline: "2099-10-10T00:30:45Z" };
+    renderSession();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit session" }));
+    expect(screen.getByLabelText("Maximum ranked positions")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Choose Voting deadline" })).toBeEnabled();
+    fireEvent.change(screen.getByLabelText("Session name"), {
+      target: { value: "Winter session" },
+    });
+    fireEvent.change(screen.getByLabelText("Meeting date 1"), { target: { value: "2099-10-09" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save session" }));
+
+    expect(mocks.sessionUpdate).toHaveBeenCalledWith(
+      { sessionID: "session-1", value: { name: "Winter session", meeting_dates: ["2099-10-09"] } },
+      expect.any(Object),
+    );
+  });
+
+  it("displays the deadline in local time and submits an edited deadline as UTC", () => {
+    mocks.sessionState = "voting_open";
+    mocks.rankedChoice = { rank_depth: 3, deadline: "2099-10-10T00:30:00Z" };
+    renderSession();
+    fireEvent.click(screen.getByRole("button", { name: "Edit session" }));
+
+    const local = new Date(mocks.rankedChoice.deadline);
+    const pad = (part: number) => String(part).padStart(2, "0");
+    const localDate = `${local.getFullYear()}-${pad(local.getMonth() + 1)}-${pad(local.getDate())}`;
+    const localTime = `${pad(local.getHours())}:${pad(local.getMinutes())}`;
+    expect(screen.getByLabelText("Voting deadline")).toHaveValue(`${localDate}T${localTime}`);
+    expect(screen.getByLabelText("Voting deadline time")).toHaveValue(localTime);
+    expect(screen.getByRole("button", { name: "Choose Voting deadline" })).toHaveTextContent(
+      new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(local),
+    );
+    expect(screen.getByRole("button", { name: "Choose Voting deadline" })).not.toHaveTextContent(
+      localTime,
+    );
+    expect(screen.getByText("Voting deadline (local time)")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Voting deadline time"), { target: { value: "18:45" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save session" }));
+    expect(mocks.sessionUpdate).toHaveBeenCalledWith(
+      {
+        sessionID: "session-1",
+        value: {
+          name: "Autumn session",
+          meeting_dates: ["2026-10-02"],
+          ranked_choice: { rank_depth: 3, deadline: new Date(`${localDate}T18:45`).toISOString() },
+        },
+      },
+      expect.any(Object),
+    );
+  });
+
+  it.each(["voting_open", "voting_closed", "assigning", "published"])(
+    "locks expired or closed voting settings in %s without blocking metadata edits",
+    (state) => {
+      mocks.sessionState = state;
+      mocks.rankedChoice = { rank_depth: 3, deadline: "2000-10-10T12:00:00Z" };
+      renderSession();
+      fireEvent.click(screen.getByRole("button", { name: "Edit session" }));
+      expect(screen.getByLabelText("Maximum ranked positions")).toBeDisabled();
+      expect(screen.getByLabelText("Voting deadline")).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Choose Voting deadline" })).toBeDisabled();
+      expect(screen.getByLabelText("Voting deadline time")).toBeDisabled();
+      expect(
+        screen.getByText(/Use the session lifecycle controls to reopen voting/),
+      ).toBeInTheDocument();
+      expect(screen.getByLabelText("Session name")).toBeEnabled();
+      expect(screen.getByRole("button", { name: "Choose Meeting date 1" })).toBeEnabled();
+      fireEvent.change(screen.getByLabelText("Session name"), {
+        target: { value: "Winter session" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Save session" }));
+      expect(mocks.sessionUpdate).toHaveBeenCalledWith(
+        {
+          sessionID: "session-1",
+          value: { name: "Winter session", meeting_dates: ["2026-10-02"] },
+        },
+        expect.any(Object),
+      );
+    },
+  );
+
+  it("keeps ranking settings editable before voting opens", () => {
+    renderSession();
+    fireEvent.click(screen.getByRole("button", { name: "Edit session" }));
+    expect(screen.getByLabelText("Maximum ranked positions")).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Choose Voting deadline" })).toBeEnabled();
   });
 
   it("adds a selected date immediately when creating a session", () => {

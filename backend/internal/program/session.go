@@ -128,7 +128,7 @@ func (s *Service) UpdateSession(ctx context.Context, organizationID string, acto
 	}
 	var result data.Session
 	err := s.database.InTenant(ctx, organizationID, actor, func(ctx context.Context, tx *data.Tx) error {
-		current, err := tx.GetSession(ctx, schoolYearID, programID, sessionID)
+		current, err := tx.GetSessionForUpdate(ctx, schoolYearID, programID, sessionID)
 		if err != nil {
 			return err
 		}
@@ -151,15 +151,12 @@ func (s *Service) UpdateSession(ctx context.Context, organizationID string, acto
 			changed = !sameMeetingDates(currentDates, *input.Dates) || changed
 		}
 		rankedChoice := current.RankedChoice
-		if input.RankedChoice != nil {
-			if current.State != data.SessionPlanning && current.State != data.SessionCatalogPublished {
-				return ErrRankedChoiceConfigurationLocked
-			}
-			if err := validateRankedChoiceConfiguration(input.RankedChoice, time.Now().UTC()); err != nil {
+		if input.RankedChoice != nil && !sameRankedChoiceConfiguration(current.RankedChoice, input.RankedChoice) {
+			if err := validateRankedChoiceUpdate(current, input.RankedChoice, time.Now().UTC()); err != nil {
 				return err
 			}
 			rankedChoice = cloneRankedChoiceConfiguration(input.RankedChoice)
-			changed = !sameRankedChoiceConfiguration(current.RankedChoice, rankedChoice) || changed
+			changed = true
 		}
 		if !changed {
 			return ErrSessionNoChanges
@@ -201,6 +198,22 @@ func (s *Service) UpdateSession(ctx context.Context, organizationID string, acto
 		return data.Session{}, fmt.Errorf("update session: %w", err)
 	}
 	return result, nil
+}
+
+// SPEC §14.4 gates submissions on the voting window; §14.5 requires an
+// explicit backward transition to reopen it, not a configuration edit.
+func validateRankedChoiceUpdate(current data.Session, config *data.RankedChoiceConfiguration, now time.Time) error {
+	if sameRankedChoiceConfiguration(current.RankedChoice, config) {
+		return nil
+	}
+	if current.State != data.SessionPlanning && current.State != data.SessionCatalogPublished {
+		if current.State != data.SessionVotingOpen || current.RankedChoice == nil || config == nil ||
+			current.RankedChoice.RankDepth != config.RankDepth || current.RankedChoice.Deadline == nil ||
+			!current.RankedChoice.Deadline.After(now) {
+			return ErrRankedChoiceConfigurationLocked
+		}
+	}
+	return validateRankedChoiceConfiguration(config, now)
 }
 
 func validateRankedChoiceConfiguration(config *data.RankedChoiceConfiguration, now time.Time) error {
@@ -448,11 +461,12 @@ func sessionSummary(before *data.Session, after data.Session) json.RawMessage {
 		value["name"] = after.Name
 		value["state"] = after.State
 		value["draft_assignments_stale"] = after.DraftAssignmentsStale
+		value["ranked_choice"] = after.RankedChoice
 	} else {
 		value["deleted"] = true
 	}
 	if before != nil {
-		value["before"] = map[string]any{"name": before.Name, "state": before.State, "draft_assignments_stale": before.DraftAssignmentsStale}
+		value["before"] = map[string]any{"name": before.Name, "state": before.State, "draft_assignments_stale": before.DraftAssignmentsStale, "ranked_choice": before.RankedChoice}
 	}
 	return mustJSON(value)
 }

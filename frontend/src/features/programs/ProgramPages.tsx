@@ -34,6 +34,7 @@ import type {
   SessionNonParticipation,
 } from "@/lib/apiResources";
 import { activeGradeLevels } from "@/lib/apiResources";
+import { toLocalDateTime } from "@/lib/dateTime";
 import { usePeople } from "@/features/people/roster-queries";
 import { useVocabulary } from "@/lib/hooks/useVocabulary";
 import { OfferingSummary } from "./OfferingPages";
@@ -239,6 +240,8 @@ function SessionForm({
   error,
   submitLabel,
   showRankedChoiceConfig = false,
+  rankDepthLocked = false,
+  votingDeadlineLocked = false,
 }: {
   value: SessionDraft;
   onChange: (value: SessionDraft) => void;
@@ -248,6 +251,8 @@ function SessionForm({
   error: unknown;
   submitLabel: string;
   showRankedChoiceConfig?: boolean;
+  rankDepthLocked?: boolean;
+  votingDeadlineLocked?: boolean;
 }) {
   return (
     <form className="space-y-4" onSubmit={onSubmit}>
@@ -278,7 +283,10 @@ function SessionForm({
           <div>
             <p className="text-sm font-medium">Ranked-choice voting</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Configure this before opening voting. The deadline is interpreted as UTC.
+              Deadlines use your browser’s local timezone.
+              {rankDepthLocked && " Maximum ranked positions is locked after voting opens."}
+              {votingDeadlineLocked &&
+                " Voting has closed or expired. Use the session lifecycle controls to reopen voting with a new deadline."}
             </p>
           </div>
           <label className="block text-sm font-medium">
@@ -286,6 +294,7 @@ function SessionForm({
             <Input
               aria-label="Maximum ranked positions"
               className="mt-2"
+              disabled={rankDepthLocked}
               min="1"
               onChange={(event) =>
                 onChange({ ...value, rankedChoiceRankDepth: event.target.value })
@@ -296,10 +305,11 @@ function SessionForm({
             />
           </label>
           <label className="block text-sm font-medium">
-            Voting deadline (UTC)
+            Voting deadline (local time)
             <DatePicker
               aria-label="Voting deadline"
               className="mt-2"
+              disabled={votingDeadlineLocked}
               onChange={(rankedChoiceDeadline) => onChange({ ...value, rankedChoiceDeadline })}
               required={Boolean(value.rankedChoiceRankDepth)}
               value={value.rankedChoiceDeadline ?? ""}
@@ -1812,7 +1822,7 @@ export function SessionPage() {
       meetingDates: [...(current.meeting_dates ?? [])],
       rankedChoiceRankDepth: current.ranked_choice?.rank_depth?.toString() ?? "",
       rankedChoiceDeadline: current.ranked_choice?.deadline
-        ? new Date(current.ranked_choice.deadline).toISOString().slice(0, 16)
+        ? toLocalDateTime(current.ranked_choice.deadline)
         : "",
     });
     setSessionEditorOpen(true);
@@ -1823,7 +1833,15 @@ export function SessionPage() {
       sessionID: sessionId,
       value: { name: sessionDraft.name.trim(), meeting_dates: sessionDraft.meetingDates },
     };
-    if (sessionDraft.rankedChoiceRankDepth || sessionDraft.rankedChoiceDeadline) {
+    const rankingChanged =
+      sessionDraft.rankedChoiceRankDepth !==
+        (current.ranked_choice?.rank_depth?.toString() ?? "") ||
+      sessionDraft.rankedChoiceDeadline !==
+        (current.ranked_choice?.deadline ? toLocalDateTime(current.ranked_choice.deadline) : "");
+    if (
+      rankingChanged &&
+      (sessionDraft.rankedChoiceRankDepth || sessionDraft.rankedChoiceDeadline)
+    ) {
       value.value.ranked_choice = {
         rank_depth: Number(sessionDraft.rankedChoiceRankDepth),
         deadline: new Date(sessionDraft.rankedChoiceDeadline ?? "").toISOString(),
@@ -1985,7 +2003,7 @@ export function SessionPage() {
             </label>
             {current.state === "voting_closed" && transitionPreview.state === "voting_open" && (
               <label className="mt-4 block font-medium">
-                New voting deadline (UTC)
+                New voting deadline (local time)
                 <DatePicker
                   aria-label="New voting deadline"
                   className="mt-1"
@@ -2078,7 +2096,7 @@ export function SessionPage() {
               (current.ranked_choice?.rank_depth?.toString() ?? "") ||
             sessionDraft.rankedChoiceDeadline !==
               (current.ranked_choice?.deadline
-                ? new Date(current.ranked_choice.deadline).toISOString().slice(0, 16)
+                ? toLocalDateTime(current.ranked_choice.deadline)
                 : ""))
         }
         onClose={() => setSessionEditorOpen(false)}
@@ -2094,6 +2112,14 @@ export function SessionPage() {
           pending={updateSession.isPending}
           submitLabel="Save session"
           showRankedChoiceConfig
+          rankDepthLocked={current.state !== "planning" && current.state !== "catalog_published"}
+          votingDeadlineLocked={
+            current.state !== "planning" &&
+            current.state !== "catalog_published" &&
+            (current.state !== "voting_open" ||
+              !current.ranked_choice?.deadline ||
+              new Date(current.ranked_choice.deadline).getTime() <= Date.now())
+          }
           value={sessionDraft}
         />
       </ModalForm>
