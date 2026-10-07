@@ -60,6 +60,14 @@ func (s *Service) CompileSnapshot(ctx context.Context, organizationID string, sc
 		}
 		choices := make(map[ids.XID][]solvercontract.RankedChoice)
 		for _, answer := range answers {
+			if _, submitted := choices[answer.StudentID]; !submitted {
+				choices[answer.StudentID] = []solvercontract.RankedChoice{}
+			}
+			// Keep submission precedence even when no offering has an expressed
+			// choice; absence is not a rating (SPEC §§13.4–13.5).
+			if answer.Answer == data.RankedChoiceNoResponse {
+				continue
+			}
 			choice := solvercontract.RankedChoice{OfferingID: string(answer.OfferingID), Response: string(answer.Answer)}
 			if answer.Rank != nil {
 				choice.Rank = *answer.Rank
@@ -136,7 +144,12 @@ func (s *Service) CompileSnapshot(ctx context.Context, organizationID string, sc
 			}
 			pins = append(pins, solvercontract.PinnedPlacement(placement))
 			for _, override := range overridesByAssignment[row.ID] {
-				exceptions = append(exceptions, solvercontract.AuthorizedPinnedException{ParticipantID: placement.ParticipantID, OfferingID: placement.OfferingID, Rule: override.Rule})
+				rule := override.Rule
+				// Persisted manual-rule names differ from the sidecar vocabulary.
+				if rule == "grade-window" {
+					rule = solvercontract.ExceptionRuleGrade
+				}
+				exceptions = append(exceptions, solvercontract.AuthorizedPinnedException{ParticipantID: placement.ParticipantID, OfferingID: placement.OfferingID, Rule: rule})
 			}
 		}
 		exclusionRows, err := tx.ListAssignmentExclusions(ctx, schoolYearID, programID, sessionID)
