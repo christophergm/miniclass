@@ -298,6 +298,64 @@ describe("people roster pages", () => {
     expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
   });
 
+  it("shows the student name without a roster record header", async () => {
+    vi.spyOn(studentApi, "get").mockResolvedValue(students[0]);
+
+    renderStudents("/y/year-1/students/student-2");
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: students[0].display_name }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Roster record")).not.toBeInTheDocument();
+  });
+
+  it("renders the student detail delete button with destructive styling", async () => {
+    vi.spyOn(studentApi, "get").mockResolvedValue(students[0]);
+
+    renderStudents("/y/year-1/students/student-2");
+
+    expect(await screen.findByRole("button", { name: "Delete" })).toHaveClass(
+      "bg-destructive",
+      "text-destructive-foreground",
+    );
+  });
+
+  it("displays date added and sorts students by creation timestamp in both directions", async () => {
+    const datedStudents = [
+      { ...students[0], created_at: "2026-01-02T09:00:00Z" },
+      { ...students[1], created_at: "2025-12-31T12:00:00Z" },
+      { ...students[2], created_at: "2026-01-02T08:00:00Z" },
+    ];
+    vi.spyOn(studentApi, "list").mockResolvedValue(datedStudents);
+
+    renderStudents();
+
+    const table = await screen.findByRole("table", { name: "Students" });
+    for (const student of datedStudents) {
+      const row = within(table).getByRole("link", { name: student.display_name }).closest("tr")!;
+      const date = row.querySelector("time");
+      expect(date).toHaveAttribute("datetime", student.created_at);
+      expect(date).toHaveTextContent(
+        new Date(student.created_at).toLocaleDateString(undefined, { dateStyle: "medium" }),
+      );
+    }
+    const rowNames = () =>
+      within(table)
+        .getAllByRole("row")
+        .slice(1)
+        .map((row) => within(row).getAllByRole("link")[0].textContent);
+    const header = within(table).getByRole("columnheader", { name: "Date added" });
+    const sortButton = within(header).getByRole("button", { name: "Date added" });
+    fireEvent.click(sortButton);
+    expect(header).toHaveAttribute("aria-sort", "ascending");
+    expect(rowNames()).toEqual(["Bea Apple", "Aria Apple", "Addie Zephyr"]);
+    fireEvent.click(sortButton);
+    expect(header).toHaveAttribute("aria-sort", "descending");
+    expect(rowNames()).toEqual(["Addie Zephyr", "Aria Apple", "Bea Apple"]);
+    fireEvent.click(within(table).getByRole("button", { name: "Name" }));
+    expect(rowNames()).toEqual(["Aria Apple", "Bea Apple", "Addie Zephyr"]);
+  });
+
   it("uses the API display name and sorts by legal family then given name", async () => {
     vi.spyOn(studentApi, "list").mockResolvedValue(students);
 

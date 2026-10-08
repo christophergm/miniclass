@@ -342,6 +342,9 @@ function PeopleTable({
               than a column on the person, so there is no single value to order
               a roster by; Actions is a control. Neither offers a sort. */}
           <TableHead>{kind === "student" ? "Guardians" : "Children"}</TableHead>
+          {kind === "student" && (
+            <SortableHead label="Date added" sortKey="created_at" sort={sort} onSort={onSort} />
+          )}
           <TableHead>Actions</TableHead>
         </TableRow>
       </TableHeader>
@@ -393,6 +396,15 @@ function PeopleTable({
                 schoolYearId={schoolYearId}
               />
             </TableCell>
+            {kind === "student" && (
+              <TableCell className="whitespace-nowrap">
+                <time dateTime={(person as Student).created_at}>
+                  {new Date((person as Student).created_at).toLocaleDateString(undefined, {
+                    dateStyle: "medium",
+                  })}
+                </time>
+              </TableCell>
+            )}
             <TableCell>
               {person.deleted_at ? (
                 <Button
@@ -551,15 +563,22 @@ export function PersonDetailPage({ kind }: PageProps) {
       </Link>
       <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-medium text-primary">
-            {isNew ? `New ${copy.singular}` : "Roster record"}
-          </p>
+          {(isNew || kind !== "student") && (
+            <p className="text-sm font-medium text-primary">
+              {isNew ? `New ${copy.singular}` : "Roster record"}
+            </p>
+          )}
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">
             {isNew ? `Add ${copy.singular}` : person?.display_name}
           </h1>
         </div>
         {!isNew && (
-          <Button type="button" variant="outline" onClick={handleDelete} disabled={isDeleting}>
+          <Button
+            type="button"
+            variant={kind === "student" ? "destructive" : "outline"}
+            onClick={handleDelete}
+            disabled={isDeleting}
+          >
             {isDeleting ? "Deleting…" : "Delete"}
           </Button>
         )}
@@ -834,7 +853,7 @@ function filterPeople(
 }
 
 type SortDirection = "asc" | "desc";
-type SortKey = "name" | "grade" | "homeroom" | "email" | "participation";
+type SortKey = "name" | "grade" | "homeroom" | "email" | "participation" | "created_at";
 type SortState = { key: SortKey; direction: SortDirection };
 
 // SPEC §8.2 and §15.2 both state the intents in this order -- lead, help,
@@ -914,6 +933,8 @@ function sortValue(
       return homeroomNames.get((person as Student).homeroom_id);
     case "email":
       return (person as Adult).email ?? undefined;
+    case "created_at":
+      return new Date((person as Student).created_at).getTime();
     case "participation": {
       const intent = (person as Adult).participation_intent;
       return intent == null ? undefined : participationRank[intent];
