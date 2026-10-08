@@ -707,7 +707,13 @@ export function AssignmentBoardPage() {
             <h1 className="font-semibold text-3xl tracking-tight">Assignment Board</h1>
             <span className="text-muted-foreground text-sm">Revision {revision}</span>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            <Link
+              className="text-sm font-medium text-primary hover:underline"
+              to={`/y/${year.id}/programs/${programId}/sessions/${sessionId}/assignment-planner`}
+            >
+              Settings
+            </Link>
             <Button onClick={refresh} type="button" variant="outline">
               Refresh
             </Button>

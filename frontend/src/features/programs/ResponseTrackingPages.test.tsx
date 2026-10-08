@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -277,7 +277,7 @@ describe("response tracking pages", () => {
     expect(screen.queryByText("voting_open")).not.toBeInTheDocument();
   });
 
-  it("uses breadcrumbs on ranked-choice response tracking details", () => {
+  it("matches the assignment header hierarchy on ranked-choice response tracking details", () => {
     render(
       <MemoryRouter
         future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
@@ -292,11 +292,23 @@ describe("response tracking pages", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("navigation", { name: "Program breadcrumb" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Response tracking" })).toHaveAttribute(
-      "href",
-      "/y/year-1/programs/program-1/response-tracking",
+    const breadcrumb = screen.getByRole("navigation", { name: "Program breadcrumb" });
+    const links = within(breadcrumb)
+      .getAllByRole("link")
+      .filter((link) => link.hasAttribute("href"));
+    expect(links.map((link) => link.textContent)).toEqual(["School year", "Clubs", "Autumn clubs"]);
+    expect(links.map((link) => link.getAttribute("href"))).toEqual([
+      "/y/year-1",
+      "/y/year-1/programs/program-1",
+      "/y/year-1/programs/program-1/sessions/session-1",
+    ]);
+    expect(breadcrumb.querySelector('[aria-current="page"]')).toHaveTextContent(
+      "Response tracking",
     );
+    expect(
+      screen.getByRole("heading", { name: "Response tracking", level: 1 }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Clubs · response reporting")).not.toBeInTheDocument();
     expect(screen.queryByText("← Back to response tracking")).not.toBeInTheDocument();
   });
 

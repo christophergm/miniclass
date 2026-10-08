@@ -413,25 +413,22 @@ export function RankedChoiceResponseTrackingPage() {
           <BreadcrumbSeparator />
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link to={`/y/${schoolYearId}/programs/${programId}/response-tracking`}>
-                Response tracking
+              <Link to={`/y/${schoolYearId}/programs/${programId}/sessions/${sessionId}`}>
+                {query.data?.instrument_name ??
+                  results.data?.instrument_name ??
+                  "Ranked-choice session"}
               </Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbPage>
-              {query.data?.instrument_name ??
-                results.data?.instrument_name ??
-                "Ranked-choice session"}
-            </BreadcrumbPage>
+            <BreadcrumbPage>Response tracking</BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
-      <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-        {query.data?.instrument_name ?? results.data?.instrument_name ?? "Ranked-choice session"}
-      </h1>
-      <p className="mt-2 text-sm text-muted-foreground">{programName} · response reporting</p>
+      <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
+        <h1 className="font-semibold text-3xl tracking-tight">Response tracking</h1>
+      </div>
       <ResponseReportControls schoolYearId={schoolYearId} report={report} />
       <ReportPanel report={report} tracking={query} results={results} />
     </PageFrame>
