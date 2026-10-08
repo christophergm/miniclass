@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { Pencil, X } from "lucide-react";
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useOutletContext, useParams } from "react-router-dom";
 
@@ -1889,7 +1889,21 @@ export function SessionPage() {
       />
       <div className="mt-2 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">{current.name}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-3xl font-semibold tracking-tight">{current.name}</h1>
+            <Button
+              aria-label="Edit session"
+              className="cursor-pointer"
+              disabled={readOnly}
+              onClick={openSessionEditor}
+              size="icon"
+              title="Edit session"
+              type="button"
+              variant="ghost"
+            >
+              <Pencil aria-hidden="true" className="h-4 w-4" />
+            </Button>
+          </div>
           <p className="mt-2 text-sm text-muted-foreground">
             Meeting dates:{" "}
             {current.meeting_dates?.length ? current.meeting_dates.join(", ") : "not set"}
@@ -1930,15 +1944,7 @@ export function SessionPage() {
           >
             {transitionNeedsConfirmation ? "Preview transition..." : "Transition"}
           </Button>
-          <Button disabled={readOnly} onClick={openSessionEditor} type="button">
-            Edit session
-          </Button>
-          <Link
-            className="text-sm font-medium text-primary hover:underline"
-            to={`/y/${schoolYearId}/programs/${programId}/sessions/${sessionId}/assignment-planner`}
-          >
-            Assignment planner
-          </Link>
+
           <Link
             className="text-sm font-medium text-primary hover:underline"
             to={`/y/${schoolYearId}/programs/${programId}/sessions/${sessionId}/assignments`}

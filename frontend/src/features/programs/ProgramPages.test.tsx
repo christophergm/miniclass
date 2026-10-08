@@ -1090,10 +1090,7 @@ describe("SessionPage", () => {
     );
     expect(screen.getByText(/Maximum enrollment 10/)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Session non-participation" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Assignment planner" })).toHaveAttribute(
-      "href",
-      "/y/year-1/programs/program-1/sessions/session-1/assignment-planner",
-    );
+    expect(screen.queryByRole("link", { name: "Assignment planner" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Response tracking" })).not.toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { name: "Session objective overrides" }),
@@ -1172,7 +1169,13 @@ describe("SessionPage", () => {
     mocks.sessionUpdate.mockImplementation((_value, options) => options.onSuccess());
     renderSession();
 
-    fireEvent.click(screen.getByRole("button", { name: "Edit session" }));
+    const editButton = screen.getByRole("button", { name: "Edit session" });
+    const title = screen.getByRole("heading", { name: "Autumn session", level: 1 });
+    expect(title.nextElementSibling).toBe(editButton);
+    expect(editButton).toHaveAttribute("title", "Edit session");
+    expect(editButton.querySelector("svg")).toBeInTheDocument();
+    expect(editButton).not.toHaveTextContent("Edit session");
+    fireEvent.click(editButton);
     expect(screen.getByRole("dialog", { name: "Edit session" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save session" })).toBeEnabled();
     fireEvent.change(screen.getByRole("textbox", { name: "Session name" }), {

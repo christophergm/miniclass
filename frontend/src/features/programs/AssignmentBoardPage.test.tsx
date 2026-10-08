@@ -287,6 +287,15 @@ describe("AssignmentBoardPage", () => {
     expect(screen.getByRole("heading", { name: "Assignment Board", level: 1 })).toBeInTheDocument();
   });
 
+  it("links to the session assignment planner as Settings", () => {
+    renderBoard();
+
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute(
+      "href",
+      "/y/year-1/programs/program-1/sessions/session-1/assignment-planner",
+    );
+  });
+
   it("shows unplaced students as the first offering-style card with placement actions", async () => {
     renderBoard();
 

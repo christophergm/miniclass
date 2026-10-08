@@ -288,8 +288,19 @@ for (const instrument of instruments) {
     await mockReport(page, instrument);
     await page.goto(`${base}/${instrument.path}`);
     await expect(
-      page.getByRole("heading", { name: `Synthetic ${instrument.name} reporting`, exact: true }),
+      page.getByRole("heading", {
+        name: instrument.name === "session" ? "Response tracking" : "Synthetic survey reporting",
+        level: 1,
+        exact: true,
+      }),
     ).toBeVisible();
+    if (instrument.name === "session") {
+      const breadcrumb = page.getByRole("navigation", { name: "Program breadcrumb" });
+      await expect(
+        breadcrumb.getByRole("link", { name: "Synthetic session reporting", exact: true }),
+      ).toHaveAttribute("href", "/y/year-1/programs/program-1/sessions/session-1");
+      await expect(breadcrumb.locator('[aria-current="page"]')).toHaveText("Response tracking");
+    }
     const filters = page.getByRole("region", { name: "Student filters" });
     await expect(filters.getByRole("combobox")).toHaveCount(2);
     await expect(filters.locator('[data-slot="combobox-chips"]')).toHaveCount(2);
