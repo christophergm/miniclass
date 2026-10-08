@@ -329,12 +329,29 @@ export function GuardianStudentsPage() {
               ? `Edit ${studentName(editing)}`
               : "Edit student"
         }
-        description={
-          removing
-            ? ""
-            : "You can update shared name, grade, and homeroom information for a student in your guardian scope."
-        }
+        description=""
       >
+        {!removing && (editing?.other_guardians ?? []).length === 0 && (
+          <div className="mb-4">
+            <p className="mb-1 text-stone-700">You are the only guardian linked to this student.</p>
+          </div>
+        )}
+        {!removing && (editing?.other_guardians ?? []).length > 0 && (
+          <div className="mb-4">
+            <p className="mb-1 text-stone-700">
+              You and the following guardians are linked to this student and can edit their
+              information:
+            </p>
+            <ul className="mb-4 list-disc space-y-1 pl-5 text-stone-700">
+              {editing?.other_guardians?.map((guardian, index) => (
+                <li key={index}>
+                  {guardian.legal_given_name} {guardian.legal_family_name} (
+                  {guardian.relationship_type})
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         {removing ? (
           <RemovalConfirmation
             isRemoving={detach.isPending}
