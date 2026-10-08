@@ -246,6 +246,52 @@ describe("GuardianStudentsPage", () => {
     expect(screen.getByText("Avery Lee · parent")).toBeInTheDocument();
   });
 
+  it("shows other guardian names and relationships without contact details in the edit modal", () => {
+    const otherGuardians = [
+      {
+        legal_given_name: "Jane",
+        legal_family_name: "Doe",
+        relationship_type: "parent" as const,
+        email: "jane@example.com",
+        phone: "555-0101",
+      },
+      {
+        legal_given_name: "John",
+        legal_family_name: "Doe",
+        relationship_type: "guardian" as const,
+        email: "john@example.com",
+        phone: "555-0102",
+      },
+    ];
+    linkedStudents = [{ ...student, other_guardians: otherGuardians }];
+    renderWithQueryClient(
+      <MemoryRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
+        <GuardianStudentsPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    const dialog = screen.getByRole("dialog");
+    expect(
+      within(dialog).getByText(
+        "You and the following guardians are linked to this student and can edit their information:",
+      ),
+    ).toBeVisible();
+    const guardianList = within(dialog).getByRole("list");
+    expect(
+      within(guardianList)
+        .getAllByRole("listitem")
+        .map((item) => item.textContent),
+    ).toEqual(["Jane Doe (parent)", "John Doe (guardian)"]);
+    expect(
+      within(dialog).queryByText("You are the only guardian linked to this student."),
+    ).not.toBeInTheDocument();
+    for (const guardian of otherGuardians) {
+      expect(dialog).not.toHaveTextContent(guardian.email);
+      expect(dialog).not.toHaveTextContent(guardian.phone);
+    }
+  });
+
   it("edits a guardian-scoped student with accessible vocabulary choices", () => {
     renderWithQueryClient(
       <MemoryRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
@@ -255,6 +301,10 @@ describe("GuardianStudentsPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     const dialog = screen.getByRole("dialog");
+    expect(
+      within(dialog).getByText("You are the only guardian linked to this student."),
+    ).toBeVisible();
+    expect(within(dialog).queryByRole("list")).not.toBeInTheDocument();
     expect(within(dialog).getByLabelText("Last name")).toHaveValue("Lee");
     fireEvent.change(within(dialog).getByLabelText("First name"), { target: { value: "Samuel" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Save changes" }));
