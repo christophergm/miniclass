@@ -267,6 +267,11 @@ func (s *Service) GetAssignmentQuality(ctx context.Context, organizationID strin
 		if err != nil {
 			return err
 		}
+		students, err := tx.ListStudents(ctx, schoolYearID, false)
+		if err != nil {
+			return err
+		}
+		participants, assignments = activeAssignmentRoster(participants, assignments, students)
 		profiles := make(map[ids.XID]map[ids.XID]data.InterestProfileRating, len(participants))
 		for _, participant := range participants {
 			values, err := tx.EffectiveInterestProfile(ctx, schoolYearID, programID, participant.StudentID)

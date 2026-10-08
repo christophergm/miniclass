@@ -66,7 +66,7 @@ func (s *Service) GetAssignmentWorkspace(ctx context.Context, organizationID str
 				participants = append(participants, row)
 			}
 		}
-		students, err := tx.ListStudents(ctx, schoolYearID, true)
+		students, err := tx.ListStudents(ctx, schoolYearID, false)
 		if err != nil {
 			return err
 		}
@@ -102,6 +102,7 @@ func (s *Service) GetAssignmentWorkspace(ctx context.Context, organizationID str
 		if err != nil {
 			return err
 		}
+		participants, assignments = activeAssignmentRoster(participants, assignments, students)
 		result = AssignmentWorkspace{Session: session, Participants: assignmentParticipants(participants, students, grades, homerooms), Offerings: offerings, Assignments: assignments, Exclusions: exclusions, Overrides: overrides, Comments: comments, RankedChoiceAnswers: answers}
 		return nil
 	})
@@ -109,6 +110,30 @@ func (s *Service) GetAssignmentWorkspace(ctx context.Context, organizationID str
 		return AssignmentWorkspace{}, fmt.Errorf("get assignment workspace: %w", err)
 	}
 	return result, nil
+}
+
+// activeAssignmentRoster excludes deleted students from draft placement surfaces
+// (SPEC §11.6) without removing their retained memberships or assignment history.
+func activeAssignmentRoster(memberships []data.ProgramMembership, assignments []data.Assignment, students []data.Student) ([]data.ProgramMembership, []data.Assignment) {
+	active := make(map[ids.XID]struct{}, len(students))
+	for _, student := range students {
+		if student.DeletedAt == nil {
+			active[student.ID] = struct{}{}
+		}
+	}
+	participants := make([]data.ProgramMembership, 0, len(memberships))
+	for _, membership := range memberships {
+		if _, ok := active[membership.StudentID]; ok {
+			participants = append(participants, membership)
+		}
+	}
+	placements := make([]data.Assignment, 0, len(assignments))
+	for _, assignment := range assignments {
+		if _, ok := active[assignment.StudentID]; ok {
+			placements = append(placements, assignment)
+		}
+	}
+	return participants, placements
 }
 
 func assignmentParticipants(memberships []data.ProgramMembership, students []data.Student, grades []data.GradeLevel, homerooms []data.Homeroom) []AssignmentParticipant {
