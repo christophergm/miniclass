@@ -8,6 +8,37 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestActiveAssignmentRosterExcludesDeletedAndMissingStudents(t *testing.T) {
+	deletedAt := time.Now()
+	memberships := []data.ProgramMembership{
+		{ID: "membership-active", StudentID: "active"},
+		{ID: "membership-deleted", StudentID: "deleted"},
+		{ID: "membership-missing", StudentID: "missing"},
+		{ID: "membership-unplaced", StudentID: "unplaced"},
+	}
+	assignments := []data.Assignment{
+		{ID: "assignment-active", StudentID: "active"},
+		{ID: "assignment-deleted", StudentID: "deleted"},
+		{ID: "assignment-missing", StudentID: "missing"},
+		{ID: "assignment-nonparticipant", StudentID: "nonparticipant"},
+	}
+	students := []data.Student{{ID: "active"}, {ID: "deleted", DeletedAt: &deletedAt}, {ID: "unplaced"}, {ID: "nonparticipant"}}
+	participants, placements := activeAssignmentRoster(memberships, assignments, students)
+	require.Equal(t, []data.ProgramMembership{memberships[0], memberships[3]}, participants)
+	require.Equal(t, []data.Assignment{assignments[0], assignments[3]}, placements)
+	// The active-only database list omits the deleted student entirely.
+	participants, placements = activeAssignmentRoster(memberships, assignments, []data.Student{students[0], students[2], students[3]})
+	require.Equal(t, []data.ProgramMembership{memberships[0], memberships[3]}, participants)
+	require.Equal(t, []data.Assignment{assignments[0], assignments[3]}, placements)
+	require.Len(t, memberships, 4)
+	require.Len(t, assignments, 4)
+	participants, placements = activeAssignmentRoster(nil, nil, nil)
+	require.NotNil(t, participants)
+	require.Empty(t, participants)
+	require.NotNil(t, placements)
+	require.Empty(t, placements)
+}
+
 func TestAssignmentParticipantsUsesPersistedRosterAndVocabularyContext(t *testing.T) {
 	preferred := " Synthetic Preferred "
 	blankPreferred := "  "
