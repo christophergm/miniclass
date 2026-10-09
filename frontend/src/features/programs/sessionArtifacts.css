@@ -1,0 +1,23 @@
+.artifact-document {
+  color: #111;
+  background: white;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.artifact-document h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem; }
+.artifact-document h2 { font-size: 1.25rem; font-weight: 700; margin: 1.5rem 0 0.75rem; }
+.artifact-document h3 { font-size: 1rem; font-weight: 700; margin: 1rem 0 0.5rem; }
+.artifact-document p { margin: 0.5rem 0; }
+.artifact-document ul, .artifact-document ol { padding-left: 1.75rem; margin: 0.5rem 0; }
+.artifact-document ul { list-style: disc; }
+.artifact-document ol { list-style: decimal; }
+.artifact-print-root { display: none; }
+
+@media print {
+  body:has(> .artifact-print-root) > :not(.artifact-print-root) { display: none !important; }
+  .artifact-print-root { display: block; }
+  .artifact-print-root .artifact-section + .artifact-section { break-before: page; page-break-before: always; }
+  .artifact-print-root .artifact-section { break-inside: auto; }
+  .artifact-print-root h1, .artifact-print-root h2, .artifact-print-root h3 { break-after: avoid; }
+  .artifact-print-root li { break-inside: avoid; }
+}

@@ -807,6 +807,23 @@ is a narrow capability cut, not delivery of all of Phases 7–9 and not a claim 
 
 *SPEC §18, §22.3.*
 
+**Delivered narrow slice — administrator artifact generation**
+
+The session page offers whole-session homeroom dismissal and class-list documents based on
+current assignments, using the layouts from `reference/classprinter`. Owners and administrators
+can preview, print, copy formatted text, or copy Markdown. Content follows §18.3–18.5, with
+staffing and all tags omitted; print layout follows §22.4, starting each homeroom or class on a
+new page. Copied content is continuous. Documents show **Generated at**, not a publication time.
+
+Generation is a read-only administrative operation, not publication: it creates no saved snapshot,
+share link, downloadable file, or session-state transition. Unplaced students and missing routing
+or grade information produce non-blocking administrator warnings outside the copied/printed
+content. Unplaced students are absent from the document; missing values are explicitly labeled.
+
+Snapshot publishing and its completeness gate (§18.2), share-link lifecycle (§18.8), guardian
+placement views (§18.6), adult staffing on class lists, and independently served published pages
+(§22.3) remain deferred. This slice does **not** satisfy the full Phase 6 / R1 exit criteria below.
+
 **Feature track**
 
 - Publish semantics: a point-in-time **snapshot**, not a live view. The only blocking precondition is
