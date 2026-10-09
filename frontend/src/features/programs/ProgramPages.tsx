@@ -37,6 +37,7 @@ import { activeGradeLevels } from "@/lib/apiResources";
 import { toLocalDateTime } from "@/lib/dateTime";
 import { usePeople } from "@/features/people/roster-queries";
 import { useVocabulary } from "@/lib/hooks/useVocabulary";
+import { useAccountRole } from "@/lib/hooks/useAccount";
 import { OfferingSummary } from "./OfferingPages";
 import { ProgramSettingsBreadcrumb } from "./ProgramSettingsBreadcrumb";
 
@@ -1714,6 +1715,7 @@ function requiresTransitionConfirmation(from: string, to: string) {
 }
 
 export function SessionPage() {
+  const accountRole = useAccountRole();
   const { schoolYearId, programId, sessionId } = useParams<{
     schoolYearId: string;
     programId: string;
@@ -1951,6 +1953,14 @@ export function SessionPage() {
           >
             Assignment board
           </Link>
+          {(accountRole === "owner" || accountRole === "administrator") && (
+            <Link
+              className="text-sm font-medium text-primary hover:underline"
+              to={`/y/${schoolYearId}/programs/${programId}/sessions/${sessionId}/artifacts`}
+            >
+              Class lists
+            </Link>
+          )}
           {current.ranked_choice && (
             <Link
               className="text-sm font-medium text-primary hover:underline"

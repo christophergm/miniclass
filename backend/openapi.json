@@ -296,6 +296,139 @@
         ],
         "type": "object"
       },
+      "ArtifactBlockResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "paragraph",
+              "heading",
+              "bullet",
+              "numbered"
+            ],
+            "type": "string"
+          },
+          "label": {
+            "description": "Bold label; empty when no label is needed.",
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "label",
+          "text"
+        ],
+        "type": "object"
+      },
+      "ArtifactDocumentResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/ArtifactDocumentResponse.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "class_list",
+              "homeroom_dismissal"
+            ],
+            "type": "string"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/ArtifactSectionResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "session_name": {
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/ArtifactWarningResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "session_name",
+          "generated_at",
+          "sections",
+          "warnings"
+        ],
+        "type": "object"
+      },
+      "ArtifactSectionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "blocks": {
+            "items": {
+              "$ref": "#/components/schemas/ArtifactBlockResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "blocks"
+        ],
+        "type": "object"
+      },
+      "ArtifactWarningResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "student_names": {
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "student_names"
+        ],
+        "type": "object"
+      },
       "AssignmentExclusionOperationResponse": {
         "additionalProperties": false,
         "properties": {
@@ -17909,6 +18042,108 @@
         ],
         "summary": "Edit a programme session",
         "x-required-capability": "manage_catalog"
+      }
+    },
+    "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/artifacts/{kind}": {
+      "get": {
+        "description": "SPEC §§18.3–18.5; agreed scope: current assignments only, safe fields, no staffing, tags, snapshots, links or publication changes.",
+        "operationId": "generate-current-assignment-artifact",
+        "parameters": [
+          {
+            "description": "Opaque school-year identifier.",
+            "in": "path",
+            "name": "schoolYearID",
+            "required": true,
+            "schema": {
+              "description": "Opaque school-year identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque program identifier.",
+            "in": "path",
+            "name": "programID",
+            "required": true,
+            "schema": {
+              "description": "Opaque program identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque session identifier.",
+            "in": "path",
+            "name": "sessionID",
+            "required": true,
+            "schema": {
+              "description": "Opaque session identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "enum": [
+                "class_list",
+                "homeroom_dismissal"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactDocumentResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Generate an administrator-only current-assignment artifact",
+        "x-required-capability": "manage_publishing"
       }
     },
     "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/assignment-exclusions": {
