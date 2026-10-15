@@ -103,13 +103,13 @@ describe("GuardianOnboardingPage", () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByRole("button", { name: "Start registration" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Start" })).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "Mini Class at Synthetic Academy" }),
     ).toBeInTheDocument();
     expect(screen.getByText("2026–27 registration")).toBeInTheDocument();
     expect(mocks.begin).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Start registration" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start" }));
 
     expect(await screen.findByLabelText("Your first name")).toBeInTheDocument();
     expect(
@@ -161,7 +161,7 @@ describe("GuardianOnboardingPage", () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(await screen.findByRole("button", { name: "Start registration" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Start" }));
     expect(await screen.findByText("A note from your Mini Class team")).toBeInTheDocument();
     expect(screen.queryByLabelText(/organization notice/i)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Agree and continue" })).toBeDisabled();
@@ -275,7 +275,7 @@ describe("GuardianOnboardingPage", () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(await screen.findByRole("button", { name: "Start registration" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Start" }));
     fireEvent.change(await screen.findByLabelText("Email address"), {
       target: { value: "guardian@example.test" },
     });
@@ -311,7 +311,7 @@ describe("GuardianOnboardingPage", () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(await screen.findByRole("button", { name: "Start registration" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Start" }));
     fireEvent.click(await screen.findByLabelText(/i agree to the terms/i));
     fireEvent.click(screen.getByRole("button", { name: "Agree and continue" }));
 
@@ -359,7 +359,7 @@ describe("GuardianOnboardingPage", () => {
         </Routes>
       </MemoryRouter>,
     );
-    fireEvent.click(await screen.findByRole("button", { name: "Start registration" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Start" }));
     expect(await screen.findByText(/registration link is unavailable/i)).toBeInTheDocument();
     expect(screen.queryByText("expired")).not.toBeInTheDocument();
   });

@@ -288,7 +288,7 @@ export function GuardianOnboardingPage() {
                   onClick={beginSharedRegistration}
                   type="button"
                 >
-                  {isSubmitting ? "Getting things ready…" : "Start registration"}
+                  {isSubmitting ? "Getting things ready…" : "Start"}
                 </Button>
               </section>
             ) : !session ? (
