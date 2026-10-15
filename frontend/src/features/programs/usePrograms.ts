@@ -476,6 +476,34 @@ export function useSwapAssignments(schoolYearID: string, programID: string, sess
   );
 }
 
+export function useRemoveAssignment(schoolYearID: string, programID: string, sessionID: string) {
+  return useAssignmentEditMutation(
+    schoolYearID,
+    programID,
+    sessionID,
+    ({
+      studentID,
+      value,
+    }: {
+      studentID: string;
+      value: Parameters<typeof resourceApi.removeAssignment>[4];
+    }) => resourceApi.removeAssignment(schoolYearID, programID, sessionID, studentID, value),
+  );
+}
+
+export function useRemoveUnpinnedAssignments(
+  schoolYearID: string,
+  programID: string,
+  sessionID: string,
+) {
+  return useAssignmentEditMutation<Parameters<typeof resourceApi.removeUnpinnedAssignments>[3]>(
+    schoolYearID,
+    programID,
+    sessionID,
+    (value) => resourceApi.removeUnpinnedAssignments(schoolYearID, programID, sessionID, value),
+  );
+}
+
 export function useSetAssignmentPin(schoolYearID: string, programID: string, sessionID: string) {
   return useAssignmentEditMutation(
     schoolYearID,

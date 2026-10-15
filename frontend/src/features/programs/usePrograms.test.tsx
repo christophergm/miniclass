@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { resourceApi, type ResponseReportFilters } from "@/lib/apiResources";
 
 import {
+  assignmentWorkspaceKey,
   interestProfileSurveyKey,
   responseTrackingSummariesKey,
   sessionsKey,
@@ -13,6 +14,8 @@ import {
   useInterestProfileResults,
   useRankedChoiceResponseTracking,
   useRankedChoiceResults,
+  useRemoveAssignment,
+  useRemoveUnpinnedAssignments,
   useResponseTrackingSummaries,
   useSubmitAdministratorInterestProfile,
   useSubmitAdministratorRankedChoice,
@@ -128,6 +131,53 @@ describe("report query filters", () => {
     expect(fetcher).toHaveBeenCalledTimes(1);
     client.clear();
   });
+});
+
+describe("assignment removal", () => {
+  it.each(["single", "all"])(
+    "posts a revision-checked %s removal and invalidates only that session's board and quality",
+    async (kind) => {
+      const requests: Request[] = [];
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+          const request = input instanceof Request ? input : new Request(input, init);
+          requests.push(request.clone());
+          return new Response(JSON.stringify({ assignments: [], draft_revision: 5 }), {
+            headers: { "Content-Type": "application/json" },
+          });
+        }),
+      );
+      const { client, wrapper } = setup();
+      const workspaceKey = assignmentWorkspaceKey("year", "program", "session");
+      const qualityKey = [...workspaceKey, "quality"];
+      const otherKey = assignmentWorkspaceKey("year", "program", "other-session");
+      for (const key of [workspaceKey, qualityKey, otherKey]) client.setQueryData(key, {});
+      const { result } = renderHook(
+        () => ({
+          single: useRemoveAssignment("year", "program", "session"),
+          all: useRemoveUnpinnedAssignments("year", "program", "session"),
+        }),
+        { wrapper },
+      );
+      const value = { expected_revision: 4, reason: "Rebuild draft" };
+      await act(async () => {
+        if (kind === "single")
+          await result.current.single.mutateAsync({ studentID: "student", value });
+        else await result.current.all.mutateAsync(value);
+      });
+      expect(requests).toHaveLength(1);
+      expect(requests[0].method).toBe("POST");
+      expect(new URL(requests[0].url).pathname).toBe(
+        `/api/school-years/year/programs/program/sessions/session/assignments/${kind === "single" ? "student/remove" : "remove-all"}`,
+      );
+      expect(await requests[0].json()).toEqual(value);
+      expect(client.getQueryState(workspaceKey)?.isInvalidated).toBe(true);
+      expect(client.getQueryState(qualityKey)?.isInvalidated).toBe(true);
+      expect(client.getQueryState(otherKey)?.isInvalidated).toBe(false);
+      client.clear();
+    },
+  );
 });
 
 describe("administrator resubmission invalidation", () => {

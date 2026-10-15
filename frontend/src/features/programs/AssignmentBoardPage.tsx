@@ -42,6 +42,8 @@ import {
   useDeleteAssignmentExclusion,
   useMoveAssignment,
   usePrograms,
+  useRemoveAssignment,
+  useRemoveUnpinnedAssignments,
   useSetAssignmentPin,
   useStartSolveRun,
   useSwapAssignments,
@@ -220,6 +222,8 @@ function OfferingCard({
   onMove,
   onSwap,
   onPin,
+  onRemove,
+  removing,
   onExclusions,
 }: {
   offering: NonNullable<Workspace["offerings"]>[number];
@@ -236,6 +240,8 @@ function OfferingCard({
   onMove: (studentID: string, offeringID: string) => void;
   onSwap: (studentID: string) => void;
   onPin: (studentID: string, pinned: boolean) => void;
+  onRemove: (studentID: string) => void;
+  removing: boolean;
   onExclusions: (studentID: string, offeringID: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({
@@ -289,6 +295,7 @@ function OfferingCard({
                 run: () => onPin(assignment.student_id, !assignment.pinned),
               },
               { label: "Exclusions", run: () => onExclusions(assignment.student_id, offering.id) },
+              { label: "Remove", run: () => onRemove(assignment.student_id) },
             ];
             return (
               <DraggableStudentRow
@@ -344,6 +351,7 @@ function OfferingCard({
                             <Menu.Item
                               className="cursor-pointer rounded px-3 py-2 text-sm outline-none data-highlighted:bg-accent"
                               key={action.label}
+                              disabled={action.label === "Remove" && removing}
                               onClick={action.run}
                             >
                               {action.label}
@@ -394,6 +402,9 @@ export function AssignmentBoardPage() {
   } | null>(null);
   const [reason, setReason] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
+  const [confirmRemoveAll, setConfirmRemoveAll] = useState(false);
+  const [removalReason, setRemovalReason] = useState("");
+  const [savingRemoval, setSavingRemoval] = useState(false);
   const workspace = useAssignmentWorkspace(year.id, programId, sessionId);
   const quality = useAssignmentQuality(year.id, programId, sessionId);
   const programs = usePrograms(year.id);
@@ -401,6 +412,8 @@ export function AssignmentBoardPage() {
   const move = useMoveAssignment(year.id, programId ?? "", sessionId ?? "");
   const swap = useSwapAssignments(year.id, programId ?? "", sessionId ?? "");
   const pin = useSetAssignmentPin(year.id, programId ?? "", sessionId ?? "");
+  const remove = useRemoveAssignment(year.id, programId ?? "", sessionId ?? "");
+  const removeAll = useRemoveUnpinnedAssignments(year.id, programId ?? "", sessionId ?? "");
   const addExclusion = useCreateAssignmentExclusion(year.id, programId ?? "", sessionId ?? "");
   const removeExclusion = useDeleteAssignmentExclusion(year.id, programId ?? "", sessionId ?? "");
   const selectedProgram = programs.data?.find((program) => program.id === programId);
@@ -572,6 +585,23 @@ export function AssignmentBoardPage() {
       handleError(error);
     }
   };
+  const runRemove = async (studentID?: string) => {
+    if (savingRemoval) return;
+    setSavingRemoval(true);
+    setEditError(null);
+    try {
+      const value = { expected_revision: revision, reason: studentID ? "" : removalReason };
+      if (studentID) await remove.mutateAsync({ studentID, value });
+      else await removeAll.mutateAsync(value);
+      setConfirmRemoveAll(false);
+      setEditError(null);
+    } catch (error) {
+      if (isStaleDraft(error)) setConfirmRemoveAll(false);
+      handleError(error);
+    } finally {
+      setSavingRemoval(false);
+    }
+  };
   const runExclusion = async (studentID: string, offeringID: string) => {
     if (savingExclusion) return;
     setSavingExclusion(true);
@@ -716,6 +746,19 @@ export function AssignmentBoardPage() {
             </Link>
             <Button onClick={refresh} type="button" variant="outline">
               Refresh
+            </Button>
+            <Button
+              disabled={savingRemoval || !assignments.some((assignment) => !assignment.pinned)}
+              onClick={() => {
+                setEditError(null);
+                setRemovalReason("");
+                setConfirmRemoveAll(true);
+              }}
+              title="Remove all unpinned placements; keep pinned placements"
+              type="button"
+              variant="outline"
+            >
+              Remove all
             </Button>
             <Button disabled={solve.isPending} onClick={() => solve.mutate()} type="button">
               {solve.isPending ? "Solving…" : hasDraft ? "Re-solve draft" : "Create draft"}
@@ -900,6 +943,8 @@ export function AssignmentBoardPage() {
                   setEditor({ kind: "move", studentID, offeringID })
                 }
                 onPin={runPin}
+                onRemove={runRemove}
+                removing={savingRemoval}
                 onSwap={(studentID) =>
                   setEditor({
                     kind: "swap",
@@ -912,6 +957,49 @@ export function AssignmentBoardPage() {
               />
             ))}
         </div>
+        <ModalForm
+          description="All unpinned placements in this session will return to Unplaced students, including placements hidden by filters. Pinned placements will stay in their classes."
+          onClose={() => {
+            if (!savingRemoval) setConfirmRemoveAll(false);
+          }}
+          open={confirmRemoveAll}
+          title="Remove all unpinned assignments?"
+        >
+          <form
+            className="space-y-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void runRemove();
+            }}
+          >
+            <label className="block text-sm">
+              Reason (optional)
+              <Input
+                disabled={savingRemoval}
+                onChange={(event) => setRemovalReason(event.target.value)}
+                value={removalReason}
+              />
+            </label>
+            {editError && (
+              <p className="text-sm text-destructive" role="alert">
+                {editError}
+              </p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button
+                disabled={savingRemoval}
+                onClick={() => setConfirmRemoveAll(false)}
+                type="button"
+                variant="outline"
+              >
+                Cancel
+              </Button>
+              <Button disabled={savingRemoval} type="submit" variant="destructive">
+                {savingRemoval ? "Removing…" : "Remove all"}
+              </Button>
+            </div>
+          </form>
+        </ModalForm>
         <ModalForm
           description="Choose the saved operation. Changes are applied atomically to the latest draft revision."
           onClose={() => {
