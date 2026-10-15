@@ -21,7 +21,7 @@
 # Compose reading the project directory — so nothing here is exported. `?=`
 # repeats .env.example's defaults only for a checkout that has no .env yet.
 -include .env
-PORT ?= 8080
+PORT ?= 8082
 VITE_PORT ?= 5173
 
 # The committed output of `make generate`. CI checks the whole tree with

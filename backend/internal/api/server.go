@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	defaultServerAddress          = ":8080"
+	defaultServerAddress          = ":8082"
 	defaultServerVersion          = "0.1.0"
 	defaultInvitationClaimBaseURL = "http://localhost:5173/claim"
 )

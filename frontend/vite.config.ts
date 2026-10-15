@@ -25,7 +25,7 @@ export default defineConfig({
         // API base is VITE_API_URL, which is left empty in local development so
         // the browser requests a relative /api and travels through this proxy
         // (same-origin, so the CSP connect-src needs nothing beyond 'self').
-        target: process.env.API_PROXY_TARGET || "http://localhost:8080",
+        target: process.env.API_PROXY_TARGET || "http://localhost:8082",
         changeOrigin: true,
       },
     },

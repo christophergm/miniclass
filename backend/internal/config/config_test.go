@@ -260,7 +260,7 @@ func TestLoadReadsTrustedProxyCIDRs(t *testing.T) {
 }
 
 func TestConfigValidateRejectsInvalidTrustedProxyCIDR(t *testing.T) {
-	err := (Config{AppDatabaseURL: "postgres://example", Port: "8080", TrustedProxyCIDRs: []string{"not-a-cidr"}}).Validate()
+	err := (Config{AppDatabaseURL: "postgres://example", Port: "8082", TrustedProxyCIDRs: []string{"not-a-cidr"}}).Validate()
 	if err == nil || err.Error() != `configuration error: TRUSTED_PROXY_CIDRS contains invalid CIDR "not-a-cidr"` {
 		t.Fatalf("Validate() error = %v", err)
 	}

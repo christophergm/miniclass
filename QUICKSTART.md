@@ -33,7 +33,7 @@ make tools-install # air, sqlc, goose and golangci-lint
 Then run the two long-lived processes, one per terminal:
 
 ```sh
-make dev-backend              # API on http://localhost:8080
+make dev-backend              # API on http://localhost:8082
 make dev-frontend             # app as the local admin on http://localhost:5173
 make dev-frontend-anonymous   # app without a session on http://localhost:5173
 ```
