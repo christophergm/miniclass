@@ -108,7 +108,7 @@ fi
 # an organisation only once the seed has bound it. Checking here is what turns
 # "403 no-organization" from a mystery into a named next command.
 
-PORT="${PORT:-8080}"
+PORT="${PORT:-8082}"
 API_BASE_URL="${API_BASE_URL:-http://localhost:$PORT}"
 API_BASE_URL="${API_BASE_URL%/}"
 API_BASE_URL="${API_BASE_URL%/api}"

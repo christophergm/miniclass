@@ -124,7 +124,7 @@ MiniClass runs as **two long-lived processes, one per terminal**. Nothing superv
 hot-reloads independently and logs to its own terminal.
 
 ```sh
-make dev-backend              # terminal 1: API on http://localhost:8080
+make dev-backend              # terminal 1: API on http://localhost:8082
 make dev-frontend             # terminal 2: app as the local admin on http://localhost:5173
 make dev-frontend-anonymous   # terminal 2: app without a session on http://localhost:5173
 ```
@@ -142,7 +142,7 @@ with an empty `VITE_DEV_TOKEN`, so public pages can be tested without changing t
 | Surface | URL |
 |---|---|
 | App | <http://localhost:5173> — signed in as `owner@example.test` in Synthetic Academy |
-| API | <http://localhost:8080/api/health> — unauthenticated by design, so it answers when a login does not |
+| API | <http://localhost:8082/api/health> — unauthenticated by design, so it answers when a login does not |
 | Adminer | <http://localhost:8081> — server `postgres`, credentials from `.env`; start it with `docker compose up -d adminer` |
 | Mailpit | <http://localhost:8025> — local SMTP sink; started by `make setup` and `make dev-backend` |
 
@@ -257,11 +257,15 @@ All ports are configurable in `.env` so that parallel worktrees can run simultan
 | Service | Default | Environment variable |
 |---|---|---|
 | Frontend (Vite) | 5173 | `VITE_PORT` |
-| Backend (Go API) | 8080 | `PORT` |
-| PostgreSQL | 5432 | `POSTGRES_PORT` |
+| Backend (Go API) | 8082 | `PORT` |
+| PostgreSQL | 5464 | `POSTGRES_PORT` |
 | Adminer | 8081 | `ADMINER_PORT` |
 | Mailpit SMTP | 1025 | `MAILPIT_SMTP_PORT` |
 | Mailpit web UI | 8025 | `MAILPIT_UI_PORT` |
+
+PostgreSQL uses host port `5464` to avoid conflicts with other local installations; its container
+still listens on `5432`. If you change `POSTGRES_PORT`, update the ports in all database URLs in
+`.env` to match.
 
 The browser reaches the API through the Vite dev proxy, so `VITE_API_URL` — the client bundle's API
 base — is **empty** locally and requests are same-origin relative `/api` calls. `API_PROXY_TARGET` is
@@ -288,7 +292,7 @@ Start with `GET /api/health`: it is unauthenticated by design, so it answers eve
 broken. If it reports `healthy` and `connected`, the problem is identity rather than the stack.
 
 ```sh
-curl http://localhost:8080/api/health
+curl http://localhost:8082/api/health
 # {"status":"healthy","timestamp":"2026-08-22T10:30:00Z","database":"connected","version":"0.1.0"}
 ```
 

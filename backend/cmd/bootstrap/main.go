@@ -54,7 +54,7 @@ func run(ctx context.Context, args []string, databaseURL string, output io.Write
 
 	// Validate the application configuration shape without creating an API
 	// server or acquiring any special database role.
-	cfg := config.Config{AppDatabaseURL: databaseURL, Port: "8080"}
+	cfg := config.Config{AppDatabaseURL: databaseURL, Port: "8082"}
 	if err := cfg.Validate(); err != nil {
 		return fmt.Errorf("bootstrap failed: %w", err)
 	}

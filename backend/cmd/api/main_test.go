@@ -36,7 +36,7 @@ func TestServeGracefullyShutsDownOnContextCancellation(t *testing.T) {
 
 	result := make(chan error, 1)
 	go func() {
-		result <- serve(ctx, &config.Config{AppEnv: "test", AppVersion: "1.2.3", Port: "8080"}, server, testLogger())
+		result <- serve(ctx, &config.Config{AppEnv: "test", AppVersion: "1.2.3", Port: "8082"}, server, testLogger())
 	}()
 
 	cancel()

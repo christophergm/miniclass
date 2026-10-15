@@ -17,7 +17,7 @@ func main() {
 	var (
 		subject       = flag.String("subject", "", "provider subject")
 		email         = flag.String("email", "", "verified email")
-		issuer        = flag.String("issuer", envOr("AUTH_ISSUER", "http://localhost:8080"), "JWT issuer")
+		issuer        = flag.String("issuer", envOr("AUTH_ISSUER", "http://localhost:8082"), "JWT issuer")
 		audience      = flag.String("audience", envOr("AUTH_AUDIENCE", "authenticated"), "JWT audience")
 		keyPEM        = flag.String("private-key", os.Getenv("AUTH_LOCAL_PRIVATE_KEY"), "PEM private key")
 		keyPath       = flag.String("private-key-file", os.Getenv("AUTH_LOCAL_PRIVATE_KEY_FILE"), "file containing PEM private key")

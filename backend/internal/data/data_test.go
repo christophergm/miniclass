@@ -16,7 +16,7 @@ func TestNewRequiresConfiguration(t *testing.T) {
 }
 
 func TestNewRejectsInvalidConfiguration(t *testing.T) {
-	cfg := &config.Config{Port: "8080"}
+	cfg := &config.Config{Port: "8082"}
 
 	_, err := New(context.Background(), cfg)
 	if err == nil || err.Error() != "create database: configuration error: APP_DATABASE_URL is required" {

@@ -18,8 +18,8 @@ import (
 const (
 	defaultAppEnv                             = "development"
 	defaultAppVersion                         = "0.1.0"
-	defaultPort                               = "8080"
-	defaultAPIBaseURL                         = "http://localhost:8080"
+	defaultPort                               = "8082"
+	defaultAPIBaseURL                         = "http://localhost:8082"
 	defaultInvitationClaimBaseURL             = "http://localhost:5173/claim"
 	defaultSolverBaseURL                      = "http://localhost:8090"
 	defaultSolverRequestTimeout               = 15 * time.Second
