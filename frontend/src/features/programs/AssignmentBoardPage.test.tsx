@@ -11,6 +11,8 @@ const startSolve = vi.fn();
 const moveAssignment = vi.fn();
 const swapAssignments = vi.fn();
 const setPin = vi.fn();
+const removeAssignment = vi.fn();
+const removeUnpinnedAssignments = vi.fn();
 const addExclusion = vi.fn();
 const removeExclusion = vi.fn();
 const createComment = vi.fn();
@@ -45,6 +47,8 @@ vi.mock("./usePrograms", () => ({
   useMoveAssignment: () => ({ mutateAsync: moveAssignment }),
   useSwapAssignments: () => ({ mutateAsync: swapAssignments }),
   useSetAssignmentPin: () => ({ mutateAsync: setPin }),
+  useRemoveAssignment: () => ({ mutateAsync: removeAssignment }),
+  useRemoveUnpinnedAssignments: () => ({ mutateAsync: removeUnpinnedAssignments }),
   useCreateAssignmentExclusion: () => ({ mutateAsync: addExclusion }),
   useDeleteAssignmentExclusion: () => ({ mutateAsync: removeExclusion }),
   useCreatePlacementComment: () => ({ mutateAsync: createComment, isPending: false }),
@@ -205,6 +209,22 @@ describe("AssignmentBoardPage", () => {
     moveAssignment.mockResolvedValue({});
     swapAssignments.mockResolvedValue({});
     setPin.mockResolvedValue({});
+    removeAssignment.mockImplementation(async ({ studentID }) => {
+      workspace = {
+        ...workspace,
+        draft_revision: workspace.draft_revision + 1,
+        assignments: (workspace.assignments ?? []).filter((item) => item.student_id !== studentID),
+      };
+      return {};
+    });
+    removeUnpinnedAssignments.mockImplementation(async () => {
+      workspace = {
+        ...workspace,
+        draft_revision: workspace.draft_revision + 1,
+        assignments: (workspace.assignments ?? []).filter((item) => item.pinned),
+      };
+      return {};
+    });
     addExclusion.mockImplementation(async (value) => {
       workspace = {
         ...workspace,
@@ -285,6 +305,118 @@ describe("AssignmentBoardPage", () => {
     ]);
     expect(breadcrumb.querySelector('[aria-current="page"]')).toHaveTextContent("Assignment Board");
     expect(screen.getByRole("heading", { name: "Assignment Board", level: 1 })).toBeInTheDocument();
+  });
+
+  it.each([
+    { name: "Ada Synthesis", studentID: "ada", offeringName: "Robotics" },
+    { name: "Cy Sample", studentID: "cy", offeringName: "Art" },
+  ])("removes $name to unplaced, even if pinned", async ({ name, studentID, offeringName }) => {
+    renderBoard();
+    await chooseAction(name, "Remove");
+
+    await waitFor(() =>
+      expect(removeAssignment).toHaveBeenCalledWith({
+        studentID,
+        value: { expected_revision: 4, reason: "" },
+      }),
+    );
+    await waitFor(() =>
+      expect(within(offering(offeringName)).queryByText(name)).not.toBeInTheDocument(),
+    );
+    expect(
+      within(screen.getByRole("region", { name: "Unplaced students" })).getByText(name),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Revision 5")).toBeInTheDocument();
+    expect(removeUnpinnedAssignments).not.toHaveBeenCalled();
+  });
+
+  it("confirms Remove all and leaves placements untouched on cancellation", () => {
+    renderBoard();
+    fireEvent.click(screen.getByRole("button", { name: "Remove all" }));
+    const modal = screen.getByRole("dialog", { name: "Remove all unpinned assignments?" });
+    expect(
+      within(modal).getByText(/Pinned placements will stay in their classes/),
+    ).toBeInTheDocument();
+    fireEvent.click(within(modal).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(removeUnpinnedAssignments).not.toHaveBeenCalled();
+    expect(within(offering("Robotics")).getByText("Ada Synthesis")).toBeInTheDocument();
+    expect(within(offering("Art")).getByText("Cy Sample")).toBeInTheDocument();
+  });
+
+  it("removes all unpinned placements regardless of filters and keeps pinned students placed", async () => {
+    renderBoard();
+    fireEvent.change(screen.getByRole("textbox", { name: "Find a student" }), {
+      target: { value: "Ada" },
+    });
+    expect(screen.queryByText("Cy Sample")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Remove all" }));
+    const modal = screen.getByRole("dialog", { name: "Remove all unpinned assignments?" });
+    fireEvent.change(within(modal).getByRole("textbox", { name: "Reason (optional)" }), {
+      target: { value: "Rebuild the unpinned draft" },
+    });
+    fireEvent.click(within(modal).getByRole("button", { name: "Remove all" }));
+    await waitFor(() =>
+      expect(removeUnpinnedAssignments).toHaveBeenCalledWith({
+        expected_revision: 4,
+        reason: "Rebuild the unpinned draft",
+      }),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    fireEvent.change(screen.getByRole("textbox", { name: "Find a student" }), {
+      target: { value: "" },
+    });
+    expect(within(offering("Robotics")).getByText("Ada Synthesis")).toBeInTheDocument();
+    expect(within(offering("Art")).queryByText("Cy Sample")).not.toBeInTheDocument();
+    const unplaced = screen.getByRole("region", { name: "Unplaced students" });
+    expect(within(unplaced).getByText("Cy Sample")).toBeInTheDocument();
+    expect(within(unplaced).getByText("Bea Example")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove all" })).toBeDisabled();
+    expect(removeAssignment).not.toHaveBeenCalled();
+  });
+
+  it.each(["empty", "pinned"])(
+    "disables Remove all for an %s draft with no removable placements",
+    (kind) => {
+      workspace.assignments =
+        kind === "empty" ? [] : (workspace.assignments ?? []).filter((item) => item.pinned);
+      renderBoard();
+      expect(screen.getByRole("button", { name: "Remove all" })).toBeDisabled();
+    },
+  );
+
+  it("keeps a placement visible when removal fails", async () => {
+    removeAssignment.mockRejectedValueOnce(new Error("Unable to remove assignment"));
+    renderBoard();
+    await chooseAction("Cy Sample", "Remove");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Unable to remove assignment");
+    expect(within(offering("Art")).getByText("Cy Sample")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("region", { name: "Unplaced students" })).queryByText("Cy Sample"),
+    ).not.toBeInTheDocument();
+  });
+
+  it.each(["single", "all"])("refreshes a stale %s removal without retrying", async (kind) => {
+    const mutation = kind === "single" ? removeAssignment : removeUnpinnedAssignments;
+    mutation.mockRejectedValueOnce(
+      new ApiError("http", "draft revision changed", 409, "program-conflict"),
+    );
+    renderBoard();
+    if (kind === "single") await chooseAction("Cy Sample", "Remove");
+    else {
+      fireEvent.click(screen.getByRole("button", { name: "Remove all" }));
+      fireEvent.click(
+        within(screen.getByRole("dialog")).getByRole("button", { name: "Remove all" }),
+      );
+    }
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "This draft changed while you were editing",
+    );
+    expect(refetchWorkspace).toHaveBeenCalledOnce();
+    expect(refetchQuality).toHaveBeenCalledOnce();
+    expect(mutation).toHaveBeenCalledOnce();
+    expect(within(offering("Art")).getByText("Cy Sample")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("links to the session assignment planner as Settings", () => {

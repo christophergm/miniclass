@@ -53,6 +53,7 @@ export type SolveRun = Schemas["SolveRunResponse"];
 export type AssignmentOperationInput = Schemas["MoveAssignmentInputBody"];
 export type AssignmentSwapInput = Schemas["SwapAssignmentsInputBody"];
 export type AssignmentPinInput = Schemas["AssignmentPinInputBody"];
+export type AssignmentRemovalInput = Schemas["RemoveUnpinnedAssignmentsInputBody"];
 export type AssignmentExclusionInput = Schemas["CreateAssignmentExclusionInputBody"];
 export type AssignmentExclusionDeleteInput = Schemas["DeleteAssignmentExclusionInputBody"];
 export type PlacementComment = Schemas["PlacementCommentResponse"];
@@ -987,6 +988,31 @@ export const resourceApi = {
     unwrap(
       api.POST(
         "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/assignments/swap",
+        { params: { path: { schoolYearID, programID, sessionID } }, body: value },
+      ),
+    ),
+  removeAssignment: (
+    schoolYearID: string,
+    programID: string,
+    sessionID: string,
+    studentID: string,
+    value: AssignmentRemovalInput,
+  ) =>
+    unwrap(
+      api.POST(
+        "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/assignments/{studentID}/remove",
+        { params: { path: { schoolYearID, programID, sessionID, studentID } }, body: value },
+      ),
+    ),
+  removeUnpinnedAssignments: (
+    schoolYearID: string,
+    programID: string,
+    sessionID: string,
+    value: AssignmentRemovalInput,
+  ) =>
+    unwrap(
+      api.POST(
+        "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/assignments/remove-all",
         { params: { path: { schoolYearID, programID, sessionID } }, body: value },
       ),
     ),

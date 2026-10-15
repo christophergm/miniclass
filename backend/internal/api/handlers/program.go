@@ -62,6 +62,8 @@ type ProgramService interface {
 	DeletePlacementComment(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, ids.XID) (data.PlacementComment, error)
 	MoveAssignment(context.Context, string, audit.Actor, programservice.AssignmentOperationInput, ids.XID, ids.XID) (programservice.AssignmentOperationResult, error)
 	SwapAssignments(context.Context, string, audit.Actor, programservice.AssignmentOperationInput, ids.XID, ids.XID) (programservice.AssignmentOperationResult, error)
+	RemoveAssignment(context.Context, string, audit.Actor, programservice.AssignmentOperationInput, ids.XID) (programservice.AssignmentOperationResult, error)
+	RemoveUnpinnedAssignments(context.Context, string, audit.Actor, programservice.AssignmentOperationInput) (programservice.AssignmentOperationResult, error)
 	SetAssignmentPin(context.Context, string, audit.Actor, programservice.AssignmentOperationInput, ids.XID, bool) (programservice.AssignmentOperationResult, error)
 	AddAssignmentExclusion(context.Context, string, audit.Actor, programservice.AssignmentOperationInput, ids.XID, ids.XID) (programservice.AssignmentExclusionResult, error)
 	RemoveAssignmentExclusion(context.Context, string, audit.Actor, programservice.AssignmentOperationInput, ids.XID) (programservice.AssignmentExclusionResult, error)
@@ -293,6 +295,17 @@ type SwapAssignmentsInput struct {
 		ExpectedRevision  int64  `json:"expected_revision" minimum:"0"`
 		ConfirmViolations bool   `json:"confirm_violations"`
 		Reason            string `json:"reason"`
+	}
+}
+type RemoveAssignmentInput struct {
+	RemoveUnpinnedAssignmentsInput
+	StudentID string `path:"studentID" minLength:"1"`
+}
+type RemoveUnpinnedAssignmentsInput struct {
+	SessionPathInput
+	Body struct {
+		ExpectedRevision int64  `json:"expected_revision" minimum:"0"`
+		Reason           string `json:"reason"`
 	}
 }
 type AssignmentPinInput struct {
@@ -785,6 +798,36 @@ func (h *ProgramHandler) SwapAssignments(ctx context.Context, input *SwapAssignm
 	}
 	return &AssignmentOperationOutput{Body: assignmentOperationResponse(result)}, nil
 }
+func (h *ProgramHandler) RemoveAssignment(ctx context.Context, input *RemoveAssignmentInput) (*AssignmentOperationOutput, error) {
+	account, err := programAccount(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if h == nil || h.service == nil || input == nil {
+		return nil, sessionNotFound()
+	}
+	result, err := h.service.RemoveAssignment(ctx, string(account.OrganizationID), programActor(account), assignmentOperationInput(input.SchoolYearID, input.ProgramID, input.SessionID, input.Body.ExpectedRevision, false, input.Body.Reason), ids.XID(input.StudentID))
+	if err != nil {
+		return nil, assignmentOperationProblem(err)
+	}
+	return &AssignmentOperationOutput{Body: assignmentOperationResponse(result)}, nil
+}
+
+func (h *ProgramHandler) RemoveUnpinnedAssignments(ctx context.Context, input *RemoveUnpinnedAssignmentsInput) (*AssignmentOperationOutput, error) {
+	account, err := programAccount(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if h == nil || h.service == nil || input == nil {
+		return nil, sessionNotFound()
+	}
+	result, err := h.service.RemoveUnpinnedAssignments(ctx, string(account.OrganizationID), programActor(account), assignmentOperationInput(input.SchoolYearID, input.ProgramID, input.SessionID, input.Body.ExpectedRevision, false, input.Body.Reason))
+	if err != nil {
+		return nil, assignmentOperationProblem(err)
+	}
+	return &AssignmentOperationOutput{Body: assignmentOperationResponse(result)}, nil
+}
+
 func (h *ProgramHandler) PinAssignment(ctx context.Context, input *AssignmentPinInput) (*AssignmentOperationOutput, error) {
 	return h.setAssignmentPin(ctx, input, true)
 }

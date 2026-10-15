@@ -48,6 +48,75 @@ func (s *Service) SwapAssignments(ctx context.Context, organizationID string, ac
 	return s.changeAssignments(ctx, organizationID, actor, input, "swap", nil, []ids.XID{firstStudentID, secondStudentID})
 }
 
+// RemoveAssignment explicitly returns a student to unplaced, even when pinned
+// (SPEC §§17.12, 17.9, 20.1).
+func (s *Service) RemoveAssignment(ctx context.Context, organizationID string, actor audit.Actor, input AssignmentOperationInput, studentID ids.XID) (AssignmentOperationResult, error) {
+	return s.removeAssignments(ctx, organizationID, actor, input, "remove", func(assignment data.Assignment) bool {
+		return assignment.StudentID == studentID
+	})
+}
+
+// RemoveUnpinnedAssignments clears the whole session draft except pins, without
+// applying board filters (SPEC §§17.12, 17.9, 20.1).
+func (s *Service) RemoveUnpinnedAssignments(ctx context.Context, organizationID string, actor audit.Actor, input AssignmentOperationInput) (AssignmentOperationResult, error) {
+	return s.removeAssignments(ctx, organizationID, actor, input, "remove-all", func(assignment data.Assignment) bool {
+		return !assignment.Pinned
+	})
+}
+
+func (s *Service) removeAssignments(ctx context.Context, organizationID string, actor audit.Actor, input AssignmentOperationInput, operation string, remove func(data.Assignment) bool) (AssignmentOperationResult, error) {
+	if s == nil || s.database == nil {
+		return AssignmentOperationResult{}, errors.New("remove assignments: data service is nil")
+	}
+	var result AssignmentOperationResult
+	err := s.database.InTenant(ctx, organizationID, actor, func(ctx context.Context, tx *data.Tx) error {
+		// Lock before selecting survivors so a concurrent pin or placement cannot
+		// be overwritten, including when this operation turns out to be a no-op.
+		session, err := tx.GetSessionForUpdate(ctx, input.SchoolYearID, input.ProgramID, input.SessionID)
+		if err != nil {
+			return err
+		}
+		if session.DraftRevision != input.ExpectedRevision {
+			return ErrDraftRevisionConflict
+		}
+		assignments, err := tx.ListAssignments(ctx, input.SchoolYearID, input.ProgramID, input.SessionID)
+		if err != nil {
+			return err
+		}
+		kept := make(map[ids.XID]data.Assignment, len(assignments))
+		removed := make([]data.Assignment, 0, len(assignments))
+		for _, assignment := range assignments {
+			if remove(assignment) {
+				removed = append(removed, assignment)
+			} else {
+				kept[assignment.StudentID] = assignment
+			}
+		}
+		if len(removed) == 0 {
+			result = AssignmentOperationResult{Assignments: assignments, DraftRevision: session.DraftRevision}
+			tx.NoAuditRequired("no draft assignments matched removal")
+			return nil
+		}
+		revision, err := tx.AdvanceDraftRevision(ctx, input.SchoolYearID, input.ProgramID, input.SessionID, input.ExpectedRevision)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrDraftRevisionConflict
+			}
+			return err
+		}
+		updated, err := tx.ReplaceDraftAssignments(ctx, input.SchoolYearID, input.ProgramID, input.SessionID, assignmentInputs(kept, nil))
+		if err != nil {
+			return err
+		}
+		result = AssignmentOperationResult{Assignments: updated, DraftRevision: revision}
+		return tx.Record(ctx, audit.Entry{Action: audit.ActionManualOperation, ObjectType: "session", ObjectID: &input.SessionID, SchoolYearID: &input.SchoolYearID, Reason: strings.TrimSpace(input.Reason), ChangeSummary: mustJSON(map[string]any{"operation": operation, "program_id": input.ProgramID, "session_id": input.SessionID, "removed_assignments": removed, "draft_revision": revision})})
+	})
+	if err != nil {
+		return AssignmentOperationResult{}, fmt.Errorf("%s assignments: %w", operation, err)
+	}
+	return result, nil
+}
+
 func (s *Service) SetAssignmentPin(ctx context.Context, organizationID string, actor audit.Actor, input AssignmentOperationInput, studentID ids.XID, pinned bool) (AssignmentOperationResult, error) {
 	if s == nil || s.database == nil {
 		return AssignmentOperationResult{}, errors.New("set assignment pin: data service is nil")

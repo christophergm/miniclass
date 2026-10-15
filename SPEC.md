@@ -2622,6 +2622,8 @@ The organizer MUST be able to:
 | Unpin | Return it to the solver |
 | Move | Place a student in a specific offering; implicitly pins |
 | Swap | Exchange two students; implicitly pins both |
+| Remove | Remove one draft placement, even if pinned, returning the participating student to the unplaced list |
+| Remove all | Atomically remove all unpinned draft placements in the session, regardless of board filters; preserve pinned placements and return removed students to the unplaced list |
 | Exclude | Forbid a student from an offering (a hard rule, §16.3) |
 | Re-solve | §17.9 |
 | Revert | Restore a previous solve run (§20.2) |
