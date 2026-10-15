@@ -138,6 +138,46 @@ func TestArtifactMissingDataWarningsRespectRenderedFieldsAndIdentifiers(t *testi
 	}
 }
 
+func TestArtifactStoredQualityOnStudentBlocksOnly(t *testing.T) {
+	gradeID := ids.XID("grade")
+	qualities := []string{"top", "high", "acceptable", "neutral", "unwanted", ""}
+	r := artifactRoster{
+		grades:    []data.GradeLevel{{ID: gradeID, Label: "1", Ordinal: 1}},
+		homerooms: []data.Homeroom{{ID: "room", Name: "Synthetic room"}},
+		offerings: []data.Offering{{ID: "offering", Name: "Synthetic offering", Description: "Description", Location: "Gym", MeetingPoint: "Gate", MeetingInstructions: "Instructions", MinGradeLevelID: gradeID, MaxGradeLevelID: gradeID}},
+	}
+	for i, quality := range qualities {
+		id := ids.XID(string(rune('a' + i)))
+		r.students = append(r.students, data.Student{ID: id, LegalGivenName: string(id), GradeLevelID: &gradeID, HomeroomID: "room"})
+		r.memberships = append(r.memberships, data.ProgramMembership{StudentID: id})
+		r.assignments = append(r.assignments, data.Assignment{StudentID: id, OfferingID: "offering", RealizedQuality: quality})
+	}
+	for _, kind := range []ArtifactKind{ArtifactClassList, ArtifactHomeroomDismissal} {
+		t.Run(string(kind), func(t *testing.T) {
+			doc := renderArtifact(r, kind, time.Now())
+			require.Len(t, doc.Sections, 1)
+			studentIndex := 0
+			for _, block := range doc.Sections[0].Blocks {
+				if block.Kind != "numbered" && block.Kind != "bullet" {
+					require.Empty(t, block.Quality)
+					continue
+				}
+				require.Equal(t, qualities[studentIndex], block.Quality)
+				name := string(r.students[studentIndex].ID)
+				if kind == ArtifactClassList {
+					require.Equal(t, name, block.Label)
+					require.Equal(t, "Grade 1, Synthetic room", block.Text)
+				} else {
+					require.Empty(t, block.Label)
+					require.Equal(t, name+" (Grade 1)", block.Text)
+				}
+				studentIndex++
+			}
+			require.Equal(t, len(qualities), studentIndex)
+		})
+	}
+}
+
 func TestGenerateArtifactRejectsUnknownKind(t *testing.T) {
 	_, err := New(nil).GenerateArtifact(t.Context(), "org", "year", "program", "session", "unknown")
 	require.ErrorIs(t, err, ErrArtifactKind)

@@ -32,9 +32,10 @@ type ArtifactSectionResponse struct {
 	Blocks []ArtifactBlockResponse `json:"blocks"`
 }
 type ArtifactBlockResponse struct {
-	Kind  string `json:"kind" enum:"paragraph,heading,bullet,numbered"`
-	Label string `json:"label" doc:"Bold label; empty when no label is needed."`
-	Text  string `json:"text"`
+	Kind    string `json:"kind" enum:"paragraph,heading,bullet,numbered"`
+	Label   string `json:"label" doc:"Bold label; empty when no label is needed."`
+	Text    string `json:"text"`
+	Quality string `json:"quality,omitempty" enum:"top,high,acceptable,neutral,unwanted" doc:"Stored assignment quality; omitted when unavailable."`
 }
 type ArtifactWarningResponse struct {
 	Code         string   `json:"code"`
@@ -63,7 +64,7 @@ func (h *ArtifactHandler) Generate(ctx context.Context, input *GenerateArtifactI
 	for _, section := range doc.Sections {
 		value := ArtifactSectionResponse{ID: section.ID, Title: section.Title, Blocks: []ArtifactBlockResponse{}}
 		for _, block := range section.Blocks {
-			value.Blocks = append(value.Blocks, ArtifactBlockResponse{Kind: block.Kind, Label: block.Label, Text: block.Text})
+			value.Blocks = append(value.Blocks, ArtifactBlockResponse{Kind: block.Kind, Label: block.Label, Text: block.Text, Quality: block.Quality})
 		}
 		body.Sections = append(body.Sections, value)
 	}

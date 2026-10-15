@@ -31,9 +31,14 @@ const document: ArtifactDocument = {
       title: "Room <script> & [A]",
       blocks: [
         { kind: "paragraph", label: "Art", text: "meet at <img src=x onerror=alert(1)>" },
-        { kind: "bullet", label: "", text: "Synthetic Student (Grade 2)" },
+        { kind: "bullet", label: "", text: "Synthetic Student (Grade 2)", quality: "top" },
         { kind: "heading", label: "", text: "Students" },
-        { kind: "numbered", label: "Synthetic Student", text: "Grade 2, Homeroom A" },
+        {
+          kind: "numbered",
+          label: "Synthetic Student",
+          text: "Grade 2, Homeroom A",
+          quality: "high",
+        },
       ],
     },
   ],
@@ -82,6 +87,81 @@ beforeEach(() => {
 });
 
 describe("session artifacts", () => {
+  it.each(["homeroom_dismissal", "class_list"] as const)(
+    "toggles recorded quality on every output surface for %s",
+    async (kind) => {
+      vi.mocked(getSessionArtifact).mockImplementation(
+        async (_year, _program, _session, requestedKind) => ({
+          ...document,
+          kind: requestedKind,
+        }),
+      );
+      mount();
+      await screen.findByLabelText("Document preview");
+      if (kind === "class_list") {
+        fireEvent.change(screen.getByLabelText("Document"), { target: { value: kind } });
+        await screen.findByLabelText("Document preview");
+      }
+      const checkbox = screen.getByRole("checkbox", { name: "Include assignment quality" });
+      expect(checkbox).toBeChecked();
+      const assertQuality = (included: boolean) => {
+        const preview = screen.getByLabelText("Document preview");
+        const printed = window.document.querySelector(".artifact-print-root")!;
+        for (const output of [preview, printed]) {
+          expect(output.textContent?.includes(" — Top")).toBe(included);
+          expect(output.textContent?.includes(" — High")).toBe(included);
+          expect(output.querySelectorAll("li strong")).toHaveLength(included ? 3 : 1);
+        }
+        const copied = previewClipboard(preview);
+        expect(copied.html.includes("<strong>Top</strong>")).toBe(included);
+        expect(copied.text.includes(" — Top")).toBe(included);
+      };
+      assertQuality(true);
+      fireEvent.click(screen.getByRole("button", { name: "Copy Markdown" }));
+      await screen.findByText("Markdown copied.");
+      expect(vi.mocked(navigator.clipboard.writeText).mock.lastCall?.[0]).toContain(" — **Top**");
+      fireEvent.click(checkbox);
+      expect(checkbox).not.toBeChecked();
+      assertQuality(false);
+      fireEvent.click(screen.getByRole("button", { name: "Copy Markdown" }));
+      await screen.findByText("Markdown copied.");
+      expect(vi.mocked(navigator.clipboard.writeText).mock.lastCall?.[0]).not.toMatch(
+        /\*\*(Top|High)\*\*/,
+      );
+      fireEvent.click(checkbox);
+      assertQuality(true);
+    },
+  );
+
+  it("formats every recorded quality and omits missing quality without inference", () => {
+    const qualities = ["top", "high", "acceptable", "neutral", "unwanted"] as const;
+    const recorded: ArtifactDocument = {
+      ...document,
+      sections: [
+        {
+          id: "offering",
+          title: "Art",
+          blocks: [
+            ...qualities.map((quality) => ({
+              kind: "numbered" as const,
+              label: quality,
+              text: "Grade 2, Room A",
+              quality,
+            })),
+            { kind: "numbered", label: "Missing", text: "Grade 2, Room A" },
+          ],
+        },
+      ],
+    };
+    const markdown = artifactMarkdown(recorded);
+    for (const quality of ["Top", "High", "Acceptable", "Neutral", "Unwanted"]) {
+      expect(markdown).toContain(` — **${quality}**`);
+    }
+    expect(markdown).toContain("6. **Missing:** Grade 2, Room A\n");
+    expect(artifactMarkdown(recorded, "homeroom", false)).not.toMatch(
+      / — \*\*(Top|High|Acceptable|Neutral|Unwanted)\*\*/,
+    );
+  });
   it("uses the configured homeroom label in preview, print, and copied titles", async () => {
     vi.mocked(useVocabulary).mockReturnValue({ data: { homeroom_label: "Teacher" } } as ReturnType<
       typeof useVocabulary

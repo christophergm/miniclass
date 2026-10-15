@@ -34,7 +34,10 @@ type ArtifactSection struct {
 	ID, Title string
 	Blocks    []ArtifactBlock
 }
-type ArtifactBlock struct{ Kind, Label, Text string }
+type ArtifactBlock struct {
+	Kind, Label, Text string
+	Quality           string `json:",omitempty"`
+}
 type ArtifactWarning struct {
 	Code, Message string
 	StudentNames  []string
@@ -109,6 +112,7 @@ func (s *Service) GenerateArtifact(ctx context.Context, organizationID string, s
 type artifactStudent struct {
 	id                    ids.XID
 	name, grade, homeroom string
+	quality               string
 	homeroomID            ids.XID
 	ordinal               *int
 	missingHomeroom       bool
@@ -189,7 +193,7 @@ func renderArtifact(r artifactRoster, kind ArtifactKind, now time.Time) Artifact
 		if !ok || !known[a.OfferingID] || (!active[s.ID] && s.DeletedAt == nil) {
 			continue
 		}
-		p := artifactStudent{id: s.ID, name: artifactDisplayName(s), grade: "Grade not set", homeroom: "Homeroom not set", missingHomeroom: true}
+		p := artifactStudent{id: s.ID, name: artifactDisplayName(s), grade: "Grade not set", homeroom: "Homeroom not set", quality: a.RealizedQuality, missingHomeroom: true}
 		if s.GradeLevelID != nil {
 			if g, ok := grades[*s.GradeLevelID]; ok && strings.TrimSpace(g.Label) != "" {
 				p.grade = "Grade " + g.Label
@@ -293,7 +297,7 @@ func renderArtifact(r artifactRoster, kind ArtifactKind, now time.Time) Artifact
 			paragraph("Enrolled count", strconv.Itoa(len(list)))
 			section.Blocks = append(section.Blocks, ArtifactBlock{Kind: "heading", Text: "Students"})
 			for _, p := range list {
-				section.Blocks = append(section.Blocks, ArtifactBlock{Kind: "numbered", Label: p.name, Text: p.grade + ", " + p.homeroom})
+				section.Blocks = append(section.Blocks, ArtifactBlock{Kind: "numbered", Label: p.name, Text: p.grade + ", " + p.homeroom, Quality: p.quality})
 			}
 			doc.Sections = append(doc.Sections, section)
 		} else {
@@ -314,7 +318,7 @@ func renderArtifact(r artifactRoster, kind ArtifactKind, now time.Time) Artifact
 				destination := artifactText(o.MeetingPoint, artifactText(o.Location, "Meeting location not set"))
 				section.Blocks = append(section.Blocks, ArtifactBlock{Kind: "paragraph", Label: o.Name, Text: "meet at " + destination})
 				for _, p := range group {
-					section.Blocks = append(section.Blocks, ArtifactBlock{Kind: "bullet", Text: p.name + " (" + p.grade + ")"})
+					section.Blocks = append(section.Blocks, ArtifactBlock{Kind: "bullet", Text: p.name + " (" + p.grade + ")", Quality: p.quality})
 				}
 			}
 		}

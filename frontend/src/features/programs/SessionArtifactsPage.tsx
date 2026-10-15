@@ -16,6 +16,7 @@ import { useAccount } from "@/lib/hooks/useAccount";
 import { useVocabulary } from "@/lib/hooks/useVocabulary";
 import {
   artifactMarkdown,
+  artifactQualityLabel,
   artifactTitle,
   getSessionArtifact,
   previewClipboard,
@@ -25,7 +26,15 @@ import {
 import { useProgramName } from "./useProgramName";
 import "./sessionArtifacts.css";
 
-function ArtifactContent({ document, title }: { document: ArtifactDocument; title: string }) {
+function ArtifactContent({
+  document,
+  title,
+  includeQuality,
+}: {
+  document: ArtifactDocument;
+  title: string;
+  includeQuality: boolean;
+}) {
   return (
     <>
       <h1>
@@ -49,6 +58,12 @@ function ArtifactContent({ document, title }: { document: ArtifactDocument; titl
           <>
             {block.label && <strong>{block.label}: </strong>}
             {block.text}
+            {includeQuality && block.quality && (
+              <>
+                {" "}
+                — <strong>{artifactQualityLabel(block.quality)}</strong>
+              </>
+            )}
           </>
         );
         return (
@@ -86,6 +101,7 @@ export function SessionArtifactsPage() {
   const homeroomLabel = vocabulary.data?.homeroom_label ?? "homeroom";
   const [kind, setKind] = useState<ArtifactKind>("homeroom_dismissal");
   const [generation, setGeneration] = useState(0);
+  const [includeQuality, setIncludeQuality] = useState(true);
   const [result, setResult] = useState<{ key: string; document: ArtifactDocument }>();
   const [failure, setFailure] = useState<{ key: string; message: string }>();
   const [copyStatus, setCopyStatus] = useState("");
@@ -128,7 +144,9 @@ export function SessionArtifactsPage() {
     if (!document || !preview.current) return;
     try {
       if (markdown) {
-        await navigator.clipboard.writeText(artifactMarkdown(document, homeroomLabel));
+        await navigator.clipboard.writeText(
+          artifactMarkdown(document, homeroomLabel, includeQuality),
+        );
       } else {
         const { html, text } = previewClipboard(preview.current);
         await navigator.clipboard.write([
@@ -217,6 +235,17 @@ export function SessionArtifactsPage() {
               <option value="class_list">Class lists</option>
             </select>
           </label>
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <input
+              type="checkbox"
+              checked={includeQuality}
+              onChange={(event) => {
+                setIncludeQuality(event.target.checked);
+                setCopyStatus("");
+              }}
+            />
+            Include assignment quality
+          </label>
           <Button variant="outline" onClick={() => setGeneration((value) => value + 1)}>
             Regenerate
           </Button>
@@ -230,6 +259,10 @@ export function SessionArtifactsPage() {
             Copy Markdown
           </Button>
         </div>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Assignment quality is recorded at placement time, not recalculated from current
+          preferences. Including it shares each student’s preference fit with recipients.
+        </p>
         {copyStatus && <p role="status">{copyStatus}</p>}
         {error ? (
           <p role="alert">Unable to generate document: {error} Use Regenerate to try again.</p>
@@ -264,6 +297,7 @@ export function SessionArtifactsPage() {
           <ArtifactContent
             document={document}
             title={artifactTitle(document.kind, homeroomLabel)}
+            includeQuality={includeQuality}
           />
         </div>
       )}
@@ -273,6 +307,7 @@ export function SessionArtifactsPage() {
             <ArtifactContent
               document={document}
               title={artifactTitle(document.kind, homeroomLabel)}
+              includeQuality={includeQuality}
             />
           </div>,
           window.document.body,

@@ -33,7 +33,15 @@ export function escapeMarkdown(text: string): string {
     .replace(/>/g, "&gt;");
 }
 
-export function artifactMarkdown(document: ArtifactDocument, homeroomLabel = "homeroom"): string {
+export function artifactQualityLabel(quality: string): string {
+  return quality.charAt(0).toUpperCase() + quality.slice(1);
+}
+
+export function artifactMarkdown(
+  document: ArtifactDocument,
+  homeroomLabel = "homeroom",
+  includeQuality = true,
+): string {
   const lines = [
     `# ${escapeMarkdown(document.session_name)} — ${escapeMarkdown(artifactTitle(document.kind, homeroomLabel))}`,
     "",
@@ -50,7 +58,11 @@ export function artifactMarkdown(document: ArtifactDocument, homeroomLabel = "ho
         lines.push("");
       previousKind = block.kind;
       if (block.kind !== "numbered") number = 0;
-      const content = `${block.label ? `**${escapeMarkdown(block.label)}:** ` : ""}${escapeMarkdown(block.text)}`;
+      const quality =
+        includeQuality && block.quality
+          ? ` — **${escapeMarkdown(artifactQualityLabel(block.quality))}**`
+          : "";
+      const content = `${block.label ? `**${escapeMarkdown(block.label)}:** ` : ""}${escapeMarkdown(block.text)}${quality}`;
       const prefix =
         block.kind === "heading"
           ? "### "

@@ -21,6 +21,7 @@ type artifactService struct {
 	organizationID               string
 	yearID, programID, sessionID ids.XID
 	kind                         program.ArtifactKind
+	document                     *program.ArtifactDocument
 }
 
 func (s *artifactService) GenerateArtifact(_ context.Context, org string, year, prog, session ids.XID, kind program.ArtifactKind) (program.ArtifactDocument, error) {
@@ -30,8 +31,53 @@ func (s *artifactService) GenerateArtifact(_ context.Context, org string, year, 
 	s.programID = prog
 	s.sessionID = session
 	s.kind = kind
+	if s.document != nil {
+		return *s.document, nil
+	}
 	return program.ArtifactDocument{Kind: kind, SessionName: "Synthetic session", GeneratedAt: time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC), Sections: []program.ArtifactSection{{ID: "o", Title: "Synthetic", Blocks: []program.ArtifactBlock{{Kind: "heading", Text: "Students"}}}}, Warnings: []program.ArtifactWarning{}}, nil
 }
+func TestArtifactRouteStoredQualityContract(t *testing.T) {
+	verifier, resolver, token := testAuth(t)
+	for _, kind := range []program.ArtifactKind{program.ArtifactClassList, program.ArtifactHomeroomDismissal} {
+		t.Run(string(kind), func(t *testing.T) {
+			studentKind := "numbered"
+			if kind == program.ArtifactHomeroomDismissal {
+				studentKind = "bullet"
+			}
+			blocks := []program.ArtifactBlock{{Kind: "heading", Text: "Students"}, {Kind: "paragraph", Label: "Location", Text: "Gym"}}
+			qualities := []string{"top", "high", "acceptable", "neutral", "unwanted", ""}
+			for _, quality := range qualities {
+				blocks = append(blocks, program.ArtifactBlock{Kind: studentKind, Label: "Synthetic label", Text: "Synthetic text", Quality: quality})
+			}
+			service := &artifactService{document: &program.ArtifactDocument{Kind: kind, Sections: []program.ArtifactSection{{ID: "section", Title: "Synthetic", Blocks: blocks}}}}
+			router := NewRouter(RouterOptions{Programs: service, Verifier: verifier, Identity: resolver})
+			request := httptest.NewRequest(http.MethodGet, "/api/school-years/year-a/programs/program-a/sessions/session-a/artifacts/"+string(kind), nil)
+			request.Header.Set("Authorization", "Bearer "+token)
+			recording := httptest.NewRecorder()
+			router.ServeHTTP(recording, request)
+			require.Equal(t, http.StatusOK, recording.Code, recording.Body.String())
+			var body struct {
+				Sections []struct {
+					Blocks []map[string]any `json:"blocks"`
+				} `json:"sections"`
+			}
+			require.NoError(t, json.Unmarshal(recording.Body.Bytes(), &body))
+			require.Len(t, body.Sections, 1)
+			require.Len(t, body.Sections[0].Blocks, len(blocks))
+			for i, block := range body.Sections[0].Blocks {
+				require.Equal(t, blocks[i].Kind, block["kind"])
+				require.Equal(t, blocks[i].Label, block["label"])
+				require.Equal(t, blocks[i].Text, block["text"])
+				if blocks[i].Quality == "" {
+					require.NotContains(t, block, "quality")
+				} else {
+					require.Equal(t, blocks[i].Quality, block["quality"])
+				}
+			}
+		})
+	}
+}
+
 func TestArtifactRouteRoleMatrix(t *testing.T) {
 	for _, role := range []auth.OrganizationRole{auth.RoleOwner, auth.RoleAdministrator, auth.RoleCoordinator} {
 		t.Run(string(role), func(t *testing.T) {

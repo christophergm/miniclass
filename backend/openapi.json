@@ -312,6 +312,17 @@
             "description": "Bold label; empty when no label is needed.",
             "type": "string"
           },
+          "quality": {
+            "description": "Stored assignment quality; omitted when unavailable.",
+            "enum": [
+              "top",
+              "high",
+              "acceptable",
+              "neutral",
+              "unwanted"
+            ],
+            "type": "string"
+          },
           "text": {
             "type": "string"
           }

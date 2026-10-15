@@ -1036,7 +1036,7 @@ Requirements:
 **Stated plainly:** obscurity is the only access control on this channel. The link is forwardable,
 and once forwarded it cannot be recalled except by regenerating it. The content is therefore
 restricted by policy (§18.5) to what the program already publishes this way today — names, grades,
-homerooms and class placements — and expiry exists so that a link leaked in May stops working in
+homerooms, class placements and optional recorded assignment quality (§18.3–§18.5) — and expiry exists so that a link leaked in May stops working in
 June rather than resolving forever.
 
 ## 10. Attributes, Tags and Pairings
@@ -2708,10 +2708,18 @@ completeness precondition; staffing is never one (§15.1).
 | Grade range | The offering's window, which manual overrides may contradict |
 | Enrolled count | |
 | Adults | Name and role; notes where present |
-| Students | Preferred name and family name, grade, homeroom, and any `Public` tags |
+| Students | Preferred name and family name, grade, homeroom, optional recorded assignment quality, and any `Public` tags |
 | Last updated | §18.2 |
 
 Ordering: offerings alphabetically; students by grade, then by name.
+
+Both class-list generation options (§18.3 and §18.4) MUST offer an **Include assignment quality**
+checkbox, enabled by default. When enabled, student entries include the assignment's recorded
+realized quality (`Top`, `High`, `Acceptable`, `Neutral`, or `Unwanted`; §17.4.1), rendered in bold.
+The value MUST come from the assignment (§8.6), never a fresh calculation from current preferences.
+If no quality was recorded, omit it rather than infer one. The selection applies consistently to
+preview, print, formatted-text copy (including plain text), and Markdown copy. Turning it off MUST
+exclude quality at render time on every output surface.
 
 Requirements:
 
@@ -2734,20 +2742,29 @@ purpose is a two-minute task at dismissal.
 |---|---|
 | Homeroom | Section heading |
 | Offering | Sub-heading, with the single place to send students — meeting point where set, otherwise location |
-| Students | Preferred name and family name, grade |
+| Students | Preferred name and family name, grade, optional recorded assignment quality (§18.3) |
 | Last updated | |
 
 Ordering: homerooms alphabetically; within a homeroom, offerings alphabetically; within an offering,
 students by name.
 
 Deliberately minimal. No adults, no counts, no tags, no grade ranges — nothing that is not needed to
-route a child at 12:45. Delivered at its own session-scoped share link.
+route a child at 12:45, except for the optional recorded assignment quality explicitly permitted
+above. Delivered at its own session-scoped share link.
 
 ### 18.5 Sensitive content exclusion
 
 **In v1, no tag content, tag notes or comments appear in any published artifact,** regardless of
 sensitivity level. Published artifacts carry only the elements listed in §18.3 and §18.4, plus
 `Public` tags on the class list.
+
+**Explicit preference-fit disclosure.** Recorded per-student assignment quality is an allowed,
+optional field on both class-list options (§18.3–§18.4), including distributed copies and printouts.
+It reveals preference fit to teachers and other recipients; this is an intentional exception to the
+previous names/grades/homerooms/placements-only disclosure policy, not permission to disclose ranked
+choices, interest profiles, preference rationale, tags, notes, comments, or other private data.
+The generation page MUST explain this disclosure alongside the default-on checkbox. Organisers can
+omit quality before distributing an output; recipients of an included value may retain or forward it.
 
 The sensitivity levels of §10.5 are nonetheless specified and MUST be implemented in the data model,
 because the distinction has to exist before anything can be shown selectively. Any later surface that

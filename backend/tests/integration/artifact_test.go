@@ -8,6 +8,7 @@ import (
 
 	"github.com/chrismott/miniclass/internal/audit"
 	"github.com/chrismott/miniclass/internal/data"
+	"github.com/chrismott/miniclass/internal/ids"
 	"github.com/chrismott/miniclass/internal/people"
 	"github.com/chrismott/miniclass/internal/program"
 	testharness "github.com/chrismott/miniclass/internal/testing"
@@ -48,6 +49,27 @@ func TestArtifactTenantIsolationAndCurrentAssignments(t *testing.T) {
 		return tx.Record(ctx, audit.Entry{Action: audit.ActionEdit, ObjectType: "assignment", ObjectID: &assignment.ID, SchoolYearID: &year.ID, Reason: "synthetic artifact fixture", ChangeSummary: []byte(`{}`)})
 	})
 	require.NoError(t, err)
+	// A later preference disagrees with the stored neutral quality (SPEC §8.6).
+	var userID ids.XID
+	require.NoError(t, h.Migrator.QueryRow(ctx, `insert into users (provider_subject, email) values ($1, $2) returning id`, "artifact-admin-"+string(org), "synthetic-artifact-"+string(org)+"@example.test").Scan(&userID))
+	_, err = h.Migrator.Exec(ctx, `insert into organization_members (organization_id, user_id, role) values ($1, $2, 'administrator')`, org, userID)
+	require.NoError(t, err)
+	preferenceActor := audit.Actor{Type: audit.ActorTypeUser, UserID: &userID, Label: "synthetic artifact preference administrator"}
+	require.NoError(t, h.Database.InTenant(ctx, string(org), preferenceActor, func(ctx context.Context, tx *data.Tx) error {
+		submission, _, err := tx.CreateRankedChoiceSubmission(ctx, year.ID, prog.ID, session.ID, student.ID, data.PreferenceChannelAdministratorOnBehalf, nil, []data.RankedChoiceResponseInput{{OfferingID: offering.ID, Answer: data.RankedChoiceNotInterested}})
+		if err != nil {
+			return err
+		}
+		return tx.Record(ctx, audit.Entry{Action: audit.ActionEdit, ObjectType: "ranked_choice_submission", ObjectID: &submission.ID, SchoolYearID: &year.ID, Reason: "synthetic later preference", ChangeSummary: []byte(`{}`)})
+	}))
+	require.NoError(t, h.Database.InTenantRead(ctx, string(org), func(ctx context.Context, tx *data.Tx) error {
+		answers, err := tx.ListCurrentSessionResultAnswers(ctx, year.ID, prog.ID, session.ID)
+		if err != nil {
+			return err
+		}
+		require.Equal(t, []data.SessionResultAnswer{{StudentID: student.ID, OfferingID: offering.ID, Answer: data.RankedChoiceNotInterested}}, answers)
+		return nil
+	}))
 	otherProgram, err := f.CreateProgram(ctx, year.ID, "Other synthetic program")
 	require.NoError(t, err)
 	for _, kind := range []program.ArtifactKind{program.ArtifactClassList, program.ArtifactHomeroomDismissal} {
@@ -58,6 +80,16 @@ func TestArtifactTenantIsolationAndCurrentAssignments(t *testing.T) {
 		raw, err := json.Marshal(doc)
 		require.NoError(t, err)
 		require.Contains(t, string(raw), "Alex Synthetic")
+		studentBlocks := 0
+		for _, block := range doc.Sections[0].Blocks {
+			if block.Kind == "numbered" || block.Kind == "bullet" {
+				require.Equal(t, "neutral", block.Quality, "quality must retain the stored result despite the later not-interested preference")
+				studentBlocks++
+			} else {
+				require.Empty(t, block.Quality)
+			}
+		}
+		require.Equal(t, 1, studentBlocks)
 		_, err = service.GenerateArtifact(ctx, string(otherOrg), year.ID, prog.ID, session.ID, kind)
 		require.ErrorIs(t, err, pgx.ErrNoRows)
 
