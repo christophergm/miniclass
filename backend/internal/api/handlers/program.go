@@ -57,6 +57,7 @@ type ProgramService interface {
 	ListParticipatingMemberships(context.Context, string, ids.XID, ids.XID, ids.XID) ([]data.ProgramMembership, error)
 	GetAssignmentWorkspace(context.Context, string, ids.XID, ids.XID, ids.XID) (programservice.AssignmentWorkspace, error)
 	GetAssignmentQuality(context.Context, string, ids.XID, ids.XID, ids.XID) (programservice.AssignmentQuality, error)
+	GetOfferingPreferenceContext(context.Context, string, ids.XID, ids.XID, ids.XID, ids.XID) (programservice.OfferingPreferenceContext, error)
 	CreatePlacementComment(context.Context, string, audit.Actor, programservice.PlacementCommentInput) (data.PlacementComment, error)
 	UpdatePlacementComment(context.Context, string, audit.Actor, programservice.PlacementCommentInput, ids.XID) (data.PlacementComment, error)
 	DeletePlacementComment(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, ids.XID) (data.PlacementComment, error)
