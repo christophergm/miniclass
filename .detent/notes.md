@@ -22,6 +22,9 @@
   scenario uses the established keyboard drag path and asserts its selected target before saving;
   local Playwright remains unavailable without the frontend dependency tree, so CI must rerun the
   full frontend gate.
+- PR #355 current head `2fd29a3` passed all 13 checks: every declared project gate plus solver
+  contract/image and deployment smoke. Frontend tests and generated-code drift completed in about
+  1m31, while backend tests was the slowest at about 2m05; no review or inline comments remain.
 
 # Issue #343 — offering preference panel in assignment sidebar
 
