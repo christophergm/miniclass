@@ -2,11 +2,17 @@ package integration
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/chrismott/miniclass/internal/api"
+	"github.com/chrismott/miniclass/internal/api/handlers"
 	"github.com/chrismott/miniclass/internal/audit"
 	"github.com/chrismott/miniclass/internal/data"
+	"github.com/chrismott/miniclass/internal/identity"
 	"github.com/chrismott/miniclass/internal/ids"
 	"github.com/chrismott/miniclass/internal/people"
 	"github.com/chrismott/miniclass/internal/program"
@@ -83,6 +89,87 @@ func TestPlacementCommentsAreAuthorOnlyAndStayWithTheirOriginalAssignment(t *tes
 		require.Empty(t, comments)
 		return nil
 	}))
+}
+
+func TestAssignmentWorkspaceOmitsSensitiveCommentsForNonAdministrators(t *testing.T) {
+	harness := testharness.Open(t)
+	ctx, organizationID := harness.Context, harness.MintOrganization(t)
+	adminSubject := "sensitive-comments-admin-" + string(organizationID)
+	coordinatorSubject := "sensitive-comments-coordinator-" + string(organizationID)
+	adminEmail := adminSubject + "@example.test"
+	coordinatorEmail := coordinatorSubject + "@example.test"
+	var adminID ids.XID
+	require.NoError(t, harness.Migrator.QueryRow(ctx, `
+		insert into users (provider_subject, email)
+		values ($1, $2)
+		returning id`, adminSubject, adminEmail).Scan(&adminID))
+	_, err := harness.Migrator.Exec(ctx, `
+		insert into organization_members (organization_id, user_id, role)
+		values ($1, $2, 'administrator')`, organizationID, adminID)
+	require.NoError(t, err)
+	var coordinatorID ids.XID
+	require.NoError(t, harness.Migrator.QueryRow(ctx, `
+		insert into users (provider_subject, email)
+		values ($1, $2)
+		returning id`, coordinatorSubject, coordinatorEmail).Scan(&coordinatorID))
+	_, err = harness.Migrator.Exec(ctx, `
+		insert into organization_members (organization_id, user_id, role)
+		values ($1, $2, 'coordinator')`, organizationID, coordinatorID)
+	require.NoError(t, err)
+
+	actor := audit.Actor{Type: audit.ActorTypeUser, UserID: &adminID, Label: adminEmail}
+	factory := factories.New(harness.Database, string(organizationID), actor)
+	year, err := factory.CreateSchoolYear(ctx, "Synthetic sensitive-comment year")
+	require.NoError(t, err)
+	programRow, err := factory.CreateProgram(ctx, year.ID, "Synthetic sensitive-comment program")
+	require.NoError(t, err)
+	session, err := factory.CreateSession(ctx, year.ID, programRow.ID, "Synthetic sensitive-comment session", []time.Time{time.Date(2026, 11, 2, 0, 0, 0, 0, time.UTC)})
+	require.NoError(t, err)
+	service := program.New(harness.Database)
+	comment, err := service.CreatePlacementComment(ctx, string(organizationID), actor, program.PlacementCommentInput{
+		SchoolYearID: year.ID, ProgramID: programRow.ID, SessionID: session.ID,
+		HostType: data.CommentHostSession, HostID: session.ID,
+		Body: "Synthetic restricted placement reasoning", Sensitivity: "sensitive",
+	})
+	require.NoError(t, err)
+
+	verifier, tokens := localTestVerifierTokens(t,
+		localTestIdentity{Subject: adminSubject, Email: adminEmail},
+		localTestIdentity{Subject: coordinatorSubject, Email: coordinatorEmail},
+	)
+	server := api.NewServer(
+		api.WithDatabase(harness.Database),
+		api.WithIdentity(identity.NewStore(harness.Database)),
+		api.WithPrograms(service),
+		api.WithVerifier(verifier),
+	)
+	path := "/api/school-years/" + string(year.ID) + "/programs/" + string(programRow.ID) + "/sessions/" + string(session.ID) + "/assignment-workspace"
+	for _, test := range []struct {
+		name      string
+		subject   string
+		wantCount int
+	}{
+		{name: "coordinator payload omits sensitive comment", subject: coordinatorSubject, wantCount: 0},
+		{name: "administrator payload includes sensitive comment", subject: adminSubject, wantCount: 1},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodGet, path, nil)
+			request.Header.Set("Authorization", "Bearer "+tokens[test.subject])
+			recording := httptest.NewRecorder()
+			server.Handler().ServeHTTP(recording, request)
+
+			require.Equal(t, http.StatusOK, recording.Code, recording.Body.String())
+			var payload handlers.AssignmentWorkspaceResponse
+			require.NoError(t, json.NewDecoder(recording.Body).Decode(&payload))
+			require.Len(t, payload.Comments, test.wantCount)
+			if test.wantCount == 0 {
+				require.NotContains(t, recording.Body.String(), comment.Body)
+				return
+			}
+			require.Equal(t, comment.ID, ids.XID(payload.Comments[0].ID))
+			require.Equal(t, comment.Body, payload.Comments[0].Body)
+		})
+	}
 }
 
 func placementCommentTestUser(t *testing.T, ctx context.Context, harness *testharness.Harness, suffix string) ids.XID {

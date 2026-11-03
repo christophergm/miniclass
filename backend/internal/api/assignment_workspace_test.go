@@ -138,3 +138,44 @@ func TestAssignmentWorkspaceRouteScopesEmptyDraftAndRequiresAssignmentsCapabilit
 	guardianRouter.ServeHTTP(guardianRecording, guardianRequest)
 	require.Equal(t, http.StatusForbidden, guardianRecording.Code)
 }
+
+func TestAssignmentWorkspaceRouteOmitsSensitiveCommentsOutsideAdministratorRole(t *testing.T) {
+	workspace := program.AssignmentWorkspace{Session: data.Session{ID: "session-a"}, Comments: []data.PlacementComment{
+		{ID: "internal-comment", HostType: data.CommentHostSession, HostID: "session-a", Body: "Routine note", Sensitivity: "internal"},
+		{ID: "sensitive-comment", HostType: data.CommentHostSession, HostID: "session-a", Body: "Restricted review reasoning", Sensitivity: "sensitive"},
+	}}
+	path := "/api/school-years/year-a/programs/program-a/sessions/session-a/assignment-workspace"
+
+	for _, test := range []struct {
+		name       string
+		role       string
+		commentIDs []string
+	}{
+		{name: "coordinator omits sensitive comment", role: string(auth.RoleCoordinator), commentIDs: []string{"internal-comment"}},
+		{name: "owner omits sensitive comment", role: string(auth.RoleOwner), commentIDs: []string{"internal-comment"}},
+		{name: "administrator receives sensitive comment", role: string(auth.RoleAdministrator), commentIDs: []string{"internal-comment", "sensitive-comment"}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			verifier, resolver, token := testAuthRole(t, test.role)
+			router := NewRouter(RouterOptions{Programs: &assignmentWorkspaceService{workspace: &workspace}, Verifier: verifier, Identity: resolver})
+			request := httptest.NewRequest(http.MethodGet, path, nil)
+			request.Header.Set("Authorization", "Bearer "+token)
+			recording := httptest.NewRecorder()
+			router.ServeHTTP(recording, request)
+
+			require.Equal(t, http.StatusOK, recording.Code, recording.Body.String())
+			var body handlers.AssignmentWorkspaceResponse
+			require.NoError(t, json.Unmarshal(recording.Body.Bytes(), &body))
+			commentIDs := make([]string, 0, len(body.Comments))
+			for _, comment := range body.Comments {
+				commentIDs = append(commentIDs, comment.ID)
+			}
+			require.Equal(t, test.commentIDs, commentIDs)
+			if test.role == string(auth.RoleAdministrator) {
+				require.Contains(t, recording.Body.String(), "Restricted review reasoning")
+			} else {
+				require.NotContains(t, recording.Body.String(), "Restricted review reasoning", "sensitive content must not reach a non-administrator payload")
+			}
+		})
+	}
+}

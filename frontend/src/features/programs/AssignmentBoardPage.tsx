@@ -457,9 +457,7 @@ export function AssignmentBoardPage() {
   const excludedStudentIDs = new Set(
     (workspace.data?.exclusions ?? []).map((item) => item.student_id),
   );
-  const canViewSensitive = ["owner", "administrator"].includes(
-    account.data?.role.toLocaleLowerCase() ?? "",
-  );
+  const canViewSensitive = account.data?.role.toLocaleLowerCase() === "administrator";
   const commentedHosts = new Set(
     (workspace.data?.comments ?? [])
       .filter((comment) => comment.sensitivity !== "sensitive" || canViewSensitive)

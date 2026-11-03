@@ -709,6 +709,12 @@ func (h *ProgramHandler) GetAssignmentWorkspace(ctx context.Context, input *Assi
 		result.Overrides = append(result.Overrides, AssignmentOverrideResponse{ID: string(row.ID), AssignmentID: string(row.AssignmentID), Rule: row.Rule, Reason: row.Reason, RecordedBy: row.RecordedBy, CreatedAt: row.CreatedAt})
 	}
 	for _, row := range workspace.Comments {
+		// SPEC §§10.5 and 21.2 reserve sensitive comments for the
+		// Administrator role. Do not send their bodies to other principals;
+		// the frontend retains a render-time check for every display surface.
+		if row.Sensitivity == "sensitive" && account.Role != auth.RoleAdministrator {
+			continue
+		}
 		result.Comments = append(result.Comments, placementCommentResponse(row))
 	}
 	for _, row := range workspace.RankedChoiceAnswers {
