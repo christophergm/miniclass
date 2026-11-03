@@ -507,3 +507,31 @@ I’m resuming the #303 rework from the live issue, pull request, feedback, and 
 - PR #351 is ready and its 13 current-head CI checks passed. Generated code drift
   (2m4s), backend tests (1m54s), and frontend tests (1m40s) were the slowest;
   there are no review or inline comments.
+
+## Issue #342 — preference-context sidebar shell
+
+- `AssignmentBoardPage` now uses a board-scoped, URL-backed right sidebar:
+  `panel=student:<id>` and `panel=offering:<id>`. Desktop docks a 400px column
+  at 1280px; smaller viewports use a closeable right sheet. Selecting another
+  target replaces the existing panel query state; close creates a browser-history
+  state, preserving normal back/forward navigation.
+- Names and offering titles are the only panel triggers. The grip keeps dnd-kit
+  activation; selected rows/cards have a primary ring. `AssignmentStudentRow`
+  shares the read-only quality/name/roster visual with the placeholder panel,
+  without adding drag or editing controls there.
+- Added focused URL, focus return, highlight, and name-click/no-drag tests.
+  Changed-file Biome formatting and `git diff --check` pass. `make test-frontend`
+  cannot generate the frontend client because `openapi-typescript` is unavailable
+  in this uninstalled dependency tree; CI must run frontend tests, build, and lint.
+- Initial PR #352 CI exposed only branch regressions: Fast Refresh warnings for
+  helper exports, omitted empty-quality icon rendering, changed pin/homeroom DOM,
+  and synchronous focus restoration after URL close. Helpers now live outside
+  the component module; the original row DOM, empty-quality tint, and a route-level
+  focus return (including browser navigation) are restored. The next CI run also
+  found closed-board drag tests assume the established vertical offering list; the
+  responsive offering grid now activates only while a panel is open.
+- PR #352 current head passed all 13 CI checks: the ten declared project gates
+  plus solver contract/image and deployment smoke. Frontend tests (1m31), backend
+  tests (2m1), and generated-code drift (1m58) were slowest; no reviews or inline
+  comments are present. `make test-frontend` remains locally unavailable because
+  `openapi-typescript` is absent from the uninstalled frontend tree.

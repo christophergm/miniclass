@@ -13,9 +13,9 @@ import {
   type KeyboardCoordinateGetter,
   type Modifier,
 } from "@dnd-kit/core";
-import { GripVertical, MoreHorizontal, Pin } from "lucide-react";
-import { type ReactNode, useMemo, useState } from "react";
-import { Link, useOutletContext, useParams } from "react-router-dom";
+import { GripVertical, MoreHorizontal, Pin, X } from "lucide-react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useOutletContext, useParams, useSearchParams } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -29,12 +29,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ModalForm } from "@/components/ui/modal-form";
+import { Sidebar, SidebarContent, SidebarProvider } from "@/components/ui/sidebar";
 import { ApiError } from "@/lib/api";
 import type { AssignmentQuality, AssignmentWorkspace, SchoolYear } from "@/lib/apiResources";
 import { useAccount } from "@/lib/hooks/useAccount";
-import { AssignmentQualityIcon } from "./AssignmentQualityIcon";
-import { qualityStyle } from "./assignmentQualityStyles";
 import { AssignmentReviewPanel, type Host, WarningBadges } from "./AssignmentReviewPanel";
+import { AssignmentStudentRow } from "./AssignmentStudentRow";
+import { assignmentStudentName, assignmentStudentRowClassName } from "./assignmentStudentRowUtils";
 import {
   useAssignmentQuality,
   useAssignmentWorkspace,
@@ -57,10 +58,16 @@ type Editor =
   | { kind: "exclusion"; studentID: string; offeringID: string }
   | { kind: "swap"; studentID: string; studentToSwapID: string };
 
-const studentName = (student: Participant | undefined) =>
-  student
-    ? student.display_name || `${student.legal_given_name} ${student.legal_family_name}`
-    : "Unknown student";
+const studentName = assignmentStudentName;
+type PreferencePanel = { type: "offering"; id: string } | { type: "student"; id: string };
+
+function parsePreferencePanel(value: string | null): PreferencePanel | null {
+  const [type, id] = value?.split(":", 2) ?? [];
+  if (!id) return null;
+  if (type === "offering") return { type, id };
+  if (type === "student") return { type, id };
+  return null;
+}
 function errorMessage(error: unknown) {
   if (error instanceof ApiError) {
     if (error.code === "solver-unavailable")
@@ -208,6 +215,74 @@ function DraggableStudentRow({
   );
 }
 
+function PreferenceContextSidebar({
+  assignmentsByStudent,
+  offerings,
+  panel,
+  participants,
+  onClose,
+}: {
+  assignmentsByStudent: Map<string, Assignment>;
+  offerings: NonNullable<Workspace["offerings"]>;
+  panel: PreferencePanel | null;
+  participants: Map<string, Participant>;
+  onClose: () => void;
+}) {
+  if (!panel) return null;
+  const student = panel.type === "student" ? participants.get(panel.id) : undefined;
+  const offering =
+    panel.type === "offering" ? offerings.find((item) => item.id === panel.id) : undefined;
+  const title = student ? studentName(student) : (offering?.name ?? "Preference context");
+  const assignment = student ? assignmentsByStudent.get(student.student_id) : undefined;
+  const label = `${title} preference context`;
+
+  return (
+    <Sidebar aria-label={label} side="right">
+      <SidebarContent>
+        <header className="flex items-start justify-between gap-4 border-b p-4">
+          <h2 className="font-semibold text-lg">{title}</h2>
+          <Button
+            aria-label={`Close ${label}`}
+            onClick={onClose}
+            size="icon"
+            type="button"
+            variant="ghost"
+          >
+            <X aria-hidden="true" className="size-4" />
+          </Button>
+        </header>
+        <div className="space-y-5 p-4">
+          {student && (
+            <div
+              className={assignmentStudentRowClassName(
+                assignment?.realized_quality,
+                "flex flex-wrap items-center gap-2 rounded border px-2 py-1 text-sm",
+              )}
+            >
+              <AssignmentStudentRow
+                preferenceLabel="Preference context"
+                quality={assignment?.realized_quality}
+                student={student}
+                trailing={
+                  assignment?.pinned ? (
+                    <Pin aria-label="Pinned" role="img" className="size-4" />
+                  ) : undefined
+                }
+                variant="panel"
+              />
+            </div>
+          )}
+          <div aria-label="Loading preference context" className="space-y-3" role="status">
+            <div aria-hidden="true" className="h-4 w-2/3 animate-pulse rounded bg-muted" />
+            <div aria-hidden="true" className="h-4 w-full animate-pulse rounded bg-muted" />
+            <div aria-hidden="true" className="h-4 w-5/6 animate-pulse rounded bg-muted" />
+          </div>
+        </div>
+      </SidebarContent>
+    </Sidebar>
+  );
+}
+
 function OfferingCard({
   offering,
   assignments,
@@ -223,7 +298,11 @@ function OfferingCard({
   onSwap,
   onPin,
   onRemove,
+  onOpenOffering,
+  onOpenStudent,
   removing,
+  selected,
+  selectedStudentID,
   onExclusions,
 }: {
   offering: NonNullable<Workspace["offerings"]>[number];
@@ -241,7 +320,11 @@ function OfferingCard({
   onSwap: (studentID: string) => void;
   onPin: (studentID: string, pinned: boolean) => void;
   onRemove: (studentID: string) => void;
+  onOpenOffering: (offeringID: string) => void;
+  onOpenStudent: (studentID: string) => void;
   removing: boolean;
+  selected: boolean;
+  selectedStudentID?: string;
   onExclusions: (studentID: string, offeringID: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({
@@ -256,13 +339,22 @@ function OfferingCard({
     <section
       ref={setNodeRef}
       aria-label={`${offering.name} placements`}
-      className={`rounded-lg border p-3 transition-colors ${isOver ? "border-primary bg-primary/10 ring-2 ring-primary" : "bg-card"}`}
+      className={`rounded-lg border p-3 transition-colors ${isOver ? "border-primary bg-primary/10 ring-2 ring-primary" : selected ? "bg-card ring-2 ring-primary" : "bg-card"}`}
       data-drop-target={isOver || undefined}
       id={`offering-${offering.id}`}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-3">
-          <h3 className="font-semibold">{offering.name}</h3>
+          <h3 className="font-semibold">
+            <button
+              className="rounded text-left hover:text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
+              id={`assignment-panel-offering-${offering.id}`}
+              onClick={() => onOpenOffering(offering.id)}
+              type="button"
+            >
+              {offering.name}
+            </button>
+          </h3>
           {isOver && <Badge variant="secondary">Drop here</Badge>}
           <span className="text-muted-foreground text-sm">
             {enrolled} / {offering.capacity} placed
@@ -299,24 +391,33 @@ function OfferingCard({
             ];
             return (
               <DraggableStudentRow
-                className={`group rounded border px-2 py-1 text-sm ${qualityStyle(assignment.realized_quality).row}`}
+                className={assignmentStudentRowClassName(
+                  assignment.realized_quality,
+                  `group rounded border px-2 py-1 text-sm ${selectedStudentID === assignment.student_id ? "ring-2 ring-primary" : ""}`,
+                )}
                 id={`assignment-${assignment.id}`}
                 student={student}
                 key={assignment.id}
               >
-                <AssignmentQualityIcon quality={assignment.realized_quality} />
-                <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-                  <span className="font-medium">{name}</span>
-                  <span className="text-muted-foreground">
-                    {student?.grade_label || "Grade unknown"}
-                  </span>
-                  <span className="inline-flex items-center gap-2 text-muted-foreground">
-                    {student?.homeroom_name || "Homeroom unknown"}
-                    {assignment.pinned && (
+                <AssignmentStudentRow
+                  name={
+                    <button
+                      className="rounded font-medium hover:text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
+                      id={`assignment-panel-student-${assignment.student_id}`}
+                      onClick={() => onOpenStudent(assignment.student_id)}
+                      type="button"
+                    >
+                      {name}
+                    </button>
+                  }
+                  quality={assignment.realized_quality}
+                  student={student}
+                  trailing={
+                    assignment.pinned ? (
                       <Pin aria-label="Pinned" role="img" className="size-4 shrink-0" />
-                    )}
-                  </span>
-                </div>
+                    ) : undefined
+                  }
+                />
                 <div className="ml-auto flex flex-wrap items-center justify-end gap-1">
                   <WarningBadges
                     commented={commentedHosts.has(`assignment:${assignment.id}`)}
@@ -381,6 +482,9 @@ function OfferingCard({
 export function AssignmentBoardPage() {
   const year = useOutletContext<SchoolYear>();
   const { programId, sessionId } = useParams<{ programId: string; sessionId: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const panelTriggerID = useRef<string | null>(null);
+  const previousPanel = useRef<PreferencePanel | null>(null);
   const [filter, setFilter] = useState("");
   const [warningsOnly, setWarningsOnly] = useState(false);
   const [overridesOnly, setOverridesOnly] = useState(false);
@@ -417,6 +521,24 @@ export function AssignmentBoardPage() {
   const addExclusion = useCreateAssignmentExclusion(year.id, programId ?? "", sessionId ?? "");
   const removeExclusion = useDeleteAssignmentExclusion(year.id, programId ?? "", sessionId ?? "");
   const selectedProgram = programs.data?.find((program) => program.id === programId);
+  const panel = parsePreferencePanel(searchParams.get("panel"));
+  const selectPanel = useCallback(
+    (next: PreferencePanel | null) => {
+      const params = new URLSearchParams(searchParams);
+      if (next) params.set("panel", `${next.type}:${next.id}`);
+      else params.delete("panel");
+      setSearchParams(params, { replace: Boolean(panel && next) });
+    },
+    [panel, searchParams, setSearchParams],
+  );
+  const closePanel = useCallback(() => selectPanel(null), [selectPanel]);
+  useEffect(() => {
+    if (!panel && previousPanel.current && panelTriggerID.current) {
+      const triggerID = panelTriggerID.current;
+      window.setTimeout(() => document.getElementById(triggerID)?.focus(), 0);
+    }
+    previousPanel.current = panel;
+  }, [panel]);
   const normalizedFilter = filter.trim().toLocaleLowerCase();
   const assignments = useMemo(
     () => workspace.data?.assignments ?? [],
@@ -671,7 +793,7 @@ export function AssignmentBoardPage() {
     );
   const editorStudent = editor ? participantsByID.get(editor.studentID) : undefined;
 
-  return (
+  const board = (
     <DndContext
       sensors={sensors}
       collisionDetection={rectIntersection}
@@ -700,7 +822,7 @@ export function AssignmentBoardPage() {
         },
       }}
     >
-      <main className="mx-auto w-full max-w-6xl px-6 pt-4 pb-10">
+      <main className="mx-auto w-full min-w-0 max-w-6xl flex-1 px-6 pt-4 pb-10">
         <Breadcrumb aria-label="Program breadcrumb">
           <BreadcrumbList>
             <BreadcrumbItem>
@@ -851,9 +973,14 @@ export function AssignmentBoardPage() {
             commented={commentedHosts.has(`session:${sessionId}`)}
           />
         </section>
-        <div className="mt-4 grid grid-cols-1 gap-3">
+        <div
+          className={`mt-4 grid gap-3 ${panel ? "grid-cols-[repeat(auto-fit,minmax(20rem,1fr))]" : "grid-cols-1"}`}
+        >
           {unplaced.length > 0 && (
-            <section aria-labelledby="unplaced-heading" className="rounded-lg border bg-card p-3">
+            <section
+              aria-labelledby="unplaced-heading"
+              className="col-span-full rounded-lg border bg-card p-3"
+            >
               <div className="flex flex-wrap items-center gap-3">
                 <h3 className="font-semibold" id="unplaced-heading">
                   Unplaced students
@@ -863,22 +990,34 @@ export function AssignmentBoardPage() {
               <ul className="mt-2 space-y-1">
                 {unplaced.map((student) => (
                   <DraggableStudentRow
-                    className="rounded border bg-background px-2 py-1 text-sm"
+                    className={assignmentStudentRowClassName(
+                      undefined,
+                      `rounded border bg-background px-2 py-1 text-sm ${panel?.type === "student" && panel.id === student.student_id ? "ring-2 ring-primary" : ""}`,
+                    )}
                     student={student}
                     key={student.student_id}
                   >
-                    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-                      <span className="font-medium">{studentName(student)}</span>
-                      <span className="text-muted-foreground">
-                        {student.grade_label || "Grade unknown"}
-                      </span>
-                      <span className="text-muted-foreground">
-                        {student.homeroom_name || "Homeroom unknown"}
-                      </span>
-                      {excludedStudentIDs.has(student.student_id) && (
-                        <Badge variant="secondary">Exclusions</Badge>
-                      )}
-                    </div>
+                    <AssignmentStudentRow
+                      name={
+                        <button
+                          className="rounded font-medium hover:text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
+                          id={`assignment-panel-student-${student.student_id}`}
+                          onClick={() => {
+                            panelTriggerID.current = `assignment-panel-student-${student.student_id}`;
+                            selectPanel({ type: "student", id: student.student_id });
+                          }}
+                          type="button"
+                        >
+                          {studentName(student)}
+                        </button>
+                      }
+                      student={student}
+                      trailing={
+                        excludedStudentIDs.has(student.student_id) ? (
+                          <Badge variant="secondary">Exclusions</Badge>
+                        ) : undefined
+                      }
+                    />
                     <div className="ml-auto flex flex-wrap items-center justify-end gap-1">
                       <Button
                         onClick={() =>
@@ -941,8 +1080,18 @@ export function AssignmentBoardPage() {
                   setEditor({ kind: "move", studentID, offeringID })
                 }
                 onPin={runPin}
+                onOpenOffering={(offeringID) => {
+                  panelTriggerID.current = `assignment-panel-offering-${offeringID}`;
+                  selectPanel({ type: "offering", id: offeringID });
+                }}
+                onOpenStudent={(studentID) => {
+                  panelTriggerID.current = `assignment-panel-student-${studentID}`;
+                  selectPanel({ type: "student", id: studentID });
+                }}
                 onRemove={runRemove}
                 removing={savingRemoval}
+                selected={panel?.type === "offering" && panel.id === offering.id}
+                selectedStudentID={panel?.type === "student" ? panel.id : undefined}
                 onSwap={(studentID) =>
                   setEditor({
                     kind: "swap",
@@ -1156,6 +1305,19 @@ export function AssignmentBoardPage() {
         </ModalForm>
         <DragOverlay dropAnimation={null}>{draggedRow?.preview}</DragOverlay>
       </main>
+      <PreferenceContextSidebar
+        assignmentsByStudent={assignmentsByStudent}
+        offerings={offerings}
+        onClose={closePanel}
+        panel={panel}
+        participants={participantsByID}
+      />
     </DndContext>
+  );
+
+  return (
+    <SidebarProvider onOpenChange={(open) => !open && closePanel()} open={Boolean(panel)}>
+      {board}
+    </SidebarProvider>
   );
 }
