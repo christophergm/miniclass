@@ -421,3 +421,37 @@ Output tail:
 ```text
 I’m resuming the #303 rework from the live issue, pull request, feedback, and existing local change. I’ll preserve the partial work, address only actionable review findings, then re-run the required gate and update the persistent Workpad.The rework is limited to two CI findings: the new test made uniqueness assertions against text that now appears in both the board and review panel, and the review panel uses an unsupported string API/button variant for the project’s TypeScript target. I’m correcting those narrow points and will run the affected component test and frontend build if the installed dependency tree permits it.The source corrections are applied and the whitespace gate is clean. This workspace still lacks `frontend/node_modules`, so I’ll document the local limitation without installing dependencies; CI will execute the actual test and build gates on the amended head.
 ```
+
+## 2026-11-03T00:39:19Z - Failed run output tail
+
+- final_state: failed
+- error: codex turn failed: status failed: {"message":"{\"type\":\"error\",\"status\":400,\"error\":{\"type\":\"invalid_request_error\",\"message\":\"The 'gpt-6.1-sol' model is not supported when using Codex with a ChatGPT account.\",\"code\":\"model_not_found\"}}","codexErrorInfo":"other","additionalDetails":null,"misalignment":null}
+
+## 2026-11-03T00:41:47Z - Failed run output tail
+
+- final_state: failed
+- error: codex turn failed: status failed: {"message":"{\"type\":\"error\",\"status\":400,\"error\":{\"type\":\"invalid_request_error\",\"message\":\"The 'gpt-6.1-sol' model is not supported when using Codex with a ChatGPT account.\",\"code\":\"model_not_found\"}}","codexErrorInfo":"other","additionalDetails":null,"misalignment":null}
+
+## 2026-11-03T00:44:20Z - Failed run output tail
+
+- final_state: failed
+- error: codex turn failed: status failed: {"message":"{\"type\":\"error\",\"status\":400,\"error\":{\"type\":\"invalid_request_error\",\"message\":\"The 'gpt-6.1-sol' model is not supported when using Codex with a ChatGPT account.\",\"code\":\"model_not_found\"}}","codexErrorInfo":"other","additionalDetails":null,"misalignment":null}
+
+## Issue #345 — manual-operation rank quality
+
+- `assignmentInputs` now uses `DeriveOfferingPreference`, the same ranked-choice
+  category/quality mapping used by the assignment preference context. Manual
+  moves read the effective program/session `rank_high_max` in their audited
+  transaction, so a rank above that boundary is `acceptable`, not `high`.
+- Existing non-empty `realized_quality` values remain untouched as historical
+  facts. Unit coverage includes rank 4 with a maximum of 3 and an existing
+  historical quality.
+- Passed: `go test ./...` in `backend/`, `make format`, `make lint-backend`,
+  `make generate` with no generated drift, and `git diff --check`.
+  `make test-backend` cannot start locally because an externally owned
+  `/miniclass-mailpit` owns the fixed Compose name; removed only this
+  worktree's empty Compose network and volume.
+- PR #348 is open and ready. Its 13 current-head checks passed, including all
+  ten declared project gates plus solver contract/image and deployment-smoke
+  checks. CI took about two minutes; generated-code drift and backend tests
+  were slowest. No review or inline comments are present.

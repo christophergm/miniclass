@@ -104,7 +104,7 @@ func (s *Service) removeAssignments(ctx context.Context, organizationID string, 
 			}
 			return err
 		}
-		updated, err := tx.ReplaceDraftAssignments(ctx, input.SchoolYearID, input.ProgramID, input.SessionID, assignmentInputs(kept, nil))
+		updated, err := tx.ReplaceDraftAssignments(ctx, input.SchoolYearID, input.ProgramID, input.SessionID, assignmentInputs(kept, nil, 0))
 		if err != nil {
 			return err
 		}
@@ -208,7 +208,17 @@ func (s *Service) changeAssignments(ctx context.Context, organizationID string, 
 		if err != nil {
 			return err
 		}
-		inputs := assignmentInputs(final, answers)
+		weights, err := tx.GetProgramObjectiveWeights(ctx, input.SchoolYearID, input.ProgramID)
+		if err != nil {
+			return err
+		}
+		overrides, err := tx.GetSessionObjectiveWeightOverrides(ctx, input.SchoolYearID, input.ProgramID, input.SessionID)
+		if err == nil {
+			weights.Weights = weights.Weights.With(overrides.Overrides)
+		} else if !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		inputs := assignmentInputs(final, answers, weights.Weights.RankHighMax)
 		updated, err := tx.ReplaceDraftAssignments(ctx, input.SchoolYearID, input.ProgramID, input.SessionID, inputs)
 		if err != nil {
 			return err
@@ -239,19 +249,14 @@ func assignmentMap(rows []data.Assignment) map[ids.XID]data.Assignment {
 	return result
 }
 
-func assignmentInputs(rows map[ids.XID]data.Assignment, answers []data.SessionResultAnswer) []data.CreateAssignmentInput {
+func assignmentInputs(rows map[ids.XID]data.Assignment, answers []data.SessionResultAnswer, highRankMax int) []data.CreateAssignmentInput {
 	quality := make(map[ids.XID]map[ids.XID]string)
 	for _, answer := range answers {
-		if answer.Rank != nil {
-			if quality[answer.StudentID] == nil {
-				quality[answer.StudentID] = map[ids.XID]string{}
-			}
-			if *answer.Rank == 1 {
-				quality[answer.StudentID][answer.OfferingID] = "top"
-			} else {
-				quality[answer.StudentID][answer.OfferingID] = "high"
-			}
+		if quality[answer.StudentID] == nil {
+			quality[answer.StudentID] = map[ids.XID]string{}
 		}
+		preference := DeriveOfferingPreference(true, &answer, nil, false, highRankMax)
+		quality[answer.StudentID][answer.OfferingID] = string(preference.PotentialQuality)
 	}
 	students := make([]ids.XID, 0, len(rows))
 	for student := range rows {
