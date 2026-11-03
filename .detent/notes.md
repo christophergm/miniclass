@@ -487,3 +487,23 @@ I’m resuming the #303 rework from the live issue, pull request, feedback, and 
   URLs are unset. `make test-backend` cannot start because external
   `/miniclass-mailpit` owns the fixed Compose name; only this worktree's empty network
   and volume were removed.
+
+## Issue #341 — student preference context
+
+- Adds the administrator assignment-sidebar endpoint for one program member. The
+  projection is assembled in one `InTenantRead` transaction and implements SPEC
+  §§13.2–13.5 and §17.4.1: header/current placement, privacy-safe linked adults,
+  current ranked rows, immutable-quality prior placements, effective profile, and
+  response-boundary sensitive-comment filtering.
+- No schema change. `openapi.json` is regenerated. Pure projection/API tests cover
+  response ordering, stored-history labels, route capability, and role filtering;
+  the integration test covers membership and cross-tenant scope when the database
+  harness is configured.
+- Passed: `go test ./...` in `backend/`, `make format`, `make lint-backend`
+  (including depguard), `make generate`, and `git diff --check`. `make test-backend`
+  is locally blocked by externally owned `/miniclass-mailpit`; the worktree's empty
+  Compose network and volume were removed. `make test-migrations` needs its unset
+  `MIGRATION_ROUNDTRIP_DATABASE_URL` (no migration changed).
+- PR #351 is ready and its 13 current-head CI checks passed. Generated code drift
+  (2m4s), backend tests (1m54s), and frontend tests (1m40s) were the slowest;
+  there are no review or inline comments.

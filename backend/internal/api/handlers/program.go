@@ -58,6 +58,7 @@ type ProgramService interface {
 	GetAssignmentWorkspace(context.Context, string, ids.XID, ids.XID, ids.XID) (programservice.AssignmentWorkspace, error)
 	GetAssignmentQuality(context.Context, string, ids.XID, ids.XID, ids.XID) (programservice.AssignmentQuality, error)
 	GetOfferingPreferenceContext(context.Context, string, ids.XID, ids.XID, ids.XID, ids.XID) (programservice.OfferingPreferenceContext, error)
+	GetStudentPreferenceContext(context.Context, string, ids.XID, ids.XID, ids.XID, ids.XID) (programservice.StudentPreferenceContext, error)
 	CreatePlacementComment(context.Context, string, audit.Actor, programservice.PlacementCommentInput) (data.PlacementComment, error)
 	UpdatePlacementComment(context.Context, string, audit.Actor, programservice.PlacementCommentInput, ids.XID) (data.PlacementComment, error)
 	DeletePlacementComment(context.Context, string, audit.Actor, ids.XID, ids.XID, ids.XID, ids.XID) (data.PlacementComment, error)
