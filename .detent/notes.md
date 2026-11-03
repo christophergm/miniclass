@@ -471,3 +471,19 @@ I’m resuming the #303 rework from the live issue, pull request, feedback, and 
   ten declared project gates plus solver contract/image and deployment-smoke
   checks. CI took about two minutes; generated-code drift and backend tests
   were slowest. No review or inline comments are present.
+
+## Issue #340 — offering preference context
+
+- `backend/internal/program/offering_preference_context.go` builds the one-transaction,
+  tenant-scoped offering sidebar projection. It reuses `DeriveOfferingPreference`, keeps
+  current out-of-window assignments marked, and groups only non-empty categories.
+- `backend/internal/api/handlers/offering_preference_context.go` filters sensitive
+  comments for coordinator viewers and determines `has_notes` from the same visible
+  comment set. The route is `get-offering-preference-context`, protected by
+  `manage_assignments`; `backend/openapi.json` is regenerated.
+- Passed: focused program/API tests; `go test ./...` in `backend/`; `make format`;
+  `make lint-backend` with depguard; `make generate`; `git diff --check`.
+  The focused integration test is present but skips locally because both test database
+  URLs are unset. `make test-backend` cannot start because external
+  `/miniclass-mailpit` owns the fixed Compose name; only this worktree's empty network
+  and volume were removed.
