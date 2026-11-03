@@ -340,7 +340,7 @@ test.describe("desktop student preference context", () => {
       .getByRole("button", { name: "Robotics" })
       .click();
     await page
-      .getByRole("dialog", { name: "Robotics preference context" })
+      .getByRole("complementary", { name: "Robotics preference context" })
       .getByRole("button", { name: "Ada Synthetic", exact: true })
       .click();
     await expect(page.getByText("Placed in Robotics", { exact: true })).toBeVisible();
@@ -348,7 +348,9 @@ test.describe("desktop student preference context", () => {
       .getByRole("table", { name: "This session's rankings" })
       .getByRole("button", { name: "Art" })
       .click();
-    await expect(page.getByRole("dialog", { name: "Art preference context" })).toBeVisible();
+    await expect(
+      page.getByRole("complementary", { name: "Art preference context" }),
+    ).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(
       page.getByRole("region", { name: "Art placements" }).getByRole("button", { name: "Art" }),

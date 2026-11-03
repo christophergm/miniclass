@@ -14,6 +14,10 @@
   `git diff --check`. `make test-frontend` and `make build-frontend` stop before tests
   at the missing `openapi-typescript` executable; `make lint-frontend` cannot invoke its
   configured Biome shim in this sandbox. CI must run the dependency-backed gates.
+- Rework: PR #355's only failed check was the new Playwright test waiting for a `dialog`
+  wrapper even when the preference sidebar is docked. Its selectors now use the sidebar's
+  stable `complementary` landmark; `git diff --check` passes. Local Playwright remains
+  unavailable without the frontend dependency tree, so CI must rerun the full frontend gate.
 
 # Issue #343 — offering preference panel in assignment sidebar
 
