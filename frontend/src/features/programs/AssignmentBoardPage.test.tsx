@@ -1,5 +1,5 @@
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api";
 import type { AssignmentQuality, AssignmentWorkspace } from "@/lib/apiResources";
@@ -180,9 +180,9 @@ function override(assignment_id = "assignment-ada") {
   };
 }
 
-function renderBoard() {
+function renderBoard(initialEntry = "/y/year-1/programs/program-1/sessions/session-1/assignments") {
   return renderWithQueryClient(
-    <MemoryRouter initialEntries={["/y/year-1/programs/program-1/sessions/session-1/assignments"]}>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <Routes>
         <Route element={<YearRoute />} path="/y/:schoolYearId">
           <Route path="programs/:programId/sessions/:sessionId/assignments">
@@ -195,7 +195,17 @@ function renderBoard() {
 }
 
 function YearRoute() {
-  return <Outlet context={{ id: "year-1", label: "2026–27" }} />;
+  return (
+    <>
+      <LocationProbe />
+      <Outlet context={{ id: "year-1", label: "2026–27" }} />
+    </>
+  );
+}
+
+function LocationProbe() {
+  const location = useLocation();
+  return <output data-testid="assignment-board-location">{location.search}</output>;
 }
 
 describe("AssignmentBoardPage", () => {
@@ -305,6 +315,59 @@ describe("AssignmentBoardPage", () => {
     ]);
     expect(breadcrumb.querySelector('[aria-current="page"]')).toHaveTextContent("Assignment Board");
     expect(screen.getByRole("heading", { name: "Assignment Board", level: 1 })).toBeInTheDocument();
+  });
+
+  it("opens student and offering preference panels from URL-backed triggers", () => {
+    renderBoard();
+
+    fireEvent.click(screen.getByRole("button", { name: "Ada Synthesis" }));
+    expect(screen.getByTestId("assignment-board-location")).toHaveTextContent(
+      "panel=student%3Aada",
+    );
+    expect(
+      screen.getByRole("dialog", { name: "Ada Synthesis preference context" }),
+    ).toBeInTheDocument();
+    expect(row("Ada Synthesis")).toHaveClass("ring-2", "ring-primary");
+
+    fireEvent.click(screen.getByRole("button", { name: "Robotics" }));
+    expect(screen.getByTestId("assignment-board-location")).toHaveTextContent(
+      "panel=offering%3Arobots",
+    );
+    expect(screen.getByRole("dialog", { name: "Robotics preference context" })).toBeInTheDocument();
+    expect(offering("Robotics")).toHaveClass("ring-2", "ring-primary");
+  });
+
+  it("closes the preference panel with Escape or its close button and restores trigger focus", async () => {
+    renderBoard();
+    const trigger = screen.getByRole("button", { name: "Ada Synthesis" });
+    fireEvent.click(trigger);
+    expect(
+      screen.getByRole("complementary", { name: "Ada Synthesis preference context" }),
+    ).toHaveFocus();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => expect(trigger).toHaveFocus());
+    expect(
+      screen.queryByRole("dialog", { name: "Ada Synthesis preference context" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole("button", { name: "Close Ada Synthesis preference context" }));
+    await waitFor(() => expect(trigger).toHaveFocus());
+  });
+
+  it("does not begin a drag when opening a student preference panel", () => {
+    renderBoard();
+    const trigger = screen.getByRole("button", { name: "Ada Synthesis" });
+
+    fireEvent.pointerDown(trigger, { clientX: 1, clientY: 1 });
+    fireEvent.pointerMove(document, { clientX: 20, clientY: 20 });
+    fireEvent.click(trigger);
+
+    expect(
+      screen.getByRole("dialog", { name: "Ada Synthesis preference context" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("assignment-drag-preview")).not.toBeInTheDocument();
   });
 
   it.each([
