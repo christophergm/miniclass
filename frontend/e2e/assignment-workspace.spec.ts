@@ -199,7 +199,12 @@ test("an administrator can complete and reopen a synthetic placement draft witho
 });
 
 test.describe("desktop student preference context", () => {
-  test.use({ hasTouch: false, isMobile: false, viewport: { width: 1280, height: 720 } });
+  test.use({
+    deviceScaleFactor: 1,
+    hasTouch: false,
+    isMobile: false,
+    viewport: { width: 1280, height: 720 },
+  });
 
   test("switches panels and refreshes after an open-panel move", async ({ page }) => {
     await mockAdministrator(page);
@@ -348,9 +353,7 @@ test.describe("desktop student preference context", () => {
       .getByRole("table", { name: "This session's rankings" })
       .getByRole("button", { name: "Art" })
       .click();
-    await expect(
-      page.getByRole("complementary", { name: "Art preference context" }),
-    ).toBeVisible();
+    await expect(page.getByRole("complementary", { name: "Art preference context" })).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(
       page.getByRole("region", { name: "Art placements" }).getByRole("button", { name: "Art" }),
