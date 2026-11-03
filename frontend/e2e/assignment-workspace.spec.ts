@@ -365,6 +365,7 @@ test.describe("desktop student preference context", () => {
       .click();
     const handle = page.getByRole("button", { name: "Drag Ada Synthetic" });
     const destination = page.getByRole("region", { name: "Art placements" });
+    await destination.scrollIntoViewIfNeeded();
     const sourceBox = await handle.boundingBox();
     const destinationBox = await destination.boundingBox();
     if (!sourceBox || !destinationBox) throw new Error("Missing drag coordinates");
@@ -375,7 +376,10 @@ test.describe("desktop student preference context", () => {
     };
     await page.mouse.move(start.x, start.y);
     await page.mouse.down();
+    await page.mouse.move(start.x, start.y + 4);
+    await expect(page.getByTestId("assignment-drag-preview")).toHaveCount(0);
     await page.mouse.move(start.x, start.y + 8);
+    await expect(page.getByTestId("assignment-drag-preview")).toBeVisible();
     await page.mouse.move(end.x, end.y, { steps: 10 });
     await page.mouse.up();
     await expect(page.getByText("Placed in Art", { exact: true })).toBeVisible();
