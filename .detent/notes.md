@@ -1,3 +1,23 @@
+# Issue #339 — per-offering preference category and potential quality
+
+- `backend/internal/program/offering_preference.go` exposes the pure
+  `DeriveOfferingPreference` helper. Ranked submission precedence is per
+  student; a submitted blank offering remains `unknown` and may carry a
+  display-only topic-rating hint. It maps the category table to potential
+  quality without altering solver input or stored assignment quality.
+- Table-driven tests cover each category, rank boundary, all-no-response
+  submission, unrated/no-area absence, the topic hint, and canonical sort-key
+  order. The helper comment points to the matching solver contract test.
+- Passed: `go test ./internal/program`, `go test ./...` in `backend/`,
+  `make format`, `make lint-backend` (including depguard), `make generate`
+  with no generated drift, and `git diff --check`.
+- Local `make check` could not start Backend tests because an externally owned
+  exited `/miniclass-mailpit` holds the fixed Compose name. Removed only this
+  worktree's empty network and volume; the local frontend tree also lacks
+  `openapi-typescript`. PR #347 current-head CI passed all 13 checks after one
+  backend-test rerun for a transient `proxy.golang.org` download stream error;
+  no review or inline comments are present.
+
 # Issue #303 — named-first quality review and comments
 
 - Frontend review panel is in progress: named unwanted/no-signal/override lists,
