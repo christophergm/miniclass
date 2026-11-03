@@ -288,7 +288,7 @@ function PreferenceContextSidebar({
   const label = `${title} preference context`;
 
   return (
-    <Sidebar aria-label={label} side="right">
+    <Sidebar aria-label={label} className="max-w-[520px] min-[1280px]:w-[520px]" side="right">
       <SidebarContent>
         <header className="flex items-start justify-between gap-4 border-b p-4">
           <h2 className="font-semibold text-lg">{title}</h2>
@@ -583,15 +583,6 @@ function OfferingPreferencePanel({
   );
 }
 
-function responseLabel(
-  row: NonNullable<NonNullable<StudentPreferenceContext["rankings"]>["rows"]>[number],
-) {
-  if (row.response === "ranked") return `${ordinal(row.rank ?? 0)} choice`;
-  if (row.response === "interested") return "Interested";
-  if (row.response === "not_interested") return "Not interested";
-  return "No response";
-}
-
 function PlacementNotes({
   comments,
   canViewSensitive,
@@ -650,11 +641,12 @@ function StudentPreferencePanel({
     value.student.legal_name && value.student.legal_name !== value.student.display_name,
   );
   const profile = value.interest_profile;
+  // Tints follow the solver's topic-rating quality mapping (SPEC §17.4.1).
   const interestGroups = [
-    ["Very interested", profile.very_interested ?? []],
-    ["Interested", profile.interested ?? []],
-    ["Not interested", profile.not_interested ?? []],
-    ["Not rated", profile.not_rated ?? []],
+    ["Very interested", "high", profile.very_interested ?? []],
+    ["Interested", "acceptable", profile.interested ?? []],
+    ["Not interested", "unwanted", profile.not_interested ?? []],
+    ["Not rated", "neutral", profile.not_rated ?? []],
   ] as const;
 
   return (
@@ -703,16 +695,16 @@ function StudentPreferencePanel({
         {!value.rankings.ranked_choice_enabled ? (
           <p className="text-muted-foreground text-sm">This session does not use ranked choices.</p>
         ) : !value.rankings.submitted ? (
-          <p className="text-muted-foreground text-sm">
-            No ranked choices submitted — placement uses interest profile.
-          </p>
+          <p className="text-muted-foreground text-sm">No ranked choices submitted.</p>
         ) : (
           <Table aria-label="This session's rankings">
             <TableHeader>
               <TableRow>
                 <TableHead>Potential quality</TableHead>
                 <TableHead>Offering</TableHead>
-                <TableHead>Response</TableHead>
+                <TableHead>
+                  <span className="sr-only">Placement</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -737,13 +729,12 @@ function StudentPreferencePanel({
                         · {row.interest_area_label}
                       </span>
                     )}
+                  </TableCell>
+                  <TableCell>
                     {row.is_current_placement && (
-                      <Badge className="ml-2" variant="secondary">
-                        Current placement
-                      </Badge>
+                      <Badge variant="secondary">Current placement</Badge>
                     )}
                   </TableCell>
-                  <TableCell>{responseLabel(row)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -788,20 +779,17 @@ function StudentPreferencePanel({
         {!profile.responded ? (
           <p className="text-muted-foreground text-sm">No interest survey response.</p>
         ) : (
-          interestGroups.map(([label, areas]) =>
+          interestGroups.map(([label, quality, areas]) =>
             areas.length > 0 ? (
               <div key={label}>
                 <h4 className="font-medium text-sm">{label}</h4>
                 <ul className="mt-1 space-y-1 text-sm">
                   {areas.map((area) => (
-                    <li key={area.id}>
+                    <li
+                      className={assignmentStudentRowClassName(quality, "rounded border px-2 py-1")}
+                      key={area.id}
+                    >
                       <span>{area.label}</span>
-                      <span className="ml-1 text-muted-foreground">
-                        · {area.survey_name} ·{" "}
-                        {area.submitted_at
-                          ? new Date(area.submitted_at).toLocaleDateString()
-                          : "No date recorded"}
-                      </span>
                       {(area.offerings ?? []).length > 0 && (
                         <span className="ml-1 text-muted-foreground">
                           · Offered:{" "}
@@ -1521,9 +1509,7 @@ export function AssignmentBoardPage() {
             commented={commentedHosts.has(`session:${sessionId}`)}
           />
         </section>
-        <div
-          className={`mt-4 grid gap-3 ${panel ? "grid-cols-[repeat(auto-fit,minmax(20rem,1fr))]" : "grid-cols-1"}`}
-        >
+        <div className="mt-4 grid grid-cols-1 gap-3">
           {unplaced.length > 0 && (
             <section
               aria-labelledby="unplaced-heading"

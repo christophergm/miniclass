@@ -22,7 +22,9 @@ export function AssignmentStudentRow({
   return (
     <>
       {quality !== undefined && <AssignmentQualityIcon quality={quality} />}
-      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+      <div
+        className={`flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 ${variant === "panel" ? "flex-1" : ""}`}
+      >
         {name ?? <span className="font-medium">{assignmentStudentName(student)}</span>}
         <span className="text-muted-foreground">{student?.grade_label || "Grade unknown"}</span>
         <span
