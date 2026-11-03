@@ -704,16 +704,20 @@ describe("AssignmentBoardPage", () => {
       "Alex Synthesis · Guardian",
     );
     expect(screen.getByText("Current placement note.")).toBeInTheDocument();
-    expect(screen.getByText("Current placement")).toBeInTheDocument();
-    expect(screen.getByRole("cell", { name: "1st choice" })).toBeInTheDocument();
+    const currentRow = screen.getByText("Current placement").closest("tr");
+    if (!currentRow) throw new Error("Missing current placement row");
+    expect(within(currentRow).getByRole("button", { name: "Robotics" })).toBeInTheDocument();
+    expect(screen.queryByRole("cell", { name: "1st choice" })).not.toBeInTheDocument();
     const history = screen.getByText("Spring clubs · Art · Arts").closest("article");
     if (!history) throw new Error("Missing prior placement");
     const historicalIcon = within(history).getByRole("img", { name: "Quality: Unwanted" });
     expect(historicalIcon.parentElement).toHaveClass("bg-[#FDF6F8]");
     expect(within(history).getByText("Historical placement note.")).toBeInTheDocument();
     const profileSection = screen.getByRole("region", { name: "General interest profile" });
-    expect(within(profileSection).getByText("Technology")).toBeInTheDocument();
-    expect(profileSection).toHaveTextContent("Interest survey");
+    const technology = within(profileSection).getByText("Technology").closest("li");
+    if (!technology) throw new Error("Missing Technology interest area");
+    expect(technology).toHaveClass("bg-[#F6FAF8]");
+    expect(profileSection).not.toHaveTextContent("Interest survey");
 
     const roboticsButtons = within(profileSection).getAllByRole("button", { name: "Robotics" });
     const offeredRobotics = roboticsButtons[roboticsButtons.length - 1];
@@ -765,9 +769,7 @@ describe("AssignmentBoardPage", () => {
     } as unknown as StudentPreferenceContext;
     renderBoard("/y/year-1/programs/program-1/sessions/session-1/assignments?panel=student:ada");
 
-    expect(
-      screen.getByText("No ranked choices submitted — placement uses interest profile."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("No ranked choices submitted.")).toBeInTheDocument();
   });
 
   it("closes the preference panel with Escape or its close button and restores trigger focus", async () => {
