@@ -424,6 +424,38 @@ export function useAssignmentQuality(
   });
 }
 
+export const offeringPreferenceContextKey = (
+  schoolYearID: string | undefined,
+  programID: string | undefined,
+  sessionID: string | undefined,
+  offeringID: string | undefined,
+) =>
+  [
+    ...assignmentWorkspaceKey(schoolYearID, programID, sessionID),
+    "offering-preference",
+    offeringID,
+  ] as const;
+
+export function useOfferingPreferenceContext(
+  schoolYearID: string | undefined,
+  programID: string | undefined,
+  sessionID: string | undefined,
+  offeringID: string | undefined,
+) {
+  return useQuery({
+    enabled: Boolean(schoolYearID && programID && sessionID && offeringID),
+    queryKey: offeringPreferenceContextKey(schoolYearID, programID, sessionID, offeringID),
+    queryFn: () =>
+      resourceApi.getOfferingPreferenceContext(
+        schoolYearID as string,
+        programID as string,
+        sessionID as string,
+        offeringID as string,
+      ),
+    retry: false,
+  });
+}
+
 export function useStartSolveRun(schoolYearID: string, programID: string, sessionID: string) {
   const queryClient = useQueryClient();
   return useMutation({
