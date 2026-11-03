@@ -1,3 +1,31 @@
+# Issue #344 — student preference panel in assignment sidebar
+
+- `AssignmentBoardPage` now fills the URL-backed student panel with the generated
+  `StudentPreferenceContext` contract. It renders privacy-safe header/adult data,
+  assignment notes, rankings, historical placements from stored quality, and current
+  interest-profile provenance with offering links.
+- The student context query shares the assignment-workspace key, preserving existing
+  mutation invalidation and stale/refetch behavior. Sensitive notes are filtered again
+  during rendering for current and historical placements.
+- Added component coverage for populated and empty states, stored history quality,
+  privacy, panel navigation, and stale data; added a synthetic Playwright flow that
+  keeps the panel open through a keyboard drag and asserts the refreshed placement.
+- Passed direct cached-Biome formatting and the new Playwright file's Biome check, plus
+  `git diff --check`. `make test-frontend` and `make build-frontend` stop before tests
+  at the missing `openapi-typescript` executable; `make lint-frontend` cannot invoke its
+  configured Biome shim in this sandbox. CI must run the dependency-backed gates.
+- Rework: PR #355's new Playwright scenario inherited the iPhone device scale factor, so its
+  nominal desktop viewport did not create a fine-pointer environment for the mouse drag. It now
+  explicitly sets `deviceScaleFactor: 1` like the established desktop drag suite and uses the
+  sidebar's stable `complementary` landmark. With the sidebar open, the responsive offering grid
+  makes a vertical-only pointer drag unable to collide with the side-by-side destination, so the
+  scenario uses the established keyboard drag path and asserts its selected target before saving;
+  local Playwright remains unavailable without the frontend dependency tree, so CI must rerun the
+  full frontend gate.
+- PR #355 current head `2fd29a3` passed all 13 checks: every declared project gate plus solver
+  contract/image and deployment smoke. Frontend tests and generated-code drift completed in about
+  1m31, while backend tests was the slowest at about 2m05; no review or inline comments remain.
+
 # Issue #343 — offering preference panel in assignment sidebar
 
 - `AssignmentBoardPage` now fills the URL-backed offering panel using the generated

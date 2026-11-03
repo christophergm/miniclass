@@ -197,3 +197,180 @@ test("an administrator can complete and reopen a synthetic placement draft witho
   await expect(page.getByText("Revision 4", { exact: true })).toBeVisible();
   await expect(page.getByText(/Nothing is finalised or published/)).not.toBeVisible();
 });
+
+test.describe("desktop student preference context", () => {
+  test.use({
+    deviceScaleFactor: 1,
+    hasTouch: false,
+    isMobile: false,
+    viewport: { width: 1280, height: 720 },
+  });
+
+  test("switches panels and refreshes after an open-panel move", async ({ page }) => {
+    await mockAdministrator(page);
+    let assignments: Assignment[] = [
+      { id: "assignment-ada", student_id: "ada", offering_id: "robots", pinned: false },
+    ];
+    let revision = 4;
+    await page.route(
+      (url) => url.pathname === `${apiBase}/assignment-workspace`,
+      (route) => route.fulfill({ json: workspace(assignments, revision) }),
+    );
+    await page.route(
+      (url) => url.pathname === `${apiBase}/assignment-quality`,
+      (route) => route.fulfill({ json: quality(assignments) }),
+    );
+    await page.route(
+      (url) => /\/offerings\/[^/]+\/preference-context$/.test(url.pathname),
+      (route) => {
+        const pathParts = new URL(route.request().url()).pathname.split("/");
+        const offeringID = pathParts[pathParts.length - 2] ?? "";
+        const offering = offeringID === "art" ? "Art" : "Robotics";
+        return route.fulfill({
+          json: {
+            draft_revision: revision,
+            offering: {
+              id: offeringID,
+              name: offering,
+              description: "Synthetic preference context",
+              interest_area: { id: "area", label: "Synthetic area" },
+              min_grade: "Grade 1",
+              max_grade: "Grade 6",
+              enrolled: assignments.filter((item) => item.offering_id === offeringID).length,
+              capacity: 2,
+              warnings: [],
+            },
+            comments: [],
+            groups: [
+              {
+                category: "rank",
+                students: [
+                  {
+                    student_id: "ada",
+                    display_name: "Ada Synthetic",
+                    grade_label: "Grade 1",
+                    homeroom_name: "",
+                    category: "rank",
+                    rank: 1,
+                    potential_quality: "top",
+                    outside_grade_range: false,
+                    placement: {
+                      status: assignments[0].offering_id === offeringID ? "here" : "elsewhere",
+                      offering_id: assignments[0].offering_id,
+                      offering_name: assignments[0].offering_id === "art" ? "Art" : "Robotics",
+                      realized_quality: "top",
+                    },
+                    has_notes: false,
+                  },
+                ],
+              },
+            ],
+          },
+        });
+      },
+    );
+    await page.route(
+      (url) => /\/students\/ada\/preference-context$/.test(url.pathname),
+      (route) => {
+        const placedInArt = assignments[0].offering_id === "art";
+        return route.fulfill({
+          json: {
+            draft_revision: revision,
+            student: {
+              id: "ada",
+              display_name: "Ada Synthetic",
+              legal_name: "Ada Synthetic",
+              grade_label: "Grade 1",
+              homeroom_name: "",
+              placement: {
+                offering_id: assignments[0].offering_id,
+                offering_name: placedInArt ? "Art" : "Robotics",
+                realized_quality: "top",
+              },
+              linked_adults: [],
+            },
+            comments: [],
+            rankings: {
+              ranked_choice_enabled: true,
+              submitted: true,
+              rows: [
+                {
+                  offering_id: "robots",
+                  offering_name: "Robotics",
+                  interest_area_label: "Synthetic area",
+                  response: "ranked",
+                  rank: 1,
+                  potential_quality: "top",
+                  is_current_placement: !placedInArt,
+                },
+                {
+                  offering_id: "art",
+                  offering_name: "Art",
+                  interest_area_label: "Synthetic area",
+                  response: "interested",
+                  potential_quality: "high",
+                  is_current_placement: placedInArt,
+                },
+              ],
+            },
+            prior_placements: [],
+            interest_profile: {
+              responded: false,
+              very_interested: [],
+              interested: [],
+              not_interested: [],
+              not_rated: [],
+            },
+          },
+        });
+      },
+    );
+    await page.route(
+      (url) => url.pathname === `${apiBase}/assignments/move`,
+      async (route) => {
+        const body = route.request().postDataJSON();
+        assignments = assignments.map((assignment) =>
+          assignment.student_id === body.student_id
+            ? { ...assignment, offering_id: body.offering_id }
+            : assignment,
+        );
+        revision += 1;
+        await route.fulfill({ json: { assignments, draft_revision: revision } });
+      },
+    );
+
+    await page.goto("/y/year-1/programs/program-1/sessions/session-1/assignments");
+    await page
+      .getByRole("region", { name: "Robotics placements" })
+      .getByRole("button", { name: "Robotics" })
+      .click();
+    await page
+      .getByRole("complementary", { name: "Robotics preference context" })
+      .getByRole("button", { name: "Ada Synthetic", exact: true })
+      .click();
+    await expect(page.getByText("Placed in Robotics", { exact: true })).toBeVisible();
+    await page
+      .getByRole("table", { name: "This session's rankings" })
+      .getByRole("button", { name: "Art" })
+      .click();
+    await expect(page.getByRole("complementary", { name: "Art preference context" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(
+      page.getByRole("region", { name: "Art placements" }).getByRole("button", { name: "Art" }),
+    ).toBeFocused();
+
+    await page
+      .getByRole("region", { name: "Robotics placements" })
+      .getByRole("button", { name: "Ada Synthetic", exact: true })
+      .click();
+    const handle = page.getByRole("button", { name: "Drag Ada Synthetic" });
+    const destination = page.getByRole("region", { name: "Art placements" });
+    await handle.focus();
+    await page.keyboard.press("Space");
+    await expect(page.getByTestId("assignment-drag-preview")).toBeVisible();
+    await page.keyboard.press("ArrowDown");
+    await expect(destination).toHaveAttribute("data-drop-target", "true");
+    await page.keyboard.press("Space");
+    await expect(page.getByText("Placed in Art", { exact: true })).toBeVisible();
+  });
+});

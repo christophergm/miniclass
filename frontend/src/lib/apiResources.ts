@@ -50,6 +50,7 @@ export type RankedChoiceResults = Schemas["RankedChoiceResultsResponse"];
 export type AssignmentWorkspace = Schemas["AssignmentWorkspaceResponse"];
 export type AssignmentQuality = Schemas["AssignmentQualityResponse"];
 export type OfferingPreferenceContext = Schemas["OfferingPreferenceContextResponse"];
+export type StudentPreferenceContext = Schemas["StudentPreferenceContextResponse"];
 export type SolveRun = Schemas["SolveRunResponse"];
 export type AssignmentOperationInput = Schemas["MoveAssignmentInputBody"];
 export type AssignmentSwapInput = Schemas["SwapAssignmentsInputBody"];
@@ -968,6 +969,18 @@ export const resourceApi = {
       api.GET(
         "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/offerings/{offeringID}/preference-context",
         { params: { path: { schoolYearID, programID, sessionID, offeringID } } },
+      ),
+    ),
+  getStudentPreferenceContext: (
+    schoolYearID: string,
+    programID: string,
+    sessionID: string,
+    studentID: string,
+  ) =>
+    unwrap(
+      api.GET(
+        "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/students/{studentID}/preference-context",
+        { params: { path: { schoolYearID, programID, sessionID, studentID } } },
       ),
     ),
   startSolveRun: (schoolYearID: string, programID: string, sessionID: string) =>
