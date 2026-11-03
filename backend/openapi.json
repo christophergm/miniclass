@@ -7594,6 +7594,367 @@
         },
         "type": "object"
       },
+      "StudentCurrentPlacementResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "offering_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "offering_name": {
+            "type": "string"
+          },
+          "realized_quality": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "offering_id"
+        ],
+        "type": "object"
+      },
+      "StudentInterestAreaResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "offerings": {
+            "items": {
+              "$ref": "#/components/schemas/StudentInterestOfferingResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "submitted_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "survey_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "offerings"
+        ],
+        "type": "object"
+      },
+      "StudentInterestOfferingResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "StudentInterestProfileResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "interested": {
+            "items": {
+              "$ref": "#/components/schemas/StudentInterestAreaResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "not_interested": {
+            "items": {
+              "$ref": "#/components/schemas/StudentInterestAreaResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "not_rated": {
+            "items": {
+              "$ref": "#/components/schemas/StudentInterestAreaResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "responded": {
+            "type": "boolean"
+          },
+          "very_interested": {
+            "items": {
+              "$ref": "#/components/schemas/StudentInterestAreaResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "responded",
+          "very_interested",
+          "interested",
+          "not_interested",
+          "not_rated"
+        ],
+        "type": "object"
+      },
+      "StudentLinkedAdultResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "display_name": {
+            "type": "string"
+          },
+          "relationship": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "display_name",
+          "relationship"
+        ],
+        "type": "object"
+      },
+      "StudentPreferenceContextResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/StudentPreferenceContextResponse.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "comments": {
+            "items": {
+              "$ref": "#/components/schemas/PlacementCommentResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "draft_revision": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "interest_profile": {
+            "$ref": "#/components/schemas/StudentInterestProfileResponse"
+          },
+          "prior_placements": {
+            "items": {
+              "$ref": "#/components/schemas/StudentPriorPlacementResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "rankings": {
+            "$ref": "#/components/schemas/StudentRankingsResponse"
+          },
+          "student": {
+            "$ref": "#/components/schemas/StudentPreferenceStudentResponse"
+          }
+        },
+        "required": [
+          "student",
+          "draft_revision",
+          "comments",
+          "rankings",
+          "prior_placements",
+          "interest_profile"
+        ],
+        "type": "object"
+      },
+      "StudentPreferenceStudentResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "display_name": {
+            "type": "string"
+          },
+          "grade_label": {
+            "type": "string"
+          },
+          "homeroom_name": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "legal_name": {
+            "type": "string"
+          },
+          "linked_adults": {
+            "items": {
+              "$ref": "#/components/schemas/StudentLinkedAdultResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "placement": {
+            "$ref": "#/components/schemas/StudentCurrentPlacementResponse"
+          }
+        },
+        "required": [
+          "id",
+          "display_name",
+          "legal_name",
+          "grade_label",
+          "homeroom_name",
+          "placement",
+          "linked_adults"
+        ],
+        "type": "object"
+      },
+      "StudentPriorPlacementResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "comments": {
+            "items": {
+              "$ref": "#/components/schemas/PlacementCommentResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "interest_area_label": {
+            "type": "string"
+          },
+          "offering_id": {
+            "type": "string"
+          },
+          "offering_name": {
+            "type": "string"
+          },
+          "preference_label": {
+            "type": "string"
+          },
+          "realized_quality": {
+            "type": "string"
+          },
+          "session_id": {
+            "type": "string"
+          },
+          "session_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "session_name",
+          "offering_id",
+          "offering_name",
+          "interest_area_label",
+          "realized_quality",
+          "preference_label",
+          "comments"
+        ],
+        "type": "object"
+      },
+      "StudentRankingResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "interest_area_label": {
+            "type": "string"
+          },
+          "is_current_placement": {
+            "type": "boolean"
+          },
+          "offering_id": {
+            "type": "string"
+          },
+          "offering_name": {
+            "type": "string"
+          },
+          "potential_quality": {
+            "enum": [
+              "top",
+              "high",
+              "acceptable",
+              "neutral",
+              "unwanted"
+            ],
+            "type": "string"
+          },
+          "rank": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "response": {
+            "enum": [
+              "ranked",
+              "interested",
+              "not_interested",
+              "no_response"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "offering_id",
+          "offering_name",
+          "interest_area_label",
+          "response",
+          "potential_quality",
+          "is_current_placement"
+        ],
+        "type": "object"
+      },
+      "StudentRankingsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "ranked_choice_enabled": {
+            "type": "boolean"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/StudentRankingResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "submitted": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ranked_choice_enabled",
+          "submitted",
+          "rows"
+        ],
+        "type": "object"
+      },
       "StudentResponse": {
         "additionalProperties": false,
         "properties": {
@@ -22521,6 +22882,107 @@
           }
         ],
         "summary": "Re-run an immutable solver run when its inputs still match",
+        "x-required-capability": "manage_assignments"
+      }
+    },
+    "/api/school-years/{schoolYearID}/programs/{programID}/sessions/{sessionID}/students/{studentID}/preference-context": {
+      "get": {
+        "description": "SPEC §§13.2–13.5 and §17.4.1. Sensitive comments are omitted for coordinators.",
+        "operationId": "get-student-preference-context",
+        "parameters": [
+          {
+            "description": "Opaque school-year identifier.",
+            "in": "path",
+            "name": "schoolYearID",
+            "required": true,
+            "schema": {
+              "description": "Opaque school-year identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque program identifier.",
+            "in": "path",
+            "name": "programID",
+            "required": true,
+            "schema": {
+              "description": "Opaque program identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque session identifier.",
+            "in": "path",
+            "name": "sessionID",
+            "required": true,
+            "schema": {
+              "description": "Opaque session identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque student identifier.",
+            "in": "path",
+            "name": "studentID",
+            "required": true,
+            "schema": {
+              "description": "Opaque student identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentPreferenceContextResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Read one student's assignment preference context",
         "x-required-capability": "manage_assignments"
       }
     },
