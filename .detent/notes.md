@@ -17,9 +17,11 @@
 - Rework: PR #355's new Playwright scenario inherited the iPhone device scale factor, so its
   nominal desktop viewport did not create a fine-pointer environment for the mouse drag. It now
   explicitly sets `deviceScaleFactor: 1` like the established desktop drag suite and uses the
-  sidebar's stable `complementary` landmark. Its pointer sequence also now waits through the
-  established dnd-kit activation thresholds before release; local Playwright remains unavailable
-  without the frontend dependency tree, so CI must rerun the full frontend gate.
+  sidebar's stable `complementary` landmark. With the sidebar open, the responsive offering grid
+  makes a vertical-only pointer drag unable to collide with the side-by-side destination, so the
+  scenario uses the established keyboard drag path and asserts its selected target before saving;
+  local Playwright remains unavailable without the frontend dependency tree, so CI must rerun the
+  full frontend gate.
 
 # Issue #343 — offering preference panel in assignment sidebar
 
