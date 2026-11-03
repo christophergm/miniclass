@@ -27,12 +27,19 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { ModalForm } from "@/components/ui/modal-form";
 import { Sidebar, SidebarContent, SidebarProvider } from "@/components/ui/sidebar";
 import { ApiError } from "@/lib/api";
-import type { AssignmentQuality, AssignmentWorkspace, SchoolYear } from "@/lib/apiResources";
+import type {
+  AssignmentQuality,
+  AssignmentWorkspace,
+  OfferingPreferenceContext,
+  SchoolYear,
+} from "@/lib/apiResources";
 import { useAccount } from "@/lib/hooks/useAccount";
+import { AssignmentQualityIcon } from "./AssignmentQualityIcon";
 import { AssignmentReviewPanel, type Host, WarningBadges } from "./AssignmentReviewPanel";
 import { AssignmentStudentRow } from "./AssignmentStudentRow";
 import { assignmentStudentName, assignmentStudentRowClassName } from "./assignmentStudentRowUtils";
@@ -42,6 +49,7 @@ import {
   useCreateAssignmentExclusion,
   useDeleteAssignmentExclusion,
   useMoveAssignment,
+  useOfferingPreferenceContext,
   usePrograms,
   useRemoveAssignment,
   useRemoveUnpinnedAssignments,
@@ -53,6 +61,13 @@ import {
 type Workspace = NonNullable<AssignmentWorkspace>;
 type Participant = NonNullable<Workspace["participants"]>[number];
 type Assignment = NonNullable<Workspace["assignments"]>[number];
+type OfferingPreferenceGroup = NonNullable<OfferingPreferenceContext["groups"]>[number];
+type OfferingPreferenceStudent = NonNullable<OfferingPreferenceGroup["students"]>[number];
+type DisplayPreferenceGroup = {
+  category: OfferingPreferenceGroup["category"];
+  rank?: number;
+  students: OfferingPreferenceStudent[];
+};
 type Editor =
   | { kind: "move"; studentID: string; offeringID: string }
   | { kind: "exclusion"; studentID: string; offeringID: string }
@@ -217,17 +232,35 @@ function DraggableStudentRow({
 
 function PreferenceContextSidebar({
   assignmentsByStudent,
+  canViewSensitive,
   offerings,
   panel,
   participants,
+  programID,
+  schoolYearID,
+  sessionID,
   onClose,
+  onOpenStudent,
+  revision,
 }: {
   assignmentsByStudent: Map<string, Assignment>;
+  canViewSensitive: boolean;
   offerings: NonNullable<Workspace["offerings"]>;
   panel: PreferencePanel | null;
   participants: Map<string, Participant>;
+  programID: string | undefined;
+  schoolYearID: string;
+  sessionID: string | undefined;
   onClose: () => void;
+  onOpenStudent: (studentID: string) => void;
+  revision: number;
 }) {
+  const offeringContext = useOfferingPreferenceContext(
+    schoolYearID,
+    programID,
+    sessionID,
+    panel?.type === "offering" ? panel.id : undefined,
+  );
   if (!panel) return null;
   const student = panel.type === "student" ? participants.get(panel.id) : undefined;
   const offering =
@@ -272,14 +305,256 @@ function PreferenceContextSidebar({
               />
             </div>
           )}
-          <div aria-label="Loading preference context" className="space-y-3" role="status">
-            <div aria-hidden="true" className="h-4 w-2/3 animate-pulse rounded bg-muted" />
-            <div aria-hidden="true" className="h-4 w-full animate-pulse rounded bg-muted" />
-            <div aria-hidden="true" className="h-4 w-5/6 animate-pulse rounded bg-muted" />
-          </div>
+          {panel.type === "offering" && (
+            <OfferingPreferencePanel
+              canViewSensitive={canViewSensitive}
+              context={offeringContext}
+              onOpenStudent={onOpenStudent}
+              revision={revision}
+            />
+          )}
+          {panel.type === "student" && <PreferenceContextSkeleton />}
         </div>
       </SidebarContent>
     </Sidebar>
+  );
+}
+
+function PreferenceContextSkeleton() {
+  return (
+    <div aria-label="Loading preference context" className="space-y-3" role="status">
+      <div aria-hidden="true" className="h-4 w-2/3 animate-pulse rounded bg-muted" />
+      <div aria-hidden="true" className="h-4 w-full animate-pulse rounded bg-muted" />
+      <div aria-hidden="true" className="h-4 w-5/6 animate-pulse rounded bg-muted" />
+    </div>
+  );
+}
+
+function ordinal(value: number) {
+  const remainder = value % 100;
+  if (remainder >= 11 && remainder <= 13) return `${value}th`;
+  if (value % 10 === 1) return `${value}st`;
+  if (value % 10 === 2) return `${value}nd`;
+  if (value % 10 === 3) return `${value}rd`;
+  return `${value}th`;
+}
+
+function preferenceGroupLabel(category: string, rank?: number | null) {
+  if (category === "rank") return `${ordinal(rank ?? 0)} choice`;
+  switch (category) {
+    case "topic_very_interested":
+      return "Very interested (topic)";
+    case "ranked_interested":
+      return "Interested (ranked)";
+    case "topic_interested":
+      return "Interested (topic)";
+    case "topic_not_interested":
+      return "Not interested (topic)";
+    case "ranked_not_interested":
+      return "Not interested (ranked)";
+    default:
+      return "Unknown";
+  }
+}
+
+function placementLabel(placement: { status: string; offering_name?: string }) {
+  if (placement.status === "here") return "Here";
+  if (placement.status === "elsewhere")
+    return `In: ${placement.offering_name || "another offering"}`;
+  return "Unplaced";
+}
+
+function OfferingPreferencePanel({
+  canViewSensitive,
+  context,
+  onOpenStudent,
+  revision,
+}: {
+  canViewSensitive: boolean;
+  context: ReturnType<typeof useOfferingPreferenceContext>;
+  onOpenStudent: (studentID: string) => void;
+  revision: number;
+}) {
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  if (context.isLoading && !context.data) return <PreferenceContextSkeleton />;
+  if (context.isError && !context.data)
+    return (
+      <div className="space-y-3" role="alert">
+        <p>Unable to load this offering’s preference context.</p>
+        <Button onClick={() => void context.refetch()} size="sm" type="button" variant="outline">
+          Retry
+        </Button>
+      </div>
+    );
+  const value = context.data;
+  if (!value) return null;
+  // The backend represents an absent area as JSON null. The generated OpenAPI
+  // type currently omits that nullability, so retain the runtime-safe branch.
+  const interestArea = value.offering.interest_area as typeof value.offering.interest_area | null;
+  const visibleComments = (value.comments ?? []).filter(
+    (comment) => comment.sensitivity !== "sensitive" || canViewSensitive,
+  );
+  const stale = value.draft_revision < revision;
+  const overCapacity = value.offering.enrolled > value.offering.capacity;
+  const belowMinimum = (value.offering.warnings ?? []).some(
+    (warning) => warning.id === "below-minimum-enrollment",
+  );
+  const preferenceGroups: DisplayPreferenceGroup[] = [];
+  for (const group of value.groups ?? []) {
+    if (group.category !== "rank") {
+      preferenceGroups.push({ category: group.category, students: group.students ?? [] });
+      continue;
+    }
+    const byRank = new Map<number, OfferingPreferenceStudent[]>();
+    for (const student of group.students ?? []) {
+      const rank = student.rank ?? 0;
+      byRank.set(rank, [...(byRank.get(rank) ?? []), student]);
+    }
+    preferenceGroups.push(
+      ...[...byRank.entries()]
+        .sort(([first], [second]) => first - second)
+        .map(([rank, students]) => ({ category: group.category, rank, students })),
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      {context.isFetching && <p className="text-muted-foreground text-sm">Updating…</p>}
+      {stale && (
+        <div className="flex items-center justify-between gap-3 rounded border border-amber-300 bg-amber-50 p-2 text-amber-950 text-sm">
+          <span>Out of date</span>
+          <Button onClick={() => void context.refetch()} size="sm" type="button" variant="outline">
+            Refresh
+          </Button>
+        </div>
+      )}
+      <section className="space-y-2" aria-label="Offering details">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="font-semibold">{value.offering.name}</h3>
+          <Badge variant="secondary">{interestArea?.label ?? "No topic area"}</Badge>
+        </div>
+        {!interestArea && (
+          <p className="text-muted-foreground text-sm">
+            No topic area — reachable only by ranked choice or manual placement
+          </p>
+        )}
+        {value.offering.description && (
+          <div className="text-sm">
+            <p
+              className={`whitespace-pre-wrap text-muted-foreground ${descriptionExpanded ? "" : "line-clamp-3"}`}
+            >
+              {value.offering.description}
+            </p>
+            <Button
+              className="h-auto px-0 text-primary text-sm hover:underline"
+              onClick={() => setDescriptionExpanded((expanded) => !expanded)}
+              type="button"
+              variant="ghost"
+            >
+              {descriptionExpanded ? "Show less" : "Show more"}
+            </Button>
+          </div>
+        )}
+        <p className="text-muted-foreground text-sm">
+          {value.offering.min_grade}–{value.offering.max_grade} · {value.offering.enrolled} /{" "}
+          {value.offering.capacity} placed
+        </p>
+        <div className="flex flex-wrap gap-1">
+          {overCapacity && <Badge variant="destructive">Over capacity</Badge>}
+          {belowMinimum && <Badge variant="secondary">Below minimum enrollment</Badge>}
+        </div>
+      </section>
+      {visibleComments.length > 0 && (
+        <section aria-label="Offering placement notes" className="space-y-2">
+          <h3 className="font-semibold text-sm">Placement notes</h3>
+          {visibleComments.map((comment) => (
+            <article className="rounded border p-2 text-sm" key={comment.id}>
+              <div className="mb-1 flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
+                <Badge variant="secondary">{comment.sensitivity}</Badge>
+                <span>Author: {comment.author_user_id}</span>
+                <time dateTime={comment.created_at}>
+                  {new Date(comment.created_at).toLocaleDateString()}
+                </time>
+              </div>
+              <p className="whitespace-pre-wrap">{comment.body}</p>
+            </article>
+          ))}
+        </section>
+      )}
+      <section aria-label="Offering preferences" className="space-y-2">
+        {preferenceGroups
+          .filter((group) => (group.students?.length ?? 0) > 0)
+          .map((group) => {
+            const label = preferenceGroupLabel(group.category, group.rank);
+            const initiallyOpen =
+              group.category !== "unknown" && group.category !== "ranked_not_interested";
+            return (
+              <Collapsible
+                defaultOpen={initiallyOpen}
+                key={`${group.category}:${group.rank ?? "all"}`}
+              >
+                <CollapsibleTrigger className="flex w-full items-center justify-between rounded border px-2 py-1 text-left font-medium text-sm hover:bg-muted">
+                  <span>{label}</span>
+                  <span className="text-muted-foreground">({group.students?.length ?? 0})</span>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <ul className="mt-1 space-y-1">
+                    {(group.students ?? []).map((student) => (
+                      <li
+                        className={assignmentStudentRowClassName(
+                          student.potential_quality,
+                          "flex flex-wrap items-center gap-2 rounded border px-2 py-1 text-sm",
+                        )}
+                        key={student.student_id}
+                      >
+                        <AssignmentStudentRow
+                          name={
+                            <button
+                              className="rounded font-medium hover:text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
+                              onClick={() => onOpenStudent(student.student_id)}
+                              type="button"
+                            >
+                              {student.display_name}
+                            </button>
+                          }
+                          preferenceLabel={preferenceGroupLabel(student.category, student.rank)}
+                          quality={student.potential_quality}
+                          student={{
+                            display_name: student.display_name,
+                            grade_label: student.grade_label,
+                            homeroom_name: student.homeroom_name,
+                          }}
+                          trailing={
+                            <div className="flex flex-wrap items-center gap-1">
+                              <Badge variant="outline">
+                                <AssignmentQualityIcon
+                                  quality={student.placement.realized_quality ?? ""}
+                                />
+                                {placementLabel(student.placement)}
+                              </Badge>
+                              {student.outside_grade_range && (
+                                <Badge variant="destructive">Outside grade range</Badge>
+                              )}
+                              {student.has_notes && <Badge variant="secondary">Has notes</Badge>}
+                            </div>
+                          }
+                          variant="panel"
+                        />
+                        {student.category === "unknown" && student.topic_rating_hint && (
+                          <p className="basis-full pl-6 text-muted-foreground text-xs">
+                            Voted on other offerings · topic:{" "}
+                            {student.topic_rating_hint.replace(/_/g, " ")}
+                          </p>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </CollapsibleContent>
+              </Collapsible>
+            );
+          })}
+      </section>
+    </div>
   );
 }
 
@@ -1307,10 +1582,19 @@ export function AssignmentBoardPage() {
       </main>
       <PreferenceContextSidebar
         assignmentsByStudent={assignmentsByStudent}
+        canViewSensitive={canViewSensitive}
         offerings={offerings}
         onClose={closePanel}
+        onOpenStudent={(studentID) => {
+          panelTriggerID.current = `assignment-panel-student-${studentID}`;
+          selectPanel({ type: "student", id: studentID });
+        }}
         panel={panel}
         participants={participantsByID}
+        programID={programId}
+        revision={revision}
+        schoolYearID={year.id}
+        sessionID={sessionId}
       />
     </DndContext>
   );

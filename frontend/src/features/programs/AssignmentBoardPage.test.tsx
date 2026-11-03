@@ -2,7 +2,11 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { MemoryRouter, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api";
-import type { AssignmentQuality, AssignmentWorkspace } from "@/lib/apiResources";
+import type {
+  AssignmentQuality,
+  AssignmentWorkspace,
+  OfferingPreferenceContext,
+} from "@/lib/apiResources";
 import { renderWithQueryClient } from "@/test/queryClient";
 
 import { AssignmentBoardPage } from "./AssignmentBoardPage";
@@ -22,8 +26,11 @@ const deleteComment = vi.fn();
 let role = "administrator";
 let workspace: NonNullable<AssignmentWorkspace>;
 let quality: AssignmentQuality;
+let offeringPreferenceContext: OfferingPreferenceContext;
+let offeringContextFetching = false;
 const refetchWorkspace = vi.fn();
 const refetchQuality = vi.fn();
+const refetchOfferingContext = vi.fn();
 
 vi.mock("@/lib/hooks/useAccount", () => ({
   useAccount: () => ({ data: { role, principal: { id: "admin-1" } } }),
@@ -42,6 +49,13 @@ vi.mock("./usePrograms", () => ({
     isLoading: false,
     isError: false,
     refetch: refetchQuality,
+  }),
+  useOfferingPreferenceContext: () => ({
+    data: offeringPreferenceContext,
+    isLoading: false,
+    isError: false,
+    isFetching: offeringContextFetching,
+    refetch: refetchOfferingContext,
   }),
   useStartSolveRun: () => ({ isPending: false, mutate: startSolve }),
   useMoveAssignment: () => ({ mutateAsync: moveAssignment }),
@@ -130,6 +144,174 @@ function initialQuality() {
   } as unknown as AssignmentQuality;
 }
 
+function initialOfferingPreferenceContext() {
+  return {
+    draft_revision: 4,
+    offering: {
+      id: "robots",
+      name: "Robotics",
+      description: "Build and program small robots together.",
+      interest_area: { id: "technology", label: "Technology" },
+      min_grade: "Grade 4",
+      max_grade: "Grade 6",
+      enrolled: 1,
+      capacity: 2,
+      warnings: [],
+    },
+    comments: [
+      {
+        id: "comment-internal",
+        host_type: "offering",
+        host_id: "robots",
+        author_user_id: "admin-1",
+        body: "Bring extra batteries.",
+        sensitivity: "internal",
+        created_at: "2026-10-01T12:00:00Z",
+        updated_at: "2026-10-01T12:00:00Z",
+      },
+      {
+        id: "comment-sensitive",
+        host_type: "offering",
+        host_id: "robots",
+        author_user_id: "admin-1",
+        body: "Sensitive placement detail.",
+        sensitivity: "sensitive",
+        created_at: "2026-10-01T12:00:00Z",
+        updated_at: "2026-10-01T12:00:00Z",
+      },
+    ],
+    groups: [
+      {
+        category: "rank",
+        students: [
+          {
+            student_id: "ada",
+            display_name: "Ada Synthesis",
+            grade_label: "Grade 5",
+            homeroom_name: "A",
+            category: "rank",
+            rank: 1,
+            potential_quality: "top",
+            outside_grade_range: false,
+            placement: {
+              status: "here",
+              offering_id: null,
+              offering_name: "",
+              realized_quality: "top",
+            },
+            has_notes: true,
+          },
+          {
+            student_id: "cy",
+            display_name: "Cy Sample",
+            grade_label: "Grade 5",
+            homeroom_name: "B",
+            category: "rank",
+            rank: 2,
+            potential_quality: "high",
+            outside_grade_range: true,
+            placement: {
+              status: "elsewhere",
+              offering_id: "art",
+              offering_name: "Art",
+              realized_quality: "acceptable",
+            },
+            has_notes: false,
+          },
+          {
+            student_id: "erin",
+            display_name: "Erin Example",
+            grade_label: "Grade 5",
+            homeroom_name: "C",
+            category: "rank",
+            rank: 1,
+            potential_quality: "top",
+            outside_grade_range: false,
+            placement: {
+              status: "unplaced",
+              offering_id: null,
+              offering_name: "",
+              realized_quality: "",
+            },
+            has_notes: false,
+          },
+        ],
+      },
+      {
+        category: "topic_very_interested",
+        students: [
+          {
+            student_id: "bea",
+            display_name: "Bea Example",
+            grade_label: "Grade 5",
+            homeroom_name: "C",
+            category: "topic_very_interested",
+            rank: null,
+            potential_quality: "high",
+            outside_grade_range: false,
+            placement: {
+              status: "unplaced",
+              offering_id: null,
+              offering_name: "",
+              realized_quality: "",
+            },
+            has_notes: false,
+          },
+        ],
+      },
+      {
+        category: "ranked_not_interested",
+        students: [
+          {
+            student_id: "fran",
+            display_name: "Fran Example",
+            grade_label: "Grade 5",
+            homeroom_name: "D",
+            category: "ranked_not_interested",
+            rank: null,
+            potential_quality: "unwanted",
+            outside_grade_range: false,
+            placement: {
+              status: "unplaced",
+              offering_id: null,
+              offering_name: "",
+              realized_quality: "",
+            },
+            has_notes: false,
+          },
+        ],
+      },
+      {
+        category: "topic_interested",
+        students: [],
+      },
+      {
+        category: "unknown",
+        students: [
+          {
+            student_id: "dev",
+            display_name: "Dev Example",
+            grade_label: "Grade 5",
+            homeroom_name: "D",
+            category: "unknown",
+            rank: null,
+            potential_quality: "neutral",
+            topic_rating_hint: "interested",
+            outside_grade_range: false,
+            placement: {
+              status: "unplaced",
+              offering_id: null,
+              offering_name: "",
+              realized_quality: "",
+            },
+            has_notes: false,
+          },
+        ],
+      },
+    ],
+  } as unknown as OfferingPreferenceContext;
+}
+
 async function chooseAction(name: string, action: string) {
   fireEvent.click(screen.getByRole("button", { name: `Actions for ${name}` }));
   fireEvent.click(await screen.findByRole("menuitem", { name: action }));
@@ -214,8 +396,11 @@ describe("AssignmentBoardPage", () => {
     role = "administrator";
     workspace = initialWorkspace();
     quality = initialQuality();
+    offeringPreferenceContext = initialOfferingPreferenceContext();
+    offeringContextFetching = false;
     refetchWorkspace.mockResolvedValue({});
     refetchQuality.mockResolvedValue({});
+    refetchOfferingContext.mockResolvedValue({});
     moveAssignment.mockResolvedValue({});
     swapAssignments.mockResolvedValue({});
     setPin.mockResolvedValue({});
@@ -335,6 +520,91 @@ describe("AssignmentBoardPage", () => {
     );
     expect(screen.getByRole("dialog", { name: "Robotics preference context" })).toBeInTheDocument();
     expect(offering("Robotics")).toHaveClass("ring-2", "ring-primary");
+  });
+
+  it("renders ordered offering preference groups, potential quality, and placement context", () => {
+    renderBoard(
+      "/y/year-1/programs/program-1/sessions/session-1/assignments?panel=offering:robots",
+    );
+
+    const groupLabels = screen
+      .getAllByRole("button")
+      .map((button) => button.textContent)
+      .filter((label) => /choice|interested|Unknown/.test(label ?? ""));
+    expect(groupLabels).toEqual([
+      "1st choice(2)",
+      "2nd choice(1)",
+      "Very interested (topic)(1)",
+      "Not interested (ranked)(1)",
+      "Unknown(1)",
+    ]);
+    expect(screen.getByRole("button", { name: "Not interested (ranked) (1)" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(screen.getByRole("button", { name: "Unknown (1)" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+
+    const firstChoice = screen.getByRole("button", { name: "1st choice (2)" }).parentElement;
+    expect(firstChoice?.textContent?.indexOf("Ada Synthesis")).toBeLessThan(
+      firstChoice?.textContent?.indexOf("Erin Example") ?? -1,
+    );
+    expect(screen.getByText("Here")).toBeInTheDocument();
+    expect(screen.getByText("In: Art")).toBeInTheDocument();
+    expect(screen.getByText("Outside grade range")).toBeInTheDocument();
+    expect(screen.getByText("Has notes")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Unknown (1)" }));
+    const unknownHint = screen.getByText("Voted on other offerings · topic: interested");
+    const unknownRow = unknownHint.closest("li");
+    if (!unknownRow) throw new Error("Missing unknown preference row");
+    expect(
+      within(unknownRow).getByRole("img", { name: "Quality: Neutral — no preference signal" }),
+    ).toBeInTheDocument();
+    expect(unknownHint).toBeInTheDocument();
+  });
+
+  it("renders no-area context safely and rechecks sensitive notes at render time", () => {
+    role = "coordinator";
+    offeringPreferenceContext = {
+      ...initialOfferingPreferenceContext(),
+      offering: {
+        ...initialOfferingPreferenceContext().offering,
+        interest_area: null as unknown as NonNullable<
+          OfferingPreferenceContext["offering"]
+        >["interest_area"],
+      },
+    };
+    renderBoard(
+      "/y/year-1/programs/program-1/sessions/session-1/assignments?panel=offering:robots",
+    );
+
+    expect(
+      screen.getByText("No topic area — reachable only by ranked choice or manual placement"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Bring extra batteries.")).toBeInTheDocument();
+    expect(screen.queryByText("Sensitive placement detail.")).not.toBeInTheDocument();
+  });
+
+  it("switches to a student panel and marks retained panel data as updating or out of date", () => {
+    offeringPreferenceContext = {
+      ...initialOfferingPreferenceContext(),
+      draft_revision: 3,
+    };
+    offeringContextFetching = true;
+    renderBoard(
+      "/y/year-1/programs/program-1/sessions/session-1/assignments?panel=offering:robots",
+    );
+
+    expect(screen.getByText("Updating…")).toBeInTheDocument();
+    expect(screen.getByText("Out of date")).toBeInTheDocument();
+    const adaPanelRow = screen.getByText("Here").closest("li");
+    if (!adaPanelRow) throw new Error("Missing Ada offering preference row");
+    fireEvent.click(within(adaPanelRow).getByRole("button", { name: "Ada Synthesis" }));
+    expect(screen.getByTestId("assignment-board-location")).toHaveTextContent(
+      "panel=student%3Aada",
+    );
   });
 
   it("closes the preference panel with Escape or its close button and restores trigger focus", async () => {

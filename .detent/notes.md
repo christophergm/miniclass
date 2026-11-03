@@ -1,3 +1,17 @@
+# Issue #343 — offering preference panel in assignment sidebar
+
+- `AssignmentBoardPage` now fills the URL-backed offering panel using the generated
+  `OfferingPreferenceContext` contract. It rechecks sensitive comments at render time,
+  splits rank rows into ordinal groups, retains the API's placement order, and renders
+  potential quality, current placement, warning badges, notes, and stale/refetch states.
+- `usePrograms` keeps the offering context query under the assignment-workspace key, so
+  existing board mutation invalidation also refreshes an open panel.
+- Focused frontend test is present but cannot start locally: this worktree has no
+  `openapi-typescript` executable or installed frontend dependency tree. Cached Biome
+  formatted changed files; `git diff --check` passes. PR #353 current-head CI passed all
+  13 checks, including frontend tests/build and all declared project gates; no review or
+  inline comments are present. Backend tests and generated-code drift were the slowest.
+
 # Issue #346 — omit sensitive placement comments from workspace payload
 
 - Workspace response serialization now omits `sensitive` placement comments
