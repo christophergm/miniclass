@@ -1,3 +1,20 @@
+# Issue #344 — student preference panel in assignment sidebar
+
+- `AssignmentBoardPage` now fills the URL-backed student panel with the generated
+  `StudentPreferenceContext` contract. It renders privacy-safe header/adult data,
+  assignment notes, rankings, historical placements from stored quality, and current
+  interest-profile provenance with offering links.
+- The student context query shares the assignment-workspace key, preserving existing
+  mutation invalidation and stale/refetch behavior. Sensitive notes are filtered again
+  during rendering for current and historical placements.
+- Added component coverage for populated and empty states, stored history quality,
+  privacy, panel navigation, and stale data; added a synthetic Playwright flow that
+  keeps the panel open through a keyboard drag and asserts the refreshed placement.
+- Passed direct cached-Biome formatting and the new Playwright file's Biome check, plus
+  `git diff --check`. `make test-frontend` and `make build-frontend` stop before tests
+  at the missing `openapi-typescript` executable; `make lint-frontend` cannot invoke its
+  configured Biome shim in this sandbox. CI must run the dependency-backed gates.
+
 # Issue #343 — offering preference panel in assignment sidebar
 
 - `AssignmentBoardPage` now fills the URL-backed offering panel using the generated

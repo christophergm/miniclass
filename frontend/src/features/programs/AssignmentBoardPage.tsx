@@ -31,12 +31,21 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Input } from "@/components/ui/input";
 import { ModalForm } from "@/components/ui/modal-form";
 import { Sidebar, SidebarContent, SidebarProvider } from "@/components/ui/sidebar";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { ApiError } from "@/lib/api";
 import type {
   AssignmentQuality,
   AssignmentWorkspace,
   OfferingPreferenceContext,
   SchoolYear,
+  StudentPreferenceContext,
 } from "@/lib/apiResources";
 import { useAccount } from "@/lib/hooks/useAccount";
 import { AssignmentQualityIcon } from "./AssignmentQualityIcon";
@@ -55,6 +64,7 @@ import {
   useRemoveUnpinnedAssignments,
   useSetAssignmentPin,
   useStartSolveRun,
+  useStudentPreferenceContext,
   useSwapAssignments,
 } from "./usePrograms";
 
@@ -240,6 +250,7 @@ function PreferenceContextSidebar({
   schoolYearID,
   sessionID,
   onClose,
+  onOpenOffering,
   onOpenStudent,
   revision,
 }: {
@@ -252,6 +263,7 @@ function PreferenceContextSidebar({
   schoolYearID: string;
   sessionID: string | undefined;
   onClose: () => void;
+  onOpenOffering: (offeringID: string) => void;
   onOpenStudent: (studentID: string) => void;
   revision: number;
 }) {
@@ -260,6 +272,12 @@ function PreferenceContextSidebar({
     programID,
     sessionID,
     panel?.type === "offering" ? panel.id : undefined,
+  );
+  const studentContext = useStudentPreferenceContext(
+    schoolYearID,
+    programID,
+    sessionID,
+    panel?.type === "student" ? panel.id : undefined,
   );
   if (!panel) return null;
   const student = panel.type === "student" ? participants.get(panel.id) : undefined;
@@ -313,7 +331,14 @@ function PreferenceContextSidebar({
               revision={revision}
             />
           )}
-          {panel.type === "student" && <PreferenceContextSkeleton />}
+          {panel.type === "student" && (
+            <StudentPreferencePanel
+              canViewSensitive={canViewSensitive}
+              context={studentContext}
+              onOpenOffering={onOpenOffering}
+              revision={revision}
+            />
+          )}
         </div>
       </SidebarContent>
     </Sidebar>
@@ -553,6 +578,254 @@ function OfferingPreferencePanel({
               </Collapsible>
             );
           })}
+      </section>
+    </div>
+  );
+}
+
+function responseLabel(
+  row: NonNullable<NonNullable<StudentPreferenceContext["rankings"]>["rows"]>[number],
+) {
+  if (row.response === "ranked") return `${ordinal(row.rank ?? 0)} choice`;
+  if (row.response === "interested") return "Interested";
+  if (row.response === "not_interested") return "Not interested";
+  return "No response";
+}
+
+function PlacementNotes({
+  comments,
+  canViewSensitive,
+}: {
+  comments: NonNullable<StudentPreferenceContext["comments"]>;
+  canViewSensitive: boolean;
+}) {
+  const visibleComments = comments.filter(
+    (comment) => comment.sensitivity !== "sensitive" || canViewSensitive,
+  );
+  if (!visibleComments.length) return null;
+  return (
+    <div className="space-y-2">
+      {visibleComments.map((comment) => (
+        <article className="rounded border p-2 text-sm" key={comment.id}>
+          <div className="mb-1 flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
+            <Badge variant="secondary">{comment.sensitivity}</Badge>
+            <span>Author: {comment.author_user_id}</span>
+            <time dateTime={comment.created_at}>
+              {new Date(comment.created_at).toLocaleDateString()}
+            </time>
+          </div>
+          <p className="whitespace-pre-wrap">{comment.body}</p>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function StudentPreferencePanel({
+  canViewSensitive,
+  context,
+  onOpenOffering,
+  revision,
+}: {
+  canViewSensitive: boolean;
+  context: ReturnType<typeof useStudentPreferenceContext>;
+  onOpenOffering: (offeringID: string) => void;
+  revision: number;
+}) {
+  if (context.isLoading && !context.data) return <PreferenceContextSkeleton />;
+  if (context.isError && !context.data)
+    return (
+      <div className="space-y-3" role="alert">
+        <p>Unable to load this student’s preference context.</p>
+        <Button onClick={() => void context.refetch()} size="sm" type="button" variant="outline">
+          Retry
+        </Button>
+      </div>
+    );
+  const value = context.data;
+  if (!value) return null;
+  const placement = value.student.placement;
+  const hasPlacement = Boolean(placement.offering_id);
+  const legalNameDiffers = Boolean(
+    value.student.legal_name && value.student.legal_name !== value.student.display_name,
+  );
+  const profile = value.interest_profile;
+  const interestGroups = [
+    ["Very interested", profile.very_interested ?? []],
+    ["Interested", profile.interested ?? []],
+    ["Not interested", profile.not_interested ?? []],
+    ["Not rated", profile.not_rated ?? []],
+  ] as const;
+
+  return (
+    <div className="space-y-5">
+      {context.isFetching && <p className="text-muted-foreground text-sm">Updating…</p>}
+      {value.draft_revision < revision && (
+        <div className="flex items-center justify-between gap-3 rounded border border-amber-300 bg-amber-50 p-2 text-amber-950 text-sm">
+          <span>Out of date</span>
+          <Button onClick={() => void context.refetch()} size="sm" type="button" variant="outline">
+            Refresh
+          </Button>
+        </div>
+      )}
+      <section aria-label="Student details" className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="font-semibold">{value.student.display_name}</h3>
+          {legalNameDiffers && (
+            <span className="text-muted-foreground text-sm">{value.student.legal_name}</span>
+          )}
+        </div>
+        <p className="text-muted-foreground text-sm">
+          {value.student.grade_label || "Grade unknown"} ·{" "}
+          {value.student.homeroom_name || "Homeroom unknown"}
+        </p>
+        <div className="flex items-center gap-2 text-sm">
+          {hasPlacement && <AssignmentQualityIcon quality={placement.realized_quality ?? ""} />}
+          <span>{hasPlacement ? `Placed in ${placement.offering_name}` : "Unplaced"}</span>
+        </div>
+        {(value.student.linked_adults ?? []).length > 0 && (
+          <ul aria-label="Linked adults" className="space-y-1 text-sm">
+            {(value.student.linked_adults ?? []).map((adult) => (
+              <li key={`${adult.display_name}:${adult.relationship}`}>
+                {adult.display_name}{" "}
+                <span className="text-muted-foreground">· {adult.relationship}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+      <section aria-label="Placement notes" className="space-y-2">
+        <h3 className="font-semibold text-sm">Placement notes</h3>
+        <PlacementNotes canViewSensitive={canViewSensitive} comments={value.comments ?? []} />
+      </section>
+      <section aria-label="This session's rankings" className="space-y-2">
+        <h3 className="font-semibold text-sm">This session's rankings</h3>
+        {!value.rankings.ranked_choice_enabled ? (
+          <p className="text-muted-foreground text-sm">This session does not use ranked choices.</p>
+        ) : !value.rankings.submitted ? (
+          <p className="text-muted-foreground text-sm">
+            No ranked choices submitted — placement uses interest profile.
+          </p>
+        ) : (
+          <Table aria-label="This session's rankings">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Potential quality</TableHead>
+                <TableHead>Offering</TableHead>
+                <TableHead>Response</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(value.rankings.rows ?? []).map((row) => (
+                <TableRow
+                  className={row.is_current_placement ? "bg-primary/10" : undefined}
+                  key={row.offering_id}
+                >
+                  <TableCell>
+                    <AssignmentQualityIcon quality={row.potential_quality} />
+                  </TableCell>
+                  <TableCell>
+                    <button
+                      className="rounded font-medium hover:text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
+                      onClick={() => onOpenOffering(row.offering_id)}
+                      type="button"
+                    >
+                      {row.offering_name}
+                    </button>
+                    {row.interest_area_label && (
+                      <span className="ml-1 text-muted-foreground">
+                        · {row.interest_area_label}
+                      </span>
+                    )}
+                    {row.is_current_placement && (
+                      <Badge className="ml-2" variant="secondary">
+                        Current placement
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>{responseLabel(row)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </section>
+      <section aria-label="Prior placements" className="space-y-2">
+        <h3 className="font-semibold text-sm">Prior placements</h3>
+        {(value.prior_placements ?? []).length === 0 ? (
+          <p className="text-muted-foreground text-sm">No prior placements this year.</p>
+        ) : (
+          <div className="space-y-3">
+            {(value.prior_placements ?? []).map((prior) => (
+              <article className="space-y-2" key={`${prior.session_id}:${prior.offering_id}`}>
+                <h4 className="font-medium text-sm">
+                  {prior.session_name} · {prior.offering_name} · {prior.interest_area_label}
+                </h4>
+                <div
+                  className={assignmentStudentRowClassName(
+                    prior.realized_quality,
+                    "flex flex-wrap items-center gap-2 rounded border px-2 py-1 text-sm",
+                  )}
+                >
+                  <AssignmentStudentRow
+                    preferenceLabel={prior.preference_label}
+                    quality={prior.realized_quality}
+                    student={value.student}
+                    variant="panel"
+                  />
+                </div>
+                <PlacementNotes
+                  canViewSensitive={canViewSensitive}
+                  comments={prior.comments ?? []}
+                />
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+      <section aria-label="General interest profile" className="space-y-2">
+        <h3 className="font-semibold text-sm">General interest profile</h3>
+        {!profile.responded ? (
+          <p className="text-muted-foreground text-sm">No interest survey response.</p>
+        ) : (
+          interestGroups.map(([label, areas]) =>
+            areas.length > 0 ? (
+              <div key={label}>
+                <h4 className="font-medium text-sm">{label}</h4>
+                <ul className="mt-1 space-y-1 text-sm">
+                  {areas.map((area) => (
+                    <li key={area.id}>
+                      <span>{area.label}</span>
+                      <span className="ml-1 text-muted-foreground">
+                        · {area.survey_name} ·{" "}
+                        {area.submitted_at
+                          ? new Date(area.submitted_at).toLocaleDateString()
+                          : "No date recorded"}
+                      </span>
+                      {(area.offerings ?? []).length > 0 && (
+                        <span className="ml-1 text-muted-foreground">
+                          · Offered:{" "}
+                          {(area.offerings ?? []).map((offering, index) => (
+                            <span key={offering.id}>
+                              {index > 0 && ", "}
+                              <button
+                                className="hover:text-primary hover:underline"
+                                onClick={() => onOpenOffering(offering.id)}
+                                type="button"
+                              >
+                                {offering.name}
+                              </button>
+                            </span>
+                          ))}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null,
+          )
+        )}
       </section>
     </div>
   );
@@ -1585,6 +1858,10 @@ export function AssignmentBoardPage() {
         canViewSensitive={canViewSensitive}
         offerings={offerings}
         onClose={closePanel}
+        onOpenOffering={(offeringID) => {
+          panelTriggerID.current = `assignment-panel-offering-${offeringID}`;
+          selectPanel({ type: "offering", id: offeringID });
+        }}
         onOpenStudent={(studentID) => {
           panelTriggerID.current = `assignment-panel-student-${studentID}`;
           selectPanel({ type: "student", id: studentID });

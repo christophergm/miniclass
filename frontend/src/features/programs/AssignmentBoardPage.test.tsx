@@ -6,6 +6,7 @@ import type {
   AssignmentQuality,
   AssignmentWorkspace,
   OfferingPreferenceContext,
+  StudentPreferenceContext,
 } from "@/lib/apiResources";
 import { renderWithQueryClient } from "@/test/queryClient";
 
@@ -27,10 +28,13 @@ let role = "administrator";
 let workspace: NonNullable<AssignmentWorkspace>;
 let quality: AssignmentQuality;
 let offeringPreferenceContext: OfferingPreferenceContext;
+let studentPreferenceContext: StudentPreferenceContext;
 let offeringContextFetching = false;
+let studentContextFetching = false;
 const refetchWorkspace = vi.fn();
 const refetchQuality = vi.fn();
 const refetchOfferingContext = vi.fn();
+const refetchStudentContext = vi.fn();
 
 vi.mock("@/lib/hooks/useAccount", () => ({
   useAccount: () => ({ data: { role, principal: { id: "admin-1" } } }),
@@ -56,6 +60,13 @@ vi.mock("./usePrograms", () => ({
     isError: false,
     isFetching: offeringContextFetching,
     refetch: refetchOfferingContext,
+  }),
+  useStudentPreferenceContext: () => ({
+    data: studentPreferenceContext,
+    isLoading: false,
+    isError: false,
+    isFetching: studentContextFetching,
+    refetch: refetchStudentContext,
   }),
   useStartSolveRun: () => ({ isPending: false, mutate: startSolve }),
   useMoveAssignment: () => ({ mutateAsync: moveAssignment }),
@@ -312,6 +323,79 @@ function initialOfferingPreferenceContext() {
   } as unknown as OfferingPreferenceContext;
 }
 
+function initialStudentPreferenceContext() {
+  return {
+    draft_revision: 4,
+    student: {
+      id: "ada",
+      display_name: "Ada Synthesis",
+      legal_name: "Ada Lovelace",
+      grade_label: "Grade 5",
+      homeroom_name: "A",
+      placement: {
+        offering_id: "robots",
+        offering_name: "Robotics",
+        realized_quality: "top",
+      },
+      linked_adults: [{ display_name: "Alex Synthesis", relationship: "Guardian" }],
+    },
+    comments: [
+      comment("Current placement note."),
+      comment("Sensitive student placement note.", "sensitive"),
+    ],
+    rankings: {
+      ranked_choice_enabled: true,
+      submitted: true,
+      rows: [
+        {
+          offering_id: "robots",
+          offering_name: "Robotics",
+          interest_area_label: "Technology",
+          response: "ranked",
+          rank: 1,
+          potential_quality: "top",
+          is_current_placement: true,
+        },
+        {
+          offering_id: "art",
+          offering_name: "Art",
+          interest_area_label: "Arts",
+          response: "interested",
+          potential_quality: "high",
+          is_current_placement: false,
+        },
+      ],
+    },
+    prior_placements: [
+      {
+        session_id: "session-prior",
+        session_name: "Spring clubs",
+        offering_id: "art",
+        offering_name: "Art",
+        interest_area_label: "Arts",
+        realized_quality: "unwanted",
+        preference_label: "Not interested",
+        comments: [comment("Historical placement note.")],
+      },
+    ],
+    interest_profile: {
+      responded: true,
+      very_interested: [
+        {
+          id: "technology",
+          label: "Technology",
+          survey_name: "Interest survey",
+          submitted_at: "2026-09-01T12:00:00Z",
+          offerings: [{ id: "robots", name: "Robotics" }],
+        },
+      ],
+      interested: [],
+      not_interested: [],
+      not_rated: [],
+    },
+  } as unknown as StudentPreferenceContext;
+}
+
 async function chooseAction(name: string, action: string) {
   fireEvent.click(screen.getByRole("button", { name: `Actions for ${name}` }));
   fireEvent.click(await screen.findByRole("menuitem", { name: action }));
@@ -397,10 +481,13 @@ describe("AssignmentBoardPage", () => {
     workspace = initialWorkspace();
     quality = initialQuality();
     offeringPreferenceContext = initialOfferingPreferenceContext();
+    studentPreferenceContext = initialStudentPreferenceContext();
     offeringContextFetching = false;
+    studentContextFetching = false;
     refetchWorkspace.mockResolvedValue({});
     refetchQuality.mockResolvedValue({});
     refetchOfferingContext.mockResolvedValue({});
+    refetchStudentContext.mockResolvedValue({});
     moveAssignment.mockResolvedValue({});
     swapAssignments.mockResolvedValue({});
     setPin.mockResolvedValue({});
@@ -514,7 +601,7 @@ describe("AssignmentBoardPage", () => {
     ).toBeInTheDocument();
     expect(row("Ada Synthesis")).toHaveClass("ring-2", "ring-primary");
 
-    fireEvent.click(screen.getByRole("button", { name: "Robotics" }));
+    fireEvent.click(within(offering("Robotics")).getByRole("button", { name: "Robotics" }));
     expect(screen.getByTestId("assignment-board-location")).toHaveTextContent(
       "panel=offering%3Arobots",
     );
@@ -605,6 +692,82 @@ describe("AssignmentBoardPage", () => {
     expect(screen.getByTestId("assignment-board-location")).toHaveTextContent(
       "panel=student%3Aada",
     );
+  });
+
+  it("renders the student preference context, stored history, and offered links", () => {
+    renderBoard("/y/year-1/programs/program-1/sessions/session-1/assignments?panel=student:ada");
+
+    expect(screen.getByRole("heading", { name: "Ada Synthesis", level: 3 })).toBeInTheDocument();
+    expect(screen.getByText("Ada Lovelace")).toBeInTheDocument();
+    expect(screen.getByText("Placed in Robotics")).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Linked adults" })).toHaveTextContent(
+      "Alex Synthesis · Guardian",
+    );
+    expect(screen.getByText("Current placement note.")).toBeInTheDocument();
+    expect(screen.getByText("Current placement")).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "1st choice" })).toBeInTheDocument();
+    const history = screen.getByText("Spring clubs · Art · Arts").closest("article");
+    if (!history) throw new Error("Missing prior placement");
+    const historicalIcon = within(history).getByRole("img", { name: "Quality: Unwanted" });
+    expect(historicalIcon.parentElement).toHaveClass("bg-[#FDF6F8]");
+    expect(within(history).getByText("Historical placement note.")).toBeInTheDocument();
+    const profileSection = screen.getByRole("region", { name: "General interest profile" });
+    expect(within(profileSection).getByText("Technology")).toBeInTheDocument();
+    expect(profileSection).toHaveTextContent("Interest survey");
+
+    const roboticsButtons = within(profileSection).getAllByRole("button", { name: "Robotics" });
+    const offeredRobotics = roboticsButtons[roboticsButtons.length - 1];
+    if (!offeredRobotics) throw new Error("Missing offered Robotics link");
+    fireEvent.click(offeredRobotics);
+    expect(screen.getByTestId("assignment-board-location")).toHaveTextContent(
+      "panel=offering%3Arobots",
+    );
+  });
+
+  it("hides sensitive student notes at render time and shows the student empty states", () => {
+    role = "coordinator";
+    studentPreferenceContext = {
+      ...initialStudentPreferenceContext(),
+      rankings: { ranked_choice_enabled: false, submitted: false, rows: [] },
+      prior_placements: [],
+      interest_profile: {
+        responded: false,
+        very_interested: [],
+        interested: [],
+        not_interested: [],
+        not_rated: [],
+      },
+    } as unknown as StudentPreferenceContext;
+    renderBoard("/y/year-1/programs/program-1/sessions/session-1/assignments?panel=student:ada");
+
+    expect(screen.queryByText("Sensitive student placement note.")).not.toBeInTheDocument();
+    expect(screen.getByText("This session does not use ranked choices.")).toBeInTheDocument();
+    expect(screen.getByText("No prior placements this year.")).toBeInTheDocument();
+    expect(screen.getByText("No interest survey response.")).toBeInTheDocument();
+  });
+
+  it("marks retained student context as updating or out of date", () => {
+    studentPreferenceContext = {
+      ...initialStudentPreferenceContext(),
+      draft_revision: 3,
+    };
+    studentContextFetching = true;
+    renderBoard("/y/year-1/programs/program-1/sessions/session-1/assignments?panel=student:ada");
+
+    expect(screen.getByText("Updating…")).toBeInTheDocument();
+    expect(screen.getByText("Out of date")).toBeInTheDocument();
+  });
+
+  it("explains when ranked choices are enabled but the student did not submit them", () => {
+    studentPreferenceContext = {
+      ...initialStudentPreferenceContext(),
+      rankings: { ranked_choice_enabled: true, submitted: false, rows: [] },
+    } as unknown as StudentPreferenceContext;
+    renderBoard("/y/year-1/programs/program-1/sessions/session-1/assignments?panel=student:ada");
+
+    expect(
+      screen.getByText("No ranked choices submitted — placement uses interest profile."),
+    ).toBeInTheDocument();
   });
 
   it("closes the preference panel with Escape or its close button and restores trigger focus", async () => {
