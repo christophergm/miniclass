@@ -1567,11 +1567,9 @@ describe("AssignmentBoardPage", () => {
   it("enforces sensitive comment visibility at render time, including acknowledgement badges", async () => {
     quality.warnings = [warning("assignment", "assignment-ada")];
     workspace.comments = [comment("Restricted review reasoning", "sensitive")];
+    role = "owner";
     renderBoard();
     await chooseAction("Ada Synthesis", "Details");
-    expect(screen.getByText("Restricted review reasoning")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
-    role = "teacher";
     fireEvent.change(screen.getByRole("textbox", { name: "Add comment" }), {
       target: { value: "Ordinary review" },
     });

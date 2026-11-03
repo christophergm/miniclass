@@ -108,9 +108,7 @@ export function AssignmentReviewPanel({
     (warning) => warning.id === "catalog-area-gap",
   ).length;
 
-  const canViewSensitive = ["owner", "administrator"].includes(
-    account.data?.role.toLocaleLowerCase() ?? "",
-  );
+  const canViewSensitive = account.data?.role.toLocaleLowerCase() === "administrator";
   const comments = (workspace.comments ?? []).filter(
     (comment) => comment.sensitivity !== "sensitive" || canViewSensitive,
   );

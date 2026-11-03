@@ -91,17 +91,32 @@ func TestAdminInvitationClaimUsesVerifiedEmailAndConsumesBearer(t *testing.T) {
 
 func localTestVerifier(t *testing.T, subject, email string) (auth.Verifier, string) {
 	t.Helper()
+	verifier, tokens := localTestVerifierTokens(t, localTestIdentity{Subject: subject, Email: email})
+	return verifier, tokens[subject]
+}
+
+type localTestIdentity struct {
+	Subject string
+	Email   string
+}
+
+func localTestVerifierTokens(t *testing.T, identities ...localTestIdentity) (auth.Verifier, map[string]string) {
+	t.Helper()
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
 	issuer := "https://local-issuer.example"
 	verifier, err := auth.NewLocalVerifier(auth.LocalVerifierOptions{Issuer: issuer, Audience: "authenticated", PublicKey: &key.PublicKey})
 	require.NoError(t, err)
-	token, err := auth.MintLocalToken(auth.TokenInput{
-		Subject: subject, Email: email, EmailVerified: true,
-		Issuer: issuer, Audience: "authenticated", Lifetime: time.Minute,
-	}, key)
-	require.NoError(t, err)
-	return verifier, token
+	tokens := make(map[string]string, len(identities))
+	for _, identity := range identities {
+		token, err := auth.MintLocalToken(auth.TokenInput{
+			Subject: identity.Subject, Email: identity.Email, EmailVerified: true,
+			Issuer: issuer, Audience: "authenticated", Lifetime: time.Minute,
+		}, key)
+		require.NoError(t, err)
+		tokens[identity.Subject] = token
+	}
+	return verifier, tokens
 }
 
 func jsonReader(value any) *bytes.Reader {

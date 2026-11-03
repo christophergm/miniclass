@@ -1,3 +1,19 @@
+# Issue #346 — omit sensitive placement comments from workspace payload
+
+- Workspace response serialization now omits `sensitive` placement comments
+  unless the resolved principal role is `administrator` (SPEC §§6.4, 10.5,
+  21.2). The frontend's render-time filters remain and now use the same role.
+- The API unit test covers coordinator, owner, and administrator serialization.
+  A database-backed API integration test creates an isolated synthetic
+  organization and proves the sensitive body is absent for its coordinator but
+  present for its administrator.
+- Passed: focused API/integration tests, `go test ./...` from `backend/`,
+  `make format`, `make lint-backend` (including depguard), `make generate` with
+  no generated changes, and `git diff --check`.
+- Local `make test-backend` cannot start because an externally owned
+  `/miniclass-postgres` holds the fixed Compose name; frontend dependencies are
+  absent, so frontend test/lint/build need CI. No migration changed.
+
 # Issue #339 — per-offering preference category and potential quality
 
 - `backend/internal/program/offering_preference.go` exposes the pure
