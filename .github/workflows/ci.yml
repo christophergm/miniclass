@@ -49,7 +49,9 @@ jobs:
 
   solver-tests:
     name: Solver contract tests
-    runs-on: ubuntu-latest
+    # setup-python has no 3.12.12 build for ubuntu-latest (26.04). Keep the
+    # runner pinned until Python is bumped everywhere (#358).
+    runs-on: ubuntu-24.04
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
