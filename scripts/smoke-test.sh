@@ -87,8 +87,8 @@ FRONTEND_URL="http://localhost:${VITE_PORT}"
 export DATABASE_URL APP_DATABASE_URL PORT API_BASE_URL
 # The browser reaches the API through the Vite dev proxy, so the client's base
 # URL stays empty and only the node-side proxy target names the backend origin.
-# frontend/package.json's dev script re-sources .env, so these two agree with it
-# only because both are derived from the same file.
+# frontend/package.json's dev script re-sources .env, which overrides these
+# exports, so the proxy target is also written to .env before Vite starts.
 export VITE_API_URL=""
 export API_PROXY_TARGET="$API_BASE_URL"
 
@@ -150,6 +150,7 @@ env_modified=1
 env_set "$ENV_FILE" PORT "$PORT"
 env_set "$ENV_FILE" VITE_PORT "$VITE_PORT"
 env_set "$ENV_FILE" API_BASE_URL "$API_BASE_URL"
+env_set "$ENV_FILE" API_PROXY_TARGET "$API_PROXY_TARGET"
 env_set "$ENV_FILE" VITE_DEV_TOKEN "$smoke_token"
 export VITE_DEV_TOKEN="$smoke_token"
 
