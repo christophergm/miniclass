@@ -169,12 +169,16 @@ type ResponseTrackingNonResponderResponse struct {
 }
 
 type ResponseTrackingGuardianFollowUpResponse struct {
-	AdultID       string  `json:"adult_id" doc:"Opaque adult identifier."`
-	AdultName     string  `json:"adult_name"`
-	Email         *string `json:"email" nullable:"true"`
-	StudentID     string  `json:"student_id" doc:"Opaque student identifier."`
-	StudentName   string  `json:"student_name"`
-	ContactStatus string  `json:"contact_status" enum:"no_email,not_responded"`
+	AdultID       string                                    `json:"adult_id" doc:"Opaque adult identifier."`
+	AdultName     string                                    `json:"adult_name"`
+	Email         *string                                   `json:"email" nullable:"true"`
+	ContactStatus string                                    `json:"contact_status" enum:"no_email,not_responded"`
+	Students      []ResponseTrackingGuardianStudentResponse `json:"students" doc:"Outstanding students linked to this guardian, sorted by name."`
+}
+
+type ResponseTrackingGuardianStudentResponse struct {
+	StudentID   string `json:"student_id" doc:"Opaque student identifier."`
+	StudentName string `json:"student_name"`
 }
 
 type ResponseTrackingSummaryResponse struct {
@@ -604,9 +608,13 @@ func responseTrackingResponse(value preference.ResponseTracking) ResponseTrackin
 		})
 	}
 	for _, row := range value.GuardianFollowUp {
+		students := make([]ResponseTrackingGuardianStudentResponse, 0, len(row.Students))
+		for _, student := range row.Students {
+			students = append(students, ResponseTrackingGuardianStudentResponse{StudentID: string(student.StudentID), StudentName: student.StudentName})
+		}
 		result.GuardianFollowUp = append(result.GuardianFollowUp, ResponseTrackingGuardianFollowUpResponse{
-			AdultID: string(row.AdultID), AdultName: row.AdultName, Email: row.Email, StudentID: string(row.StudentID),
-			StudentName: row.StudentName, ContactStatus: row.ContactStatus,
+			AdultID: string(row.AdultID), AdultName: row.AdultName, Email: row.Email,
+			ContactStatus: row.ContactStatus, Students: students,
 		})
 	}
 	return result

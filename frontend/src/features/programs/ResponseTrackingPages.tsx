@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Link, useOutletContext, useParams } from "react-router-dom";
 
 import {
@@ -10,6 +10,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -40,10 +41,25 @@ function PageFrame({ children }: { children: ReactNode }) {
   return <main className="mx-auto w-full max-w-6xl px-6 pt-4 pb-10">{children}</main>;
 }
 
-function Card({ title, children }: { title: string; children: ReactNode }) {
+function Card({
+  title,
+  action,
+  children,
+}: {
+  title: string;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
   return (
     <section className="mt-6 rounded-lg border bg-card p-5 shadow-sm">
-      <h2 className="font-semibold">{title}</h2>
+      {action ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-semibold">{title}</h2>
+          {action}
+        </div>
+      ) : (
+        <h2 className="font-semibold">{title}</h2>
+      )}
       {children}
     </section>
   );
@@ -62,6 +78,66 @@ function ErrorMessage() {
 
 function percent(value: number) {
   return `${value.toFixed(1).replace(/\.0$/, "")}%`;
+}
+
+// Plain addresses only: a display name containing a comma or angle bracket
+// would corrupt the recipient list when pasted into a mail client.
+function guardianEmailList(rows: ResponseTracking["guardian_follow_up"]) {
+  const seen = new Set<string>();
+  const emails: string[] = [];
+  for (const row of rows ?? []) {
+    const email = row.email?.trim();
+    if (!email || seen.has(email.toLowerCase())) continue;
+    seen.add(email.toLowerCase());
+    emails.push(email);
+  }
+  return emails;
+}
+
+function CopyGuardianEmailsButton({ emails }: { emails: string[] }) {
+  const [status, setStatus] = useState<{ tone: "success" | "error"; message: string } | null>(null);
+
+  async function copy() {
+    setStatus(null);
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
+      await navigator.clipboard.writeText(emails.join(", "));
+      const noun = emails.length === 1 ? "guardian email" : "guardian emails";
+      setStatus({
+        tone: "success",
+        message: `Copied ${emails.length} ${noun}. Paste into Bcc to keep addresses private.`,
+      });
+    } catch {
+      setStatus({ tone: "error", message: "Unable to copy guardian emails." });
+    }
+  }
+
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <Button
+        disabled={emails.length === 0}
+        onClick={() => void copy()}
+        size="sm"
+        type="button"
+        variant="outline"
+      >
+        Copy guardian emails
+      </Button>
+      {emails.length === 0 && (
+        <p className="text-xs text-muted-foreground">No guardian emails to copy</p>
+      )}
+      {status && (
+        <p
+          className={
+            status.tone === "error" ? "text-xs text-destructive" : "text-xs text-muted-foreground"
+          }
+          role={status.tone === "error" ? "alert" : "status"}
+        >
+          {status.message}
+        </p>
+      )}
+    </div>
+  );
 }
 
 function stateLabel(value: string) {
@@ -223,15 +299,19 @@ function BreakdownTable({
 function ResponseTrackingDetail({ tracking }: { tracking: ResponseTracking }) {
   return (
     <>
-      <div className="mt-6 grid gap-4 sm:grid-cols-3">
+      <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <Card title="Eligible students">
           <p className="mt-2 text-3xl font-semibold">{tracking.total_students}</p>
         </Card>
         <Card title="Responded">
-          <p className="mt-2 text-3xl font-semibold">{tracking.responded_students}</p>
-        </Card>
-        <Card title="Completion">
-          <p className="mt-2 text-3xl font-semibold">{percent(tracking.completion_percentage)}</p>
+          <p className="mt-2">
+            <span className="text-3xl font-semibold">
+              {percent(tracking.completion_percentage)}
+            </span>{" "}
+            <span className="text-sm text-muted-foreground">
+              {tracking.responded_students}/{tracking.total_students}
+            </span>
+          </p>
         </Card>
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
@@ -242,8 +322,8 @@ function ResponseTrackingDetail({ tracking }: { tracking: ResponseTracking }) {
           <BreakdownTable label="Homeroom" rows={tracking.homeroom_breakdown} />
         </Card>
       </div>
-      <Card title="Named non-responders">
-        <Table className="mt-3" aria-label="Named non-responders">
+      <Card title="Student non-responders">
+        <Table className="mt-3" aria-label="Student non-responders">
           <TableHeader>
             <TableRow>
               <TableHead>Student</TableHead>
@@ -261,28 +341,35 @@ function ResponseTrackingDetail({ tracking }: { tracking: ResponseTracking }) {
                 <TableCell>
                   {row.contact_status === "unreachable"
                     ? "Unreachable — no guardian"
-                    : "Guardian follow-up"}
+                    : "Guardian contact"}
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </Card>
-      <Card title="Guardian follow-up">
-        <Table className="mt-3" aria-label="Guardian follow-up">
+      <Card
+        title="Guardians with non-responders"
+        action={
+          <CopyGuardianEmailsButton emails={guardianEmailList(tracking.guardian_follow_up)} />
+        }
+      >
+        <Table className="mt-3" aria-label="Guardians with non-responders">
           <TableHeader>
             <TableRow>
               <TableHead>Guardian</TableHead>
-              <TableHead>Student</TableHead>
+              <TableHead>Students</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Status</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {(tracking.guardian_follow_up ?? []).map((row, index) => (
-              <TableRow key={`${row.adult_id}-${row.student_id}-${index}`}>
+            {(tracking.guardian_follow_up ?? []).map((row) => (
+              <TableRow key={row.adult_id}>
                 <TableCell>{row.adult_name}</TableCell>
-                <TableCell>{row.student_name}</TableCell>
+                <TableCell>
+                  {(row.students ?? []).map((student) => student.student_name).join(", ")}
+                </TableCell>
                 <TableCell>{row.email ?? "No email"}</TableCell>
                 <TableCell>
                   {row.contact_status === "no_email" ? "No email" : "Not responded"}

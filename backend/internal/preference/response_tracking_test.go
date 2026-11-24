@@ -41,6 +41,41 @@ func TestBuildResponseTrackingUsesStudentsAsDenominator(t *testing.T) {
 	require.Equal(t, "Unassigned", result.GradeBreakdown[1].Label)
 }
 
+func TestBuildResponseTrackingGroupsFollowUpByGuardian(t *testing.T) {
+	students := []data.ResponseTrackingStudentRow{
+		{ID: "student-1", HomeroomID: "room-a", LegalGivenName: "Zed", LegalFamilyName: "Sibling"},
+		{ID: "student-2", HomeroomID: "room-a", LegalGivenName: "Amy", LegalFamilyName: "Sibling"},
+		{ID: "student-3", HomeroomID: "room-a", LegalGivenName: "Responded", LegalFamilyName: "Child", Responded: true},
+	}
+	sharedEmail := "shared@example.test"
+	relationships := []data.GuardianRelationship{
+		{ID: "relationship-1", AdultID: "adult-b", StudentID: "student-1"},
+		{ID: "relationship-2", AdultID: "adult-b", StudentID: "student-2"},
+		{ID: "relationship-3", AdultID: "adult-b", StudentID: "student-3"},
+		{ID: "relationship-4", AdultID: "adult-a", StudentID: "student-1"},
+		{ID: "relationship-5", AdultID: "adult-a", StudentID: "student-1"},
+	}
+	adults := []data.Adult{
+		{ID: "adult-b", LegalGivenName: "Blair", LegalFamilyName: "Sibling", Email: &sharedEmail},
+		{ID: "adult-a", LegalGivenName: "Alex", LegalFamilyName: "Sibling"},
+	}
+
+	result := buildResponseTracking(ResponseTrackingRankedChoice, "session-1", "Session", "year-1", "program-1", students, relationships, adults)
+
+	require.Equal(t, 3, result.TotalStudents)
+	require.Equal(t, 1, result.RespondedStudents)
+	require.Len(t, result.GuardianFollowUp, 2)
+	require.Equal(t, ids.XID("adult-a"), result.GuardianFollowUp[0].AdultID)
+	require.Equal(t, ResponseTrackingGuardianNoEmail, result.GuardianFollowUp[0].ContactStatus)
+	require.Equal(t, []ResponseTrackingGuardianStudent{{StudentID: "student-1", StudentName: "Zed Sibling"}}, result.GuardianFollowUp[0].Students)
+	require.Equal(t, ids.XID("adult-b"), result.GuardianFollowUp[1].AdultID)
+	require.Equal(t, ResponseTrackingGuardianPending, result.GuardianFollowUp[1].ContactStatus)
+	require.Equal(t, []ResponseTrackingGuardianStudent{
+		{StudentID: "student-2", StudentName: "Amy Sibling"},
+		{StudentID: "student-1", StudentName: "Zed Sibling"},
+	}, result.GuardianFollowUp[1].Students)
+}
+
 func xidPtr(value string) *ids.XID {
 	id := ids.XID(value)
 	return &id
