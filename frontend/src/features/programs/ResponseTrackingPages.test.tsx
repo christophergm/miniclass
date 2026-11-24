@@ -67,25 +67,25 @@ vi.mock("./usePrograms", () => ({
       instrument_name: "Autumn interests",
       school_year_id: "year-1",
       program_id: "program-1",
-      total_students: 2,
+      total_students: 3,
       responded_students: 1,
-      completion_percentage: 50,
+      completion_percentage: 100 / 3,
       grade_breakdown: [
         {
           id: "grade-1",
           label: "Grade 1",
-          total_students: 2,
+          total_students: 3,
           responded_students: 1,
-          completion_percentage: 50,
+          completion_percentage: 100 / 3,
         },
       ],
       homeroom_breakdown: [
         {
           id: "room-1",
           label: "Room 1",
-          total_students: 2,
+          total_students: 3,
           responded_students: 1,
-          completion_percentage: 50,
+          completion_percentage: 100 / 3,
         },
       ],
       non_responders: [
@@ -98,23 +98,47 @@ vi.mock("./usePrograms", () => ({
           homeroom_name: "Room 1",
           contact_status: "guardian_follow_up",
         },
+        {
+          student_id: "student-3",
+          display_name: "Synthetic Sibling",
+          grade_level_id: "grade-1",
+          grade_label: "Grade 1",
+          homeroom_id: "room-1",
+          homeroom_name: "Room 1",
+          contact_status: "guardian_follow_up",
+        },
       ],
       guardian_follow_up: [
         {
           adult_id: "adult-1",
           adult_name: "Synthetic Guardian One",
           email: "guardian@example.test",
-          student_id: "student-2",
-          student_name: "Synthetic Student",
           contact_status: "not_responded",
+          students: [
+            { student_id: "student-3", student_name: "Synthetic Sibling" },
+            { student_id: "student-2", student_name: "Synthetic Student" },
+          ],
+        },
+        {
+          adult_id: "adult-3",
+          adult_name: "Synthetic Guardian Three",
+          email: "other@example.test",
+          contact_status: "not_responded",
+          students: [{ student_id: "student-3", student_name: "Synthetic Sibling" }],
+        },
+        {
+          adult_id: "adult-4",
+          adult_name: "Synthetic Guardian Four",
+          email: "GUARDIAN@example.test",
+          contact_status: "not_responded",
+          students: [{ student_id: "student-2", student_name: "Synthetic Student" }],
         },
         {
           adult_id: "adult-2",
           adult_name: "Synthetic Guardian Two",
           email: null,
-          student_id: "student-2",
-          student_name: "Synthetic Student",
           contact_status: "no_email",
+          students: [{ student_id: "student-2", student_name: "Synthetic Student" }],
         },
       ],
     },
@@ -312,8 +336,8 @@ describe("response tracking pages", () => {
     expect(screen.queryByText("← Back to response tracking")).not.toBeInTheDocument();
   });
 
-  it("renders student totals and separate follow-up rows for multiple guardians", () => {
-    render(
+  function renderSurveyDetail() {
+    return render(
       <MemoryRouter
         future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
         initialEntries={["/tracking/year-1/program-1/survey-1"]}
@@ -326,20 +350,71 @@ describe("response tracking pages", () => {
         </Routes>
       </MemoryRouter>,
     );
+  }
+
+  function mockClipboard(writeText: (value: string) => Promise<void>) {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: vi.fn(writeText) },
+    });
+    return navigator.clipboard.writeText as ReturnType<typeof vi.fn>;
+  }
+
+  it("renders student totals and one follow-up row per guardian", () => {
+    renderSurveyDetail();
 
     expect(screen.getByRole("heading", { name: "Autumn interests" })).toBeInTheDocument();
     expect(screen.getByText("Eligible students")).toBeInTheDocument();
-    expect(screen.getByText("50%", { selector: "p" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Completion" })).not.toBeInTheDocument();
+    const responded = screen.getByRole("heading", { name: "Responded" }).closest("section")!;
+    expect(within(responded).getByText("33.3%")).toHaveClass("font-semibold");
+    expect(within(responded).getByText("1/3")).toHaveClass("text-muted-foreground");
     expect(screen.getByRole("table", { name: "Response tracking by grade" })).toBeInTheDocument();
     expect(
       screen.getByRole("table", { name: "Response tracking by homeroom" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("table", { name: "Named non-responders" })).toBeInTheDocument();
-    expect(screen.getByRole("table", { name: "Guardian follow-up" })).toBeInTheDocument();
-    expect(screen.getByText("Synthetic Guardian One")).toBeInTheDocument();
-    expect(screen.getByText("Synthetic Guardian Two")).toBeInTheDocument();
-    expect(screen.getAllByText("No email")).toHaveLength(2);
-    expect(screen.getByText("Not responded")).toBeInTheDocument();
+    const students = screen.getByRole("table", { name: "Student non-responders" });
+    expect(within(students).getAllByText("Guardian contact")).toHaveLength(2);
+    const guardians = screen.getByRole("table", { name: "Guardians with non-responders" });
+    expect(within(guardians).getByRole("columnheader", { name: "Students" })).toBeInTheDocument();
+    expect(within(guardians).getAllByRole("row")).toHaveLength(5);
+    expect(within(guardians).getAllByText("Synthetic Guardian One")).toHaveLength(1);
+    expect(within(guardians).getByText("Synthetic Guardian One").closest("tr")).toHaveTextContent(
+      "Synthetic Sibling, Synthetic Student",
+    );
+    expect(within(guardians).getByText("Synthetic Guardian Two")).toBeInTheDocument();
+    expect(within(guardians).getAllByText("No email")).toHaveLength(2);
+    expect(within(guardians).getAllByText("Not responded")).toHaveLength(3);
+  });
+
+  it("copies de-duplicated guardian emails with a Bcc reminder", async () => {
+    const writeText = mockClipboard(async () => {});
+    renderSurveyDetail();
+
+    click("Copy guardian emails");
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Copied 2 guardian emails. Paste into Bcc to keep addresses private.",
+    );
+    expect(writeText).toHaveBeenCalledWith("guardian@example.test, other@example.test");
+  });
+
+  it("reports a clipboard failure when copying guardian emails", async () => {
+    mockClipboard(async () => {
+      throw new Error("denied");
+    });
+    renderSurveyDetail();
+
+    click("Copy guardian emails");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Unable to copy guardian emails.");
+  });
+
+  it("disables copying when no outstanding guardian has an email", () => {
+    renderDetail(detailPages[1]);
+
+    expect(screen.getByRole("button", { name: "Copy guardian emails" })).toBeDisabled();
+    expect(screen.getByText("No guardian emails to copy")).toBeInTheDocument();
   });
 
   it.each(detailPages)(
@@ -355,7 +430,7 @@ describe("response tracking pages", () => {
         "false",
       );
       expect(screen.getByRole("tabpanel", { name: "Completion" })).toBeInTheDocument();
-      expect(screen.getByRole("table", { name: "Named non-responders" })).toBeInTheDocument();
+      expect(screen.getByRole("table", { name: "Student non-responders" })).toBeInTheDocument();
       expect(page.results).toHaveBeenLastCalledWith(
         "year-1",
         "program-1",
@@ -365,7 +440,9 @@ describe("response tracking pages", () => {
       );
       click("Results", "tab");
       expect(screen.getByRole("tabpanel", { name: "Results" })).toBeInTheDocument();
-      expect(screen.queryByRole("table", { name: "Named non-responders" })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("table", { name: "Student non-responders" }),
+      ).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Percentage" })).toHaveAttribute(
         "aria-pressed",
         "true",
@@ -378,7 +455,9 @@ describe("response tracking pages", () => {
         true,
       );
       click("Completion", "tab");
-      expect(screen.getByRole("table", { name: "Guardian follow-up" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("table", { name: "Guardians with non-responders" }),
+      ).toBeInTheDocument();
     },
   );
 

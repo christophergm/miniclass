@@ -219,7 +219,11 @@ func TestPreferenceResultsCurrentAnswersFiltersAndIsolation(t *testing.T) {
 				require.Equal(t, test.total, report.TotalStudents)
 				require.Equal(t, test.responded, report.RespondedStudents)
 				require.Len(t, report.NonResponders, test.total-test.responded)
-				require.Len(t, report.GuardianFollowUp, test.total-test.responded)
+				followUpStudents := 0
+				for _, row := range report.GuardianFollowUp {
+					followUpStudents += len(row.Students)
+				}
+				require.Equal(t, test.total-test.responded, followUpStudents)
 				for _, breakdown := range [][]preference.ResponseTrackingBreakdown{report.GradeBreakdown, report.HomeroomBreakdown} {
 					total, responded := 0, 0
 					for _, row := range breakdown {

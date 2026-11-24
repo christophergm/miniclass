@@ -6806,6 +6806,29 @@
               "null"
             ]
           },
+          "students": {
+            "description": "Outstanding students linked to this guardian, sorted by name.",
+            "items": {
+              "$ref": "#/components/schemas/ResponseTrackingGuardianStudentResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "adult_id",
+          "adult_name",
+          "email",
+          "contact_status",
+          "students"
+        ],
+        "type": "object"
+      },
+      "ResponseTrackingGuardianStudentResponse": {
+        "additionalProperties": false,
+        "properties": {
           "student_id": {
             "description": "Opaque student identifier.",
             "type": "string"
@@ -6815,12 +6838,8 @@
           }
         },
         "required": [
-          "adult_id",
-          "adult_name",
-          "email",
           "student_id",
-          "student_name",
-          "contact_status"
+          "student_name"
         ],
         "type": "object"
       },

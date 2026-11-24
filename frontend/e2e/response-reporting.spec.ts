@@ -150,10 +150,9 @@ async function mockReport(page: Page, instrument: Instrument) {
       {
         adult_id: "adult-1",
         adult_name: "Synthetic Guardian",
-        student_id: "student-1",
-        student_name: "Synthetic Student",
         email: "synthetic.guardian@example.test",
         contact_status: "not_responded",
+        students: [{ student_id: "student-1", student_name: "Synthetic Student" }],
       },
     ],
   };
@@ -429,7 +428,7 @@ for (const instrument of instruments) {
     await mockReport(page, instrument);
     await page.goto(`${base}/${instrument.path}`);
     await expect(
-      page.getByRole("table", { name: "Guardian follow-up", exact: true }),
+      page.getByRole("table", { name: "Guardians with non-responders", exact: true }),
     ).toBeVisible();
     await expectNoDocumentOverflow(page);
     await page.getByRole("tab", { name: "Results", exact: true }).click();

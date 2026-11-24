@@ -72,13 +72,19 @@ type ResponseTrackingNonResponder struct {
 	ContactStatus string
 }
 
+// ResponseTrackingGuardianFollowUp is one guardian with every outstanding
+// student they are linked to (SPEC §19.5).
 type ResponseTrackingGuardianFollowUp struct {
 	AdultID       ids.XID
 	AdultName     string
 	Email         *string
-	StudentID     ids.XID
-	StudentName   string
 	ContactStatus string
+	Students      []ResponseTrackingGuardianStudent
+}
+
+type ResponseTrackingGuardianStudent struct {
+	StudentID   ids.XID
+	StudentName string
 }
 
 func (s *Service) ListResponseTrackingSummaries(ctx context.Context, organizationID string, schoolYearID, programID ids.XID, filters ...data.PreferenceResultsFilter) ([]ResponseTrackingSummary, error) {
@@ -200,6 +206,7 @@ func buildResponseTracking(instrumentType ResponseTrackingInstrumentType, instru
 
 	grade := make(map[string]*ResponseTrackingBreakdown)
 	homeroom := make(map[string]*ResponseTrackingBreakdown)
+	followUpByAdult := make(map[ids.XID]*ResponseTrackingGuardianFollowUp)
 	for _, student := range students {
 		if student.Responded {
 			result.RespondedStudents++
@@ -249,31 +256,56 @@ func buildResponseTracking(instrumentType ResponseTrackingInstrumentType, instru
 			if !ok {
 				continue
 			}
-			adultGiven, adultFamily := adult.LegalGivenName, adult.LegalFamilyName
-			adultName := people.DisplayName(adult.PreferredGivenName, &adultGiven, &adultFamily)
-			contactStatus := ResponseTrackingGuardianPending
-			if adult.Email == nil || strings.TrimSpace(*adult.Email) == "" {
-				contactStatus = ResponseTrackingGuardianNoEmail
+			entry := followUpByAdult[adult.ID]
+			if entry == nil {
+				adultGiven, adultFamily := adult.LegalGivenName, adult.LegalFamilyName
+				contactStatus := ResponseTrackingGuardianPending
+				if adult.Email == nil || strings.TrimSpace(*adult.Email) == "" {
+					contactStatus = ResponseTrackingGuardianNoEmail
+				}
+				entry = &ResponseTrackingGuardianFollowUp{
+					AdultID: adult.ID, AdultName: people.DisplayName(adult.PreferredGivenName, &adultGiven, &adultFamily),
+					Email: adult.Email, ContactStatus: contactStatus,
+				}
+				followUpByAdult[adult.ID] = entry
 			}
-			result.GuardianFollowUp = append(result.GuardianFollowUp, ResponseTrackingGuardianFollowUp{
-				AdultID: relationship.AdultID, AdultName: adultName, Email: adult.Email,
-				StudentID: student.ID, StudentName: studentName, ContactStatus: contactStatus,
-			})
+			if !containsGuardianStudent(entry.Students, student.ID) {
+				entry.Students = append(entry.Students, ResponseTrackingGuardianStudent{StudentID: student.ID, StudentName: studentName})
+			}
 		}
 	}
 	result.CompletionPercentage = completionPercentage(result.RespondedStudents, result.TotalStudents)
 	result.GradeBreakdown = breakdownValues(grade)
 	result.HomeroomBreakdown = breakdownValues(homeroom)
+	for _, entry := range followUpByAdult {
+		sort.SliceStable(entry.Students, func(i, j int) bool {
+			left, right := strings.ToLower(entry.Students[i].StudentName), strings.ToLower(entry.Students[j].StudentName)
+			if left != right {
+				return left < right
+			}
+			return entry.Students[i].StudentID < entry.Students[j].StudentID
+		})
+		result.GuardianFollowUp = append(result.GuardianFollowUp, *entry)
+	}
 	sort.SliceStable(result.GuardianFollowUp, func(i, j int) bool {
-		if !strings.EqualFold(result.GuardianFollowUp[i].StudentName, result.GuardianFollowUp[j].StudentName) {
-			return strings.ToLower(result.GuardianFollowUp[i].StudentName) < strings.ToLower(result.GuardianFollowUp[j].StudentName)
-		}
-		if !strings.EqualFold(result.GuardianFollowUp[i].AdultName, result.GuardianFollowUp[j].AdultName) {
-			return strings.ToLower(result.GuardianFollowUp[i].AdultName) < strings.ToLower(result.GuardianFollowUp[j].AdultName)
+		left, right := strings.ToLower(result.GuardianFollowUp[i].AdultName), strings.ToLower(result.GuardianFollowUp[j].AdultName)
+		if left != right {
+			return left < right
 		}
 		return result.GuardianFollowUp[i].AdultID < result.GuardianFollowUp[j].AdultID
 	})
 	return result
+}
+
+// containsGuardianStudent guards against duplicate relationship edges between
+// the same guardian and student listing that student twice.
+func containsGuardianStudent(students []ResponseTrackingGuardianStudent, studentID ids.XID) bool {
+	for _, student := range students {
+		if student.StudentID == studentID {
+			return true
+		}
+	}
+	return false
 }
 
 func stringValue(value *ids.XID) string {
